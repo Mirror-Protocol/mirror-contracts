@@ -11,7 +11,7 @@
         "update_config": {
           "type": "object",
           "properties": {
-            "auction_discount": {
+            "active_commission": {
               "anyOf": [
                 {
                   "$ref": "#/definitions/Decimal"
@@ -21,7 +21,7 @@
                 }
               ]
             },
-            "auction_threshold_rate": {
+            "inactive_commission": {
               "anyOf": [
                 {
                   "$ref": "#/definitions/Decimal"
@@ -31,7 +31,17 @@
                 }
               ]
             },
-            "mint_capacity": {
+            "max_minus_spread": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Decimal"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "max_spread": {
               "anyOf": [
                 {
                   "$ref": "#/definitions/Decimal"
@@ -42,6 +52,7 @@
               ]
             },
             "owner": {
+              "description": "Later it will be set by gov contract",
               "anyOf": [
                 {
                   "$ref": "#/definitions/HumanAddr"
@@ -56,25 +67,36 @@
       }
     },
     {
-      "description": "Mint a user sends the collateral coins to mint an asset",
+      "description": "ProvideLiquidity a user provides pool liquidity",
       "type": "object",
       "required": [
-        "mint"
+        "provide_liquidity"
       ],
       "properties": {
-        "mint": {
-          "type": "object"
+        "provide_liquidity": {
+          "type": "object",
+          "required": [
+            "coins"
+          ],
+          "properties": {
+            "coins": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Coin"
+              }
+            }
+          }
         }
       }
     },
     {
-      "description": "Burn a user sends the asset tokens to the contract to get back the collteral tokens",
+      "description": "WithdrawLiquidity a liquidity provider can withdraw the asset",
       "type": "object",
       "required": [
-        "burn"
+        "withdraw_liquidity"
       ],
       "properties": {
-        "burn": {
+        "withdraw_liquidity": {
           "type": "object",
           "required": [
             "amount"
@@ -88,24 +110,54 @@
       }
     },
     {
-      "description": "Auction the contract sell the collteral token with discounted price of the asset tokens",
+      "description": "Buy an asset",
       "type": "object",
       "required": [
-        "auction"
+        "buy"
       ],
       "properties": {
-        "auction": {
+        "buy": {
+          "type": "object",
+          "properties": {
+            "max_spread": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Decimal"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "Sell a given amount of asset",
+      "type": "object",
+      "required": [
+        "sell"
+      ],
+      "properties": {
+        "sell": {
           "type": "object",
           "required": [
-            "amount",
-            "owner"
+            "amount"
           ],
           "properties": {
             "amount": {
               "$ref": "#/definitions/Uint128"
             },
-            "owner": {
-              "$ref": "#/definitions/HumanAddr"
+            "max_spread": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Decimal"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             }
           }
         }
@@ -113,6 +165,21 @@
     }
   ],
   "definitions": {
+    "Coin": {
+      "type": "object",
+      "required": [
+        "amount",
+        "denom"
+      ],
+      "properties": {
+        "amount": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "denom": {
+          "type": "string"
+        }
+      }
+    },
     "Decimal": {
       "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0\n\nThe greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
       "type": "string"

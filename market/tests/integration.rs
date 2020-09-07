@@ -25,10 +25,12 @@ use cosmwasm_vm::testing::{
 };
 use cosmwasm_vm::Instance;
 
-use mirror_mint::msg::{ConfigAssetResponse, ConfigGeneralResponse, HandleMsg, InitMsg, QueryMsg};
+use mirror_market::msg::{
+    ConfigAssetResponse, ConfigGeneralResponse, ConfigSwapResponse, HandleMsg, InitMsg, QueryMsg,
+};
 
 // This line will test the output of cargo wasm
-static WASM: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/mirror_mint.wasm");
+static WASM: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/mirror_market.wasm");
 // You can uncomment this line instead to test productionified build from rust-optimizer
 // static WASM: &[u8] = include_bytes!("../contract.wasm");
 
@@ -51,12 +53,15 @@ fn proper_initialization() {
 
     let msg = InitMsg {
         collateral_denom: "uusd".to_string(),
-        auction_discount: Decimal::percent(10),
-        auction_threshold_rate: Decimal::percent(80),
-        mint_capacity: Decimal::percent(70),
-        asset_oracle: HumanAddr::from("oracle0000"),
-        asset_token: HumanAddr::from("asset0000"),
+        liquidity_token: HumanAddr("liquidity0000".to_string()),
+        commission_collector: HumanAddr("collector0000".to_string()),
         asset_symbol: "mAPPL".to_string(),
+        asset_token: HumanAddr("asset0000".to_string()),
+        asset_oracle: HumanAddr("oracle0000".to_string()),
+        active_commission: Decimal::permille(3),
+        inactive_commission: Decimal::permille(1),
+        max_spread: Decimal::percent(20),
+        max_minus_spread: Decimal::percent(2),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -67,17 +72,27 @@ fn proper_initialization() {
 
     // it worked, let's query the state
     let res = query(&mut deps, QueryMsg::ConfigGeneral {}).unwrap();
-    let config: ConfigGeneralResponse = from_binary(&res).unwrap();
+    let config_general: ConfigGeneralResponse = from_binary(&res).unwrap();
+    assert_eq!("addr0000", config_general.owner.as_str());
+    assert_eq!(
+        "collector0000",
+        config_general.commission_collector.as_str()
+    );
+    assert_eq!("uusd", config_general.collateral_denom.as_str());
+    assert_eq!("liquidity0000", config_general.liquidity_token.as_str());
+
     let res = query(&mut deps, QueryMsg::ConfigAsset {}).unwrap();
-    let asset: ConfigAssetResponse = from_binary(&res).unwrap();
-    assert_eq!("addr0000", config.owner.as_str());
-    assert_eq!("uusd", config.collateral_denom.as_str());
-    assert_eq!(Decimal::percent(10), config.auction_discount);
-    assert_eq!(Decimal::percent(80), config.auction_threshold_rate);
-    assert_eq!(Decimal::percent(70), config.mint_capacity);
-    assert_eq!("oracle0000", asset.oracle.as_str());
-    assert_eq!("asset0000", asset.token.as_str());
-    assert_eq!("mAPPL", asset.symbol.as_str());
+    let config_asset: ConfigAssetResponse = from_binary(&res).unwrap();
+    assert_eq!("oracle0000", config_asset.oracle.as_str());
+    assert_eq!("mAPPL", config_asset.symbol.as_str());
+    assert_eq!("asset0000", config_asset.token.as_str());
+
+    let res = query(&mut deps, QueryMsg::ConfigSwap {}).unwrap();
+    let config_swap: ConfigSwapResponse = from_binary(&res).unwrap();
+    assert_eq!(Decimal::permille(3), config_swap.active_commission);
+    assert_eq!(Decimal::permille(1), config_swap.inactive_commission);
+    assert_eq!(Decimal::percent(20), config_swap.max_spread);
+    assert_eq!(Decimal::percent(2), config_swap.max_minus_spread);
 }
 
 #[test]
@@ -85,25 +100,30 @@ fn update_config() {
     let mut deps = mock_instance(WASM, &[]);
     let msg = InitMsg {
         collateral_denom: "uusd".to_string(),
-        auction_discount: Decimal::percent(10),
-        auction_threshold_rate: Decimal::percent(80),
-        mint_capacity: Decimal::percent(70),
-        asset_oracle: HumanAddr::from("oracle0000"),
-        asset_token: HumanAddr::from("asset0000"),
+        liquidity_token: HumanAddr("liquidity0000".to_string()),
+        commission_collector: HumanAddr("collector0000".to_string()),
         asset_symbol: "mAPPL".to_string(),
+        asset_token: HumanAddr("asset0000".to_string()),
+        asset_oracle: HumanAddr("oracle0000".to_string()),
+        active_commission: Decimal::permille(3),
+        inactive_commission: Decimal::permille(1),
+        max_spread: Decimal::percent(20),
+        max_minus_spread: Decimal::percent(2),
     };
 
     let env = mock_env("addr0000", &[]);
 
     // we can just call .unwrap() to assert this was a success
     let _res: InitResponse = init(&mut deps, env, msg).unwrap();
+
     // update owner
     let env = mock_env("addr0000", &[]);
     let msg = HandleMsg::UpdateConfig {
         owner: Some(HumanAddr("addr0001".to_string())),
-        auction_discount: None,
-        auction_threshold_rate: None,
-        mint_capacity: Some(Decimal::percent(75)),
+        active_commission: None,
+        inactive_commission: None,
+        max_minus_spread: None,
+        max_spread: None,
     };
 
     let res: HandleResponse = handle(&mut deps, env, msg).unwrap();
@@ -111,20 +131,17 @@ fn update_config() {
 
     // it worked, let's query the state
     let query_result = query(&mut deps, QueryMsg::ConfigGeneral {}).unwrap();
-    let value: ConfigGeneralResponse = from_binary(&query_result).unwrap();
-    assert_eq!("addr0001", value.owner.as_str());
-    assert_eq!("uusd", value.collateral_denom.as_str());
-    assert_eq!(Decimal::percent(10), value.auction_discount);
-    assert_eq!(Decimal::percent(80), value.auction_threshold_rate);
-    assert_eq!(Decimal::percent(75), value.mint_capacity);
+    let config_general: ConfigGeneralResponse = from_binary(&query_result).unwrap();
+    assert_eq!("addr0001", config_general.owner.as_str());
 
     // Unauthorzied err
     let env = mock_env("addr0000", &[]);
     let msg = HandleMsg::UpdateConfig {
         owner: None,
-        auction_discount: None,
-        auction_threshold_rate: None,
-        mint_capacity: None,
+        active_commission: Some(Decimal::percent(1)),
+        inactive_commission: Some(Decimal::percent(2)),
+        max_minus_spread: Some(Decimal::percent(5)),
+        max_spread: Some(Decimal::percent(6)),
     };
 
     let res: HandleResult = handle(&mut deps, env, msg);

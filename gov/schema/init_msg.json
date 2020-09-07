@@ -1,20 +1,12 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "AssetResponse",
+  "title": "InitMsg",
   "type": "object",
   "required": [
-    "oracle",
-    "symbol",
-    "token"
+    "asset_token"
   ],
   "properties": {
-    "oracle": {
-      "$ref": "#/definitions/HumanAddr"
-    },
-    "symbol": {
-      "type": "string"
-    },
-    "token": {
+    "asset_token": {
       "$ref": "#/definitions/HumanAddr"
     }
   },

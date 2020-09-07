@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ConfigGeneralResponse",
+  "type": "object",
+  "required": [
+    "collateral_denom",
+    "commission_collector",
+    "liquidity_token",
+    "owner"
+  ],
+  "properties": {
+    "collateral_denom": {
+      "type": "string"
+    },
+    "commission_collector": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "liquidity_token": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "owner": {
+      "$ref": "#/definitions/HumanAddr"
+    }
+  },
+  "definitions": {
+    "HumanAddr": {
+      "type": "string"
+    }
+  }
+}

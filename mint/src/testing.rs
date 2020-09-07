@@ -6,12 +6,12 @@ use cosmwasm_std::{
 use crate::contract::{handle, init, query_asset, query_config, query_position};
 
 use crate::msg::{
-    AssetResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, PositionResponse,
+    ConfigAssetResponse, ConfigGeneralResponse, HandleMsg, InitMsg, PositionResponse,
 };
 
 use crate::mock_querier::mock_dependencies;
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
-use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
+use cw20::Cw20HandleMsg;
 
 #[test]
 fn proper_initialization() {
@@ -34,13 +34,14 @@ fn proper_initialization() {
     assert_eq!(0, res.messages.len());
 
     // it worked, let's query the state
-    let config: ConfigResponse = query_config(&deps).unwrap();
+    let config: ConfigGeneralResponse = query_config(&deps).unwrap();
     assert_eq!("addr0000", config.owner.as_str());
     assert_eq!("uusd", config.collateral_denom.as_str());
     assert_eq!(Decimal::percent(10), config.auction_discount);
     assert_eq!(Decimal::percent(85), config.auction_threshold_rate);
     assert_eq!(Decimal::percent(70), config.mint_capacity);
-    let asset: AssetResponse = query_asset(&deps).unwrap();
+
+    let asset: ConfigAssetResponse = query_asset(&deps).unwrap();
     assert_eq!("oracle0000", asset.oracle.as_str());
     assert_eq!("asset0000", asset.token.as_str());
     assert_eq!("mAPPL", asset.symbol.as_str());
@@ -269,30 +270,12 @@ fn burn() {
     let env = mock_env("addr0000", &[]);
     let _res = init(&mut deps, env, msg).unwrap();
 
-    // wrong hook executor
-    let msg = HandleMsg::Receive(Cw20ReceiveMsg {
-        sender: HumanAddr::from("addr0000"),
-        amount: Uint128::from(10u128),
-        msg: Some(to_binary(&Cw20HookMsg::Burn {}).unwrap()),
-    });
-
-    let env = mock_env_with_block_time("asset0001", &[], 1000);
-    let res = handle(&mut deps, env, msg);
-    match res {
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Can't be executed from unauthorized contract")
-        }
-        _ => panic!("Must return generic error"),
-    }
-
     // failed to burn
-    let msg = HandleMsg::Receive(Cw20ReceiveMsg {
-        sender: HumanAddr::from("addr0000"),
+    let msg = HandleMsg::Burn {
         amount: Uint128::from(10u128),
-        msg: Some(to_binary(&Cw20HookMsg::Burn {}).unwrap()),
-    });
+    };
 
-    let env = mock_env_with_block_time("asset0000", &[], 1000);
+    let env = mock_env_with_block_time("addr0000", &[], 1000);
     let res = handle(&mut deps, env, msg);
     match res {
         Err(StdError::GenericErr { msg, .. }) => {
@@ -316,13 +299,11 @@ fn burn() {
 
     // successfully burn 50 APPL,
     // then 20 APPL left. the 72 collateral token will be refund
-    let msg = HandleMsg::Receive(Cw20ReceiveMsg {
-        sender: HumanAddr::from("addr0000"),
+    let msg = HandleMsg::Burn {
         amount: Uint128::from(50u128),
-        msg: Some(to_binary(&Cw20HookMsg::Burn {}).unwrap()),
-    });
+    };
 
-    let env = mock_env_with_block_time("asset0000", &[], 1000);
+    let env = mock_env_with_block_time("addr0000", &[], 1000);
     let res = handle(&mut deps, env, msg).unwrap();
     let msg = res.messages.get(1).expect("no message");
     assert_eq!(
@@ -350,12 +331,10 @@ fn burn() {
 
     deps.querier.with_oracle_price(prices);
 
-    let msg = HandleMsg::Receive(Cw20ReceiveMsg {
-        sender: HumanAddr::from("addr0000"),
+    let msg = HandleMsg::Burn {
         amount: Uint128::from(1u128),
-        msg: Some(to_binary(&Cw20HookMsg::Burn {}).unwrap()),
-    });
-    let env = mock_env_with_block_time("asset0000", &[], 1000);
+    };
+    let env = mock_env_with_block_time("addr0000", &[], 1000);
     let res = handle(&mut deps, env, msg).unwrap();
     assert_eq!(1, res.messages.len());
 
@@ -365,12 +344,10 @@ fn burn() {
     assert_eq!(19u128, position.asset_amount.u128());
 
     // burn all
-    let msg = HandleMsg::Receive(Cw20ReceiveMsg {
-        sender: HumanAddr::from("addr0000"),
+    let msg = HandleMsg::Burn {
         amount: Uint128::from(19u128),
-        msg: Some(to_binary(&Cw20HookMsg::Burn {}).unwrap()),
-    });
-    let env = mock_env_with_block_time("asset0000", &[], 1000);
+    };
+    let env = mock_env_with_block_time("addr0000", &[], 1000);
     let res = handle(&mut deps, env, msg).unwrap();
     let msg = res.messages.get(1).expect("no message");
     assert_eq!(
@@ -433,18 +410,12 @@ fn auction() {
 
     deps.querier.with_oracle_price(prices);
 
-    let msg = HandleMsg::Receive(Cw20ReceiveMsg {
-        sender: HumanAddr::from("addr0001"),
+    let msg = HandleMsg::Auction {
+        owner: HumanAddr::from("addr0000"),
         amount: Uint128::from(50u128),
-        msg: Some(
-            to_binary(&Cw20HookMsg::Auction {
-                owner: HumanAddr::from("addr0000"),
-            })
-            .unwrap(),
-        ),
-    });
+    };
 
-    let env = mock_env_with_block_time("asset0000", &[], 1000);
+    let env = mock_env_with_block_time("addr0001", &[], 1000);
 
     // discount price = 1.43; 50 * 1.43 = 71 uusd will be returned
     let res = handle(&mut deps, env, msg).unwrap();
@@ -467,18 +438,12 @@ fn auction() {
     assert_eq!(20u128, position.asset_amount.u128());
 
     // auction all
-    let msg = HandleMsg::Receive(Cw20ReceiveMsg {
-        sender: HumanAddr::from("addr0001"),
+    let msg = HandleMsg::Auction {
+        owner: HumanAddr::from("addr0000"),
         amount: Uint128::from(20u128),
-        msg: Some(
-            to_binary(&Cw20HookMsg::Auction {
-                owner: HumanAddr::from("addr0000"),
-            })
-            .unwrap(),
-        ),
-    });
+    };
 
-    let env = mock_env_with_block_time("asset0000", &[], 1000);
+    let env = mock_env_with_block_time("addr0001", &[], 1000);
 
     // discount price = 1.43; 20 * 1.43 = 28 uusd will be returned
     let res = handle(&mut deps, env, msg).unwrap();

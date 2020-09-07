@@ -4,10 +4,11 @@ use std::fs::create_dir_all;
 use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 use cosmwasm_std::HandleResponse;
 
-use mirror_mint::msg::{
-    ConfigAssetResponse, ConfigGeneralResponse, HandleMsg, InitMsg, PositionResponse, QueryMsg,
+use mirror_market::msg::{
+    ConfigAssetResponse, ConfigGeneralResponse, ConfigSwapResponse, HandleMsg, InitMsg,
+    PoolResponse, ProviderResponse, QueryMsg, ReverseSimulationResponse, SimulationResponse,
 };
-use mirror_mint::state::{ConfigAsset, ConfigGeneral, PositionState};
+use mirror_market::state::{ConfigAsset, ConfigGeneral, ConfigSwap};
 
 fn main() {
     let mut out_dir = current_dir().unwrap();
@@ -21,8 +22,12 @@ fn main() {
     export_schema(&schema_for!(QueryMsg), &out_dir);
     export_schema(&schema_for!(ConfigGeneral), &out_dir);
     export_schema(&schema_for!(ConfigAsset), &out_dir);
-    export_schema(&schema_for!(PositionState), &out_dir);
+    export_schema(&schema_for!(ConfigSwap), &out_dir);
     export_schema(&schema_for!(ConfigGeneralResponse), &out_dir);
     export_schema(&schema_for!(ConfigAssetResponse), &out_dir);
-    export_schema(&schema_for!(PositionResponse), &out_dir);
+    export_schema(&schema_for!(ConfigSwapResponse), &out_dir);
+    export_schema(&schema_for!(PoolResponse), &out_dir);
+    export_schema(&schema_for!(ProviderResponse), &out_dir);
+    export_schema(&schema_for!(ReverseSimulationResponse), &out_dir);
+    export_schema(&schema_for!(SimulationResponse), &out_dir);
 }

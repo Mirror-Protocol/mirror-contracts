@@ -1,0 +1,29 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PriceResponse",
+  "type": "object",
+  "required": [
+    "last_update_time",
+    "price",
+    "price_multiplier"
+  ],
+  "properties": {
+    "last_update_time": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    },
+    "price": {
+      "$ref": "#/definitions/Decimal"
+    },
+    "price_multiplier": {
+      "$ref": "#/definitions/Decimal"
+    }
+  },
+  "definitions": {
+    "Decimal": {
+      "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0\n\nThe greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
+      "type": "string"
+    }
+  }
+}
