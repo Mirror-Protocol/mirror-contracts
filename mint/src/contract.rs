@@ -1,21 +1,21 @@
 use cosmwasm_std::{
-    from_binary, log, to_binary, to_vec, Api, BankMsg, Binary, CanonicalAddr, Coin, CosmosMsg,
-    Decimal, Env, Extern, HandleResponse, HumanAddr, InitResponse, Querier, StdError, StdResult,
-    Storage, Uint128, WasmMsg,
+    log, to_binary, to_vec, Api, BankMsg, Binary, CanonicalAddr, Coin, CosmosMsg, Decimal, Env,
+    Extern, HandleResponse, HumanAddr, InitResponse, Querier, StdError, StdResult, Storage,
+    Uint128, WasmMsg,
 };
 
 use crate::msg::{
-    AssetResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, PositionResponse, QueryMsg,
+    ConfigAssetResponse, ConfigGeneralResponse, HandleMsg, InitMsg, PositionResponse, QueryMsg,
 };
 
 use crate::state::{
-    asset_read, asset_store, config_read, config_store, position_read, position_store, AssetState,
-    ConfigState, PositionState,
+    read_config_asset, read_config_general, read_position, store_config_asset,
+    store_config_general, store_position, ConfigAsset, ConfigGeneral, PositionState,
 };
 
 use crate::math::{decimal_multiplication, reverse_decimal};
 use crate::querier::load_price;
-use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
+use cw20::Cw20HandleMsg;
 use terra_cosmwasm::TerraQuerier;
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
@@ -23,7 +23,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     env: Env,
     msg: InitMsg,
 ) -> StdResult<InitResponse> {
-    let config = ConfigState {
+    let config = ConfigGeneral {
         owner: deps.api.canonical_address(&env.message.sender)?,
         collateral_denom: msg.collateral_denom,
         auction_discount: msg.auction_discount,
@@ -31,9 +31,9 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         mint_capacity: msg.mint_capacity,
     };
 
-    config_store(&mut deps.storage).save(&config)?;
+    store_config_general(&mut deps.storage, &config)?;
 
-    let asset = AssetState {
+    let asset = ConfigAsset {
         oracle: deps.api.canonical_address(&msg.asset_oracle)?,
         token: deps.api.canonical_address(&msg.asset_token)?,
         symbol: msg.asset_symbol.to_string(),
@@ -45,7 +45,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         ));
     }
 
-    asset_store(&mut deps.storage).save(&asset)?;
+    store_config_asset(&mut deps.storage, &asset)?;
 
     Ok(InitResponse::default())
 }
@@ -70,35 +70,8 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             mint_capacity,
         ),
         HandleMsg::Mint {} => try_mint(deps, env),
-        HandleMsg::Receive(msg) => try_receive(deps, env, msg),
-    }
-}
-
-// CW20ReceiveMsg Handler
-pub fn try_receive<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    cw20_msg: Cw20ReceiveMsg,
-) -> StdResult<HandleResponse> {
-    let asset: AssetState = asset_read(&deps.storage).load()?;
-    if asset.token != deps.api.canonical_address(&env.message.sender)? {
-        return Err(StdError::generic_err(
-            "Can't be executed from unauthorized contract",
-        ));
-    }
-
-    match cw20_msg.msg {
-        Some(msg) => match from_binary(&msg)? {
-            Cw20HookMsg::Burn {} => try_burn(deps, env, cw20_msg.sender, cw20_msg.amount),
-            Cw20HookMsg::Auction { owner } => {
-                try_auction(deps, env, cw20_msg.sender, cw20_msg.amount, owner)
-            }
-        },
-        None => {
-            return Err(StdError::generic_err(
-                "Can't send funds without proper exeuction msg",
-            ))
-        }
+        HandleMsg::Burn { amount } => try_burn(deps, env, amount),
+        HandleMsg::Auction { owner, amount } => try_auction(deps, env, owner, amount),
     }
 }
 
@@ -110,31 +83,29 @@ pub fn try_update_config<S: Storage, A: Api, Q: Querier>(
     auction_threshold_rate: Option<Decimal>,
     mint_capacity: Option<Decimal>,
 ) -> StdResult<HandleResponse> {
-    let api = deps.api;
-    config_store(&mut deps.storage).update(|mut state| {
-        if api.canonical_address(&env.message.sender)? != state.owner {
-            return Err(StdError::unauthorized());
-        }
+    let mut config_general: ConfigGeneral = read_config_general(&deps.storage)?;
 
-        if let Some(owner) = owner {
-            state.owner = api.canonical_address(&owner)?;
-        }
+    if deps.api.canonical_address(&env.message.sender)? != config_general.owner {
+        return Err(StdError::unauthorized());
+    }
 
-        if let Some(auction_discount) = auction_discount {
-            state.auction_discount = auction_discount;
-        }
+    if let Some(owner) = owner {
+        config_general.owner = deps.api.canonical_address(&owner)?;
+    }
 
-        if let Some(auction_threshold_rate) = auction_threshold_rate {
-            state.auction_threshold_rate = auction_threshold_rate;
-        }
+    if let Some(auction_discount) = auction_discount {
+        config_general.auction_discount = auction_discount;
+    }
 
-        if let Some(mint_capacity) = mint_capacity {
-            state.mint_capacity = mint_capacity;
-        }
+    if let Some(auction_threshold_rate) = auction_threshold_rate {
+        config_general.auction_threshold_rate = auction_threshold_rate;
+    }
 
-        Ok(state)
-    })?;
+    if let Some(mint_capacity) = mint_capacity {
+        config_general.mint_capacity = mint_capacity;
+    }
 
+    store_config_general(&mut deps.storage, &config_general)?;
     Ok(HandleResponse {
         messages: vec![],
         log: vec![log("action", "update_config")],
@@ -146,8 +117,8 @@ pub fn try_mint<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
 ) -> StdResult<HandleResponse> {
-    let asset: AssetState = asset_read(&deps.storage).load()?;
-    let config: ConfigState = config_read(&deps.storage).load()?;
+    let asset: ConfigAsset = read_config_asset(&deps.storage)?;
+    let config: ConfigGeneral = read_config_general(&deps.storage)?;
 
     let minter: CanonicalAddr = deps.api.canonical_address(&env.message.sender)?;
     let collateral_coin: &Coin = env
@@ -159,7 +130,7 @@ pub fn try_mint<S: Storage, A: Api, Q: Querier>(
             StdError::generic_err(format!("No {} tokens sent", &config.collateral_denom))
         })?;
 
-    let position: PositionState = position_read(&deps.storage, &minter)?;
+    let position: PositionState = read_position(&deps.storage, &minter)?;
     let collateral_amount: Uint128 = collateral_coin.amount + position.collateral_amount;
 
     // load price form the oracle
@@ -181,7 +152,7 @@ pub fn try_mint<S: Storage, A: Api, Q: Querier>(
     }
 
     // store position info
-    position_store(&mut deps.storage).set(
+    store_position(&mut deps.storage).set(
         minter.as_slice(),
         &to_vec(&PositionState {
             asset_amount,
@@ -224,13 +195,12 @@ pub fn try_mint<S: Storage, A: Api, Q: Querier>(
 pub fn try_burn<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    sender: HumanAddr,
     amount: Uint128,
 ) -> StdResult<HandleResponse> {
-    let config: ConfigState = config_read(&deps.storage).load()?;
-    let asset: AssetState = asset_read(&deps.storage).load()?;
-    let burner: CanonicalAddr = deps.api.canonical_address(&sender)?;
-    let position: PositionState = position_read(&deps.storage, &burner)?;
+    let config: ConfigGeneral = read_config_general(&deps.storage)?;
+    let asset: ConfigAsset = read_config_asset(&deps.storage)?;
+    let burner: CanonicalAddr = deps.api.canonical_address(&env.message.sender)?;
+    let position: PositionState = read_position(&deps.storage, &burner)?;
     if position.asset_amount < amount {
         return Err(StdError::generic_err(
             "Burn amount is bigger than the position amount".to_string(),
@@ -254,9 +224,9 @@ pub fn try_burn<S: Storage, A: Api, Q: Querier>(
 
     if asset_amount.is_zero() {
         // all asset tokens are paid back, remove position and refunds all collateral
-        position_store(&mut deps.storage).remove(burner.as_slice());
+        store_position(&mut deps.storage).remove(burner.as_slice());
     } else {
-        position_store(&mut deps.storage).set(
+        store_position(&mut deps.storage).set(
             burner.as_slice(),
             &to_vec(&PositionState {
                 asset_amount,
@@ -268,7 +238,10 @@ pub fn try_burn<S: Storage, A: Api, Q: Querier>(
     // burn received tokens
     let mut messages: Vec<CosmosMsg> = vec![CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: deps.api.human_address(&asset.token)?,
-        msg: to_binary(&Cw20HandleMsg::Burn { amount: amount })?,
+        msg: to_binary(&Cw20HandleMsg::BurnFrom {
+            owner: env.message.sender.clone(),
+            amount,
+        })?,
         send: vec![],
     })];
 
@@ -279,8 +252,8 @@ pub fn try_burn<S: Storage, A: Api, Q: Querier>(
         (position.collateral_amount - collateral_amount).unwrap();
     if !refund_collateral_amount.is_zero() {
         messages.push(CosmosMsg::Bank(BankMsg::Send {
-            from_address: env.contract.address.clone(),
-            to_address: sender,
+            from_address: env.contract.address,
+            to_address: env.message.sender,
             amount: vec![deduct_tax(
                 &deps,
                 Coin {
@@ -308,15 +281,14 @@ pub fn try_burn<S: Storage, A: Api, Q: Querier>(
 pub fn try_auction<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    sender: HumanAddr,
-    offer_asset_amount: Uint128,
     position_owner: HumanAddr,
+    offer_asset_amount: Uint128,
 ) -> StdResult<HandleResponse> {
-    let config: ConfigState = config_read(&deps.storage).load()?;
-    let asset: AssetState = asset_read(&deps.storage).load()?;
+    let config: ConfigGeneral = read_config_general(&deps.storage)?;
+    let asset: ConfigAsset = read_config_asset(&deps.storage)?;
 
     let position: PositionState =
-        position_read(&deps.storage, &deps.api.canonical_address(&position_owner)?)?;
+        read_position(&deps.storage, &deps.api.canonical_address(&position_owner)?)?;
 
     if offer_asset_amount > position.asset_amount {
         return Err(StdError::generic_err(
@@ -350,11 +322,11 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
     let mut messages: Vec<CosmosMsg> = vec![];
     if left_collateral_amount.is_zero() {
         // all collateral sold out
-        position_store(&mut deps.storage)
+        store_position(&mut deps.storage)
             .remove(&deps.api.canonical_address(&position_owner)?.as_slice());
     } else if left_asset_amount.is_zero() {
         // all assets paid
-        position_store(&mut deps.storage)
+        store_position(&mut deps.storage)
             .remove(&deps.api.canonical_address(&position_owner)?.as_slice());
 
         // refunds left collaterals to position owner
@@ -370,7 +342,7 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
             )?],
         }));
     } else {
-        position_store(&mut deps.storage).set(
+        store_position(&mut deps.storage).set(
             &deps.api.canonical_address(&position_owner)?.as_slice(),
             &to_vec(&PositionState {
                 asset_amount: left_asset_amount,
@@ -389,8 +361,8 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
     }));
 
     messages.push(CosmosMsg::Bank(BankMsg::Send {
-        from_address: env.contract.address.clone(),
-        to_address: sender,
+        from_address: env.contract.address,
+        to_address: env.message.sender,
         amount: vec![deduct_tax(
             &deps,
             Coin {
@@ -423,17 +395,17 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
     msg: QueryMsg,
 ) -> StdResult<Binary> {
     match msg {
-        QueryMsg::Config {} => to_binary(&query_config(deps)?),
-        QueryMsg::Asset {} => to_binary(&query_asset(deps)?),
+        QueryMsg::ConfigGeneral {} => to_binary(&query_config(deps)?),
+        QueryMsg::ConfigAsset {} => to_binary(&query_asset(deps)?),
         QueryMsg::Position { address } => to_binary(&query_position(deps, address)?),
     }
 }
 
 pub fn query_config<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
-) -> StdResult<ConfigResponse> {
-    let state = config_read(&deps.storage).load()?;
-    let resp = ConfigResponse {
+) -> StdResult<ConfigGeneralResponse> {
+    let state = read_config_general(&deps.storage)?;
+    let resp = ConfigGeneralResponse {
         owner: deps.api.human_address(&state.owner)?,
         collateral_denom: state.collateral_denom,
         auction_discount: state.auction_discount,
@@ -446,10 +418,10 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
 
 pub fn query_asset<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
-) -> StdResult<AssetResponse> {
-    let asset: AssetState = asset_read(&deps.storage).load()?;
+) -> StdResult<ConfigAssetResponse> {
+    let asset: ConfigAsset = read_config_asset(&deps.storage)?;
 
-    let resp = AssetResponse {
+    let resp = ConfigAssetResponse {
         symbol: asset.symbol,
         oracle: deps.api.human_address(&asset.oracle).unwrap(),
         token: deps.api.human_address(&asset.token).unwrap(),
@@ -462,11 +434,11 @@ pub fn query_position<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     address: HumanAddr,
 ) -> StdResult<PositionResponse> {
-    let config: ConfigState = config_read(&deps.storage).load()?;
-    let asset: AssetState = asset_read(&deps.storage).load()?;
+    let config: ConfigGeneral = read_config_general(&deps.storage)?;
+    let asset: ConfigAsset = read_config_asset(&deps.storage)?;
 
     let position: PositionState =
-        position_read(&deps.storage, &deps.api.canonical_address(&address)?)?;
+        read_position(&deps.storage, &deps.api.canonical_address(&address)?)?;
     let price = load_price(&deps, &deps.api.human_address(&asset.oracle)?, None)?;
 
     // load price form the oracle
@@ -512,7 +484,7 @@ fn deduct_tax<S: Storage, A: Api, Q: Querier>(
     Ok(Coin {
         amount: std::cmp::max(
             (coin.amount - coin.amount * tax_rate)?,
-            (coin.amount - tax_cap).unwrap_or(Uint128::zero()),
+            (coin.amount - tax_cap).unwrap_or_else(|_| Uint128::zero()),
         ),
         ..coin
     })

@@ -2,7 +2,6 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{Decimal, HumanAddr, Uint128};
-use cw20::Cw20ReceiveMsg;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
@@ -34,30 +33,23 @@ pub enum HandleMsg {
     },
     /// Mint a user sends the collateral coins to mint an asset
     Mint {},
-    /// Catch Cw20Receiving event
-    Receive(Cw20ReceiveMsg),
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum Cw20HookMsg {
     /// Burn a user sends the asset tokens to the contract to get back the collteral tokens
-    Burn {},
+    Burn { amount: Uint128 },
     /// Auction the contract sell the collteral token with discounted price of the asset tokens
-    Auction { owner: HumanAddr },
+    Auction { owner: HumanAddr, amount: Uint128 },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
-    Config {},
-    Asset {},
+    ConfigGeneral {},
+    ConfigAsset {},
     Position { address: HumanAddr },
 }
 
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct ConfigResponse {
+pub struct ConfigGeneralResponse {
     pub owner: HumanAddr,
     pub collateral_denom: String,
     pub mint_capacity: Decimal,
@@ -67,7 +59,7 @@ pub struct ConfigResponse {
 
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct AssetResponse {
+pub struct ConfigAssetResponse {
     pub symbol: String,
     pub oracle: HumanAddr,
     pub token: HumanAddr,

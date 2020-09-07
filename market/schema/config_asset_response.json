@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ConfigAssetResponse",
+  "type": "object",
+  "required": [
+    "oracle",
+    "symbol",
+    "token"
+  ],
+  "properties": {
+    "oracle": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "symbol": {
+      "type": "string"
+    },
+    "token": {
+      "$ref": "#/definitions/HumanAddr"
+    }
+  },
+  "definitions": {
+    "HumanAddr": {
+      "type": "string"
+    }
+  }
+}

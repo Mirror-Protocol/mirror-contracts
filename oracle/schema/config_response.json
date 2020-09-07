@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ConfigResponse",
+  "type": "object",
+  "required": [
+    "asset_token",
+    "base_denom",
+    "owner",
+    "quote_denom"
+  ],
+  "properties": {
+    "asset_token": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "base_denom": {
+      "type": "string"
+    },
+    "owner": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "quote_denom": {
+      "type": "string"
+    }
+  },
+  "definitions": {
+    "HumanAddr": {
+      "type": "string"
+    }
+  }
+}
