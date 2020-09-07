@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ConfigState",
+  "type": "object",
+  "required": [
+    "auction_discount",
+    "auction_threshold_rate",
+    "collateral_denom",
+    "mint_capacity",
+    "owner"
+  ],
+  "properties": {
+    "auction_discount": {
+      "$ref": "#/definitions/Decimal"
+    },
+    "auction_threshold_rate": {
+      "$ref": "#/definitions/Decimal"
+    },
+    "collateral_denom": {
+      "type": "string"
+    },
+    "mint_capacity": {
+      "$ref": "#/definitions/Decimal"
+    },
+    "owner": {
+      "$ref": "#/definitions/CanonicalAddr"
+    }
+  },
+  "definitions": {
+    "Binary": {
+      "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>",
+      "type": "string"
+    },
+    "CanonicalAddr": {
+      "$ref": "#/definitions/Binary"
+    },
+    "Decimal": {
+      "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0\n\nThe greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PositionResponse",
+  "type": "object",
+  "required": [
+    "asset_amount",
+    "collateral_amount",
+    "is_auction_open"
+  ],
+  "properties": {
+    "asset_amount": {
+      "$ref": "#/definitions/Uint128"
+    },
+    "collateral_amount": {
+      "$ref": "#/definitions/Uint128"
+    },
+    "is_auction_open": {
+      "type": "boolean"
+    }
+  },
+  "definitions": {
+    "Uint128": {
+      "type": "string"
+    }
+  }
+}
