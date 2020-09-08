@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "InitMsg",
+  "type": "object",
+  "required": [
+    "reward_token",
+    "staking_token"
+  ],
+  "properties": {
+    "reward_token": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "staking_token": {
+      "$ref": "#/definitions/HumanAddr"
+    }
+  },
+  "definitions": {
+    "HumanAddr": {
+      "type": "string"
+    }
+  }
+}

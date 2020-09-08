@@ -1,1 +1,0 @@
-f9b07e1d98fca376627fa9bedcad9df123d41b5b1b48b348b88112f3169fe328  contract.wasm
