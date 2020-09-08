@@ -54,16 +54,21 @@ fn proper_initialization() {
         auction_discount: Decimal::percent(10),
         auction_threshold_rate: Decimal::percent(80),
         mint_capacity: Decimal::percent(70),
-        asset_oracle: HumanAddr::from("oracle0000"),
-        asset_token: HumanAddr::from("asset0000"),
-        asset_symbol: "mAPPL".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);
 
     // we can just call .unwrap() to assert this was a success
-    let res: InitResponse = init(&mut deps, env, msg).unwrap();
-    assert_eq!(0, res.messages.len());
+    let _res: InitResponse = init(&mut deps, env.clone(), msg).unwrap();
+
+    // post initalize
+    let msg = HandleMsg::PostInitialize {
+        asset_oracle: HumanAddr::from("oracle0000"),
+        asset_token: HumanAddr::from("asset0000"),
+        asset_symbol: "mAPPL".to_string(),
+    };
+
+    let _res: HandleResponse = handle(&mut deps, env, msg).unwrap();
 
     // it worked, let's query the state
     let res = query(&mut deps, QueryMsg::ConfigGeneral {}).unwrap();
@@ -88,15 +93,22 @@ fn update_config() {
         auction_discount: Decimal::percent(10),
         auction_threshold_rate: Decimal::percent(80),
         mint_capacity: Decimal::percent(70),
-        asset_oracle: HumanAddr::from("oracle0000"),
-        asset_token: HumanAddr::from("asset0000"),
-        asset_symbol: "mAPPL".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);
 
     // we can just call .unwrap() to assert this was a success
-    let _res: InitResponse = init(&mut deps, env, msg).unwrap();
+    let _res: InitResponse = init(&mut deps, env.clone(), msg).unwrap();
+
+    // post initalize
+    let msg = HandleMsg::PostInitialize {
+        asset_oracle: HumanAddr::from("oracle0000"),
+        asset_token: HumanAddr::from("asset0000"),
+        asset_symbol: "mAPPL".to_string(),
+    };
+
+    let _res: HandleResponse = handle(&mut deps, env, msg).unwrap();
+
     // update owner
     let env = mock_env("addr0000", &[]);
     let msg = HandleMsg::UpdateConfig {

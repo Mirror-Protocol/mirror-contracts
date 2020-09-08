@@ -14,17 +14,17 @@ pub struct InitMsg {
     pub auction_threshold_rate: Decimal,
     /// Mint_capacity follows decimals
     pub mint_capacity: Decimal,
-    /// Asset oracle contract address
-    pub asset_oracle: HumanAddr,
-    /// Asset token contract address
-    pub asset_token: HumanAddr,
-    /// Asset symbol
-    pub asset_symbol: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum HandleMsg {
+    /// Post initize step to allow user to set controlled contract address after creating it
+    PostInitialize {
+        asset_token: HumanAddr,
+        asset_oracle: HumanAddr,
+        asset_symbol: String,
+    },
     UpdateConfig {
         owner: Option<HumanAddr>,
         auction_discount: Option<Decimal>,

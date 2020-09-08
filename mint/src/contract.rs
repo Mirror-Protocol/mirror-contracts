@@ -33,20 +33,6 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
 
     store_config_general(&mut deps.storage, &config)?;
 
-    let asset = ConfigAsset {
-        oracle: deps.api.canonical_address(&msg.asset_oracle)?,
-        token: deps.api.canonical_address(&msg.asset_token)?,
-        symbol: msg.asset_symbol.to_string(),
-    };
-
-    if !is_valid_symbol(&msg.asset_symbol) {
-        return Err(StdError::generic_err(
-            "Ticker symbol is not in expected format [a-zA-Z]{3,6}",
-        ));
-    }
-
-    store_config_asset(&mut deps.storage, &asset)?;
-
     Ok(InitResponse::default())
 }
 
@@ -56,6 +42,11 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     msg: HandleMsg,
 ) -> StdResult<HandleResponse> {
     match msg {
+        HandleMsg::PostInitialize {
+            asset_token,
+            asset_oracle,
+            asset_symbol,
+        } => try_post_initialize(deps, env, asset_token, asset_oracle, asset_symbol),
         HandleMsg::UpdateConfig {
             owner,
             auction_discount,
@@ -73,6 +64,38 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::Burn { amount } => try_burn(deps, env, amount),
         HandleMsg::Auction { owner, amount } => try_auction(deps, env, owner, amount),
     }
+}
+
+pub fn try_post_initialize<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    asset_token: HumanAddr,
+    asset_oracle: HumanAddr,
+    asset_symbol: String,
+) -> StdResult<HandleResponse> {
+    let config_general = read_config_general(&deps.storage)?;
+
+    // permission check
+    if deps.api.canonical_address(&env.message.sender)? != config_general.owner {
+        return Err(StdError::unauthorized());
+    }
+
+    if !is_valid_symbol(&asset_symbol) {
+        return Err(StdError::generic_err(
+            "Ticker symbol is not in expected format [a-zA-Z]{3,6}",
+        ));
+    }
+
+    store_config_asset(
+        &mut deps.storage,
+        &ConfigAsset {
+            oracle: deps.api.canonical_address(&asset_oracle)?,
+            token: deps.api.canonical_address(&asset_token)?,
+            symbol: asset_symbol.to_string(),
+        },
+    )?;
+
+    Ok(HandleResponse::default())
 }
 
 pub fn try_update_config<S: Storage, A: Api, Q: Querier>(
