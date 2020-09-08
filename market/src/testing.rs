@@ -25,7 +25,6 @@ fn proper_initialization() {
 
     let msg = InitMsg {
         collateral_denom: "uusd".to_string(),
-        liquidity_token: HumanAddr("liquidity0000".to_string()),
         commission_collector: HumanAddr("collector0000".to_string()),
         asset_symbol: "mAPPL".to_string(),
         asset_token: HumanAddr("asset0000".to_string()),
@@ -39,7 +38,14 @@ fn proper_initialization() {
     let env = mock_env("addr0000", &[]);
 
     // we can just call .unwrap() to assert this was a success
-    let _res = init(&mut deps, env, msg).unwrap();
+    let _res = init(&mut deps, env.clone(), msg).unwrap();
+
+    // post initalize
+    let msg = HandleMsg::PostInitialize {
+        liquidity_token: HumanAddr("liquidity0000".to_string()),
+    };
+    let _res = handle(&mut deps, env, msg).unwrap();
+
     // // it worked, let's query the state
     let config_general: ConfigGeneralResponse = query_config_general(&deps).unwrap();
     assert_eq!("addr0000", config_general.owner.as_str());
@@ -67,7 +73,6 @@ fn update_config() {
     let mut deps = mock_dependencies(20, &[]);
     let msg = InitMsg {
         collateral_denom: "uusd".to_string(),
-        liquidity_token: HumanAddr("liquidity0000".to_string()),
         commission_collector: HumanAddr("collector0000".to_string()),
         asset_symbol: "mAPPL".to_string(),
         asset_token: HumanAddr("asset0000".to_string()),
@@ -81,7 +86,13 @@ fn update_config() {
     let env = mock_env("addr0000", &[]);
 
     // we can just call .unwrap() to assert this was a success
-    let _res = init(&mut deps, env, msg).unwrap();
+    let _res = init(&mut deps, env.clone(), msg).unwrap();
+
+    // post initalize
+    let msg = HandleMsg::PostInitialize {
+        liquidity_token: HumanAddr("liquidity0000".to_string()),
+    };
+    let _res = handle(&mut deps, env, msg).unwrap();
 
     // update owner
     let env = mock_env("addr0000", &[]);
@@ -145,7 +156,6 @@ fn provide_liquidity() {
 
     let msg = InitMsg {
         collateral_denom: "uusd".to_string(),
-        liquidity_token: HumanAddr("liquidity0000".to_string()),
         commission_collector: HumanAddr("collector0000".to_string()),
         asset_symbol: "mAPPL".to_string(),
         asset_token: HumanAddr("asset0000".to_string()),
@@ -157,7 +167,13 @@ fn provide_liquidity() {
     };
 
     let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env, msg).unwrap();
+    let _res = init(&mut deps, env.clone(), msg).unwrap();
+
+    // post initalize
+    let msg = HandleMsg::PostInitialize {
+        liquidity_token: HumanAddr("liquidity0000".to_string()),
+    };
+    let _res = handle(&mut deps, env, msg).unwrap();
 
     // successfully provide liquidity for the exist pool
     let msg = HandleMsg::ProvideLiquidity {
@@ -343,7 +359,6 @@ fn withdraw_liquidity() {
 
     let msg = InitMsg {
         collateral_denom: "uusd".to_string(),
-        liquidity_token: HumanAddr("liquidity0000".to_string()),
         commission_collector: HumanAddr("collector0000".to_string()),
         asset_symbol: "mAPPL".to_string(),
         asset_token: HumanAddr("asset0000".to_string()),
@@ -355,7 +370,13 @@ fn withdraw_liquidity() {
     };
 
     let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env, msg).unwrap();
+    let _res = init(&mut deps, env.clone(), msg).unwrap();
+
+    // post initalize
+    let msg = HandleMsg::PostInitialize {
+        liquidity_token: HumanAddr("liquidity0000".to_string()),
+    };
+    let _res = handle(&mut deps, env, msg).unwrap();
 
     // successfully provide liquidity for the exist pools (mAPPL:uusd = 2:1)
     let msg = HandleMsg::ProvideLiquidity {
@@ -498,7 +519,6 @@ fn try_buy() {
 
     let msg = InitMsg {
         collateral_denom: "uusd".to_string(),
-        liquidity_token: HumanAddr("liquidity0000".to_string()),
         commission_collector: HumanAddr("collector0000".to_string()),
         asset_symbol: "mAPPL".to_string(),
         asset_token: HumanAddr("asset0000".to_string()),
@@ -510,7 +530,13 @@ fn try_buy() {
     };
 
     let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env, msg).unwrap();
+    let _res = init(&mut deps, env.clone(), msg).unwrap();
+
+    // post initalize
+    let msg = HandleMsg::PostInitialize {
+        liquidity_token: HumanAddr("liquidity0000".to_string()),
+    };
+    let _res = handle(&mut deps, env, msg).unwrap();
 
     // successfully provide liquidity for the exist pools (mAPPL:uusd = 2:1)
     let msg = HandleMsg::ProvideLiquidity {
@@ -968,7 +994,6 @@ fn try_sell() {
 
     let msg = InitMsg {
         collateral_denom: "uusd".to_string(),
-        liquidity_token: HumanAddr("liquidity0000".to_string()),
         commission_collector: HumanAddr("collector0000".to_string()),
         asset_symbol: "mAPPL".to_string(),
         asset_token: HumanAddr("asset0000".to_string()),
@@ -980,7 +1005,13 @@ fn try_sell() {
     };
 
     let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env, msg).unwrap();
+    let _res = init(&mut deps, env.clone(), msg).unwrap();
+
+    // post initalize
+    let msg = HandleMsg::PostInitialize {
+        liquidity_token: HumanAddr("liquidity0000".to_string()),
+    };
+    let _res = handle(&mut deps, env, msg).unwrap();
 
     // successfully provide liquidity for the exist pools (mAPPL:uusd = 2:1)
     let msg = HandleMsg::ProvideLiquidity {
@@ -1463,7 +1494,6 @@ fn test_query_pool() {
 
     let msg = InitMsg {
         collateral_denom: "uusd".to_string(),
-        liquidity_token: HumanAddr("liquidity0000".to_string()),
         commission_collector: HumanAddr("collector0000".to_string()),
         asset_symbol: "mAPPL".to_string(),
         asset_token: HumanAddr("asset0000".to_string()),
@@ -1475,7 +1505,13 @@ fn test_query_pool() {
     };
 
     let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env, msg).unwrap();
+    let _res = init(&mut deps, env.clone(), msg).unwrap();
+
+    // post initalize
+    let msg = HandleMsg::PostInitialize {
+        liquidity_token: HumanAddr("liquidity0000".to_string()),
+    };
+    let _res = handle(&mut deps, env, msg).unwrap();
 
     let res: PoolResponse = query_pool(&deps).unwrap();
 

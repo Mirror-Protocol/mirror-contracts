@@ -5,8 +5,6 @@ use cosmwasm_std::{Coin, Decimal, HumanAddr, Uint128};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
-    /// Liquidity token, required to withdraw liquidity position
-    pub liquidity_token: HumanAddr,
     /// Inactive commission collector
     pub commission_collector: HumanAddr,
     /// Asset token address
@@ -30,6 +28,11 @@ pub struct InitMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum HandleMsg {
+    /// Post initize step to allow user to set controlled contract address after creating it
+    PostInitialize {
+        /// Liquidity token, required to withdraw liquidity position
+        liquidity_token: HumanAddr,
+    },
     UpdateConfig {
         /// Later it will be set by gov contract
         owner: Option<HumanAddr>,
