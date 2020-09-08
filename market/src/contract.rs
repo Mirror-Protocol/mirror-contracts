@@ -38,7 +38,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     let config_general = ConfigGeneral {
         owner: deps.api.canonical_address(&env.message.sender)?,
         contract_addr: deps.api.canonical_address(&env.contract.address)?,
-        liquidity_token: deps.api.canonical_address(&msg.liquidity_token)?,
+        liquidity_token: CanonicalAddr::default(),
         commission_collector: deps.api.canonical_address(&msg.commission_collector)?,
         collateral_denom: msg.collateral_denom,
     };
@@ -84,11 +84,37 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             max_minus_spread,
             max_spread,
         ),
+        HandleMsg::PostInitialize { liquidity_token } => {
+            try_post_initialize(deps, env, liquidity_token)
+        }
         HandleMsg::ProvideLiquidity { coins } => try_provide_liquidity(deps, env, coins),
         HandleMsg::WithdrawLiquidity { amount } => try_withdraw_liquidity(deps, env, amount),
         HandleMsg::Buy { max_spread } => try_buy(deps, env, max_spread),
         HandleMsg::Sell { amount, max_spread } => try_sell(deps, env, amount, max_spread),
     }
+}
+
+pub fn try_post_initialize<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    liquidity_token: HumanAddr,
+) -> StdResult<HandleResponse> {
+    let config_general = read_config_general(&deps.storage)?;
+
+    // permission check
+    if deps.api.canonical_address(&env.message.sender)? != config_general.owner {
+        return Err(StdError::unauthorized());
+    }
+
+    store_config_general(
+        &mut deps.storage,
+        &ConfigGeneral {
+            liquidity_token: deps.api.canonical_address(&liquidity_token)?,
+            ..config_general
+        },
+    )?;
+
+    Ok(HandleResponse::default())
 }
 
 pub fn try_update_config<S: Storage, A: Api, Q: Querier>(
