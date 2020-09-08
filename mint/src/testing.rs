@@ -22,16 +22,21 @@ fn proper_initialization() {
         auction_discount: Decimal::percent(10),
         auction_threshold_rate: Decimal::percent(85),
         mint_capacity: Decimal::percent(70),
-        asset_oracle: HumanAddr::from("oracle0000"),
-        asset_token: HumanAddr::from("asset0000"),
-        asset_symbol: "mAPPL".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);
 
     // we can just call .unwrap() to assert this was a success
-    let res = init(&mut deps, env, msg).unwrap();
-    assert_eq!(0, res.messages.len());
+    let _res = init(&mut deps, env.clone(), msg).unwrap();
+
+    // post initalize
+    let msg = HandleMsg::PostInitialize {
+        asset_oracle: HumanAddr::from("oracle0000"),
+        asset_token: HumanAddr::from("asset0000"),
+        asset_symbol: "mAPPL".to_string(),
+    };
+
+    let _res = handle(&mut deps, env, msg).unwrap();
 
     // it worked, let's query the state
     let config: ConfigGeneralResponse = query_config(&deps).unwrap();
@@ -56,13 +61,18 @@ fn update_config() {
         auction_discount: Decimal::percent(10),
         auction_threshold_rate: Decimal::percent(85),
         mint_capacity: Decimal::percent(70),
+    };
+
+    let env = mock_env("addr0000", &[]);
+    let _res = init(&mut deps, env.clone(), msg).unwrap();
+
+    let msg = HandleMsg::PostInitialize {
         asset_oracle: HumanAddr::from("oracle0000"),
         asset_token: HumanAddr::from("asset0000"),
         asset_symbol: "mAPPL".to_string(),
     };
 
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env, msg).unwrap();
+    let _res = handle(&mut deps, env, msg).unwrap();
 
     // update owner
     let env = mock_env("addr0000", &[]);
@@ -129,13 +139,19 @@ fn mint() {
         auction_discount: Decimal::percent(10),
         auction_threshold_rate: Decimal::percent(85),
         mint_capacity: Decimal::percent(70),
+    };
+
+    let env = mock_env("addr0000", &[]);
+    let _res = init(&mut deps, env.clone(), msg).unwrap();
+
+    // post initalize
+    let msg = HandleMsg::PostInitialize {
         asset_oracle: HumanAddr::from("oracle0000"),
         asset_token: HumanAddr::from("asset0000"),
         asset_symbol: "mAPPL".to_string(),
     };
 
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env, msg).unwrap();
+    let _res = handle(&mut deps, env, msg).unwrap();
 
     // fail mint request due to price is too old
     let msg = HandleMsg::Mint {};
@@ -262,13 +278,19 @@ fn burn() {
         auction_discount: Decimal::percent(10),
         auction_threshold_rate: Decimal::percent(85),
         mint_capacity: Decimal::percent(70),
+    };
+
+    let env = mock_env("addr0000", &[]);
+    let _res = init(&mut deps, env.clone(), msg).unwrap();
+
+    // post initalize
+    let msg = HandleMsg::PostInitialize {
         asset_oracle: HumanAddr::from("oracle0000"),
         asset_token: HumanAddr::from("asset0000"),
         asset_symbol: "mAPPL".to_string(),
     };
 
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env, msg).unwrap();
+    let _res = handle(&mut deps, env, msg).unwrap();
 
     // failed to burn
     let msg = HandleMsg::Burn {
@@ -383,13 +405,19 @@ fn auction() {
         auction_discount: Decimal::percent(10),
         auction_threshold_rate: Decimal::percent(85),
         mint_capacity: Decimal::percent(70),
+    };
+
+    let env = mock_env("addr0000", &[]);
+    let _res = init(&mut deps, env.clone(), msg).unwrap();
+
+    // post initalize
+    let msg = HandleMsg::PostInitialize {
         asset_oracle: HumanAddr::from("oracle0000"),
         asset_token: HumanAddr::from("asset0000"),
         asset_symbol: "mAPPL".to_string(),
     };
 
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env, msg).unwrap();
+    let _res = handle(&mut deps, env, msg).unwrap();
 
     // mint
     let msg = HandleMsg::Mint {};
