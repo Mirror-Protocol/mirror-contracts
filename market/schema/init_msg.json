@@ -10,7 +10,6 @@
     "collateral_denom",
     "commission_collector",
     "inactive_commission",
-    "liquidity_token",
     "max_minus_spread",
     "max_spread"
   ],
@@ -60,14 +59,6 @@
       "allOf": [
         {
           "$ref": "#/definitions/Decimal"
-        }
-      ]
-    },
-    "liquidity_token": {
-      "description": "Liquidity token, required to withdraw liquidity position",
-      "allOf": [
-        {
-          "$ref": "#/definitions/HumanAddr"
         }
       ]
     },

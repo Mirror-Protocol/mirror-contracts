@@ -3,6 +3,31 @@
   "title": "HandleMsg",
   "anyOf": [
     {
+      "description": "Post initize step to allow user to set controlled contract address after creating it",
+      "type": "object",
+      "required": [
+        "post_initialize"
+      ],
+      "properties": {
+        "post_initialize": {
+          "type": "object",
+          "required": [
+            "liquidity_token"
+          ],
+          "properties": {
+            "liquidity_token": {
+              "description": "Liquidity token, required to withdraw liquidity position",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
       "type": "object",
       "required": [
         "update_config"
