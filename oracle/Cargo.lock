@@ -446,7 +446,7 @@ dependencies = [
 
 [[package]]
 name = "mirror-oracle"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "cosmwasm-schema 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "cosmwasm-std 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
