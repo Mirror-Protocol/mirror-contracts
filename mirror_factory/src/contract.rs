@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    log, to_binary, Api, Binary, CosmosMsg, Decimal, Env, Extern, HandleResponse, HandleResult,
-    HumanAddr, InitResponse, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
+    log, to_binary, Api, Binary, CanonicalAddr, CosmosMsg, Decimal, Env, Extern, HandleResponse,
+    HandleResult, HumanAddr, InitResponse, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 
 use crate::msg::{
@@ -23,7 +23,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         &mut deps.storage,
         &Config {
             owner: deps.api.canonical_address(&env.message.sender)?,
-            mirror_token: deps.api.canonical_address(&msg.mirror_token)?,
+            mirror_token: CanonicalAddr::default(),
             mint_per_block: msg.mint_per_block,
         },
     )?;
@@ -37,6 +37,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     msg: HandleMsg,
 ) -> StdResult<HandleResponse> {
     match msg {
+        HandleMsg::PostIntilize { mirror_token } => try_post_initialize(deps, env, mirror_token),
         HandleMsg::UpdateConfig {
             owner,
             mint_per_block,
@@ -63,6 +64,24 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         ),
         HandleMsg::Mint { symbol } => try_mint(deps, env, symbol),
     }
+}
+
+pub fn try_post_initialize<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    mirror_token: HumanAddr,
+) -> HandleResult {
+    let mut config: Config = read_config(&deps.storage)?;
+    if config.owner != deps.api.canonical_address(&env.message.sender)?
+        || config.mirror_token != CanonicalAddr::default()
+    {
+        return Err(StdError::unauthorized());
+    }
+
+    config.mirror_token = deps.api.canonical_address(&mirror_token)?;
+    store_config(&mut deps.storage, &config)?;
+
+    Ok(HandleResponse::default())
 }
 
 pub fn try_update_config<S: Storage, A: Api, Q: Querier>(
