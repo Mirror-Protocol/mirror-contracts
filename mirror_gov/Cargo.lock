@@ -517,7 +517,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mirror-voting"
+name = "mirror-gov"
 version = "1.0.0"
 dependencies = [
  "cosmwasm-schema",

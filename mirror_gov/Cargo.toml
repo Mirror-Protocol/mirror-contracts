@@ -1,5 +1,5 @@
 [package]
-name = "mirror-voting"
+name = "mirror-gov"
 version = "1.0.0"
 authors = ["Monday Garfield <mirrorprotocol@users.noreply.github.com>"]
 edition = "2018"
