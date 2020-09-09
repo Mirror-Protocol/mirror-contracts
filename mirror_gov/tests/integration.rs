@@ -28,7 +28,7 @@ use cosmwasm_vm::{from_slice, Api, Storage};
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
 use mirror_voting::contract::VOTING_TOKEN;
 use mirror_voting::msg::{Cw20HookMsg, HandleMsg, InitMsg, PollResponse, QueryMsg};
-use mirror_voting::state::State;
+use mirror_gov::state::State;
 
 // This line will test the output of cargo wasm
 static WASM: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/mirror_voting.wasm");
