@@ -13,7 +13,7 @@ static BANK_KEY: &[u8] = b"bank";
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct State {
     pub owner: CanonicalAddr,
-    pub asset_token: CanonicalAddr,
+    pub mirror_token: CanonicalAddr,
     pub poll_count: u64,
     pub staked_tokens: Uint128,
 }

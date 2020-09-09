@@ -3,13 +3,13 @@
   "title": "State",
   "type": "object",
   "required": [
-    "asset_token",
+    "mirror_token",
     "owner",
     "poll_count",
     "staked_tokens"
   ],
   "properties": {
-    "asset_token": {
+    "mirror_token": {
       "$ref": "#/definitions/CanonicalAddr"
     },
     "owner": {

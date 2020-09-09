@@ -7,7 +7,7 @@ use cw20::Cw20ReceiveMsg;
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
     pub staking_token: HumanAddr,
-    pub reward_token: HumanAddr,
+    pub mirror_token: HumanAddr,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -40,5 +40,5 @@ pub enum QueryMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ConfigResponse {
     pub staking_token: HumanAddr,
-    pub reward_token: HumanAddr,
+    pub mirror_token: HumanAddr,
 }

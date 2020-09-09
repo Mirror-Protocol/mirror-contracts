@@ -17,7 +17,7 @@ mod tests {
 
     fn mock_init(mut deps: &mut Extern<MockStorage, MockApi, MockQuerier>) {
         let msg = InitMsg {
-            asset_token: HumanAddr::from(VOTING_TOKEN),
+            mirror_token: HumanAddr::from(VOTING_TOKEN),
         };
 
         let env = mock_env(TEST_CREATOR, &[]);
@@ -33,7 +33,7 @@ mod tests {
 
     fn init_msg() -> InitMsg {
         InitMsg {
-            asset_token: HumanAddr::from(VOTING_TOKEN),
+            mirror_token: HumanAddr::from(VOTING_TOKEN),
         }
     }
 
@@ -50,7 +50,7 @@ mod tests {
         assert_eq!(
             state,
             State {
-                asset_token: deps
+                mirror_token: deps
                     .api
                     .canonical_address(&HumanAddr::from(VOTING_TOKEN))
                     .unwrap(),
@@ -630,7 +630,7 @@ mod tests {
         assert_eq!(
             state,
             State {
-                asset_token: deps
+                mirror_token: deps
                     .api
                     .canonical_address(&HumanAddr::from(VOTING_TOKEN))
                     .unwrap(),
@@ -668,7 +668,7 @@ mod tests {
         assert_eq!(
             state,
             State {
-                asset_token: deps
+                mirror_token: deps
                     .api
                     .canonical_address(&HumanAddr::from(VOTING_TOKEN))
                     .unwrap(),
@@ -905,7 +905,7 @@ mod tests {
         assert_eq!(
             state,
             State {
-                asset_token: deps
+                mirror_token: deps
                     .api
                     .canonical_address(&HumanAddr::from(VOTING_TOKEN))
                     .unwrap(),
@@ -931,7 +931,7 @@ mod tests {
         assert_eq!(
             state,
             State {
-                asset_token: deps
+                mirror_token: deps
                     .api
                     .canonical_address(&HumanAddr::from(VOTING_TOKEN))
                     .unwrap(),

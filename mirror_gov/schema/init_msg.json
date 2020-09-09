@@ -3,10 +3,10 @@
   "title": "InitMsg",
   "type": "object",
   "required": [
-    "asset_token"
+    "mirror_token"
   ],
   "properties": {
-    "asset_token": {
+    "mirror_token": {
       "$ref": "#/definitions/HumanAddr"
     }
   },

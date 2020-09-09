@@ -24,7 +24,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     msg: InitMsg,
 ) -> InitResult {
     let state = State {
-        asset_token: deps.api.canonical_address(&msg.asset_token)?,
+        mirror_token: deps.api.canonical_address(&msg.mirror_token)?,
         owner: deps.api.canonical_address(&env.message.sender)?,
         poll_count: 0,
         staked_tokens: Uint128::zero(),
@@ -74,7 +74,7 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
 ) -> HandleResult {
     // only asset contract can execute this message
     let config: State = config_read(&deps.storage).load()?;
-    if config.asset_token != deps.api.canonical_address(&env.message.sender)? {
+    if config.mirror_token != deps.api.canonical_address(&env.message.sender)? {
         return Err(StdError::unauthorized());
     }
 
@@ -147,7 +147,7 @@ pub fn withdraw_voting_tokens<S: Storage, A: Api, Q: Querier>(
 
             send_tokens(
                 &deps.api,
-                &state.asset_token,
+                &state.mirror_token,
                 &sender_address_raw,
                 withdraw_amount,
                 "withdraw",

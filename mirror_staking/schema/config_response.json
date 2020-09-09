@@ -3,11 +3,11 @@
   "title": "ConfigResponse",
   "type": "object",
   "required": [
-    "reward_token",
+    "mirror_token",
     "staking_token"
   ],
   "properties": {
-    "reward_token": {
+    "mirror_token": {
       "$ref": "#/definitions/HumanAddr"
     },
     "staking_token": {

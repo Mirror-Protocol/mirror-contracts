@@ -6,7 +6,7 @@ use cosmwasm_std::{Decimal, HumanAddr, Uint128};
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
     pub factory_contract: HumanAddr,
-    pub staking_symbol: String,
+    pub mirror_symbol: String,
     pub collateral_denom: String,
 }
 
@@ -27,7 +27,7 @@ pub enum QueryMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ConfigResponse {
     pub factory_contract: HumanAddr,
-    pub staking_symbol: String,
+    pub mirror_symbol: String,
     pub collateral_denom: String,
 }
 

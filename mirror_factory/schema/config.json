@@ -4,17 +4,17 @@
   "type": "object",
   "required": [
     "mint_per_block",
-    "owner",
-    "staking_token"
+    "mirror_token",
+    "owner"
   ],
   "properties": {
     "mint_per_block": {
       "$ref": "#/definitions/Uint128"
     },
-    "owner": {
+    "mirror_token": {
       "$ref": "#/definitions/CanonicalAddr"
     },
-    "staking_token": {
+    "owner": {
       "$ref": "#/definitions/CanonicalAddr"
     }
   },

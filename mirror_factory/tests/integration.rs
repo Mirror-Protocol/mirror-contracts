@@ -44,7 +44,7 @@ fn proper_initialization() {
     let mut deps = mock_instance(WASM, &[]);
 
     let msg = InitMsg {
-        staking_token: HumanAddr("token0000".to_string()),
+        mirror_token: HumanAddr("token0000".to_string()),
         mint_per_block: Uint128(100u128),
     };
 
@@ -55,7 +55,7 @@ fn proper_initialization() {
     let res = query(&mut deps, QueryMsg::Config {}).unwrap();
     let config: ConfigResponse = from_binary(&res).unwrap();
     assert_eq!("addr0000", config.owner.as_str());
-    assert_eq!("token0000", config.staking_token.as_str());
+    assert_eq!("token0000", config.mirror_token.as_str());
     assert_eq!(Uint128(100u128), config.mint_per_block);
 }
 
@@ -64,7 +64,7 @@ fn test_update_config() {
     let mut deps = mock_instance(WASM, &[]);
 
     let msg = InitMsg {
-        staking_token: HumanAddr("token0000".to_string()),
+        mirror_token: HumanAddr("token0000".to_string()),
         mint_per_block: Uint128(100u128),
     };
 
@@ -82,7 +82,7 @@ fn test_update_config() {
     let res = query(&mut deps, QueryMsg::Config {}).unwrap();
     let config: ConfigResponse = from_binary(&res).unwrap();
     assert_eq!("addr0001", config.owner.as_str());
-    assert_eq!("token0000", config.staking_token.as_str());
+    assert_eq!("token0000", config.mirror_token.as_str());
     assert_eq!(Uint128(100u128), config.mint_per_block);
 
     // update rest part
@@ -96,7 +96,7 @@ fn test_update_config() {
     let res = query(&mut deps, QueryMsg::Config {}).unwrap();
     let config: ConfigResponse = from_binary(&res).unwrap();
     assert_eq!("addr0001", config.owner.as_str());
-    assert_eq!("token0000", config.staking_token.as_str());
+    assert_eq!("token0000", config.mirror_token.as_str());
     assert_eq!(Uint128(200u128), config.mint_per_block);
 
     // failed unauthoirzed
@@ -118,7 +118,7 @@ fn test_whitelist() {
     let mut deps = mock_instance(WASM, &[]);
 
     let msg = InitMsg {
-        staking_token: HumanAddr("token0000".to_string()),
+        mirror_token: HumanAddr("token0000".to_string()),
         mint_per_block: Uint128(100u128),
     };
 
@@ -190,7 +190,7 @@ fn test_update_weight() {
     let mut deps = mock_instance(WASM, &[]);
 
     let msg = InitMsg {
-        staking_token: HumanAddr("token0000".to_string()),
+        mirror_token: HumanAddr("token0000".to_string()),
         mint_per_block: Uint128(100u128),
     };
 
@@ -239,7 +239,7 @@ fn test_mint() {
     let mut deps = mock_instance(WASM, &[]);
 
     let msg = InitMsg {
-        staking_token: HumanAddr("token0000".to_string()),
+        mirror_token: HumanAddr("token0000".to_string()),
         mint_per_block: Uint128(100u128),
     };
 

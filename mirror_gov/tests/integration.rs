@@ -26,12 +26,12 @@ use cosmwasm_storage::to_length_prefixed;
 use cosmwasm_vm::testing::{handle, init, mock_env, mock_instance, query};
 use cosmwasm_vm::{from_slice, Api, Storage};
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
-use mirror_voting::contract::VOTING_TOKEN;
-use mirror_voting::msg::{Cw20HookMsg, HandleMsg, InitMsg, PollResponse, QueryMsg};
+use mirror_gov::contract::VOTING_TOKEN;
+use mirror_gov::msg::{Cw20HookMsg, HandleMsg, InitMsg, PollResponse, QueryMsg};
 use mirror_gov::state::State;
 
 // This line will test the output of cargo wasm
-static WASM: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/mirror_voting.wasm");
+static WASM: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/mirror_gov.wasm");
 // You can uncomment this line instead to test productionified build from rust-optimizer
 // static WASM: &[u8] = include_bytes!("../contract.wasm");
 
@@ -49,7 +49,7 @@ fn mock_env_height(signer: &HumanAddr, height: u64, time: u64) -> Env {
 
 fn init_msg() -> InitMsg {
     InitMsg {
-        asset_token: HumanAddr::from(VOTING_TOKEN),
+        mirror_token: HumanAddr::from(VOTING_TOKEN),
     }
 }
 
@@ -82,7 +82,7 @@ fn proper_initialization() {
         assert_eq!(
             state,
             State {
-                asset_token: api
+                mirror_token: api
                     .canonical_address(&HumanAddr::from(VOTING_TOKEN))
                     .0
                     .unwrap(),
@@ -653,7 +653,7 @@ fn happy_days_withdraw_voting_tokens() {
         assert_eq!(
             state,
             State {
-                asset_token: api
+                mirror_token: api
                     .canonical_address(&HumanAddr::from(VOTING_TOKEN))
                     .0
                     .unwrap(),
@@ -699,7 +699,7 @@ fn happy_days_withdraw_voting_tokens() {
             assert_eq!(
                 state,
                 State {
-                    asset_token: api
+                    mirror_token: api
                         .canonical_address(&HumanAddr::from(VOTING_TOKEN))
                         .0
                         .unwrap(),

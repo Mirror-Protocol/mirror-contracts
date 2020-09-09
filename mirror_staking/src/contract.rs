@@ -22,7 +22,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         &mut deps.storage,
         &Config {
             staking_token: deps.api.canonical_address(&msg.staking_token)?,
-            reward_token: deps.api.canonical_address(&msg.reward_token)?,
+            mirror_token: deps.api.canonical_address(&msg.mirror_token)?,
         },
     )?;
 
@@ -68,7 +68,7 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
             }
             Cw20HookMsg::DepositReward {} => {
                 // only reward token contract can execute this message
-                if config.reward_token != deps.api.canonical_address(&env.message.sender)? {
+                if config.mirror_token != deps.api.canonical_address(&env.message.sender)? {
                     return Err(StdError::unauthorized());
                 }
 
@@ -182,7 +182,7 @@ pub fn try_withdraw<S: Storage, A: Api, Q: Querier>(
 
     Ok(HandleResponse {
         messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: deps.api.human_address(&config.reward_token)?,
+            contract_addr: deps.api.human_address(&config.mirror_token)?,
             msg: to_binary(&Cw20HandleMsg::Transfer {
                 recipient: env.message.sender,
                 amount,
@@ -236,7 +236,7 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
     let state = read_config(&deps.storage)?;
     let resp = ConfigResponse {
         staking_token: deps.api.human_address(&state.staking_token)?,
-        reward_token: deps.api.human_address(&state.reward_token)?,
+        mirror_token: deps.api.human_address(&state.mirror_token)?,
     };
 
     Ok(resp)
