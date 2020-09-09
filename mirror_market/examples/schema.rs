@@ -6,7 +6,7 @@ use cosmwasm_std::HandleResponse;
 
 use mirror_market::msg::{
     ConfigAssetResponse, ConfigGeneralResponse, ConfigSwapResponse, HandleMsg, InitMsg,
-    PoolResponse, ProviderResponse, QueryMsg, ReverseSimulationResponse, SimulationResponse,
+    PoolResponse, QueryMsg, ReverseSimulationResponse, SimulationResponse,
 };
 use mirror_market::state::{ConfigAsset, ConfigGeneral, ConfigSwap};
 
@@ -27,7 +27,6 @@ fn main() {
     export_schema(&schema_for!(ConfigAssetResponse), &out_dir);
     export_schema(&schema_for!(ConfigSwapResponse), &out_dir);
     export_schema(&schema_for!(PoolResponse), &out_dir);
-    export_schema(&schema_for!(ProviderResponse), &out_dir);
     export_schema(&schema_for!(ReverseSimulationResponse), &out_dir);
     export_schema(&schema_for!(SimulationResponse), &out_dir);
 }
