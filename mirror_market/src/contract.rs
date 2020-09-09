@@ -10,8 +10,8 @@ use crate::msg::{
     SwapOperation,
 };
 
-use crate::math::{decimal_multiplication, decimal_subtraction, reverse_decimal};
-use crate::querier::{load_balance, load_price, load_supply, load_token_balance};
+use crate::math::{decimal_subtraction, reverse_decimal};
+use crate::querier::{load_balance, load_supply, load_token_balance};
 
 use cw20::Cw20HandleMsg;
 use terra_cosmwasm::TerraQuerier;
@@ -27,11 +27,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     env: Env,
     msg: InitMsg,
 ) -> StdResult<InitResponse> {
-    if msg.max_minus_spread > Decimal::one()
-        || msg.max_minus_spread > Decimal::one()
-        || msg.active_commission > Decimal::one()
-        || msg.inactive_commission > Decimal::one()
-    {
+    if msg.active_commission > Decimal::one() || msg.inactive_commission > Decimal::one() {
         return Err(StdError::generic_err("rate cannot be bigger than one"));
     }
 
@@ -46,12 +42,9 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     let config_swap = ConfigSwap {
         active_commission: msg.active_commission,
         inactive_commission: msg.inactive_commission,
-        max_spread: msg.max_spread,
-        max_minus_spread: msg.max_minus_spread,
     };
 
     let config_asset = ConfigAsset {
-        oracle: deps.api.canonical_address(&msg.asset_oracle)?,
         token: deps.api.canonical_address(&msg.asset_token)?,
         symbol: msg.asset_symbol.to_string(),
     };
@@ -73,17 +66,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             owner,
             active_commission,
             inactive_commission,
-            max_minus_spread,
-            max_spread,
-        } => try_update_config(
-            deps,
-            env,
-            owner,
-            active_commission,
-            inactive_commission,
-            max_minus_spread,
-            max_spread,
-        ),
+        } => try_update_config(deps, env, owner, active_commission, inactive_commission),
         HandleMsg::PostInitialize { liquidity_token } => {
             try_post_initialize(deps, env, liquidity_token)
         }
@@ -123,8 +106,6 @@ pub fn try_update_config<S: Storage, A: Api, Q: Querier>(
     owner: Option<HumanAddr>,
     active_commission: Option<Decimal>,
     inactive_commission: Option<Decimal>,
-    max_minus_spread: Option<Decimal>,
-    max_spread: Option<Decimal>,
 ) -> StdResult<HandleResponse> {
     let mut config_general: ConfigGeneral = read_config_general(&deps.storage)?;
     let mut config_swap: ConfigSwap = read_config_swap(&deps.storage)?;
@@ -151,22 +132,6 @@ pub fn try_update_config<S: Storage, A: Api, Q: Querier>(
         }
 
         config_swap.inactive_commission = inactive_commission;
-    }
-
-    if let Some(max_minus_spread) = max_minus_spread {
-        if max_minus_spread > Decimal::one() {
-            return Err(StdError::generic_err("rate cannot be bigger than one"));
-        }
-
-        config_swap.max_minus_spread = max_minus_spread;
-    }
-
-    if let Some(max_spread) = max_spread {
-        if max_spread > Decimal::one() {
-            return Err(StdError::generic_err("rate cannot be bigger than one"));
-        }
-
-        config_swap.max_spread = max_spread;
     }
 
     store_config_swap(&mut deps.storage, &config_swap)?;
@@ -196,24 +161,39 @@ pub fn try_provide_liquidity<S: Storage, A: Api, Q: Querier>(
         &env.message.sent_funds,
         config_general.collateral_denom.to_string(),
     );
+
     if collateral_amount != sent_collateral_amount {
         return Err(StdError::generic_err(
             "Collateral amount missmatch between the argument and the transferred",
         ));
     }
 
-    let price: Decimal = load_price(
-        &deps,
-        &deps.api.human_address(&config_asset.oracle)?,
-        Some(env.block.time),
-    )?;
+    let liquidity_token = deps.api.human_address(&config_general.liquidity_token)?;
+    let asset_token = deps.api.human_address(&config_asset.token)?;
 
-    // calculate share amount
-    let asset_value = asset_amount * price;
-    let share = if asset_value > collateral_amount {
+    let total_share = load_supply(&deps, &liquidity_token)?;
+    let share = if total_share == Uint128::zero() {
+        // initial share = collateral amount
         collateral_amount
     } else {
-        asset_value
+        let asset_pool = load_token_balance(&deps, &asset_token, &config_general.contract_addr)?;
+        let collateral_pool = load_balance(
+            &deps,
+            &env.contract.address,
+            config_general.collateral_denom,
+        )?;
+        let exchange_rate = Decimal::from_ratio(collateral_pool, asset_pool);
+        let asset_value = asset_amount * exchange_rate;
+
+        // calculate allowed value
+        let value = if asset_value > collateral_amount {
+            collateral_amount
+        } else {
+            asset_value
+        };
+
+        // share = value * (total_share / collateral_pool)
+        value.multiply_ratio(total_share, collateral_pool)
     };
 
     // increase share
@@ -361,12 +341,6 @@ pub fn try_buy<S: Storage, A: Api, Q: Querier>(
         )));
     }
 
-    let price: Decimal = load_price(
-        &deps,
-        &deps.api.human_address(&config_asset.oracle)?,
-        Some(env.block.time),
-    )?;
-
     let asset_pool: Uint128 =
         load_token_balance(&deps, &asset_addr, &config_general.contract_addr)?;
     let collateral_pool: Uint128 = load_balance(
@@ -377,15 +351,13 @@ pub fn try_buy<S: Storage, A: Api, Q: Querier>(
 
     // active commission is absorbed to ask pool
     let offer_amount = collateral_amount;
-    let (return_amount, spread_amount, minus_spread_amount, active_commission, inactive_commission) =
-        compute_swap(
-            &config_swap,
-            collateral_pool,
-            asset_pool,
-            offer_amount,
-            price,
-            SwapOperation::Buy,
-        )?;
+    let (return_amount, spread_amount, active_commission, inactive_commission) = compute_swap(
+        &config_swap,
+        collateral_pool,
+        asset_pool,
+        offer_amount,
+        SwapOperation::Buy,
+    )?;
 
     // check max spread limit if exist
     assert_max_spread(max_spread, return_amount, spread_amount)?;
@@ -428,10 +400,6 @@ pub fn try_buy<S: Storage, A: Api, Q: Querier>(
                 &(spread_amount.to_string() + config_asset.symbol.as_str()),
             ),
             log(
-                "minus_spread_amount",
-                &(minus_spread_amount.to_string() + config_asset.symbol.as_str()),
-            ),
-            log(
                 "commission_amount",
                 &((active_commission + inactive_commission).to_string()
                     + config_asset.symbol.as_str()),
@@ -453,13 +421,6 @@ pub fn try_sell<S: Storage, A: Api, Q: Querier>(
     let config_swap: ConfigSwap = read_config_swap(&deps.storage)?;
     let asset_addr = deps.api.human_address(&config_asset.token)?;
 
-    // convert asset amount to unit of colalteral
-    let price: Decimal = load_price(
-        &deps,
-        &deps.api.human_address(&config_asset.oracle)?,
-        Some(env.block.time),
-    )?;
-
     let asset_pool: Uint128 =
         load_token_balance(&deps, &asset_addr, &config_general.contract_addr)?;
     let collateral_pool: Uint128 = load_balance(
@@ -469,15 +430,13 @@ pub fn try_sell<S: Storage, A: Api, Q: Querier>(
     )?;
 
     let offer_amount = asset_amount;
-    let (return_amount, spread_amount, minus_spread_amount, active_commission, inactive_commission) =
-        compute_swap(
-            &config_swap,
-            collateral_pool,
-            asset_pool,
-            offer_amount,
-            price,
-            SwapOperation::Sell,
-        )?;
+    let (return_amount, spread_amount, active_commission, inactive_commission) = compute_swap(
+        &config_swap,
+        collateral_pool,
+        asset_pool,
+        offer_amount,
+        SwapOperation::Sell,
+    )?;
 
     // check max spread limit if exist
     assert_max_spread(max_spread, return_amount, spread_amount)?;
@@ -536,10 +495,6 @@ pub fn try_sell<S: Storage, A: Api, Q: Querier>(
                 &(spread_amount.to_string() + config_general.collateral_denom.as_str()),
             ),
             log(
-                "minus_spread_amount",
-                &(minus_spread_amount.to_string() + config_general.collateral_denom.as_str()),
-            ),
-            log(
                 "commission_amount",
                 &((active_commission + inactive_commission).to_string()
                     + config_general.collateral_denom.as_str()),
@@ -589,7 +544,6 @@ pub fn query_config_asset<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<ConfigAssetResponse> {
     let state: ConfigAsset = read_config_asset(&deps.storage)?;
     let resp = ConfigAssetResponse {
-        oracle: deps.api.human_address(&state.oracle)?,
         token: deps.api.human_address(&state.token)?,
         symbol: state.symbol,
     };
@@ -604,8 +558,6 @@ pub fn query_config_swap<S: Storage, A: Api, Q: Querier>(
     let resp = ConfigSwapResponse {
         active_commission: state.active_commission,
         inactive_commission: state.inactive_commission,
-        max_minus_spread: state.max_minus_spread,
-        max_spread: state.max_spread,
     };
 
     Ok(resp)
@@ -677,16 +629,13 @@ pub fn query_simulation<S: Storage, A: Api, Q: Querier>(
         config_general.collateral_denom.to_string(),
     )?;
 
-    let price: Decimal = load_price(&deps, &deps.api.human_address(&config_asset.oracle)?, None)?;
-    let (return_amount, spread_amount, minus_spread_amount, active_commission, inactive_commission) =
-        compute_swap(
-            &config_swap,
-            collateral_pool,
-            asset_pool,
-            offer_amount,
-            price,
-            operation,
-        )?;
+    let (return_amount, spread_amount, active_commission, inactive_commission) = compute_swap(
+        &config_swap,
+        collateral_pool,
+        asset_pool,
+        offer_amount,
+        operation,
+    )?;
 
     let denom = match operation {
         SwapOperation::Buy => config_asset.symbol,
@@ -701,10 +650,6 @@ pub fn query_simulation<S: Storage, A: Api, Q: Querier>(
         spread_amount: Coin {
             denom: denom.to_string(),
             amount: spread_amount,
-        },
-        minus_spread_amount: Coin {
-            denom: denom.to_string(),
-            amount: minus_spread_amount,
         },
         commission_amount: Coin {
             denom,
@@ -734,14 +679,12 @@ pub fn query_reverse_simulation<S: Storage, A: Api, Q: Querier>(
         config_general.collateral_denom.to_string(),
     )?;
 
-    let price: Decimal = load_price(&deps, &deps.api.human_address(&config_asset.oracle)?, None)?;
-    let (offer_amount, spread_amount, minus_spread_amount, active_commission, inactive_commission) =
+    let (offer_amount, spread_amount, active_commission, inactive_commission) =
         compute_offer_amount(
             &config_swap,
             collateral_pool,
             asset_pool,
             ask_amount,
-            price,
             operation,
         )?;
 
@@ -758,10 +701,6 @@ pub fn query_reverse_simulation<S: Storage, A: Api, Q: Querier>(
         spread_amount: Coin {
             denom: ask_denom.to_string(),
             amount: spread_amount,
-        },
-        minus_spread_amount: Coin {
-            denom: ask_denom.to_string(),
-            amount: minus_spread_amount,
         },
         commission_amount: Coin {
             denom: ask_denom,
@@ -797,47 +736,29 @@ fn compute_swap(
     collateral_pool: Uint128,
     asset_pool: Uint128,
     offer_amount: Uint128,
-    price: Decimal,
     swap_operation: SwapOperation,
-) -> StdResult<(Uint128, Uint128, Uint128, Uint128, Uint128)> {
+) -> StdResult<(Uint128, Uint128, Uint128, Uint128)> {
     let offer_pool: Uint128;
     let ask_pool: Uint128;
-    let exchange_rate: Decimal;
     match swap_operation {
         SwapOperation::Buy => {
             offer_pool = collateral_pool;
             ask_pool = asset_pool;
-            exchange_rate = reverse_decimal(price);
         }
         SwapOperation::Sell => {
             offer_pool = asset_pool;
             ask_pool = collateral_pool;
-            exchange_rate = price;
         }
     }
 
     // offer => ask
     // ask_amount = (ask_pool - cp / (offer_pool + offer_amount)) * (1 - commission_rate)
-    // max_minus_spread_ask_amount = offer_amount * exchange_rate * (1 + max_minus_spread) * (1 - commission)
-    // max_spread_ask_amount = offer_amount * exchange_rate * (1 - max_spread) * (1 - commission)
-    // ask_amount = max(min(uniswap, max_minus_spread), max_spread)
-
-    // basic uniswap operation; return_amount = ask_pool - constant_product / (offer_pool + offer_amount);
     let cp = Uint128(offer_pool.u128() * ask_pool.u128());
-    let return_amount = offer_amount * exchange_rate;
-    let return_amount = std::cmp::max(
-        std::cmp::min(
-            (ask_pool - cp.multiply_ratio(1u128, offer_pool + offer_amount))?,
-            return_amount * (Decimal::one() + config.max_minus_spread),
-        ),
-        return_amount * decimal_subtraction(Decimal::one(), config.max_spread)?,
-    );
+    let return_amount = (ask_pool - cp.multiply_ratio(1u128, offer_pool + offer_amount))?;
 
     // calculate spread & commission
     let spread_amount: Uint128 =
-        (offer_amount * exchange_rate - return_amount).unwrap_or_else(|_| Uint128::zero());
-    let minus_spread_amount =
-        (return_amount - offer_amount * exchange_rate).unwrap_or_else(|_| Uint128::zero());
+        (offer_amount * Decimal::from_ratio(ask_pool, offer_pool) - return_amount)?;
     let active_commission: Uint128 = return_amount * config.active_commission;
     let inactive_commission: Uint128 = return_amount * config.inactive_commission;
 
@@ -848,7 +769,6 @@ fn compute_swap(
     Ok((
         return_amount,
         spread_amount,
-        minus_spread_amount,
         active_commission,
         inactive_commission,
     ))
@@ -859,73 +779,42 @@ fn compute_offer_amount(
     collateral_pool: Uint128,
     asset_pool: Uint128,
     ask_amount: Uint128,
-    price: Decimal,
     swap_operation: SwapOperation,
-) -> StdResult<(Uint128, Uint128, Uint128, Uint128, Uint128)> {
+) -> StdResult<(Uint128, Uint128, Uint128, Uint128)> {
     let offer_pool: Uint128;
     let ask_pool: Uint128;
-    let exchange_rate: Decimal;
     match swap_operation {
         SwapOperation::Buy => {
             offer_pool = collateral_pool;
             ask_pool = asset_pool;
-            exchange_rate = reverse_decimal(price);
         }
         SwapOperation::Sell => {
             offer_pool = asset_pool;
             ask_pool = collateral_pool;
-            exchange_rate = price;
         }
     }
 
     // ask => offer
-    // max_minus_spread_offer_amount = ask_amount / (exchange_rate * (1 + max_minus_spread) * (1 - commission))
-    // max_spread_offer_amount = ask_amount / (exchange_rate * (1 - max_spread) * (1 - commission))
-    // uniswap_offer_amount = cp / (ask_pool - ask_amount * (1 - commission_rate)) - offer_pool
-    // offer_amount = min(max(uniswap, max_minus_spread), max_spread)
-
+    // offer_amount = cp / (ask_pool - ask_amount * (1 - commission_rate)) - offer_pool
     let cp = Uint128(offer_pool.u128() * ask_pool.u128());
     let one_minus_commission = decimal_subtraction(
         Decimal::one(),
         config.active_commission + config.inactive_commission,
     )?;
 
-    let max_minus_spread_offer_amount: Uint128 = ask_amount
-        * reverse_decimal(decimal_multiplication(
-            decimal_multiplication(exchange_rate, Decimal::one() + config.max_minus_spread),
-            one_minus_commission,
-        ));
-
-    let max_spread_offer_amount: Uint128 = ask_amount
-        * reverse_decimal(decimal_multiplication(
-            decimal_multiplication(
-                exchange_rate,
-                decimal_subtraction(Decimal::one(), config.max_spread)?,
-            ),
-            one_minus_commission,
-        ));
-
-    let uniswap_offer_amount: Uint128 = (cp.multiply_ratio(
+    let offer_amount: Uint128 = (cp.multiply_ratio(
         1u128,
         (ask_pool - ask_amount * reverse_decimal(one_minus_commission))?,
     ) - offer_pool)?;
 
-    let offer_amount: Uint128 = std::cmp::min(
-        std::cmp::max(uniswap_offer_amount, max_minus_spread_offer_amount),
-        max_spread_offer_amount,
-    );
-
     let before_commission_deduction = ask_amount * reverse_decimal(one_minus_commission);
-    let spread_amount = (offer_amount * exchange_rate - before_commission_deduction)
-        .unwrap_or_else(|_| Uint128::zero());
-    let minus_spread_amount = (before_commission_deduction - offer_amount * exchange_rate)
-        .unwrap_or_else(|_| Uint128::zero());
+    let spread_amount =
+        (offer_amount * Decimal::from_ratio(ask_pool, offer_pool) - before_commission_deduction)?;
     let active_commission = before_commission_deduction * config.active_commission;
     let inactive_commission = before_commission_deduction * config.inactive_commission;
     Ok((
         offer_amount,
         spread_amount,
-        minus_spread_amount,
         active_commission,
         inactive_commission,
     ))

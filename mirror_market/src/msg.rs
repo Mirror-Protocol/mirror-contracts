@@ -9,8 +9,6 @@ pub struct InitMsg {
     pub commission_collector: HumanAddr,
     /// Asset token address
     pub asset_token: HumanAddr,
-    /// Asset oracle address
-    pub asset_oracle: HumanAddr,
     /// Asset symbol
     pub asset_symbol: String,
     /// Collateral denom
@@ -19,10 +17,6 @@ pub struct InitMsg {
     pub active_commission: Decimal,
     /// Commission rate for mirror token stakers
     pub inactive_commission: Decimal,
-    /// Maximum spread to protect trader
-    pub max_minus_spread: Decimal,
-    /// Maximum minus spread to protect arbitrage attack
-    pub max_spread: Decimal,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -38,8 +32,6 @@ pub enum HandleMsg {
         owner: Option<HumanAddr>,
         active_commission: Option<Decimal>,
         inactive_commission: Option<Decimal>,
-        max_minus_spread: Option<Decimal>,
-        max_spread: Option<Decimal>,
     },
     /// ProvideLiquidity a user provides pool liquidity
     ProvideLiquidity { coins: Vec<Coin> },
@@ -97,14 +89,11 @@ pub struct ConfigGeneralResponse {
 pub struct ConfigSwapResponse {
     pub active_commission: Decimal,
     pub inactive_commission: Decimal,
-    pub max_minus_spread: Decimal,
-    pub max_spread: Decimal,
 }
 
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ConfigAssetResponse {
-    pub oracle: HumanAddr,
     pub token: HumanAddr,
     pub symbol: String,
 }
@@ -128,7 +117,6 @@ pub struct ProviderResponse {
 pub struct SimulationResponse {
     pub return_amount: Coin,
     pub spread_amount: Coin,
-    pub minus_spread_amount: Coin,
     pub commission_amount: Coin,
 }
 
@@ -137,6 +125,5 @@ pub struct SimulationResponse {
 pub struct ReverseSimulationResponse {
     pub offer_amount: Coin,
     pub spread_amount: Coin,
-    pub minus_spread_amount: Coin,
     pub commission_amount: Coin,
 }

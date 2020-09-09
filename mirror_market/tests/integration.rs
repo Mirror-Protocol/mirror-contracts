@@ -56,11 +56,8 @@ fn proper_initialization() {
         commission_collector: HumanAddr("collector0000".to_string()),
         asset_symbol: "mAPPL".to_string(),
         asset_token: HumanAddr("asset0000".to_string()),
-        asset_oracle: HumanAddr("oracle0000".to_string()),
         active_commission: Decimal::permille(3),
         inactive_commission: Decimal::permille(1),
-        max_spread: Decimal::percent(20),
-        max_minus_spread: Decimal::percent(2),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -87,7 +84,6 @@ fn proper_initialization() {
 
     let res = query(&mut deps, QueryMsg::ConfigAsset {}).unwrap();
     let config_asset: ConfigAssetResponse = from_binary(&res).unwrap();
-    assert_eq!("oracle0000", config_asset.oracle.as_str());
     assert_eq!("mAPPL", config_asset.symbol.as_str());
     assert_eq!("asset0000", config_asset.token.as_str());
 
@@ -95,8 +91,6 @@ fn proper_initialization() {
     let config_swap: ConfigSwapResponse = from_binary(&res).unwrap();
     assert_eq!(Decimal::permille(3), config_swap.active_commission);
     assert_eq!(Decimal::permille(1), config_swap.inactive_commission);
-    assert_eq!(Decimal::percent(20), config_swap.max_spread);
-    assert_eq!(Decimal::percent(2), config_swap.max_minus_spread);
 }
 
 #[test]
@@ -107,11 +101,8 @@ fn update_config() {
         commission_collector: HumanAddr("collector0000".to_string()),
         asset_symbol: "mAPPL".to_string(),
         asset_token: HumanAddr("asset0000".to_string()),
-        asset_oracle: HumanAddr("oracle0000".to_string()),
         active_commission: Decimal::permille(3),
         inactive_commission: Decimal::permille(1),
-        max_spread: Decimal::percent(20),
-        max_minus_spread: Decimal::percent(2),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -131,8 +122,6 @@ fn update_config() {
         owner: Some(HumanAddr("addr0001".to_string())),
         active_commission: None,
         inactive_commission: None,
-        max_minus_spread: None,
-        max_spread: None,
     };
 
     let res: HandleResponse = handle(&mut deps, env, msg).unwrap();
@@ -149,8 +138,6 @@ fn update_config() {
         owner: None,
         active_commission: Some(Decimal::percent(1)),
         inactive_commission: Some(Decimal::percent(2)),
-        max_minus_spread: Some(Decimal::percent(5)),
-        max_spread: Some(Decimal::percent(6)),
     };
 
     let res: HandleResult = handle(&mut deps, env, msg);

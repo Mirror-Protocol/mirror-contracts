@@ -1,22 +1,10 @@
 use cosmwasm_std::{
-    Api, BalanceResponse, BankQuery, Binary, CanonicalAddr, Decimal, Extern, HumanAddr, Querier,
-    QueryRequest, StdError, StdResult, Storage, Uint128, WasmQuery,
+    Api, BalanceResponse, BankQuery, Binary, CanonicalAddr, Extern, HumanAddr, Querier,
+    QueryRequest, StdResult, Storage, Uint128, WasmQuery,
 };
 
-use crate::math::decimal_multiplication;
 use cosmwasm_storage::to_length_prefixed;
 use cw20::TokenInfoResponse;
-use serde::{Deserialize, Serialize};
-
-const PRICE_EXPIRE_TIME: u64 = 30;
-
-/// ReverseSimulationResponse returns reverse swap simulation response
-#[derive(Serialize, Deserialize)]
-pub struct PriceInfo {
-    pub price: Decimal,
-    pub price_multiplier: Decimal,
-    pub last_update_time: u64,
-}
 
 pub fn load_balance<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
@@ -29,29 +17,6 @@ pub fn load_balance<S: Storage, A: Api, Q: Querier>(
         denom,
     }))?;
     Ok(balance.amount.amount)
-}
-
-pub fn load_price<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    contract_addr: &HumanAddr,
-    block_time: Option<u64>,
-) -> StdResult<Decimal> {
-    // load price form the oracle
-    let price_info: PriceInfo = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
-        contract_addr: HumanAddr::from(contract_addr),
-        key: Binary::from(b"price"),
-    }))?;
-
-    if let Some(block_time) = block_time {
-        if price_info.last_update_time < (block_time - PRICE_EXPIRE_TIME) {
-            return Err(StdError::generic_err("Price is too old".to_string()));
-        }
-    }
-
-    Ok(decimal_multiplication(
-        price_info.price,
-        price_info.price_multiplier,
-    ))
 }
 
 pub fn load_token_balance<S: Storage, A: Api, Q: Querier>(

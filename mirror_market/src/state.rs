@@ -28,13 +28,10 @@ pub struct ConfigGeneral {
 pub struct ConfigSwap {
     pub active_commission: Decimal,
     pub inactive_commission: Decimal,
-    pub max_minus_spread: Decimal,
-    pub max_spread: Decimal,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ConfigAsset {
-    pub oracle: CanonicalAddr,
     pub token: CanonicalAddr,
     pub symbol: String,
 }
