@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    Api, BalanceResponse, BankQuery, Binary, CanonicalAddr, Decimal, Extern, HumanAddr, Querier,
+    Api, BalanceResponse, BankQuery, Binary, CanonicalAddr, Extern, HumanAddr, Querier,
     QueryRequest, StdResult, Storage, Uint128, WasmQuery,
 };
 
@@ -13,7 +13,6 @@ pub struct WhitelistInfo {
     pub market_contract: CanonicalAddr,
     pub oracle_contract: CanonicalAddr,
     pub staking_contract: CanonicalAddr,
-    pub weight: Decimal,
 }
 
 pub fn load_whitelist_info<S: Storage, A: Api, Q: Querier>(

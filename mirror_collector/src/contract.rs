@@ -19,7 +19,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     store_config(
         &mut deps.storage,
         &Config {
-            deposit_target: deps.api.canonical_address(&msg.deposit_target)?,
+            factory_contract: deps.api.canonical_address(&msg.factory_contract)?,
             staking_symbol: msg.staking_symbol,
             collateral_denom: msg.collateral_denom,
         },
@@ -39,14 +39,18 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     }
 }
 
+// Anyone can execute convert function to convert rewards to staking token
 pub fn try_convert<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     symbol: String,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
-    let whitelist_info: WhitelistInfo =
-        load_whitelist_info(&deps, &env.contract.address, symbol.to_string())?;
+    let whitelist_info: WhitelistInfo = load_whitelist_info(
+        &deps,
+        &deps.api.human_address(&config.factory_contract)?,
+        symbol.to_string(),
+    )?;
 
     let mut messages: Vec<CosmosMsg> = vec![];
     if config.staking_symbol == symbol {
@@ -101,13 +105,17 @@ pub fn try_convert<S: Storage, A: Api, Q: Querier>(
     })
 }
 
+// Anyone can execute send function to receive staking token rewards
 pub fn try_send<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
-    let whitelist_info: WhitelistInfo =
-        load_whitelist_info(&deps, &env.contract.address, config.staking_symbol)?;
+    let whitelist_info: WhitelistInfo = load_whitelist_info(
+        &deps,
+        &deps.api.human_address(&config.factory_contract)?,
+        config.staking_symbol,
+    )?;
 
     let amount = load_token_balance(
         &deps,
@@ -144,7 +152,7 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<ConfigResponse> {
     let state = read_config(&deps.storage)?;
     let resp = ConfigResponse {
-        deposit_target: deps.api.human_address(&state.deposit_target)?,
+        factory_contract: deps.api.human_address(&state.factory_contract)?,
         staking_symbol: state.staking_symbol,
         collateral_denom: state.collateral_denom,
     };
