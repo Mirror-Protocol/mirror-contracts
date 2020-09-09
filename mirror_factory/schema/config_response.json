@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ConfigResponse",
+  "type": "object",
+  "required": [
+    "collateral_denom",
+    "deposit_target",
+    "staking_symbol"
+  ],
+  "properties": {
+    "collateral_denom": {
+      "type": "string"
+    },
+    "deposit_target": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "staking_symbol": {
+      "type": "string"
+    }
+  },
+  "definitions": {
+    "HumanAddr": {
+      "type": "string"
+    }
+  }
+}
