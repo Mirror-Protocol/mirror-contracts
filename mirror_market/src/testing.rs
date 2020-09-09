@@ -41,7 +41,13 @@ fn proper_initialization() {
     let msg = HandleMsg::PostInitialize {
         liquidity_token: HumanAddr("liquidity0000".to_string()),
     };
-    let _res = handle(&mut deps, env, msg).unwrap();
+    let _res = handle(&mut deps, env.clone(), msg).unwrap();
+
+    // cannot change it after post intialization
+    let msg = HandleMsg::PostInitialize {
+        liquidity_token: HumanAddr("liquidity0000".to_string()),
+    };
+    let _res = handle(&mut deps, env, msg).unwrap_err();
 
     // // it worked, let's query the state
     let config_general: ConfigGeneralResponse = query_config_general(&deps).unwrap();
