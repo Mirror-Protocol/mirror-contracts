@@ -3,18 +3,6 @@
   "title": "HandleMsg",
   "anyOf": [
     {
-      "description": "Receive is cw20 token send handler",
-      "type": "object",
-      "required": [
-        "receive"
-      ],
-      "properties": {
-        "receive": {
-          "$ref": "#/definitions/Cw20ReceiveMsg"
-        }
-      }
-    },
-    {
       "type": "object",
       "required": [
         "cast_vote"
@@ -137,6 +125,18 @@
               "minimum": 0.0
             }
           }
+        }
+      }
+    },
+    {
+      "description": "Receive is cw20 token send handler",
+      "type": "object",
+      "required": [
+        "receive"
+      ],
+      "properties": {
+        "receive": {
+          "$ref": "#/definitions/Cw20ReceiveMsg"
         }
       }
     }

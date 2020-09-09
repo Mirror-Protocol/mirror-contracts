@@ -4,14 +4,14 @@
   "type": "object",
   "required": [
     "collateral_denom",
-    "deposit_target",
+    "factory_contract",
     "staking_symbol"
   ],
   "properties": {
     "collateral_denom": {
       "type": "string"
     },
-    "deposit_target": {
+    "factory_contract": {
       "$ref": "#/definitions/HumanAddr"
     },
     "staking_symbol": {

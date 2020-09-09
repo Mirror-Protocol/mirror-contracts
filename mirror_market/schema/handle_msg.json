@@ -56,26 +56,6 @@
                 }
               ]
             },
-            "max_minus_spread": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/Decimal"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "max_spread": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/Decimal"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
             "owner": {
               "description": "Later it will be set by gov contract",
               "anyOf": [

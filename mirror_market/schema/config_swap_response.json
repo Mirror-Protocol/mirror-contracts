@@ -4,21 +4,13 @@
   "type": "object",
   "required": [
     "active_commission",
-    "inactive_commission",
-    "max_minus_spread",
-    "max_spread"
+    "inactive_commission"
   ],
   "properties": {
     "active_commission": {
       "$ref": "#/definitions/Decimal"
     },
     "inactive_commission": {
-      "$ref": "#/definitions/Decimal"
-    },
-    "max_minus_spread": {
-      "$ref": "#/definitions/Decimal"
-    },
-    "max_spread": {
       "$ref": "#/definitions/Decimal"
     }
   },

@@ -3,14 +3,10 @@
   "title": "ConfigAsset",
   "type": "object",
   "required": [
-    "oracle",
     "symbol",
     "token"
   ],
   "properties": {
-    "oracle": {
-      "$ref": "#/definitions/CanonicalAddr"
-    },
     "symbol": {
       "type": "string"
     },
