@@ -37,7 +37,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     msg: HandleMsg,
 ) -> StdResult<HandleResponse> {
     match msg {
-        HandleMsg::PostInitlize { mirror_token } => try_post_initialize(deps, env, mirror_token),
+        HandleMsg::PostInitialize { mirror_token } => try_post_initialize(deps, env, mirror_token),
         HandleMsg::UpdateConfig {
             owner,
             mint_per_block,

@@ -50,7 +50,7 @@ fn proper_initialization() {
     let env = mock_env("addr0000", &[]);
     let _res: InitResponse = init(&mut deps, env.clone(), msg).unwrap();
 
-    let msg = HandleMsg::PostInitlize {
+    let msg = HandleMsg::PostInitialize {
         mirror_token: HumanAddr("token0000".to_string()),
     };
     let _res: HandleResponse = handle(&mut deps, env, msg).unwrap();
@@ -74,7 +74,7 @@ fn test_update_config() {
     let env = mock_env("addr0000", &[]);
     let _res: InitResponse = init(&mut deps, env.clone(), msg).unwrap();
 
-    let msg = HandleMsg::PostInitlize {
+    let msg = HandleMsg::PostInitialize {
         mirror_token: HumanAddr("token0000".to_string()),
     };
     let _res: HandleResponse = handle(&mut deps, env, msg).unwrap();
@@ -132,7 +132,7 @@ fn test_whitelist() {
     let env = mock_env("addr0000", &[]);
     let _res: InitResponse = init(&mut deps, env.clone(), msg).unwrap();
 
-    let msg = HandleMsg::PostInitlize {
+    let msg = HandleMsg::PostInitialize {
         mirror_token: HumanAddr("token0000".to_string()),
     };
     let _res: HandleResponse = handle(&mut deps, env, msg).unwrap();
@@ -208,7 +208,7 @@ fn test_update_weight() {
     let env = mock_env("addr0000", &[]);
     let _res: InitResponse = init(&mut deps, env.clone(), msg).unwrap();
 
-    let msg = HandleMsg::PostInitlize {
+    let msg = HandleMsg::PostInitialize {
         mirror_token: HumanAddr("token0000".to_string()),
     };
     let _res: HandleResponse = handle(&mut deps, env, msg).unwrap();
@@ -261,7 +261,7 @@ fn test_mint() {
     let env = mock_env("addr0000", &[]);
     let _res: InitResponse = init(&mut deps, env.clone(), msg).unwrap();
 
-    let msg = HandleMsg::PostInitlize {
+    let msg = HandleMsg::PostInitialize {
         mirror_token: HumanAddr("token0000".to_string()),
     };
     let _res: HandleResponse = handle(&mut deps, env, msg).unwrap();
