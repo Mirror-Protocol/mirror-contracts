@@ -3,23 +3,22 @@
   "title": "InitMsg",
   "type": "object",
   "required": [
-    "collateral_denom",
-    "deposit_target",
-    "staking_symbol"
+    "mint_per_block",
+    "staking_token"
   ],
   "properties": {
-    "collateral_denom": {
-      "type": "string"
+    "mint_per_block": {
+      "$ref": "#/definitions/Uint128"
     },
-    "deposit_target": {
+    "staking_token": {
       "$ref": "#/definitions/HumanAddr"
-    },
-    "staking_symbol": {
-      "type": "string"
     }
   },
   "definitions": {
     "HumanAddr": {
+      "type": "string"
+    },
+    "Uint128": {
       "type": "string"
     }
   }

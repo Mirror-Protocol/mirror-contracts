@@ -3,19 +3,19 @@
   "title": "Config",
   "type": "object",
   "required": [
-    "collateral_denom",
-    "deposit_target",
-    "staking_symbol"
+    "mint_per_block",
+    "owner",
+    "staking_token"
   ],
   "properties": {
-    "collateral_denom": {
-      "type": "string"
+    "mint_per_block": {
+      "$ref": "#/definitions/Uint128"
     },
-    "deposit_target": {
+    "owner": {
       "$ref": "#/definitions/CanonicalAddr"
     },
-    "staking_symbol": {
-      "type": "string"
+    "staking_token": {
+      "$ref": "#/definitions/CanonicalAddr"
     }
   },
   "definitions": {
@@ -25,6 +25,9 @@
     },
     "CanonicalAddr": {
       "$ref": "#/definitions/Binary"
+    },
+    "Uint128": {
+      "type": "string"
     }
   }
 }
