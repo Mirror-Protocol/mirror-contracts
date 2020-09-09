@@ -1,8 +1,9 @@
 use cosmwasm_std::{
-    Api, Binary, Decimal, Extern, HumanAddr, Querier, QueryRequest, StdError, StdResult, Storage,
-    Uint128, WasmQuery,
+    from_binary, Api, Binary, Decimal, Extern, HumanAddr, Querier, QueryRequest, StdError,
+    StdResult, Storage, Uint128, WasmQuery,
 };
 
+use cosmwasm_storage::to_length_prefixed;
 use serde::{Deserialize, Serialize};
 
 const PRICE_EXPIRE_TIME: u64 = 30;
@@ -21,11 +22,12 @@ pub fn load_price<S: Storage, A: Api, Q: Querier>(
     block_time: Option<u64>,
 ) -> StdResult<Decimal> {
     // load price form the oracle
-    let price_info: PriceInfo = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
+    let res: Binary = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
         contract_addr: HumanAddr::from(contract_addr),
-        key: Binary::from(b"price"),
+        key: Binary::from(to_length_prefixed(b"price")),
     }))?;
 
+    let price_info: PriceInfo = from_binary(&res)?;
     if let Some(block_time) = block_time {
         if price_info.last_update_time < (block_time - PRICE_EXPIRE_TIME) {
             return Err(StdError::generic_err("Price is too old".to_string()));

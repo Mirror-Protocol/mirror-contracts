@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    Api, BalanceResponse, BankQuery, Binary, CanonicalAddr, Extern, HumanAddr, Querier,
-    QueryRequest, StdResult, Storage, Uint128, WasmQuery,
+    from_binary, Api, BalanceResponse, BankQuery, Binary, CanonicalAddr, Extern, HumanAddr,
+    Querier, QueryRequest, StdResult, Storage, Uint128, WasmQuery,
 };
 
 use cosmwasm_storage::to_length_prefixed;
@@ -25,18 +25,15 @@ pub fn load_token_balance<S: Storage, A: Api, Q: Querier>(
     account_addr: &CanonicalAddr,
 ) -> StdResult<Uint128> {
     // load balance form the token contract
-    let balance: Uint128 = deps
-        .querier
-        .query(&QueryRequest::Wasm(WasmQuery::Raw {
-            contract_addr: HumanAddr::from(contract_addr),
-            key: Binary::from(concat(
-                &to_length_prefixed(b"balances").to_vec(),
-                account_addr.as_slice(),
-            )),
-        }))
-        .unwrap_or_else(|_| Uint128::zero());
+    let res: Binary = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
+        contract_addr: HumanAddr::from(contract_addr),
+        key: Binary::from(concat(
+            &to_length_prefixed(b"balances").to_vec(),
+            account_addr.as_slice(),
+        )),
+    }))?;
 
-    Ok(balance)
+    Ok(from_binary(&res).unwrap_or_else(|_| Uint128::zero()))
 }
 
 pub fn load_supply<S: Storage, A: Api, Q: Querier>(
@@ -44,15 +41,12 @@ pub fn load_supply<S: Storage, A: Api, Q: Querier>(
     contract_addr: &HumanAddr,
 ) -> StdResult<Uint128> {
     // load price form the oracle
-    let token_info: TokenInfoResponse =
-        deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
-            contract_addr: HumanAddr::from(contract_addr),
-            key: Binary::from(concat(
-                &to_length_prefixed(b"config").to_vec(),
-                b"total_supply",
-            )),
-        }))?;
+    let res: Binary = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
+        contract_addr: HumanAddr::from(contract_addr),
+        key: Binary::from(to_length_prefixed(b"token_info")),
+    }))?;
 
+    let token_info: TokenInfoResponse = from_binary(&res)?;
     Ok(token_info.total_supply)
 }
 
