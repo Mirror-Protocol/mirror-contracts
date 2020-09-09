@@ -80,10 +80,12 @@ pub fn try_post_initialize<S: Storage, A: Api, Q: Querier>(
     env: Env,
     liquidity_token: HumanAddr,
 ) -> StdResult<HandleResponse> {
-    let config_general = read_config_general(&deps.storage)?;
+    let config_general: ConfigGeneral = read_config_general(&deps.storage)?;
 
     // permission check
-    if deps.api.canonical_address(&env.message.sender)? != config_general.owner {
+    if deps.api.canonical_address(&env.message.sender)? != config_general.owner
+        || config_general.liquidity_token != CanonicalAddr::default()
+    {
         return Err(StdError::unauthorized());
     }
 
