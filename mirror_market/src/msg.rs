@@ -53,9 +53,6 @@ pub enum QueryMsg {
     ConfigAsset {},
     ConfigSwap {},
     Pool {},
-    Provider {
-        address: HumanAddr,
-    },
     Simulation {
         offer_amount: Uint128,
         operation: SwapOperation,
@@ -104,12 +101,6 @@ pub struct PoolResponse {
     pub asset_pool: Uint128,
     pub collateral_pool: Uint128,
     pub total_share: Uint128,
-}
-
-// We define a custom struct for each query response
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct ProviderResponse {
-    pub share: Uint128,
 }
 
 /// SimulationResponse returns swap simulation response

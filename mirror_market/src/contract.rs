@@ -1,13 +1,12 @@
 use cosmwasm_std::{
-    log, to_binary, to_vec, Api, BankMsg, Binary, CanonicalAddr, Coin, CosmosMsg, Decimal, Env,
-    Extern, HandleResponse, HumanAddr, InitResponse, Querier, StdError, StdResult, Storage,
-    Uint128, WasmMsg,
+    log, to_binary, Api, BankMsg, Binary, CanonicalAddr, Coin, CosmosMsg, Decimal, Env, Extern,
+    HandleResponse, HumanAddr, InitResponse, Querier, StdError, StdResult, Storage, Uint128,
+    WasmMsg,
 };
 
 use crate::msg::{
     ConfigAssetResponse, ConfigGeneralResponse, ConfigSwapResponse, HandleMsg, InitMsg,
-    PoolResponse, ProviderResponse, QueryMsg, ReverseSimulationResponse, SimulationResponse,
-    SwapOperation,
+    PoolResponse, QueryMsg, ReverseSimulationResponse, SimulationResponse, SwapOperation,
 };
 
 use crate::math::{decimal_subtraction, reverse_decimal};
@@ -17,9 +16,8 @@ use cw20::Cw20HandleMsg;
 use terra_cosmwasm::TerraQuerier;
 
 use crate::state::{
-    provider_share_read, provider_share_store, read_config_asset, read_config_general,
-    read_config_swap, store_config_asset, store_config_general, store_config_swap, ConfigAsset,
-    ConfigGeneral, ConfigSwap,
+    read_config_asset, read_config_general, read_config_swap, store_config_asset,
+    store_config_general, store_config_swap, ConfigAsset, ConfigGeneral, ConfigSwap,
 };
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
@@ -150,7 +148,6 @@ pub fn try_provide_liquidity<S: Storage, A: Api, Q: Querier>(
     env: Env,
     coins: Vec<Coin>,
 ) -> StdResult<HandleResponse> {
-    let provider_addr_raw: CanonicalAddr = deps.api.canonical_address(&env.message.sender)?;
     let config_general: ConfigGeneral = read_config_general(&deps.storage)?;
     let config_asset: ConfigAsset = read_config_asset(&deps.storage)?;
 
@@ -196,13 +193,6 @@ pub fn try_provide_liquidity<S: Storage, A: Api, Q: Querier>(
         value.multiply_ratio(total_share, collateral_pool)
     };
 
-    // increase share
-    let current_share = provider_share_read(&deps.storage, &provider_addr_raw)?;
-    provider_share_store(&mut deps.storage).set(
-        provider_addr_raw.as_slice(),
-        &to_vec(&(share + current_share))?,
-    );
-
     // update total share
     Ok(HandleResponse {
         messages: vec![
@@ -238,19 +228,10 @@ pub fn try_withdraw_liquidity<S: Storage, A: Api, Q: Querier>(
     env: Env,
     amount: Uint128,
 ) -> StdResult<HandleResponse> {
-    let provider_addr_raw: CanonicalAddr = deps.api.canonical_address(&env.message.sender)?;
-
     let config_general: ConfigGeneral = read_config_general(&deps.storage)?;
     let config_asset: ConfigAsset = read_config_asset(&deps.storage)?;
     let asset_addr: HumanAddr = deps.api.human_address(&config_asset.token)?;
     let liquidity_addr: HumanAddr = deps.api.human_address(&config_general.liquidity_token)?;
-
-    let share: Uint128 = provider_share_read(&deps.storage, &provider_addr_raw)?;
-    if share < amount {
-        return Err(StdError::generic_err(
-            "Can't withdraw more than you provided",
-        ));
-    }
 
     let total_share: Uint128 = load_supply(&deps, &liquidity_addr)?;
     let asset_pool: Uint128 =
@@ -264,14 +245,6 @@ pub fn try_withdraw_liquidity<S: Storage, A: Api, Q: Querier>(
     let share_ratio: Decimal = Decimal::from_ratio(amount, total_share);
     let refund_collateral_amount: Uint128 = collateral_pool * share_ratio;
     let refund_asset_amount: Uint128 = asset_pool * share_ratio;
-
-    // update provider share
-    if share == amount {
-        provider_share_store(&mut deps.storage).remove(provider_addr_raw.as_slice());
-    } else {
-        provider_share_store(&mut deps.storage)
-            .set(provider_addr_raw.as_slice(), &to_vec(&(share - amount)?)?)
-    }
 
     // update pool info
     let asset_addr: HumanAddr = deps.api.human_address(&config_asset.token)?;
@@ -512,7 +485,6 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
         QueryMsg::ConfigGeneral {} => to_binary(&query_config_general(deps)?),
         QueryMsg::ConfigAsset {} => to_binary(&query_config_asset(deps)?),
         QueryMsg::ConfigSwap {} => to_binary(&query_config_swap(deps)?),
-        QueryMsg::Provider { address } => to_binary(&query_provider(deps, address)?),
         QueryMsg::Pool {} => to_binary(&query_pool(deps)?),
         QueryMsg::Simulation {
             offer_amount,
@@ -592,18 +564,6 @@ pub fn query_pool<S: Storage, A: Api, Q: Querier>(
         collateral_pool,
         total_share,
     };
-
-    Ok(resp)
-}
-
-pub fn query_provider<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    address: HumanAddr,
-) -> StdResult<ProviderResponse> {
-    let share: Uint128 =
-        provider_share_read(&deps.storage, &deps.api.canonical_address(&address)?)?;
-
-    let resp = ProviderResponse { share };
 
     Ok(resp)
 }

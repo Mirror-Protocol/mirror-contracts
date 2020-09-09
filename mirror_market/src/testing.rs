@@ -5,14 +5,14 @@ use cosmwasm_std::{
 
 use crate::contract::{
     deduct_tax, handle, init, query_config_asset, query_config_general, query_config_swap,
-    query_pool, query_provider, query_reverse_simulation, query_simulation,
+    query_pool, query_reverse_simulation, query_simulation,
 };
 
 use crate::math::{decimal_multiplication, reverse_decimal};
 
 use crate::msg::{
     ConfigAssetResponse, ConfigGeneralResponse, ConfigSwapResponse, HandleMsg, InitMsg,
-    PoolResponse, ProviderResponse, ReverseSimulationResponse, SimulationResponse, SwapOperation,
+    PoolResponse, ReverseSimulationResponse, SimulationResponse, SwapOperation,
 };
 
 use crate::mock_querier::mock_dependencies;
@@ -214,10 +214,6 @@ fn provide_liquidity() {
         })
     );
 
-    let provider_response: ProviderResponse =
-        query_provider(&deps, HumanAddr::from("addr0000")).unwrap();
-    assert_eq!(100u128, provider_response.share.u128());
-
     // provide more liquidity 1:2, which is not propotional to 1:1,
     // then it must accept 1:1 and treat left amount as donation
     deps.querier.with_token_balances(&[
@@ -282,12 +278,6 @@ fn provide_liquidity() {
         })
     );
 
-    let provider_response: ProviderResponse =
-        query_provider(&deps, HumanAddr::from("addr0000")).unwrap();
-
-    // only 100 share will be added due to inconsistent liquidity deposit
-    assert_eq!(150u128, provider_response.share.u128());
-
     // current liquidity is 2:3; lets put more to make it 1:1
     // then no liquidity tokens will be issued
     let msg = HandleMsg::ProvideLiquidity {
@@ -299,10 +289,6 @@ fn provide_liquidity() {
 
     let env = mock_env_with_block_time("addr0001", &[], 1000);
     let _res = handle(&mut deps, env, msg).unwrap();
-
-    let provider_response: ProviderResponse =
-        query_provider(&deps, HumanAddr::from("addr0001")).unwrap();
-    assert_eq!(0u128, provider_response.share.u128());
 
     // check wrong argument
     let msg = HandleMsg::ProvideLiquidity {
@@ -346,7 +332,7 @@ fn withdraw_liquidity() {
     deps.querier.with_token_balances(&[
         (
             &HumanAddr::from("liquidity0000"),
-            &[(&HumanAddr::from(MOCK_CONTRACT_ADDR), &Uint128(100u128))],
+            &[(&HumanAddr::from("addr0000"), &Uint128(100u128))],
         ),
         (
             &HumanAddr::from("asset0000"),
@@ -458,24 +444,6 @@ fn withdraw_liquidity() {
         log_refund_collateral_amount,
         &log("refund_collateral_amount", 100u128.to_string())
     );
-
-    let provider_response: ProviderResponse =
-        query_provider(&deps, HumanAddr::from("addr0000")).unwrap();
-    assert_eq!(0u128, provider_response.share.u128());
-
-    // can not withdraw liquidity over than provide amount
-    let msg = HandleMsg::WithdrawLiquidity {
-        amount: Uint128(50u128),
-    };
-
-    let env = mock_env_with_block_time("addr0000", &[], 1000);
-    let res = handle(&mut deps, env, msg).unwrap_err();
-    match res {
-        StdError::GenericErr { msg, .. } => {
-            assert_eq!(msg, "Can't withdraw more than you provided".to_string())
-        }
-        _ => panic!("Must return generic error"),
-    }
 }
 
 #[test]
