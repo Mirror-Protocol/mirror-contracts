@@ -4,14 +4,11 @@
   "type": "object",
   "required": [
     "active_commission",
-    "asset_oracle",
     "asset_symbol",
     "asset_token",
     "collateral_denom",
     "commission_collector",
-    "inactive_commission",
-    "max_minus_spread",
-    "max_spread"
+    "inactive_commission"
   ],
   "properties": {
     "active_commission": {
@@ -19,14 +16,6 @@
       "allOf": [
         {
           "$ref": "#/definitions/Decimal"
-        }
-      ]
-    },
-    "asset_oracle": {
-      "description": "Asset oracle address",
-      "allOf": [
-        {
-          "$ref": "#/definitions/HumanAddr"
         }
       ]
     },
@@ -56,22 +45,6 @@
     },
     "inactive_commission": {
       "description": "Commission rate for mirror token stakers",
-      "allOf": [
-        {
-          "$ref": "#/definitions/Decimal"
-        }
-      ]
-    },
-    "max_minus_spread": {
-      "description": "Maximum spread to protect trader",
-      "allOf": [
-        {
-          "$ref": "#/definitions/Decimal"
-        }
-      ]
-    },
-    "max_spread": {
-      "description": "Maximum minus spread to protect arbitrage attack",
       "allOf": [
         {
           "$ref": "#/definitions/Decimal"

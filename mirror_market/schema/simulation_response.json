@@ -5,15 +5,11 @@
   "type": "object",
   "required": [
     "commission_amount",
-    "minus_spread_amount",
     "return_amount",
     "spread_amount"
   ],
   "properties": {
     "commission_amount": {
-      "$ref": "#/definitions/Coin"
-    },
-    "minus_spread_amount": {
       "$ref": "#/definitions/Coin"
     },
     "return_amount": {
