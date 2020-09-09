@@ -4,13 +4,13 @@
   "type": "object",
   "required": [
     "mint_per_block",
-    "staking_token"
+    "mirror_token"
   ],
   "properties": {
     "mint_per_block": {
       "$ref": "#/definitions/Uint128"
     },
-    "staking_token": {
+    "mirror_token": {
       "$ref": "#/definitions/HumanAddr"
     }
   },

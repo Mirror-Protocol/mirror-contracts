@@ -13,7 +13,7 @@ static KEY_PREFIX_REWARD: &[u8] = b"reward";
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
     pub staking_token: CanonicalAddr,
-    pub reward_token: CanonicalAddr,
+    pub mirror_token: CanonicalAddr,
 }
 
 pub fn store_config<S: Storage>(storage: &mut S, config: &Config) -> StdResult<()> {

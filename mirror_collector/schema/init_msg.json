@@ -5,7 +5,7 @@
   "required": [
     "collateral_denom",
     "factory_contract",
-    "staking_symbol"
+    "mirror_symbol"
   ],
   "properties": {
     "collateral_denom": {
@@ -14,7 +14,7 @@
     "factory_contract": {
       "$ref": "#/definitions/HumanAddr"
     },
-    "staking_symbol": {
+    "mirror_symbol": {
       "type": "string"
     }
   },

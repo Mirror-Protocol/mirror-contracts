@@ -11,7 +11,7 @@ fn proper_initialization() {
 
     let msg = InitMsg {
         staking_token: HumanAddr("staking0000".to_string()),
-        reward_token: HumanAddr("reward0000".to_string()),
+        mirror_token: HumanAddr("reward0000".to_string()),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -22,7 +22,7 @@ fn proper_initialization() {
     // it worked, let's query the state
     let config: ConfigResponse = query_config(&deps).unwrap();
     assert_eq!("staking0000", config.staking_token.as_str());
-    assert_eq!("reward0000", config.reward_token.as_str());
+    assert_eq!("reward0000", config.mirror_token.as_str());
 }
 
 #[test]
@@ -31,7 +31,7 @@ fn test_bond_tokens() {
 
     let msg = InitMsg {
         staking_token: HumanAddr("staking0000".to_string()),
-        reward_token: HumanAddr("reward0000".to_string()),
+        mirror_token: HumanAddr("reward0000".to_string()),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -86,7 +86,7 @@ fn test_deposit_reward() {
 
     let msg = InitMsg {
         staking_token: HumanAddr("staking0000".to_string()),
-        reward_token: HumanAddr("reward0000".to_string()),
+        mirror_token: HumanAddr("reward0000".to_string()),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -130,7 +130,7 @@ fn test_unbond() {
 
     let msg = InitMsg {
         staking_token: HumanAddr("staking0000".to_string()),
-        reward_token: HumanAddr("reward0000".to_string()),
+        mirror_token: HumanAddr("reward0000".to_string()),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -186,7 +186,7 @@ fn test_before_share_changes() {
 
     let msg = InitMsg {
         staking_token: HumanAddr("staking0000".to_string()),
-        reward_token: HumanAddr("reward0000".to_string()),
+        mirror_token: HumanAddr("reward0000".to_string()),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -250,7 +250,7 @@ fn test_withdraw() {
 
     let msg = InitMsg {
         staking_token: HumanAddr("staking0000".to_string()),
-        reward_token: HumanAddr("reward0000".to_string()),
+        mirror_token: HumanAddr("reward0000".to_string()),
     };
 
     let env = mock_env("addr0000", &[]);

@@ -14,7 +14,7 @@ static PREFIX_DISTRIBUTION: &[u8] = b"distribution";
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
     pub owner: CanonicalAddr,
-    pub staking_token: CanonicalAddr,
+    pub mirror_token: CanonicalAddr,
     pub mint_per_block: Uint128,
 }
 

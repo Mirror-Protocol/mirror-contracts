@@ -20,7 +20,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         &mut deps.storage,
         &Config {
             factory_contract: deps.api.canonical_address(&msg.factory_contract)?,
-            staking_symbol: msg.staking_symbol,
+            mirror_symbol: msg.mirror_symbol,
             collateral_denom: msg.collateral_denom,
         },
     )?;
@@ -53,7 +53,7 @@ pub fn try_convert<S: Storage, A: Api, Q: Querier>(
     )?;
 
     let mut messages: Vec<CosmosMsg> = vec![];
-    if config.staking_symbol == symbol {
+    if config.mirror_symbol == symbol {
         // uusd => staking token
         let amount = load_balance(
             &deps,
@@ -114,7 +114,7 @@ pub fn try_send<S: Storage, A: Api, Q: Querier>(
     let whitelist_info: WhitelistInfo = load_whitelist_info(
         &deps,
         &deps.api.human_address(&config.factory_contract)?,
-        config.staking_symbol,
+        config.mirror_symbol,
     )?;
 
     let amount = load_token_balance(
@@ -153,7 +153,7 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
     let state = read_config(&deps.storage)?;
     let resp = ConfigResponse {
         factory_contract: deps.api.human_address(&state.factory_contract)?,
-        staking_symbol: state.staking_symbol,
+        mirror_symbol: state.mirror_symbol,
         collateral_denom: state.collateral_denom,
     };
 

@@ -23,7 +23,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         &mut deps.storage,
         &Config {
             owner: deps.api.canonical_address(&env.message.sender)?,
-            staking_token: deps.api.canonical_address(&msg.staking_token)?,
+            mirror_token: deps.api.canonical_address(&msg.mirror_token)?,
             mint_per_block: msg.mint_per_block,
         },
     )?;
@@ -200,7 +200,7 @@ pub fn try_mint<S: Storage, A: Api, Q: Querier>(
     Ok(HandleResponse {
         messages: vec![
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: deps.api.human_address(&config.staking_token)?,
+                contract_addr: deps.api.human_address(&config.mirror_token)?,
                 msg: to_binary(&Cw20HandleMsg::Mint {
                     recipient: env.contract.address,
                     amount: mint_amount,
@@ -208,7 +208,7 @@ pub fn try_mint<S: Storage, A: Api, Q: Querier>(
                 send: vec![],
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: deps.api.human_address(&config.staking_token)?,
+                contract_addr: deps.api.human_address(&config.mirror_token)?,
                 msg: to_binary(&Cw20HandleMsg::Send {
                     contract: deps.api.human_address(&whitelist_info.staking_contract)?,
                     amount: mint_amount,
@@ -243,7 +243,7 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
     let state = read_config(&deps.storage)?;
     let resp = ConfigResponse {
         owner: deps.api.human_address(&state.owner)?,
-        staking_token: deps.api.human_address(&state.staking_token)?,
+        mirror_token: deps.api.human_address(&state.mirror_token)?,
         mint_per_block: state.mint_per_block,
     };
 
