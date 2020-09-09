@@ -3,15 +3,19 @@
   "title": "Config",
   "type": "object",
   "required": [
-    "reward_token",
-    "staking_token"
+    "collateral_denom",
+    "deposit_target",
+    "staking_symbol"
   ],
   "properties": {
-    "reward_token": {
+    "collateral_denom": {
+      "type": "string"
+    },
+    "deposit_target": {
       "$ref": "#/definitions/CanonicalAddr"
     },
-    "staking_token": {
-      "$ref": "#/definitions/CanonicalAddr"
+    "staking_symbol": {
+      "type": "string"
     }
   },
   "definitions": {

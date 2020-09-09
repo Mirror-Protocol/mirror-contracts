@@ -5,82 +5,32 @@
     {
       "type": "object",
       "required": [
-        "receive"
+        "convert"
       ],
       "properties": {
-        "receive": {
-          "$ref": "#/definitions/Cw20ReceiveMsg"
-        }
-      }
-    },
-    {
-      "type": "object",
-      "required": [
-        "unbond"
-      ],
-      "properties": {
-        "unbond": {
+        "convert": {
           "type": "object",
           "required": [
-            "amount"
+            "symbol"
           ],
           "properties": {
-            "amount": {
-              "$ref": "#/definitions/Uint128"
+            "symbol": {
+              "type": "string"
             }
           }
         }
       }
     },
     {
-      "description": "withdraw pending rewards",
       "type": "object",
       "required": [
-        "withdraw"
+        "send"
       ],
       "properties": {
-        "withdraw": {
+        "send": {
           "type": "object"
         }
       }
     }
-  ],
-  "definitions": {
-    "Binary": {
-      "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>",
-      "type": "string"
-    },
-    "Cw20ReceiveMsg": {
-      "description": "Cw20ReceiveMsg should be de/serialized under `Receive()` variant in a HandleMsg",
-      "type": "object",
-      "required": [
-        "amount",
-        "sender"
-      ],
-      "properties": {
-        "amount": {
-          "$ref": "#/definitions/Uint128"
-        },
-        "msg": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/Binary"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "sender": {
-          "$ref": "#/definitions/HumanAddr"
-        }
-      }
-    },
-    "HumanAddr": {
-      "type": "string"
-    },
-    "Uint128": {
-      "type": "string"
-    }
-  }
+  ]
 }

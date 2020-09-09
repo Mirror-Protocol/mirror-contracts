@@ -12,41 +12,6 @@
           "type": "object"
         }
       }
-    },
-    {
-      "type": "object",
-      "required": [
-        "pool_info"
-      ],
-      "properties": {
-        "pool_info": {
-          "type": "object"
-        }
-      }
-    },
-    {
-      "type": "object",
-      "required": [
-        "reward_info"
-      ],
-      "properties": {
-        "reward_info": {
-          "type": "object",
-          "required": [
-            "address"
-          ],
-          "properties": {
-            "address": {
-              "$ref": "#/definitions/HumanAddr"
-            }
-          }
-        }
-      }
     }
-  ],
-  "definitions": {
-    "HumanAddr": {
-      "type": "string"
-    }
-  }
+  ]
 }
