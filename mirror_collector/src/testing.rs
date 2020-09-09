@@ -10,7 +10,7 @@ fn proper_initialization() {
     let mut deps = mock_dependencies(20, &[]);
 
     let msg = InitMsg {
-        deposit_target: HumanAddr("deposit0000".to_string()),
+        factory_contract: HumanAddr("factory0000".to_string()),
         staking_symbol: "staking".to_string(),
         collateral_denom: "uusd".to_string(),
     };
@@ -22,7 +22,7 @@ fn proper_initialization() {
 
     // it worked, let's query the state
     let config: ConfigResponse = query_config(&deps).unwrap();
-    assert_eq!("deposit0000", config.deposit_target.as_str());
+    assert_eq!("factory0000", config.factory_contract.as_str());
     assert_eq!("staking", config.staking_symbol.as_str());
     assert_eq!("uusd", config.collateral_denom.as_str());
 }
@@ -40,27 +40,31 @@ fn test_convert() {
         &HumanAddr::from("tokenAPPL"),
         &[(&HumanAddr::from(MOCK_CONTRACT_ADDR), &Uint128(100u128))],
     )]);
-    deps.querier.with_whitelist(&[
-        (
-            &"mAPPL".to_string(),
-            &WhitelistItem {
-                token_contract: HumanAddr::from("tokenAPPL"),
-                market_contract: HumanAddr::from("marketAPPL"),
-                staking_contract: HumanAddr::from("stakingAPPL"),
-            },
-        ),
-        (
-            &"STAKING".to_string(),
-            &WhitelistItem {
-                token_contract: HumanAddr::from("tokenSTAKING"),
-                market_contract: HumanAddr::from("marketSTAKING"),
-                staking_contract: HumanAddr::from("stakingSTAKING"),
-            },
-        ),
-    ]);
+
+    deps.querier.with_whitelist(&[(
+        &HumanAddr::from("factory0000"),
+        vec![
+            (
+                &"mAPPL".to_string(),
+                &WhitelistItem {
+                    token_contract: HumanAddr::from("tokenAPPL"),
+                    market_contract: HumanAddr::from("marketAPPL"),
+                    staking_contract: HumanAddr::from("stakingAPPL"),
+                },
+            ),
+            (
+                &"STAKING".to_string(),
+                &WhitelistItem {
+                    token_contract: HumanAddr::from("tokenSTAKING"),
+                    market_contract: HumanAddr::from("marketSTAKING"),
+                    staking_contract: HumanAddr::from("stakingSTAKING"),
+                },
+            ),
+        ],
+    )]);
 
     let msg = InitMsg {
-        deposit_target: HumanAddr("deposit0000".to_string()),
+        factory_contract: HumanAddr("factory0000".to_string()),
         staking_symbol: "STAKING".to_string(),
         collateral_denom: "uusd".to_string(),
     };
@@ -126,16 +130,19 @@ fn test_send() {
         &[(&HumanAddr::from(MOCK_CONTRACT_ADDR), &Uint128(100u128))],
     )]);
     deps.querier.with_whitelist(&[(
-        &"STAKING".to_string(),
-        &WhitelistItem {
-            token_contract: HumanAddr::from("tokenSTAKING"),
-            market_contract: HumanAddr::from("marketSTAKING"),
-            staking_contract: HumanAddr::from("stakingSTAKING"),
-        },
+        &HumanAddr::from("factory0000"),
+        vec![(
+            &"STAKING".to_string(),
+            &WhitelistItem {
+                token_contract: HumanAddr::from("tokenSTAKING"),
+                market_contract: HumanAddr::from("marketSTAKING"),
+                staking_contract: HumanAddr::from("stakingSTAKING"),
+            },
+        )],
     )]);
 
     let msg = InitMsg {
-        deposit_target: HumanAddr("deposit0000".to_string()),
+        factory_contract: HumanAddr("factory0000".to_string()),
         staking_symbol: "STAKING".to_string(),
         collateral_denom: "uusd".to_string(),
     };

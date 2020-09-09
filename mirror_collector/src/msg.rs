@@ -5,7 +5,7 @@ use cosmwasm_std::{Decimal, HumanAddr, Uint128};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
-    pub deposit_target: HumanAddr,
+    pub factory_contract: HumanAddr,
     pub staking_symbol: String,
     pub collateral_denom: String,
 }
@@ -26,7 +26,7 @@ pub enum QueryMsg {
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ConfigResponse {
-    pub deposit_target: HumanAddr,
+    pub factory_contract: HumanAddr,
     pub staking_symbol: String,
     pub collateral_denom: String,
 }
@@ -36,7 +36,6 @@ pub struct ConfigResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum StakingCw20HookMsg {
-    Bond {},
     DepositReward {},
 }
 
