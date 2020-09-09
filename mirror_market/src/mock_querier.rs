@@ -151,27 +151,25 @@ impl WasmMockQuerier {
                         }
                     };
 
-                let prefix_config = to_length_prefixed(b"config").to_vec();
+                let prefix_token_info = to_length_prefixed(b"token_info").to_vec();
                 let prefix_balance = to_length_prefixed(b"balances").to_vec();
 
-                if key[..prefix_config.len()].to_vec() == prefix_config {
-                    let key_total_supply: &[u8] = &key[prefix_config.len()..];
-                    if key_total_supply == b"total_supply" {
-                        let mut total_supply = Uint128::zero();
+                if key.to_vec() == prefix_token_info {
+                    let mut total_supply = Uint128::zero();
 
-                        for balance in balances {
-                            total_supply += *balance.1;
-                        }
+                    for balance in balances {
+                        total_supply += *balance.1;
+                    }
 
-                        Ok(to_binary(&TokenInfoResponse {
+                    Ok(to_binary(
+                        &to_binary(&TokenInfoResponse {
                             name: "mAPPL".to_string(),
                             symbol: "mAPPL".to_string(),
                             decimals: 6,
                             total_supply: total_supply,
-                        }))
-                    } else {
-                        panic!("DO NOT ENTER HERE")
-                    }
+                        })
+                        .unwrap(),
+                    ))
                 } else if key[..prefix_balance.len()].to_vec() == prefix_balance {
                     let key_address: &[u8] = &key[prefix_balance.len()..];
                     let address_raw: CanonicalAddr = CanonicalAddr::from(key_address);
@@ -197,7 +195,7 @@ impl WasmMockQuerier {
                         }
                     };
 
-                    Ok(to_binary(&balance))
+                    Ok(to_binary(&to_binary(&balance).unwrap()))
                 } else {
                     panic!("DO NOT ENTER HERE")
                 }

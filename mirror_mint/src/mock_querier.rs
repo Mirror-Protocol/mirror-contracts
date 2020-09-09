@@ -3,6 +3,7 @@ use cosmwasm_std::{
     from_slice, to_binary, Coin, Decimal, Extern, HumanAddr, Querier, QuerierResult, QueryRequest,
     StdError, SystemError, Uint128, WasmQuery,
 };
+use cosmwasm_storage::to_length_prefixed;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -132,7 +133,7 @@ impl WasmMockQuerier {
             }
             QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
                 let key: &[u8] = key.as_slice();
-                if key == b"price" {
+                if key.to_vec() == to_length_prefixed(b"price").to_vec() {
                     let price = match self.oracle_querier.prices.get(&contract_addr) {
                         Some(price) => price,
                         None => {
@@ -149,7 +150,7 @@ impl WasmMockQuerier {
                         last_update_time: 1000u64,
                     };
 
-                    Ok(to_binary(&price_info))
+                    Ok(to_binary(&to_binary(&price_info).unwrap()))
                 } else {
                     panic!("DO NOT ENTER HERE")
                 }

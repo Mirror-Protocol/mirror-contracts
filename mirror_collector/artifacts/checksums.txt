@@ -1,1 +1,1 @@
-5757923cd769c65e2382fe96dca54f99dd7a395353a8a8fe314c99127c5c4d5c  mirror_collector.wasm
+071e0e399e33b550b87e0af67c998edc4fc043439d3f7518165a1a1bf843fa8f  mirror_collector.wasm

@@ -8,7 +8,6 @@ use cosmwasm_storage::to_length_prefixed;
 use std::collections::HashMap;
 
 use crate::querier::WhitelistInfo;
-use cw20::TokenInfoResponse;
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
 /// this uses our CustomQuerier.
@@ -124,7 +123,6 @@ impl WasmMockQuerier {
         match &request {
             QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
                 let key: &[u8] = key.as_slice();
-                let prefix_config = to_length_prefixed(b"config").to_vec();
                 let prefix_balance = to_length_prefixed(b"balances").to_vec();
                 let prefix_whitelist = to_length_prefixed(b"whitelist").to_vec();
 
@@ -182,25 +180,7 @@ impl WasmMockQuerier {
                             }
                         };
 
-                    if key[..prefix_config.len()].to_vec() == prefix_config {
-                        let key_total_supply: &[u8] = &key[prefix_config.len()..];
-                        if key_total_supply == b"total_supply" {
-                            let mut total_supply = Uint128::zero();
-
-                            for balance in balances {
-                                total_supply += *balance.1;
-                            }
-
-                            Ok(to_binary(&TokenInfoResponse {
-                                name: "mAPPL".to_string(),
-                                symbol: "mAPPL".to_string(),
-                                decimals: 6,
-                                total_supply: total_supply,
-                            }))
-                        } else {
-                            panic!("DO NOT ENTER HERE")
-                        }
-                    } else if key[..prefix_balance.len()].to_vec() == prefix_balance {
+                    if key[..prefix_balance.len()].to_vec() == prefix_balance {
                         let key_address: &[u8] = &key[prefix_balance.len()..];
                         let address_raw: CanonicalAddr = CanonicalAddr::from(key_address);
 
@@ -225,7 +205,7 @@ impl WasmMockQuerier {
                             }
                         };
 
-                        Ok(to_binary(&balance))
+                        Ok(to_binary(&to_binary(&balance).unwrap()))
                     } else {
                         panic!("DO NOT ENTER HERE")
                     }
