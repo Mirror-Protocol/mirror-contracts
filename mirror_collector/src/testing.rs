@@ -1,11 +1,9 @@
 use crate::contract::{handle, init, query_config};
 use crate::mock_querier::{mock_dependencies, WhitelistItem};
-use crate::msg::{ConfigResponse, HandleMsg, InitMsg};
+use crate::msg::{ConfigResponse, HandleMsg, InitMsg, MarketHandleMsg, StakingCw20HookMsg};
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{to_binary, Coin, CosmosMsg, HumanAddr, Uint128, WasmMsg};
 use cw20::Cw20HandleMsg;
-use mirror_market::msg::HandleMsg as MarketHandleMsg;
-use mirror_staking::msg::Cw20HookMsg;
 
 #[test]
 fn proper_initialization() {
@@ -156,7 +154,7 @@ fn test_send() {
             msg: to_binary(&Cw20HandleMsg::Send {
                 contract: HumanAddr::from("stakingSTAKING"),
                 amount: Uint128(100u128),
-                msg: Some(to_binary(&Cw20HookMsg::DepositReward {}).unwrap()),
+                msg: Some(to_binary(&StakingCw20HookMsg::DepositReward {}).unwrap()),
             })
             .unwrap(),
             send: vec![],

@@ -3,11 +3,11 @@ use cosmwasm_std::{
     InitResponse, Querier, StdResult, Storage, WasmMsg,
 };
 
-use crate::msg::{ConfigResponse, HandleMsg, InitMsg, QueryMsg};
+use crate::msg::{
+    ConfigResponse, HandleMsg, InitMsg, MarketHandleMsg, QueryMsg, StakingCw20HookMsg,
+};
 use crate::querier::{load_balance, load_token_balance, load_whitelist_info, WhitelistInfo};
 use crate::state::{read_config, store_config, Config};
-use mirror_market::msg::HandleMsg as MarketHandleMsg;
-use mirror_staking::msg::Cw20HookMsg;
 
 use cw20::Cw20HandleMsg;
 
@@ -96,7 +96,7 @@ pub fn try_convert<S: Storage, A: Api, Q: Querier>(
 
     Ok(HandleResponse {
         messages,
-        log: vec![log("action", "convert"), log("symbol", symbol.to_string())],
+        log: vec![log("action", "convert"), log("symbol", symbol)],
         data: None,
     })
 }
@@ -106,11 +106,8 @@ pub fn try_send<S: Storage, A: Api, Q: Querier>(
     env: Env,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
-    let whitelist_info: WhitelistInfo = load_whitelist_info(
-        &deps,
-        &env.contract.address,
-        config.staking_symbol.to_string(),
-    )?;
+    let whitelist_info: WhitelistInfo =
+        load_whitelist_info(&deps, &env.contract.address, config.staking_symbol)?;
 
     let amount = load_token_balance(
         &deps,
@@ -124,7 +121,7 @@ pub fn try_send<S: Storage, A: Api, Q: Querier>(
             msg: to_binary(&Cw20HandleMsg::Send {
                 contract: deps.api.human_address(&whitelist_info.staking_contract)?,
                 amount,
-                msg: Some(to_binary(&Cw20HookMsg::DepositReward {})?),
+                msg: Some(to_binary(&StakingCw20HookMsg::DepositReward {})?),
             })?,
             send: vec![],
         })],
