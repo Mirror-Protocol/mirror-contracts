@@ -1,15 +1,11 @@
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
     from_slice, to_binary, Api, CanonicalAddr, Coin, Decimal, Extern, HumanAddr, Querier,
-    QuerierResult, QueryRequest, StdError, SystemError, Uint128, WasmQuery,
+    QuerierResult, QueryRequest, SystemError, Uint128, WasmQuery,
 };
 use cosmwasm_storage::to_length_prefixed;
-
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::querier::PriceInfo;
 use cw20::TokenInfoResponse;
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper};
 
@@ -36,7 +32,6 @@ pub fn mock_dependencies(
 pub struct WasmMockQuerier {
     base: MockQuerier<TerraQueryWrapper>,
     token_querier: TokenQuerier,
-    oracle_querier: OracleQuerier,
     tax_querier: TaxQuerier,
     canonical_length: usize,
 }
@@ -94,28 +89,6 @@ pub(crate) fn caps_to_map(caps: &[(&String, &Uint128)]) -> HashMap<String, Uint1
     owner_map
 }
 
-#[derive(Clone, Default)]
-pub struct OracleQuerier {
-    // this lets us iterate over all pairs that match the first string
-    prices: HashMap<HumanAddr, Decimal>,
-}
-
-impl OracleQuerier {
-    pub fn new(prices: &[(&HumanAddr, &Decimal)]) -> Self {
-        OracleQuerier {
-            prices: prices_to_map(prices),
-        }
-    }
-}
-
-pub(crate) fn prices_to_map(prices: &[(&HumanAddr, &Decimal)]) -> HashMap<HumanAddr, Decimal> {
-    let mut price_map: HashMap<HumanAddr, Decimal> = HashMap::new();
-    for (contract, price) in prices.iter() {
-        price_map.insert(HumanAddr::from(contract), **price);
-    }
-    price_map
-}
-
 impl Querier for WasmMockQuerier {
     fn raw_query(&self, bin_request: &[u8]) -> QuerierResult {
         // MockQuerier doesn't support Custom, so we ignore it completely here
@@ -130,12 +103,6 @@ impl Querier for WasmMockQuerier {
         };
         self.handle_query(&request)
     }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum MockQueryMsg {
-    Price {},
 }
 
 impl WasmMockQuerier {
@@ -169,89 +136,68 @@ impl WasmMockQuerier {
             }
             QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
                 let key: &[u8] = key.as_slice();
-                if key == b"price" {
-                    let price = match self.oracle_querier.prices.get(&contract_addr) {
-                        Some(price) => price,
+
+                let balances: &HashMap<HumanAddr, Uint128> =
+                    match self.token_querier.balances.get(contract_addr) {
+                        Some(balances) => balances,
                         None => {
-                            return Ok(Err(StdError::generic_err(format!(
-                                "No price registered for {}",
-                                contract_addr,
-                            ))))
+                            return Err(SystemError::InvalidRequest {
+                                error: format!(
+                                    "No balance info exists for the contract {}",
+                                    contract_addr
+                                ),
+                                request: key.into(),
+                            })
                         }
                     };
 
-                    let price_info = PriceInfo {
-                        price: *price,
-                        price_multiplier: Decimal::one(),
-                        last_update_time: 1000u64,
-                    };
+                let prefix_config = to_length_prefixed(b"config").to_vec();
+                let prefix_balance = to_length_prefixed(b"balances").to_vec();
 
-                    Ok(to_binary(&price_info))
-                } else if key.len() > 0 {
-                    let balances: &HashMap<HumanAddr, Uint128> =
-                        match self.token_querier.balances.get(contract_addr) {
-                            Some(balances) => balances,
-                            None => {
-                                return Err(SystemError::InvalidRequest {
-                                    error: format!(
-                                        "No balance info exists for the contract {}",
-                                        contract_addr
-                                    ),
-                                    request: key.into(),
-                                })
-                            }
-                        };
+                if key[..prefix_config.len()].to_vec() == prefix_config {
+                    let key_total_supply: &[u8] = &key[prefix_config.len()..];
+                    if key_total_supply == b"total_supply" {
+                        let mut total_supply = Uint128::zero();
 
-                    let prefix_config = to_length_prefixed(b"config").to_vec();
-                    let prefix_balance = to_length_prefixed(b"balances").to_vec();
-
-                    if key[..prefix_config.len()].to_vec() == prefix_config {
-                        let key_total_supply: &[u8] = &key[prefix_config.len()..];
-                        if key_total_supply == b"total_supply" {
-                            let mut total_supply = Uint128::zero();
-
-                            for balance in balances {
-                                total_supply += *balance.1;
-                            }
-
-                            Ok(to_binary(&TokenInfoResponse {
-                                name: "mAPPL".to_string(),
-                                symbol: "mAPPL".to_string(),
-                                decimals: 6,
-                                total_supply: total_supply,
-                            }))
-                        } else {
-                            panic!("DO NOT ENTER HERE")
+                        for balance in balances {
+                            total_supply += *balance.1;
                         }
-                    } else if key[..prefix_balance.len()].to_vec() == prefix_balance {
-                        let key_address: &[u8] = &key[prefix_balance.len()..];
-                        let address_raw: CanonicalAddr = CanonicalAddr::from(key_address);
 
-                        let api: MockApi = MockApi::new(self.canonical_length);
-                        let address: HumanAddr = match api.human_address(&address_raw) {
-                            Ok(v) => v,
-                            Err(e) => {
-                                return Err(SystemError::InvalidRequest {
-                                    error: format!("Parsing query request: {}", e),
-                                    request: key.into(),
-                                })
-                            }
-                        };
-
-                        let balance = match balances.get(&address) {
-                            Some(v) => v,
-                            None => {
-                                return Err(SystemError::InvalidRequest {
-                                    error: "Balance not found".to_string(),
-                                    request: key.into(),
-                                })
-                            }
-                        };
-
-                        Ok(to_binary(&balance))
+                        Ok(to_binary(&TokenInfoResponse {
+                            name: "mAPPL".to_string(),
+                            symbol: "mAPPL".to_string(),
+                            decimals: 6,
+                            total_supply: total_supply,
+                        }))
                     } else {
                         panic!("DO NOT ENTER HERE")
                     }
+                } else if key[..prefix_balance.len()].to_vec() == prefix_balance {
+                    let key_address: &[u8] = &key[prefix_balance.len()..];
+                    let address_raw: CanonicalAddr = CanonicalAddr::from(key_address);
+
+                    let api: MockApi = MockApi::new(self.canonical_length);
+                    let address: HumanAddr = match api.human_address(&address_raw) {
+                        Ok(v) => v,
+                        Err(e) => {
+                            return Err(SystemError::InvalidRequest {
+                                error: format!("Parsing query request: {}", e),
+                                request: key.into(),
+                            })
+                        }
+                    };
+
+                    let balance = match balances.get(&address) {
+                        Some(v) => v,
+                        None => {
+                            return Err(SystemError::InvalidRequest {
+                                error: "Balance not found".to_string(),
+                                request: key.into(),
+                            })
+                        }
+                    };
+
+                    Ok(to_binary(&balance))
                 } else {
                     panic!("DO NOT ENTER HERE")
                 }
@@ -270,7 +216,6 @@ impl WasmMockQuerier {
         WasmMockQuerier {
             base,
             token_querier: TokenQuerier::default(),
-            oracle_querier: OracleQuerier::default(),
             tax_querier: TaxQuerier::default(),
             canonical_length,
         }
@@ -279,11 +224,6 @@ impl WasmMockQuerier {
     // configure the mint whitelist mock querier
     pub fn with_token_balances(&mut self, balances: &[(&HumanAddr, &[(&HumanAddr, &Uint128)])]) {
         self.token_querier = TokenQuerier::new(balances);
-    }
-
-    // configure the oracle price mock querier
-    pub fn with_oracle_price(&mut self, prices: &[(&HumanAddr, &Decimal)]) {
-        self.oracle_querier = OracleQuerier::new(prices);
     }
 
     // configure the token owner mock querier
