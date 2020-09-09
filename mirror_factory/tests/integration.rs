@@ -44,12 +44,16 @@ fn proper_initialization() {
     let mut deps = mock_instance(WASM, &[]);
 
     let msg = InitMsg {
-        mirror_token: HumanAddr("token0000".to_string()),
         mint_per_block: Uint128(100u128),
     };
 
     let env = mock_env("addr0000", &[]);
-    let _res: InitResponse = init(&mut deps, env, msg).unwrap();
+    let _res: InitResponse = init(&mut deps, env.clone(), msg).unwrap();
+
+    let msg = HandleMsg::PostIntilize {
+        mirror_token: HumanAddr("token0000".to_string()),
+    };
+    let _res: HandleResponse = handle(&mut deps, env, msg).unwrap();
 
     // it worked, let's query the state
     let res = query(&mut deps, QueryMsg::Config {}).unwrap();
@@ -64,12 +68,16 @@ fn test_update_config() {
     let mut deps = mock_instance(WASM, &[]);
 
     let msg = InitMsg {
-        mirror_token: HumanAddr("token0000".to_string()),
         mint_per_block: Uint128(100u128),
     };
 
     let env = mock_env("addr0000", &[]);
-    let _res: InitResponse = init(&mut deps, env, msg).unwrap();
+    let _res: InitResponse = init(&mut deps, env.clone(), msg).unwrap();
+
+    let msg = HandleMsg::PostIntilize {
+        mirror_token: HumanAddr("token0000".to_string()),
+    };
+    let _res: HandleResponse = handle(&mut deps, env, msg).unwrap();
 
     // upate owner
     let msg = HandleMsg::UpdateConfig {
@@ -118,12 +126,16 @@ fn test_whitelist() {
     let mut deps = mock_instance(WASM, &[]);
 
     let msg = InitMsg {
-        mirror_token: HumanAddr("token0000".to_string()),
         mint_per_block: Uint128(100u128),
     };
 
     let env = mock_env("addr0000", &[]);
-    let _res: InitResponse = init(&mut deps, env, msg).unwrap();
+    let _res: InitResponse = init(&mut deps, env.clone(), msg).unwrap();
+
+    let msg = HandleMsg::PostIntilize {
+        mirror_token: HumanAddr("token0000".to_string()),
+    };
+    let _res: HandleResponse = handle(&mut deps, env, msg).unwrap();
 
     let msg = HandleMsg::Whitelist {
         symbol: "mAPPL".to_string(),
@@ -190,12 +202,16 @@ fn test_update_weight() {
     let mut deps = mock_instance(WASM, &[]);
 
     let msg = InitMsg {
-        mirror_token: HumanAddr("token0000".to_string()),
         mint_per_block: Uint128(100u128),
     };
 
     let env = mock_env("addr0000", &[]);
-    let _res: InitResponse = init(&mut deps, env, msg).unwrap();
+    let _res: InitResponse = init(&mut deps, env.clone(), msg).unwrap();
+
+    let msg = HandleMsg::PostIntilize {
+        mirror_token: HumanAddr("token0000".to_string()),
+    };
+    let _res: HandleResponse = handle(&mut deps, env, msg).unwrap();
 
     let msg = HandleMsg::Whitelist {
         symbol: "mAPPL".to_string(),
@@ -239,12 +255,16 @@ fn test_mint() {
     let mut deps = mock_instance(WASM, &[]);
 
     let msg = InitMsg {
-        mirror_token: HumanAddr("token0000".to_string()),
         mint_per_block: Uint128(100u128),
     };
 
     let env = mock_env("addr0000", &[]);
-    let _res: InitResponse = init(&mut deps, env, msg).unwrap();
+    let _res: InitResponse = init(&mut deps, env.clone(), msg).unwrap();
+
+    let msg = HandleMsg::PostIntilize {
+        mirror_token: HumanAddr("token0000".to_string()),
+    };
+    let _res: HandleResponse = handle(&mut deps, env, msg).unwrap();
 
     let msg = HandleMsg::Whitelist {
         symbol: "mAPPL".to_string(),

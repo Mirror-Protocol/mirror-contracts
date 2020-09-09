@@ -5,13 +5,15 @@ use cosmwasm_std::{Decimal, HumanAddr, Uint128};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
-    pub mirror_token: HumanAddr,
     pub mint_per_block: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum HandleMsg {
+    PostIntilize {
+        mirror_token: HumanAddr,
+    },
     UpdateConfig {
         owner: Option<HumanAddr>,
         mint_per_block: Option<Uint128>,
