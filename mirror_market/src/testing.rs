@@ -222,6 +222,14 @@ fn provide_liquidity() {
 
     // provide more liquidity 1:2, which is not propotional to 1:1,
     // then it must accept 1:1 and treat left amount as donation
+    deps.querier.with_balance(&[(
+        &HumanAddr::from(MOCK_CONTRACT_ADDR),
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(200 + 200 /* user deposit must be pre-applied */),
+        }],
+    )]);
+
     deps.querier.with_token_balances(&[
         (
             &HumanAddr::from("liquidity0000"),
@@ -254,6 +262,7 @@ fn provide_liquidity() {
         }],
         1000,
     );
+
     // only accept 100, then 50 share will be generated with 100 * (100 / 200)
     let res: HandleResponse = handle(&mut deps, env, msg).unwrap();
     let transfer_from_msg = res.messages.get(0).expect("no message");
@@ -364,31 +373,6 @@ fn withdraw_liquidity() {
     };
     let _res = handle(&mut deps, env, msg).unwrap();
 
-    // successfully provide liquidity for the exist pools (mAPPL:uusd = 2:1)
-    let msg = HandleMsg::ProvideLiquidity {
-        coins: vec![
-            Coin {
-                denom: "mAPPL".to_string(),
-                amount: Uint128::from(100u128),
-            },
-            Coin {
-                denom: "uusd".to_string(),
-                amount: Uint128::from(100u128),
-            },
-        ],
-    };
-
-    let env = mock_env_with_block_time(
-        "addr0000",
-        &[Coin {
-            denom: "uusd".to_string(),
-            amount: Uint128::from(100u128),
-        }],
-        1000,
-    );
-    let _res = handle(&mut deps, env, msg).unwrap();
-    // received 100 shares
-
     // withdraw liquidity
     let msg = HandleMsg::WithdrawLiquidity {
         amount: Uint128(100u128),
@@ -459,18 +443,21 @@ fn try_buy() {
     let collateral_pool_amount = Uint128(30000000000u128);
     let price = Decimal::from_ratio(collateral_pool_amount, asset_pool_amount);
     let exchange_rate = reverse_decimal(price);
+    let offer_amount = Uint128(1500000000u128);
 
     let mut deps = mock_dependencies(
         20,
         &[Coin {
             denom: "uusd".to_string(),
-            amount: collateral_pool_amount,
+            amount: collateral_pool_amount + offer_amount, /* user deposit must be pre-applied */
         }],
     );
+
     deps.querier.with_tax(
         Decimal::zero(),
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
+
     deps.querier.with_token_balances(&[
         (
             &HumanAddr::from("liquidity0000"),
@@ -500,33 +487,8 @@ fn try_buy() {
     };
     let _res = handle(&mut deps, env, msg).unwrap();
 
-    // successfully provide liquidity for the exist pools (mAPPL:uusd = 2:1)
-    let msg = HandleMsg::ProvideLiquidity {
-        coins: vec![
-            Coin {
-                denom: "mAPPL".to_string(),
-                amount: asset_pool_amount,
-            },
-            Coin {
-                denom: "uusd".to_string(),
-                amount: collateral_pool_amount,
-            },
-        ],
-    };
-
-    let env = mock_env_with_block_time(
-        "addr0000",
-        &[Coin {
-            denom: "uusd".to_string(),
-            amount: collateral_pool_amount,
-        }],
-        1000,
-    );
-    let _res = handle(&mut deps, env, msg).unwrap();
-
     // normal buy
     let msg = HandleMsg::Buy { max_spread: None };
-    let offer_amount = Uint128(1500000000u128);
     let env = mock_env_with_block_time(
         "addr0000",
         &[Coin {
@@ -553,6 +515,14 @@ fn try_buy() {
     let expected_return_amount = (expected_ret_amount - expected_commission_amount).unwrap();
 
     // check simulation res
+    deps.querier.with_balance(&[(
+        &HumanAddr::from(MOCK_CONTRACT_ADDR),
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: collateral_pool_amount, /* user deposit must be pre-applied */
+        }],
+    )]);
+
     let simulation_res: SimulationResponse =
         query_simulation(&deps, offer_amount, SwapOperation::Buy).unwrap();
     assert_eq!(expected_return_amount, simulation_res.return_amount.amount);
@@ -681,30 +651,6 @@ fn try_sell() {
     let msg = HandleMsg::PostInitialize {
         liquidity_token: HumanAddr("liquidity0000".to_string()),
     };
-    let _res = handle(&mut deps, env, msg).unwrap();
-
-    // successfully provide liquidity for the exist pools (mAPPL:uusd = 2:1)
-    let msg = HandleMsg::ProvideLiquidity {
-        coins: vec![
-            Coin {
-                denom: "mAPPL".to_string(),
-                amount: asset_pool_amount,
-            },
-            Coin {
-                denom: "uusd".to_string(),
-                amount: collateral_pool_amount,
-            },
-        ],
-    };
-
-    let env = mock_env_with_block_time(
-        "addr0000",
-        &[Coin {
-            denom: "uusd".to_string(),
-            amount: collateral_pool_amount,
-        }],
-        1000,
-    );
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // normal sell

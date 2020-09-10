@@ -228,4 +228,10 @@ impl WasmMockQuerier {
     pub fn with_tax(&mut self, rate: Decimal, caps: &[(&String, &Uint128)]) {
         self.tax_querier = TaxQuerier::new(rate, caps);
     }
+
+    pub fn with_balance(&mut self, balances: &[(&HumanAddr, &[Coin])]) {
+        for (addr, balance) in balances {
+            self.base.update_balance(addr, balance.to_vec());
+        }
+    }
 }

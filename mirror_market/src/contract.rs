@@ -175,12 +175,15 @@ pub fn try_provide_liquidity<S: Storage, A: Api, Q: Querier>(
         // initial share = collateral amount
         collateral_amount
     } else {
+        // asset balance is not yet increased, but collateral balance is already increased
+        // to calculated properly we should subtract user collateral deposit from collateral pool
         let asset_pool = load_token_balance(&deps, &asset_token, &config_general.contract_addr)?;
-        let collateral_pool = load_balance(
+        let collateral_pool = (load_balance(
             &deps,
             &env.contract.address,
             config_general.collateral_denom,
-        )?;
+        )? - collateral_amount)?;
+
         let exchange_rate = Decimal::from_ratio(collateral_pool, asset_pool);
         let asset_value = asset_amount * exchange_rate;
 
@@ -318,11 +321,14 @@ pub fn try_buy<S: Storage, A: Api, Q: Querier>(
 
     let asset_pool: Uint128 =
         load_token_balance(&deps, &asset_addr, &config_general.contract_addr)?;
-    let collateral_pool: Uint128 = load_balance(
+
+    // collateral balance is already increased
+    // to calculated properly we should subtract user collateral deposit from collateral pool
+    let collateral_pool: Uint128 = (load_balance(
         &deps,
         &env.contract.address,
         config_general.collateral_denom.to_string(),
-    )?;
+    )? - collateral_amount)?;
 
     // active commission is absorbed to ask pool
     let offer_amount = collateral_amount;
