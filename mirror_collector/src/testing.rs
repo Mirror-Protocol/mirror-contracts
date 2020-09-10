@@ -2,7 +2,7 @@ use crate::contract::{handle, init, query_config};
 use crate::mock_querier::{mock_dependencies, WhitelistItem};
 use crate::msg::{ConfigResponse, HandleMsg, InitMsg, MarketHandleMsg, StakingCw20HookMsg};
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
-use cosmwasm_std::{to_binary, Coin, CosmosMsg, HumanAddr, Uint128, WasmMsg};
+use cosmwasm_std::{to_binary, Coin, CosmosMsg, Decimal, HumanAddr, Uint128, WasmMsg};
 use cw20::Cw20HandleMsg;
 
 #[test]
@@ -40,6 +40,11 @@ fn test_convert() {
         &HumanAddr::from("tokenAPPL"),
         &[(&HumanAddr::from(MOCK_CONTRACT_ADDR), &Uint128(100u128))],
     )]);
+
+    deps.querier.with_tax(
+        Decimal::percent(1),
+        &[(&"uusd".to_string(), &Uint128(1000000u128))],
+    );
 
     deps.querier.with_whitelist(&[(
         &HumanAddr::from("factory0000"),
@@ -109,6 +114,8 @@ fn test_convert() {
 
     let env = mock_env("addr0000", &[]);
     let res = handle(&mut deps, env, msg).unwrap();
+
+    // tax deduct 100 => 99
     assert_eq!(
         res.messages,
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
@@ -116,7 +123,7 @@ fn test_convert() {
             msg: to_binary(&MarketHandleMsg::Buy { max_spread: None }).unwrap(),
             send: vec![Coin {
                 denom: "uusd".to_string(),
-                amount: Uint128(100u128),
+                amount: Uint128(99u128),
             }],
         })]
     );
