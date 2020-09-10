@@ -561,10 +561,9 @@ pub fn query_pool<S: Storage, A: Api, Q: Querier>(
         config_general.collateral_denom,
     )?;
 
-    let total_share: Uint128 = load_token_balance(
+    let total_share: Uint128 = load_supply(
         &deps,
         &deps.api.human_address(&config_general.liquidity_token)?,
-        &config_general.contract_addr,
     )?;
 
     let resp = PoolResponse {
