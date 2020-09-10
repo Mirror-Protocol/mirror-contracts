@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    log, to_binary, Api, Binary, Coin, CosmosMsg, Env, Extern, HandleResponse, HandleResult,
-    InitResponse, Querier, StdResult, Storage, WasmMsg,
+    log, to_binary, Api, Binary, Coin, CosmosMsg, Decimal, Env, Extern, HandleResponse,
+    HandleResult, InitResponse, Querier, StdResult, Storage, Uint128, WasmMsg,
 };
 
 use crate::msg::{
@@ -10,6 +10,7 @@ use crate::querier::{load_balance, load_token_balance, load_whitelist_info, Whit
 use crate::state::{read_config, store_config, Config};
 
 use cw20::Cw20HandleMsg;
+use terra_cosmwasm::TerraQuerier;
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -64,10 +65,13 @@ pub fn try_convert<S: Storage, A: Api, Q: Querier>(
         messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps.api.human_address(&whitelist_info.market_contract)?,
             msg: to_binary(&MarketHandleMsg::Buy { max_spread: None })?,
-            send: vec![Coin {
-                denom: config.collateral_denom,
-                amount,
-            }],
+            send: vec![deduct_tax(
+                deps,
+                Coin {
+                    denom: config.collateral_denom,
+                    amount,
+                },
+            )?],
         }));
     } else {
         // asset token => uusd
@@ -158,4 +162,20 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
     };
 
     Ok(resp)
+}
+
+pub fn deduct_tax<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    coin: Coin,
+) -> StdResult<Coin> {
+    let terra_querier = TerraQuerier::new(&deps.querier);
+    let tax_rate: Decimal = terra_querier.query_tax_rate()?;
+    let tax_cap: Uint128 = terra_querier.query_tax_cap(coin.denom.to_string())?;
+    Ok(Coin {
+        amount: std::cmp::max(
+            (coin.amount - coin.amount * tax_rate)?,
+            (coin.amount - tax_cap).unwrap_or_else(|_| Uint128::zero()),
+        ),
+        ..coin
+    })
 }
