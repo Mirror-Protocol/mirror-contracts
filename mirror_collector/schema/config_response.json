@@ -5,7 +5,9 @@
   "required": [
     "collateral_denom",
     "factory_contract",
-    "mirror_symbol"
+    "gov_contract",
+    "mirror_symbol",
+    "mirror_token"
   ],
   "properties": {
     "collateral_denom": {
@@ -14,8 +16,14 @@
     "factory_contract": {
       "$ref": "#/definitions/HumanAddr"
     },
+    "gov_contract": {
+      "$ref": "#/definitions/HumanAddr"
+    },
     "mirror_symbol": {
       "type": "string"
+    },
+    "mirror_token": {
+      "$ref": "#/definitions/HumanAddr"
     }
   },
   "definitions": {

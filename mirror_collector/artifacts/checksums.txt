@@ -1,1 +1,1 @@
-ecede187bb1b52993fc18082314607298964128a9feff11cfeb19a7a97311219  mirror_collector.wasm
+ea04eae9d93230163b107a1c8e257bfc37fa3009563dd3c25a3c92e4a08dbc8b  mirror_collector.wasm
