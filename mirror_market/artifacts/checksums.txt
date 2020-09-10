@@ -1,1 +1,1 @@
-9a77cbedb794bde36fa990c5decc5a623ea28cd2e3304ebc84d89317cd271d1a  mirror_market.wasm
+3b2413a85e86f92cb7bcc14fd2d7341ff478c26c40a2c47f54cf13fd3f8a8ca2  mirror_market.wasm
