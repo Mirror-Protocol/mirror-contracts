@@ -97,7 +97,7 @@ impl WasmMockQuerier {
                         }
                     };
 
-                let prefix_balance = to_length_prefixed(b"balances").to_vec();
+                let prefix_balance = to_length_prefixed(b"balance").to_vec();
                 if key[..prefix_balance.len()].to_vec() == prefix_balance {
                     let key_address: &[u8] = &key[prefix_balance.len()..];
                     let address_raw: CanonicalAddr = CanonicalAddr::from(key_address);
@@ -123,7 +123,7 @@ impl WasmMockQuerier {
                         }
                     };
 
-                    Ok(to_binary(&balance))
+                    Ok(to_binary(&to_binary(&balance).unwrap()))
                 } else {
                     panic!("DO NOT ENTER HERE")
                 }

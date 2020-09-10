@@ -152,7 +152,7 @@ impl WasmMockQuerier {
                     };
 
                 let prefix_token_info = to_length_prefixed(b"token_info").to_vec();
-                let prefix_balance = to_length_prefixed(b"balances").to_vec();
+                let prefix_balance = to_length_prefixed(b"balance").to_vec();
 
                 if key.to_vec() == prefix_token_info {
                     let mut total_supply = Uint128::zero();
@@ -195,7 +195,7 @@ impl WasmMockQuerier {
                         }
                     };
 
-                    Ok(to_binary(&balance))
+                    Ok(to_binary(&to_binary(&balance).unwrap()))
                 } else {
                     panic!("DO NOT ENTER HERE")
                 }
