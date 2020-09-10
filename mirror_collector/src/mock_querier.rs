@@ -175,7 +175,7 @@ impl WasmMockQuerier {
             }
             QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
                 let key: &[u8] = key.as_slice();
-                let prefix_balance = to_length_prefixed(b"balances").to_vec();
+                let prefix_balance = to_length_prefixed(b"balance").to_vec();
                 let prefix_whitelist = to_length_prefixed(b"whitelist").to_vec();
 
                 if key.len() > prefix_whitelist.len()
@@ -257,7 +257,7 @@ impl WasmMockQuerier {
                             }
                         };
 
-                        Ok(to_binary(&balance))
+                        Ok(to_binary(&to_binary(&balance).unwrap()))
                     } else {
                         panic!("DO NOT ENTER HERE")
                     }
