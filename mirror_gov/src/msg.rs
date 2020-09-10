@@ -15,7 +15,7 @@ pub enum HandleMsg {
     CastVote {
         poll_id: u64,
         vote: String,
-        weight: Uint128,
+        share: Uint128,
     },
     WithdrawVotingTokens {
         amount: Option<Uint128>,
@@ -51,8 +51,16 @@ pub struct ExecuteMsg {
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     Config {},
-    TokenStake { address: HumanAddr },
+    Stake { address: HumanAddr },
     Poll { poll_id: u64 },
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
+pub struct ConfigResponse {
+    pub owner: HumanAddr,
+    pub mirror_token: HumanAddr,
+    pub poll_count: u64,
+    pub total_share: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
@@ -76,6 +84,7 @@ pub struct PollCountResponse {
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
-pub struct TokenStakeResponse {
-    pub token_balance: Uint128,
+pub struct StakeResponse {
+    pub balance: Uint128,
+    pub share: Uint128,
 }
