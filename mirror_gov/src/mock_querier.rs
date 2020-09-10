@@ -123,7 +123,7 @@ impl WasmMockQuerier {
                         }
                     };
 
-                    Ok(to_binary(&to_binary(&balance).unwrap()))
+                    Ok(to_binary(&balance))
                 } else {
                     panic!("DO NOT ENTER HERE")
                 }

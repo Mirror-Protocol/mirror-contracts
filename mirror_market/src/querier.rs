@@ -25,7 +25,7 @@ pub fn load_token_balance<S: Storage, A: Api, Q: Querier>(
     account_addr: &CanonicalAddr,
 ) -> StdResult<Uint128> {
     // load balance form the token contract
-    let res: Binary = deps
+    let balance: Uint128 = deps
         .querier
         .query(&QueryRequest::Wasm(WasmQuery::Raw {
             contract_addr: HumanAddr::from(contract_addr),
@@ -34,9 +34,9 @@ pub fn load_token_balance<S: Storage, A: Api, Q: Querier>(
                 account_addr.as_slice(),
             )),
         }))
-        .unwrap_or_else(|_| Binary::default());
+        .unwrap_or_else(|_| Uint128::zero());
 
-    Ok(from_binary(&res).unwrap_or_else(|_| Uint128::zero()))
+    Ok(balance)
 }
 
 pub fn load_supply<S: Storage, A: Api, Q: Querier>(
