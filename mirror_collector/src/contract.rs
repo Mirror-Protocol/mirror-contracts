@@ -3,9 +3,7 @@ use cosmwasm_std::{
     HandleResult, InitResponse, Querier, StdResult, Storage, Uint128, WasmMsg,
 };
 
-use crate::msg::{
-    ConfigResponse, HandleMsg, InitMsg, MarketHandleMsg, QueryMsg, StakingCw20HookMsg,
-};
+use crate::msg::{ConfigResponse, HandleMsg, InitMsg, MarketHandleMsg, QueryMsg};
 use crate::querier::{load_balance, load_token_balance, load_whitelist_info, WhitelistInfo};
 use crate::state::{read_config, store_config, Config};
 
@@ -130,10 +128,9 @@ pub fn try_send<S: Storage, A: Api, Q: Querier>(
     Ok(HandleResponse {
         messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps.api.human_address(&whitelist_info.token_contract)?,
-            msg: to_binary(&Cw20HandleMsg::Send {
-                contract: deps.api.human_address(&whitelist_info.staking_contract)?,
+            msg: to_binary(&Cw20HandleMsg::Transfer {
+                recipient: deps.api.human_address(&whitelist_info.staking_contract)?,
                 amount,
-                msg: Some(to_binary(&StakingCw20HookMsg::DepositReward {})?),
             })?,
             send: vec![],
         })],

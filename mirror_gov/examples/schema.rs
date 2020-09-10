@@ -2,7 +2,7 @@ use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 use std::env::current_dir;
 use std::fs::create_dir_all;
 
-use mirror_gov::msg::{HandleMsg, InitMsg, PollResponse, QueryMsg, TokenStakeResponse};
+use mirror_gov::msg::{HandleMsg, InitMsg, PollResponse, QueryMsg, StakeResponse};
 use mirror_gov::state::State;
 
 fn main() {
@@ -16,5 +16,5 @@ fn main() {
     export_schema(&schema_for!(PollResponse), &out_dir);
     export_schema(&schema_for!(QueryMsg), &out_dir);
     export_schema(&schema_for!(State), &out_dir);
-    export_schema(&schema_for!(TokenStakeResponse), &out_dir);
+    export_schema(&schema_for!(StakeResponse), &out_dir);
 }

@@ -3,12 +3,16 @@
   "title": "State",
   "type": "object",
   "required": [
+    "contract_addr",
     "mirror_token",
     "owner",
     "poll_count",
-    "staked_tokens"
+    "total_share"
   ],
   "properties": {
+    "contract_addr": {
+      "$ref": "#/definitions/CanonicalAddr"
+    },
     "mirror_token": {
       "$ref": "#/definitions/CanonicalAddr"
     },
@@ -20,7 +24,7 @@
       "format": "uint64",
       "minimum": 0.0
     },
-    "staked_tokens": {
+    "total_share": {
       "$ref": "#/definitions/Uint128"
     }
   },

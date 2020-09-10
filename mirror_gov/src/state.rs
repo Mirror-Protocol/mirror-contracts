@@ -14,21 +14,22 @@ static BANK_KEY: &[u8] = b"bank";
 pub struct State {
     pub owner: CanonicalAddr,
     pub mirror_token: CanonicalAddr,
+    pub contract_addr: CanonicalAddr,
     pub poll_count: u64,
-    pub staked_tokens: Uint128,
+    pub total_share: Uint128,
 }
 
 #[derive(Default, Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct TokenManager {
-    pub token_balance: Uint128,             // total staked balance
-    pub locked_tokens: Vec<(u64, Uint128)>, //maps poll_id to weight voted
-    pub participated_polls: Vec<u64>,       // poll_id
+    pub share: Uint128,                    // total staked balance
+    pub locked_share: Vec<(u64, Uint128)>, //maps poll_id to weight voted
+    pub participated_polls: Vec<u64>,      // poll_id
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Voter {
     pub vote: String,
-    pub weight: Uint128,
+    pub share: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

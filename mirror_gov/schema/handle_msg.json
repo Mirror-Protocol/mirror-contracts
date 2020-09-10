@@ -12,8 +12,8 @@
           "type": "object",
           "required": [
             "poll_id",
-            "vote",
-            "weight"
+            "share",
+            "vote"
           ],
           "properties": {
             "poll_id": {
@@ -21,11 +21,11 @@
               "format": "uint64",
               "minimum": 0.0
             },
+            "share": {
+              "$ref": "#/definitions/Uint128"
+            },
             "vote": {
               "type": "string"
-            },
-            "weight": {
-              "$ref": "#/definitions/Uint128"
             }
           }
         }

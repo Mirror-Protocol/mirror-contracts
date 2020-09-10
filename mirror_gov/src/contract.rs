@@ -1,7 +1,8 @@
 use crate::msg::{
-    CreatePollResponse, Cw20HookMsg, ExecuteMsg, HandleMsg, InitMsg, PollResponse, QueryMsg,
-    TokenStakeResponse,
+    ConfigResponse, CreatePollResponse, Cw20HookMsg, ExecuteMsg, HandleMsg, InitMsg, PollResponse,
+    QueryMsg, StakeResponse,
 };
+use crate::querier::load_token_balance;
 use crate::state::{
     bank, bank_read, config, config_read, poll, poll_read, ExecuteData, Poll, PollStatus, State,
     Voter,
@@ -26,8 +27,9 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     let state = State {
         mirror_token: deps.api.canonical_address(&msg.mirror_token)?,
         owner: deps.api.canonical_address(&env.message.sender)?,
+        contract_addr: deps.api.canonical_address(&env.contract.address)?,
         poll_count: 0,
-        staked_tokens: Uint128::zero(),
+        total_share: Uint128::zero(),
     };
 
     config(&mut deps.storage).save(&state)?;
@@ -46,8 +48,8 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::CastVote {
             poll_id,
             vote,
-            weight,
-        } => cast_vote(deps, env, poll_id, vote, weight),
+            share,
+        } => cast_vote(deps, env, poll_id, vote, share),
         HandleMsg::EndPoll { poll_id } => end_poll(deps, env, poll_id),
         HandleMsg::CreatePoll {
             quorum_percentage,
@@ -103,15 +105,37 @@ pub fn stake_voting_tokens<S: Storage, A: Api, Q: Querier>(
     let key = &sender_address_raw.as_slice();
 
     let mut token_manager = bank_read(&deps.storage).may_load(key)?.unwrap_or_default();
-    let mut state = config(&mut deps.storage).load()?;
+    let mut state: State = config(&mut deps.storage).load()?;
 
-    token_manager.token_balance += amount;
-    state.staked_tokens = state.staked_tokens + amount;
+    // balance already increased, so subtract depoist amount
+    let total_balance = (load_token_balance(
+        &deps,
+        &deps.api.human_address(&state.mirror_token)?,
+        &state.contract_addr,
+    )? - amount)?;
+
+    let share = if total_balance.is_zero() || state.total_share.is_zero() {
+        amount
+    } else {
+        amount.multiply_ratio(state.total_share, total_balance)
+    };
+
+    token_manager.share += share;
+    state.total_share += share;
 
     config(&mut deps.storage).save(&state)?;
     bank(&mut deps.storage).save(key, &token_manager)?;
 
-    Ok(HandleResponse::default())
+    Ok(HandleResponse {
+        messages: vec![],
+        data: None,
+        log: vec![
+            log("action", "staking"),
+            log("sender", sender.as_str()),
+            log("share", share.to_string()),
+            log("amount", amount.to_string()),
+        ],
+    })
 }
 
 // Withdraw amount if not staked. By default all funds will be withdrawn.
@@ -124,32 +148,45 @@ pub fn withdraw_voting_tokens<S: Storage, A: Api, Q: Querier>(
     let key = sender_address_raw.as_slice();
 
     if let Some(mut token_manager) = bank_read(&deps.storage).may_load(key)? {
-        let lagest_amount = locked_amount(&sender_address_raw, deps);
-        let withdraw_amount = match amount {
-            Some(amount) => Some(amount.u128()),
-            None => Some(token_manager.token_balance.u128()),
+        let mut state: State = config(&mut deps.storage).load()?;
+        let total_share = state.total_share;
+        let total_balance = load_token_balance(
+            &deps,
+            &deps.api.human_address(&state.mirror_token)?,
+            &state.contract_addr,
+        )?;
+
+        let locked_share = locked_share(&sender_address_raw, deps);
+        let withdraw_share = match amount {
+            Some(amount) => Some(
+                // balance to share
+                amount.multiply_ratio(total_share, total_balance).u128(),
+            ),
+            None => Some(token_manager.share.u128()),
         }
         .unwrap();
-        if lagest_amount + withdraw_amount > token_manager.token_balance.u128() {
+
+        if locked_share + withdraw_share > token_manager.share.u128() {
             Err(StdError::generic_err(
                 "User is trying to withdraw too many tokens.",
             ))
         } else {
-            let balance = token_manager.token_balance.u128() - withdraw_amount;
-            token_manager.token_balance = Uint128::from(balance);
+            let share = token_manager.share.u128() - withdraw_share;
+            token_manager.share = Uint128::from(share);
 
             bank(&mut deps.storage).save(key, &token_manager)?;
 
-            let mut state = config(&mut deps.storage).load()?;
-            let staked_tokens = state.staked_tokens.u128() - withdraw_amount;
-            state.staked_tokens = Uint128::from(staked_tokens);
+            state.total_share = Uint128::from(total_share.u128() - withdraw_share);
             config(&mut deps.storage).save(&state)?;
 
             send_tokens(
                 &deps.api,
                 &state.mirror_token,
                 &sender_address_raw,
-                withdraw_amount,
+                // share to balance
+                Uint128(withdraw_share)
+                    .multiply_ratio(total_balance, total_share)
+                    .u128(),
                 "withdraw",
             )
         }
@@ -289,9 +326,9 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
 
     for voter in &a_poll.voter_info {
         if voter.vote == "yes" {
-            yes += voter.weight.u128();
+            yes += voter.share.u128();
         } else {
-            no += voter.weight.u128();
+            no += voter.share.u128();
         }
     }
     let tallied_weight = yes + no;
@@ -303,7 +340,7 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
     if tallied_weight > 0 {
         let state: State = config_read(&deps.storage).load()?;
 
-        let staked_weight = state.staked_tokens.u128();
+        let staked_weight = state.total_share.u128();
         if staked_weight == 0 {
             return Err(StdError::generic_err("Nothing staked"));
         }
@@ -368,20 +405,20 @@ fn unlock_tokens<S: Storage, A: Api, Q: Querier>(
     let mut token_manager = bank_read(&deps.storage).load(voter_key).unwrap();
 
     // unlock entails removing the mapped poll_id, retaining the rest
-    token_manager.locked_tokens.retain(|(k, _)| k != &poll_id);
+    token_manager.locked_share.retain(|(k, _)| k != &poll_id);
     bank(&mut deps.storage).save(voter_key, &token_manager)?;
     Ok(HandleResponse::default())
 }
 
 // finds the largest locked amount in participated polls.
-fn locked_amount<S: Storage, A: Api, Q: Querier>(
+fn locked_share<S: Storage, A: Api, Q: Querier>(
     voter: &CanonicalAddr,
     deps: &mut Extern<S, A, Q>,
 ) -> u128 {
     let voter_key = &voter.as_slice();
     let token_manager = bank_read(&deps.storage).load(voter_key).unwrap();
     token_manager
-        .locked_tokens
+        .locked_share
         .iter()
         .map(|(_, v)| v.u128())
         .max()
@@ -397,7 +434,7 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
     env: Env,
     poll_id: u64,
     vote: String,
-    weight: Uint128,
+    share: Uint128,
 ) -> HandleResult {
     let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
     let poll_key = &poll_id.to_string();
@@ -419,18 +456,18 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
     let key = &sender_address_raw.as_slice();
     let mut token_manager = bank_read(&deps.storage).may_load(key)?.unwrap_or_default();
 
-    if token_manager.token_balance < weight {
+    if token_manager.share < share {
         return Err(StdError::generic_err(
             "User does not have enough staked tokens.",
         ));
     }
     token_manager.participated_polls.push(poll_id);
-    token_manager.locked_tokens.push((poll_id, weight));
+    token_manager.locked_share.push((poll_id, share));
     bank(&mut deps.storage).save(key, &token_manager)?;
 
     a_poll.voters.push(sender_address_raw.clone());
 
-    let voter_info = Voter { vote, weight };
+    let voter_info = Voter { vote, share };
 
     a_poll.voter_info.push(voter_info);
     poll(&mut deps.storage).save(poll_key.as_bytes(), &a_poll)?;
@@ -438,7 +475,7 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
     let log = vec![
         log("action", "vote_casted"),
         log("poll_id", &poll_id.to_string()),
-        log("weight", &weight.to_string()),
+        log("share", &share.to_string()),
         log("voter", &env.message.sender.as_str()),
     ];
 
@@ -481,21 +518,32 @@ fn send_tokens<A: Api>(
 }
 
 pub fn query<S: Storage, A: Api, Q: Querier>(
-    _deps: &Extern<S, A, Q>,
+    deps: &Extern<S, A, Q>,
     msg: QueryMsg,
 ) -> StdResult<Binary> {
     match msg {
-        QueryMsg::Config {} => to_binary(&config_read(&_deps.storage).load()?),
-
-        QueryMsg::TokenStake { address } => token_balance(_deps, address),
-        QueryMsg::Poll { poll_id } => query_poll(_deps, poll_id),
+        QueryMsg::Config {} => to_binary(&query_config(&deps)?),
+        QueryMsg::Stake { address } => to_binary(&query_stake(deps, address)?),
+        QueryMsg::Poll { poll_id } => to_binary(&query_poll(deps, poll_id)?),
     }
+}
+
+fn query_config<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+) -> StdResult<ConfigResponse> {
+    let config: State = config_read(&deps.storage).load()?;
+    Ok(ConfigResponse {
+        owner: deps.api.human_address(&config.owner)?,
+        mirror_token: deps.api.human_address(&config.mirror_token)?,
+        poll_count: config.poll_count,
+        total_share: config.total_share,
+    })
 }
 
 fn query_poll<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     poll_id: u64,
-) -> StdResult<Binary> {
+) -> StdResult<PollResponse> {
     let key = &poll_id.to_string();
 
     let poll = match poll_read(&deps.storage).may_load(key.as_bytes())? {
@@ -504,30 +552,36 @@ fn query_poll<S: Storage, A: Api, Q: Querier>(
     }
     .unwrap();
 
-    let resp = PollResponse {
+    Ok(PollResponse {
         creator: deps.api.human_address(&poll.creator).unwrap(),
         status: poll.status,
         quorum_percentage: poll.quorum_percentage,
         end_height: Some(poll.end_height),
         start_height: poll.start_height,
         description: poll.description,
-    };
-    to_binary(&resp)
+    })
 }
 
-fn token_balance<S: Storage, A: Api, Q: Querier>(
+fn query_stake<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     address: HumanAddr,
-) -> StdResult<Binary> {
-    let key = deps.api.canonical_address(&address).unwrap();
-
+) -> StdResult<StakeResponse> {
+    let addr_raw = deps.api.canonical_address(&address).unwrap();
+    let state: State = config_read(&deps.storage).load()?;
     let token_manager = bank_read(&deps.storage)
-        .may_load(key.as_slice())?
+        .may_load(addr_raw.as_slice())?
         .unwrap_or_default();
 
-    let resp = TokenStakeResponse {
-        token_balance: token_manager.token_balance,
-    };
+    let total_balance = load_token_balance(
+        &deps,
+        &deps.api.human_address(&state.mirror_token)?,
+        &state.contract_addr,
+    )?;
 
-    to_binary(&resp)
+    Ok(StakeResponse {
+        balance: token_manager
+            .share
+            .multiply_ratio(total_balance, state.total_share),
+        share: token_manager.share,
+    })
 }
