@@ -18,7 +18,9 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     store_config(
         &mut deps.storage,
         &Config {
+            gov_contract: deps.api.canonical_address(&msg.gov_contract)?,
             factory_contract: deps.api.canonical_address(&msg.factory_contract)?,
+            mirror_token: deps.api.canonical_address(&msg.mirror_token)?,
             mirror_symbol: msg.mirror_symbol,
             collateral_denom: msg.collateral_denom,
         },
@@ -113,23 +115,17 @@ pub fn try_send<S: Storage, A: Api, Q: Querier>(
     env: Env,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
-    let whitelist_info: WhitelistInfo = load_whitelist_info(
-        &deps,
-        &deps.api.human_address(&config.factory_contract)?,
-        config.mirror_symbol,
-    )?;
-
     let amount = load_token_balance(
         &deps,
-        &deps.api.human_address(&whitelist_info.token_contract)?,
+        &deps.api.human_address(&config.mirror_token)?,
         &deps.api.canonical_address(&env.contract.address)?,
     )?;
 
     Ok(HandleResponse {
         messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: deps.api.human_address(&whitelist_info.token_contract)?,
+            contract_addr: deps.api.human_address(&config.mirror_token)?,
             msg: to_binary(&Cw20HandleMsg::Transfer {
-                recipient: deps.api.human_address(&whitelist_info.staking_contract)?,
+                recipient: deps.api.human_address(&config.gov_contract)?,
                 amount,
             })?,
             send: vec![],
@@ -153,7 +149,9 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<ConfigResponse> {
     let state = read_config(&deps.storage)?;
     let resp = ConfigResponse {
+        gov_contract: deps.api.human_address(&state.gov_contract)?,
         factory_contract: deps.api.human_address(&state.factory_contract)?,
+        mirror_token: deps.api.human_address(&state.mirror_token)?,
         mirror_symbol: state.mirror_symbol,
         collateral_denom: state.collateral_denom,
     };

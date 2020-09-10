@@ -11,6 +11,8 @@ fn proper_initialization() {
 
     let msg = InitMsg {
         factory_contract: HumanAddr("factory0000".to_string()),
+        gov_contract: HumanAddr("gov0000".to_string()),
+        mirror_token: HumanAddr("mirror0000".to_string()),
         mirror_symbol: "mirror".to_string(),
         collateral_denom: "uusd".to_string(),
     };
@@ -70,6 +72,8 @@ fn test_convert() {
 
     let msg = InitMsg {
         factory_contract: HumanAddr("factory0000".to_string()),
+        gov_contract: HumanAddr("gov0000".to_string()),
+        mirror_token: HumanAddr("mirror0000".to_string()),
         mirror_symbol: "MIRROR".to_string(),
         collateral_denom: "uusd".to_string(),
     };
@@ -133,23 +137,14 @@ fn test_convert() {
 fn test_send() {
     let mut deps = mock_dependencies(20, &[]);
     deps.querier.with_token_balances(&[(
-        &HumanAddr::from("tokenMIRROR"),
+        &HumanAddr::from("mirror0000"),
         &[(&HumanAddr::from(MOCK_CONTRACT_ADDR), &Uint128(100u128))],
-    )]);
-    deps.querier.with_whitelist(&[(
-        &HumanAddr::from("factory0000"),
-        vec![(
-            &"MIRROR".to_string(),
-            &WhitelistItem {
-                token_contract: HumanAddr::from("tokenMIRROR"),
-                market_contract: HumanAddr::from("marketMIRROR"),
-                staking_contract: HumanAddr::from("stakingMIRROR"),
-            },
-        )],
     )]);
 
     let msg = InitMsg {
         factory_contract: HumanAddr("factory0000".to_string()),
+        gov_contract: HumanAddr("gov0000".to_string()),
+        mirror_token: HumanAddr("mirror0000".to_string()),
         mirror_symbol: "MIRROR".to_string(),
         collateral_denom: "uusd".to_string(),
     };
@@ -164,9 +159,9 @@ fn test_send() {
     assert_eq!(
         res.messages,
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: HumanAddr::from("tokenMIRROR"),
+            contract_addr: HumanAddr::from("mirror0000"),
             msg: to_binary(&Cw20HandleMsg::Transfer {
-                recipient: HumanAddr::from("stakingMIRROR"),
+                recipient: HumanAddr::from("gov0000"),
                 amount: Uint128(100u128),
             })
             .unwrap(),
