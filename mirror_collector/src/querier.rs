@@ -54,7 +54,7 @@ pub fn load_token_balance<S: Storage, A: Api, Q: Querier>(
             &to_length_prefixed(b"balances").to_vec(),
             account_addr.as_slice(),
         )),
-    }))?;
+    })).unwrap_or_else(|_| Binary::default());;
 
     Ok(from_binary(&res).unwrap_or_else(|_| Uint128::zero()))
 }
