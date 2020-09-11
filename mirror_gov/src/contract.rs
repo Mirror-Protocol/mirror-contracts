@@ -15,9 +15,8 @@ use cosmwasm_std::{
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
 
 pub const VOTING_TOKEN: &str = "voting_token";
-pub const DEFAULT_END_HEIGHT_BLOCKS: &u64 = &100_800_u64;
 const MIN_DESC_LENGTH: usize = 3;
-const MAX_DESC_LENGTH: usize = 64;
+const MAX_DESC_LENGTH: usize = 256;
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,

@@ -1,2 +1,2 @@
-78ccec292dccf95661dcf1ff1be438e8e1e72c154fc0c56905dbcaaf9a8c10d7  mirror_gov.wasm
+ba6895564122f2693b4ad01ca090bdbb664ce24a6311ab64f60400bd5119c150  mirror_gov.wasm
 f59986e1d9fa9fcd174f0fa961bb5d1b28f8ecc3a86efa1d0e87b2265e47d1f6  mirror_voting.wasm
