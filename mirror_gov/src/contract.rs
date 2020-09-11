@@ -380,7 +380,7 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
             // Quorum: More than quorum of the total staked tokens at the end of the voting
             // period need to have participated in the vote.
             rejected_reason = "Quorum not reached";
-        } else if yes > tallied_weight / 2 {
+        } else if Decimal::from_ratio(yes, tallied_weight) > config.threshold {
             //Threshold: More than 50% of the tokens that participated in the vote
             // (after excluding “Abstain” votes) need to have voted in favor of the proposal (“Yes”).
             a_poll.status = PollStatus::Passed;
