@@ -327,8 +327,8 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
     )?;
 
     let position_value: Uint128 = position.asset_amount * price;
-    let auction_begin_treshold = position.collateral_amount * config.auction_threshold_rate;
-    if position_value < auction_begin_treshold {
+    let auction_begin_threshold = position.collateral_amount * config.auction_threshold_rate;
+    if position_value < auction_begin_threshold {
         return Err(StdError::generic_err("Auction is not opened".to_string()));
     }
 
@@ -467,11 +467,11 @@ pub fn query_position<S: Storage, A: Api, Q: Querier>(
     // load price form the oracle
     let position_value: Uint128 = position.asset_amount * price;
 
-    let auction_begin_treshold: Uint128 =
+    let auction_begin_threshold: Uint128 =
         position.collateral_amount * config.auction_threshold_rate;
 
     let mut is_auction_open: bool = false;
-    if position_value > auction_begin_treshold {
+    if position_value > auction_begin_threshold {
         is_auction_open = true;
     }
 
