@@ -16,6 +16,17 @@
     {
       "type": "object",
       "required": [
+        "state"
+      ],
+      "properties": {
+        "state": {
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
         "stake"
       ],
       "properties": {

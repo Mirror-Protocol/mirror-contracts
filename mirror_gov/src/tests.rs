@@ -3,24 +3,30 @@ mod tests {
     use crate::contract::{handle, init, query, VOTING_TOKEN};
     use crate::mock_querier::{mock_dependencies, WasmMockQuerier};
     use crate::msg::{
-        Cw20HookMsg, ExecuteMsg, HandleMsg, InitMsg, PollResponse, QueryMsg, StakeResponse,
+        ConfigResponse, Cw20HookMsg, ExecuteMsg, HandleMsg, InitMsg, PollResponse, QueryMsg,
+        StakeResponse,
     };
-    use crate::state::{config_read, State};
+    use crate::state::{config_read, state_read, Config, State};
     use cosmwasm_std::testing::{mock_env, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
     use cosmwasm_std::{
-        coins, from_binary, log, to_binary, Api, Coin, CosmosMsg, Env, Extern, HandleResponse,
-        HumanAddr, StdError, Uint128, WasmMsg,
+        coins, from_binary, log, to_binary, Api, Coin, CosmosMsg, Decimal, Env, Extern,
+        HandleResponse, HumanAddr, StdError, Uint128, WasmMsg,
     };
     use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
 
-    const DEFAULT_END_HEIGHT: u64 = 100800u64;
     const TEST_CREATOR: &str = "creator";
     const TEST_VOTER: &str = "voter1";
     const TEST_VOTER_2: &str = "voter2";
+    const DEFAULT_QUORUM: u64 = 30u64;
+    const DEFAULT_THRESHOLD: u64 = 50u64;
+    const DEFAULT_VOTING_PERIOD: u64 = 10000u64;
 
     fn mock_init(mut deps: &mut Extern<MockStorage, MockApi, WasmMockQuerier>) {
         let msg = InitMsg {
             mirror_token: HumanAddr::from(VOTING_TOKEN),
+            quorum: Decimal::percent(DEFAULT_QUORUM),
+            threshold: Decimal::percent(DEFAULT_THRESHOLD),
+            voting_period: DEFAULT_VOTING_PERIOD,
         };
 
         let env = mock_env(TEST_CREATOR, &[]);
@@ -37,6 +43,9 @@ mod tests {
     fn init_msg() -> InitMsg {
         InitMsg {
             mirror_token: HumanAddr::from(VOTING_TOKEN),
+            quorum: Decimal::percent(DEFAULT_QUORUM),
+            threshold: Decimal::percent(DEFAULT_THRESHOLD),
+            voting_period: DEFAULT_VOTING_PERIOD,
         }
     }
 
@@ -49,10 +58,10 @@ mod tests {
         let res = init(&mut deps, env, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
-        let state = config_read(&mut deps.storage).load().unwrap();
+        let config: Config = config_read(&mut deps.storage).load().unwrap();
         assert_eq!(
-            state,
-            State {
+            config,
+            Config {
                 mirror_token: deps
                     .api
                     .canonical_address(&HumanAddr::from(VOTING_TOKEN))
@@ -61,6 +70,16 @@ mod tests {
                     .api
                     .canonical_address(&HumanAddr::from(TEST_CREATOR))
                     .unwrap(),
+                quorum: Decimal::percent(DEFAULT_QUORUM),
+                threshold: Decimal::percent(DEFAULT_THRESHOLD),
+                voting_period: DEFAULT_VOTING_PERIOD,
+            }
+        );
+
+        let state: State = state_read(&mut deps.storage).load().unwrap();
+        assert_eq!(
+            state,
+            State {
                 contract_addr: deps
                     .api
                     .canonical_address(&HumanAddr::from(MOCK_CONTRACT_ADDR))
@@ -86,19 +105,41 @@ mod tests {
     }
 
     #[test]
-    fn fails_create_poll_invalid_quorum_percentage() {
+    fn fails_create_poll_invalid_quorum() {
         let mut deps = mock_dependencies(20, &[]);
         let env = mock_env("voter", &coins(11, VOTING_TOKEN));
+        let msg = InitMsg {
+            mirror_token: HumanAddr::from(VOTING_TOKEN),
+            quorum: Decimal::percent(101),
+            threshold: Decimal::percent(DEFAULT_THRESHOLD),
+            voting_period: DEFAULT_VOTING_PERIOD,
+        };
 
-        let msg = create_poll_msg(101, "test".to_string(), None, None, None);
-
-        let res = handle(&mut deps, env, msg);
+        let res = init(&mut deps, env, msg);
 
         match res {
             Ok(_) => panic!("Must return error"),
-            Err(StdError::GenericErr { msg, .. }) => {
-                assert_eq!(msg, "quorum_percentage must be 0 to 100")
-            }
+            Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "quorum must be 0 to 1"),
+            Err(e) => panic!("Unexpected error: {:?}", e),
+        }
+    }
+
+    #[test]
+    fn fails_create_poll_invalid_threshold() {
+        let mut deps = mock_dependencies(20, &[]);
+        let env = mock_env("voter", &coins(11, VOTING_TOKEN));
+        let msg = InitMsg {
+            mirror_token: HumanAddr::from(VOTING_TOKEN),
+            quorum: Decimal::percent(DEFAULT_QUORUM),
+            threshold: Decimal::percent(101),
+            voting_period: DEFAULT_VOTING_PERIOD,
+        };
+
+        let res = init(&mut deps, env, msg);
+
+        match res {
+            Ok(_) => panic!("Must return error"),
+            Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "threshold must be 0 to 1"),
             Err(e) => panic!("Unexpected error: {:?}", e),
         }
     }
@@ -108,7 +149,7 @@ mod tests {
         let mut deps = mock_dependencies(20, &[]);
         let env = mock_env(TEST_VOTER, &coins(11, VOTING_TOKEN));
 
-        let msg = create_poll_msg(30, "a".to_string(), None, None, None);
+        let msg = create_poll_msg("a".to_string(), None);
 
         match handle(&mut deps, env.clone(), msg) {
             Ok(_) => panic!("Must return error"),
@@ -117,10 +158,7 @@ mod tests {
         }
 
         let msg = create_poll_msg(
-            100,
             "01234567890123456789012345678901234567890123456789012345678901234".to_string(),
-            None,
-            None,
             None,
         );
 
@@ -131,18 +169,9 @@ mod tests {
         }
     }
 
-    fn create_poll_msg(
-        quorum_percentage: u8,
-        description: String,
-        start_height: Option<u64>,
-        end_height: Option<u64>,
-        execute_msg: Option<ExecuteMsg>,
-    ) -> HandleMsg {
+    fn create_poll_msg(description: String, execute_msg: Option<ExecuteMsg>) -> HandleMsg {
         let msg = HandleMsg::CreatePoll {
-            quorum_percentage: Some(quorum_percentage),
             description,
-            start_height,
-            end_height,
             execute_msg,
         };
         msg
@@ -154,15 +183,12 @@ mod tests {
         mock_init(&mut deps);
         let env = mock_env_height(TEST_CREATOR, &coins(2, VOTING_TOKEN), 0, 10000);
 
-        let quorum = 30;
-        let msg = create_poll_msg(quorum, "test".to_string(), None, None, None);
+        let msg = create_poll_msg("test".to_string(), None);
 
         let handle_res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
         assert_create_poll_result(
             1,
-            quorum,
-            DEFAULT_END_HEIGHT,
-            0,
+            env.block.height + DEFAULT_VOTING_PERIOD,
             TEST_CREATOR,
             handle_res,
             &mut deps,
@@ -175,15 +201,12 @@ mod tests {
         mock_init(&mut deps);
         let env = mock_env_height(TEST_CREATOR, &coins(2, VOTING_TOKEN), 0, 10000);
 
-        let quorum = 0;
-        let msg = create_poll_msg(quorum, "test".to_string(), None, None, None);
+        let msg = create_poll_msg("test".to_string(), None);
 
         let handle_res = handle(&mut deps, env, msg.clone()).unwrap();
         assert_create_poll_result(
             1,
-            quorum,
-            DEFAULT_END_HEIGHT,
-            0,
+            DEFAULT_VOTING_PERIOD,
             TEST_CREATOR,
             handle_res,
             &mut deps,
@@ -196,14 +219,20 @@ mod tests {
         mock_init(&mut deps);
         let env = mock_env_height(TEST_CREATOR, &coins(2, VOTING_TOKEN), 0, 10000);
 
-        let msg = create_poll_msg(0, "test".to_string(), None, Some(10001), None);
+        let msg = create_poll_msg("test".to_string(), None);
 
         let handle_res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
-        assert_create_poll_result(1, 0, 10001, 0, TEST_CREATOR, handle_res, &mut deps);
+        assert_create_poll_result(
+            1,
+            DEFAULT_VOTING_PERIOD,
+            TEST_CREATOR,
+            handle_res,
+            &mut deps,
+        );
 
         let res = query(&deps, QueryMsg::Poll { poll_id: 1 }).unwrap();
         let value: PollResponse = from_binary(&res).unwrap();
-        assert_eq!(Some(10001), value.end_height);
+        assert_eq!(DEFAULT_VOTING_PERIOD, value.end_height);
 
         let msg = HandleMsg::EndPoll { poll_id: 1 };
 
@@ -238,10 +267,7 @@ mod tests {
         })
         .unwrap();
         let msg = create_poll_msg(
-            0,
             "test".to_string(),
-            None,
-            Some(creator_env.block.height + 1),
             Some(ExecuteMsg {
                 contract: HumanAddr::from(VOTING_TOKEN),
                 msg: exec_msg_bz.clone(),
@@ -252,9 +278,7 @@ mod tests {
 
         assert_create_poll_result(
             1,
-            0,
-            creator_env.block.height + 1,
-            0,
+            creator_env.block.height + DEFAULT_VOTING_PERIOD,
             TEST_CREATOR,
             handle_res,
             &mut deps,
@@ -276,7 +300,7 @@ mod tests {
 
         let env = mock_env(VOTING_TOKEN, &[]);
         let handle_res = handle(&mut deps, env, msg.clone()).unwrap();
-        assert_stake_tokens_result(stake_amount, stake_amount, Some(1), handle_res, &mut deps);
+        assert_stake_tokens_result(stake_amount, stake_amount, 1, handle_res, &mut deps);
 
         let msg = HandleMsg::CastVote {
             poll_id: 1,
@@ -296,7 +320,7 @@ mod tests {
             ]
         );
 
-        creator_env.block.height = &creator_env.block.height + 1;
+        creator_env.block.height = &creator_env.block.height + DEFAULT_VOTING_PERIOD;
 
         let msg = HandleMsg::EndPoll { poll_id: 1 };
 
@@ -328,10 +352,7 @@ mod tests {
         let mut env = mock_env_height(TEST_CREATOR, &coins(2, VOTING_TOKEN), 1000, 10000);
 
         let msg = create_poll_msg(
-            0,
             "test".to_string(),
-            None,
-            Some(env.block.height + 1),
             Some(ExecuteMsg {
                 contract: HumanAddr::from(VOTING_TOKEN),
                 msg: to_binary(&Cw20HandleMsg::Burn {
@@ -342,9 +363,15 @@ mod tests {
         );
 
         let handle_res = handle(&mut deps, env.clone(), msg).unwrap();
-        assert_create_poll_result(1, 0, 1001, 0, TEST_CREATOR, handle_res, &mut deps);
+        assert_create_poll_result(
+            1,
+            env.block.height + DEFAULT_VOTING_PERIOD,
+            TEST_CREATOR,
+            handle_res,
+            &mut deps,
+        );
         let msg = HandleMsg::EndPoll { poll_id: 1 };
-        env.block.height = &env.block.height + 2;
+        env.block.height = &env.block.height + DEFAULT_VOTING_PERIOD;
 
         let handle_res = handle(&mut deps, env.clone(), msg).unwrap();
 
@@ -367,13 +394,7 @@ mod tests {
         mock_init(&mut deps);
         let mut creator_env = mock_env(TEST_CREATOR, &coins(2, VOTING_TOKEN));
 
-        let msg = create_poll_msg(
-            30,
-            "test".to_string(),
-            None,
-            Some(creator_env.block.height + 1),
-            None,
-        );
+        let msg = create_poll_msg("test".to_string(), None);
 
         let handle_res = handle(&mut deps, creator_env.clone(), msg.clone()).unwrap();
         assert_eq!(
@@ -382,9 +403,7 @@ mod tests {
                 log("action", "create_poll"),
                 log("creator", TEST_CREATOR),
                 log("poll_id", "1"),
-                log("quorum_percentage", "30"),
-                log("end_height", "12346"),
-                log("start_height", "0"),
+                log("end_height", "22345"),
             ]
         );
 
@@ -402,7 +421,7 @@ mod tests {
 
         let env = mock_env(VOTING_TOKEN, &[]);
         let handle_res = handle(&mut deps, env, msg.clone()).unwrap();
-        assert_stake_tokens_result(stake_amount, stake_amount, Some(1), handle_res, &mut deps);
+        assert_stake_tokens_result(stake_amount, stake_amount, 1, handle_res, &mut deps);
 
         let msg = HandleMsg::CastVote {
             poll_id: 1,
@@ -424,7 +443,7 @@ mod tests {
 
         let msg = HandleMsg::EndPoll { poll_id: 1 };
 
-        creator_env.block.height = &creator_env.block.height + 2;
+        creator_env.block.height = &creator_env.block.height + DEFAULT_VOTING_PERIOD;
 
         let handle_res = handle(&mut deps, creator_env.clone(), msg.clone()).unwrap();
         assert_eq!(
@@ -446,13 +465,7 @@ mod tests {
         mock_init(&mut deps);
         let mut creator_env = mock_env(TEST_CREATOR, &coins(2, VOTING_TOKEN));
 
-        let msg = create_poll_msg(
-            10,
-            "test".to_string(),
-            None,
-            Some(creator_env.block.height + 1),
-            None,
-        );
+        let msg = create_poll_msg("test".to_string(), None);
 
         let handle_res = handle(&mut deps, creator_env.clone(), msg.clone()).unwrap();
         assert_eq!(
@@ -461,9 +474,7 @@ mod tests {
                 log("action", "create_poll"),
                 log("creator", TEST_CREATOR),
                 log("poll_id", "1"),
-                log("quorum_percentage", "10"),
-                log("end_height", "12346"),
-                log("start_height", "0"),
+                log("end_height", "22345"),
             ]
         );
 
@@ -483,7 +494,7 @@ mod tests {
 
         let env = mock_env(VOTING_TOKEN, &[]);
         let handle_res = handle(&mut deps, env, msg).unwrap();
-        assert_stake_tokens_result(voter1_stake, voter1_stake, Some(1), handle_res, &mut deps);
+        assert_stake_tokens_result(voter1_stake, voter1_stake, 1, handle_res, &mut deps);
 
         deps.querier.with_token_balances(&[(
             &HumanAddr::from(VOTING_TOKEN),
@@ -504,7 +515,7 @@ mod tests {
         assert_stake_tokens_result(
             voter1_stake + voter2_stake,
             voter2_stake,
-            Some(1),
+            1,
             handle_res,
             &mut deps,
         );
@@ -520,7 +531,7 @@ mod tests {
 
         let msg = HandleMsg::EndPoll { poll_id: 1 };
 
-        creator_env.block.height = &creator_env.block.height + 2;
+        creator_env.block.height = &creator_env.block.height + DEFAULT_VOTING_PERIOD;
         let handle_res = handle(&mut deps, creator_env.clone(), msg.clone()).unwrap();
         assert_eq!(
             handle_res.log,
@@ -534,58 +545,17 @@ mod tests {
     }
 
     #[test]
-    fn fails_end_poll_before_start_height() {
-        let mut deps = mock_dependencies(20, &[]);
-        mock_init(&mut deps);
-        let env = mock_env_height(TEST_CREATOR, &coins(2, VOTING_TOKEN), 0, 10000);
-
-        let start_height = 1001;
-        let quorum_percentage = 30;
-        let msg = create_poll_msg(
-            quorum_percentage,
-            "test".to_string(),
-            Some(start_height),
-            None,
-            None,
-        );
-
-        let handle_res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
-        assert_create_poll_result(
-            1,
-            quorum_percentage,
-            DEFAULT_END_HEIGHT,
-            start_height,
-            TEST_CREATOR,
-            handle_res,
-            &mut deps,
-        );
-        let msg = HandleMsg::EndPoll { poll_id: 1 };
-
-        let handle_res = handle(&mut deps, env.clone(), msg);
-
-        match handle_res {
-            Ok(_) => panic!("Must return error"),
-            Err(StdError::GenericErr { msg, .. }) => {
-                assert_eq!(msg, "Voting period has not started.")
-            }
-            Err(e) => panic!("Unexpected error: {:?}", e),
-        }
-    }
-
-    #[test]
     fn fails_cast_vote_not_enough_staked() {
         let mut deps = mock_dependencies(20, &[]);
         mock_init(&mut deps);
         let env = mock_env_height(TEST_CREATOR, &coins(2, VOTING_TOKEN), 0, 10000);
 
-        let msg = create_poll_msg(0, "test".to_string(), None, None, None);
+        let msg = create_poll_msg("test".to_string(), None);
 
         let handle_res = handle(&mut deps, env, msg.clone()).unwrap();
         assert_create_poll_result(
             1,
-            0,
-            DEFAULT_END_HEIGHT,
-            0,
+            DEFAULT_VOTING_PERIOD,
             TEST_CREATOR,
             handle_res,
             &mut deps,
@@ -615,17 +585,12 @@ mod tests {
         mock_init(&mut deps);
 
         let env = mock_env_height(TEST_CREATOR, &coins(2, VOTING_TOKEN), 0, 10000);
-
-        let quorum_percentage = 30;
-
-        let msg = create_poll_msg(quorum_percentage, "test".to_string(), None, None, None);
+        let msg = create_poll_msg("test".to_string(), None);
 
         let handle_res = handle(&mut deps, env, msg.clone()).unwrap();
         assert_create_poll_result(
             1,
-            quorum_percentage,
-            DEFAULT_END_HEIGHT,
-            0,
+            DEFAULT_VOTING_PERIOD,
             TEST_CREATOR,
             handle_res,
             &mut deps,
@@ -644,7 +609,7 @@ mod tests {
 
         let env = mock_env(VOTING_TOKEN, &[]);
         let handle_res = handle(&mut deps, env, msg.clone()).unwrap();
-        assert_stake_tokens_result(11, 11, Some(1), handle_res, &mut deps);
+        assert_stake_tokens_result(11, 11, 1, handle_res, &mut deps);
 
         let env = mock_env(TEST_VOTER, &coins(11, VOTING_TOKEN));
         let share = 10u128;
@@ -676,20 +641,12 @@ mod tests {
 
         let env = mock_env(VOTING_TOKEN, &[]);
         let handle_res = handle(&mut deps, env, msg.clone()).unwrap();
-        assert_stake_tokens_result(11, 11, None, handle_res, &mut deps);
+        assert_stake_tokens_result(11, 11, 0, handle_res, &mut deps);
 
-        let state = config_read(&mut deps.storage).load().unwrap();
+        let state: State = state_read(&mut deps.storage).load().unwrap();
         assert_eq!(
             state,
             State {
-                mirror_token: deps
-                    .api
-                    .canonical_address(&HumanAddr::from(VOTING_TOKEN))
-                    .unwrap(),
-                owner: deps
-                    .api
-                    .canonical_address(&HumanAddr::from(TEST_CREATOR))
-                    .unwrap(),
                 contract_addr: deps
                     .api
                     .canonical_address(&HumanAddr::from(MOCK_CONTRACT_ADDR))
@@ -720,18 +677,10 @@ mod tests {
             })
         );
 
-        let state = config_read(&mut deps.storage).load().unwrap();
+        let state: State = state_read(&mut deps.storage).load().unwrap();
         assert_eq!(
             state,
             State {
-                mirror_token: deps
-                    .api
-                    .canonical_address(&HumanAddr::from(VOTING_TOKEN))
-                    .unwrap(),
-                owner: deps
-                    .api
-                    .canonical_address(&HumanAddr::from(TEST_CREATOR))
-                    .unwrap(),
                 contract_addr: deps
                     .api
                     .canonical_address(&HumanAddr::from(MOCK_CONTRACT_ADDR))
@@ -779,7 +728,7 @@ mod tests {
 
         let env = mock_env(VOTING_TOKEN, &[]);
         let handle_res = handle(&mut deps, env, msg.clone()).unwrap();
-        assert_stake_tokens_result(10, 10, None, handle_res, &mut deps);
+        assert_stake_tokens_result(10, 10, 0, handle_res, &mut deps);
 
         let env = mock_env(TEST_VOTER, &[]);
         let msg = HandleMsg::WithdrawVotingTokens {
@@ -804,15 +753,12 @@ mod tests {
 
         let env = mock_env_height(TEST_CREATOR, &coins(2, VOTING_TOKEN), 0, 10000);
 
-        let quorum_percentage = 30;
-        let msg = create_poll_msg(quorum_percentage, "test".to_string(), None, None, None);
+        let msg = create_poll_msg("test".to_string(), None);
         let handle_res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
 
         assert_create_poll_result(
             1,
-            quorum_percentage,
-            DEFAULT_END_HEIGHT,
-            0,
+            env.block.height + DEFAULT_VOTING_PERIOD,
             TEST_CREATOR,
             handle_res,
             &mut deps,
@@ -831,7 +777,7 @@ mod tests {
 
         let env = mock_env(VOTING_TOKEN, &[]);
         let handle_res = handle(&mut deps, env, msg.clone()).unwrap();
-        assert_stake_tokens_result(11, 11, Some(1), handle_res, &mut deps);
+        assert_stake_tokens_result(11, 11, 1, handle_res, &mut deps);
 
         let share = 1u128;
         let msg = HandleMsg::CastVote {
@@ -896,7 +842,7 @@ mod tests {
 
         let env = mock_env(VOTING_TOKEN, &[]);
         let handle_res = handle(&mut deps, env, msg.clone()).unwrap();
-        assert_stake_tokens_result(11, 11, None, handle_res, &mut deps);
+        assert_stake_tokens_result(11, 11, 0, handle_res, &mut deps);
     }
 
     #[test]
@@ -1045,9 +991,7 @@ mod tests {
     // helper to confirm the expected create_poll response
     fn assert_create_poll_result(
         poll_id: u64,
-        quorum: u8,
         end_height: u64,
-        start_height: u64,
         creator: &str,
         handle_res: HandleResponse,
         deps: &mut Extern<MockStorage, MockApi, WasmMockQuerier>,
@@ -1058,25 +1002,15 @@ mod tests {
                 log("action", "create_poll"),
                 log("creator", creator),
                 log("poll_id", poll_id.to_string()),
-                log("quorum_percentage", quorum.to_string()),
                 log("end_height", end_height.to_string()),
-                log("start_height", start_height.to_string()),
             ]
         );
 
         //confirm poll count
-        let state = config_read(&deps.storage).load().unwrap();
+        let state: State = state_read(&mut deps.storage).load().unwrap();
         assert_eq!(
             state,
             State {
-                mirror_token: deps
-                    .api
-                    .canonical_address(&HumanAddr::from(VOTING_TOKEN))
-                    .unwrap(),
-                owner: deps
-                    .api
-                    .canonical_address(&HumanAddr::from(TEST_CREATOR))
-                    .unwrap(),
                 contract_addr: deps
                     .api
                     .canonical_address(&HumanAddr::from(MOCK_CONTRACT_ADDR))
@@ -1090,7 +1024,7 @@ mod tests {
     fn assert_stake_tokens_result(
         total_share: u128,
         new_share: u128,
-        poll_count: Option<u64>,
+        poll_count: u64,
         handle_res: HandleResponse,
         deps: &mut Extern<MockStorage, MockApi, WasmMockQuerier>,
     ) {
@@ -1099,24 +1033,16 @@ mod tests {
             &log("share", new_share.to_string())
         );
 
-        let state = config_read(&mut deps.storage).load().unwrap();
+        let state: State = state_read(&mut deps.storage).load().unwrap();
         assert_eq!(
             state,
             State {
-                mirror_token: deps
-                    .api
-                    .canonical_address(&HumanAddr::from(VOTING_TOKEN))
-                    .unwrap(),
-                owner: deps
-                    .api
-                    .canonical_address(&HumanAddr::from(TEST_CREATOR))
-                    .unwrap(),
                 contract_addr: deps
                     .api
                     .canonical_address(&HumanAddr::from(MOCK_CONTRACT_ADDR))
                     .unwrap(),
-                poll_count: poll_count.unwrap_or_default(),
-                total_share: Uint128::from(total_share),
+                poll_count,
+                total_share: Uint128(total_share),
             }
         );
     }
@@ -1136,5 +1062,66 @@ mod tests {
                 log("voter", voter),
             ]
         );
+    }
+
+    #[test]
+    fn update_config() {
+        let mut deps = mock_dependencies(20, &[]);
+        mock_init(&mut deps);
+
+        // update owner
+        let env = mock_env(TEST_CREATOR, &[]);
+        let msg = HandleMsg::UpdateConfig {
+            owner: Some(HumanAddr("addr0001".to_string())),
+            quorum: None,
+            threshold: None,
+            voting_period: None,
+        };
+
+        let res = handle(&mut deps, env, msg).unwrap();
+        assert_eq!(0, res.messages.len());
+
+        // it worked, let's query the state
+        let res = query(&deps, QueryMsg::Config {}).unwrap();
+        let config: ConfigResponse = from_binary(&res).unwrap();
+        assert_eq!("addr0001", config.owner.as_str());
+        assert_eq!(Decimal::percent(DEFAULT_QUORUM), config.quorum);
+        assert_eq!(Decimal::percent(DEFAULT_THRESHOLD), config.threshold);
+        assert_eq!(DEFAULT_VOTING_PERIOD, config.voting_period);
+
+        // update left items
+        let env = mock_env("addr0001", &[]);
+        let msg = HandleMsg::UpdateConfig {
+            owner: None,
+            quorum: Some(Decimal::percent(20)),
+            threshold: Some(Decimal::percent(75)),
+            voting_period: Some(20000u64),
+        };
+
+        let res = handle(&mut deps, env, msg).unwrap();
+        assert_eq!(0, res.messages.len());
+
+        // it worked, let's query the state
+        let res = query(&deps, QueryMsg::Config {}).unwrap();
+        let config: ConfigResponse = from_binary(&res).unwrap();
+        assert_eq!("addr0001", config.owner.as_str());
+        assert_eq!(Decimal::percent(20), config.quorum);
+        assert_eq!(Decimal::percent(75), config.threshold);
+        assert_eq!(20000u64, config.voting_period);
+
+        // Unauthorzied err
+        let env = mock_env(TEST_CREATOR, &[]);
+        let msg = HandleMsg::UpdateConfig {
+            owner: None,
+            quorum: None,
+            threshold: None,
+            voting_period: None,
+        };
+
+        let res = handle(&mut deps, env, msg);
+        match res {
+            Err(StdError::Unauthorized { .. }) => {}
+            _ => panic!("Must return unauthorized error"),
+        }
     }
 }
