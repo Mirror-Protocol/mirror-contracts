@@ -4,19 +4,11 @@
   "type": "object",
   "required": [
     "contract_addr",
-    "mirror_token",
-    "owner",
     "poll_count",
     "total_share"
   ],
   "properties": {
     "contract_addr": {
-      "$ref": "#/definitions/CanonicalAddr"
-    },
-    "mirror_token": {
-      "$ref": "#/definitions/CanonicalAddr"
-    },
-    "owner": {
       "$ref": "#/definitions/CanonicalAddr"
     },
     "poll_count": {

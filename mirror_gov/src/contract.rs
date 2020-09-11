@@ -1,11 +1,11 @@
 use crate::msg::{
     ConfigResponse, CreatePollResponse, Cw20HookMsg, ExecuteMsg, HandleMsg, InitMsg, PollResponse,
-    QueryMsg, StakeResponse,
+    QueryMsg, StakeResponse, StateResponse,
 };
 use crate::querier::load_token_balance;
 use crate::state::{
-    bank, bank_read, config, config_read, poll, poll_read, ExecuteData, Poll, PollStatus, State,
-    Voter,
+    bank_read, bank_store, config_read, config_store, poll_read, poll_store, state_read,
+    state_store, Config, ExecuteData, Poll, PollStatus, State, Voter,
 };
 use cosmwasm_std::{
     from_binary, log, to_binary, Api, Binary, CanonicalAddr, CosmosMsg, Decimal, Env, Extern,
@@ -24,15 +24,25 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     env: Env,
     msg: InitMsg,
 ) -> InitResult {
-    let state = State {
+    validate_quorum(msg.quorum)?;
+    validate_threshold(msg.threshold)?;
+
+    let config = Config {
         mirror_token: deps.api.canonical_address(&msg.mirror_token)?,
         owner: deps.api.canonical_address(&env.message.sender)?,
+        quorum: msg.quorum,
+        threshold: msg.threshold,
+        voting_period: msg.voting_period,
+    };
+
+    let state = State {
         contract_addr: deps.api.canonical_address(&env.contract.address)?,
         poll_count: 0,
         total_share: Uint128::zero(),
     };
 
-    config(&mut deps.storage).save(&state)?;
+    config_store(&mut deps.storage).save(&config)?;
+    state_store(&mut deps.storage).save(&state)?;
 
     Ok(InitResponse::default())
 }
@@ -44,6 +54,12 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<HandleResponse> {
     match msg {
         HandleMsg::Receive(msg) => receive_cw20(deps, env, msg),
+        HandleMsg::UpdateConfig {
+            owner,
+            quorum,
+            threshold,
+            voting_period,
+        } => update_config(deps, env, owner, quorum, threshold, voting_period),
         HandleMsg::WithdrawVotingTokens { amount } => withdraw_voting_tokens(deps, env, amount),
         HandleMsg::CastVote {
             poll_id,
@@ -52,20 +68,9 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         } => cast_vote(deps, env, poll_id, vote, share),
         HandleMsg::EndPoll { poll_id } => end_poll(deps, env, poll_id),
         HandleMsg::CreatePoll {
-            quorum_percentage,
             description,
-            start_height,
-            end_height,
             execute_msg,
-        } => create_poll(
-            deps,
-            env,
-            quorum_percentage,
-            description,
-            start_height,
-            end_height,
-            execute_msg,
-        ),
+        } => create_poll(deps, env, description, execute_msg),
     }
 }
 
@@ -75,7 +80,7 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
     cw20_msg: Cw20ReceiveMsg,
 ) -> HandleResult {
     // only asset contract can execute this message
-    let config: State = config_read(&deps.storage).load()?;
+    let config: Config = config_read(&deps.storage).load()?;
     if config.mirror_token != deps.api.canonical_address(&env.message.sender)? {
         return Err(StdError::unauthorized());
     }
@@ -105,12 +110,13 @@ pub fn stake_voting_tokens<S: Storage, A: Api, Q: Querier>(
     let key = &sender_address_raw.as_slice();
 
     let mut token_manager = bank_read(&deps.storage).may_load(key)?.unwrap_or_default();
-    let mut state: State = config(&mut deps.storage).load()?;
+    let config: Config = config_store(&mut deps.storage).load()?;
+    let mut state: State = state_store(&mut deps.storage).load()?;
 
     // balance already increased, so subtract depoist amount
     let total_balance = (load_token_balance(
         &deps,
-        &deps.api.human_address(&state.mirror_token)?,
+        &deps.api.human_address(&config.mirror_token)?,
         &state.contract_addr,
     )? - amount)?;
 
@@ -123,8 +129,8 @@ pub fn stake_voting_tokens<S: Storage, A: Api, Q: Querier>(
     token_manager.share += share;
     state.total_share += share;
 
-    config(&mut deps.storage).save(&state)?;
-    bank(&mut deps.storage).save(key, &token_manager)?;
+    state_store(&mut deps.storage).save(&state)?;
+    bank_store(&mut deps.storage).save(key, &token_manager)?;
 
     Ok(HandleResponse {
         messages: vec![],
@@ -138,6 +144,41 @@ pub fn stake_voting_tokens<S: Storage, A: Api, Q: Querier>(
     })
 }
 
+pub fn update_config<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    owner: Option<HumanAddr>,
+    quorum: Option<Decimal>,
+    threshold: Option<Decimal>,
+    voting_period: Option<u64>,
+) -> HandleResult {
+    let api = deps.api;
+    config_store(&mut deps.storage).update(|mut config| {
+        if config.owner != api.canonical_address(&env.message.sender)? {
+            return Err(StdError::unauthorized());
+        }
+
+        if let Some(owner) = owner {
+            config.owner = api.canonical_address(&owner)?;
+        }
+
+        if let Some(quorum) = quorum {
+            config.quorum = quorum;
+        }
+
+        if let Some(threshold) = threshold {
+            config.threshold = threshold;
+        }
+
+        if let Some(voting_period) = voting_period {
+            config.voting_period = voting_period;
+        }
+
+        Ok(config)
+    })?;
+    Ok(HandleResponse::default())
+}
+
 // Withdraw amount if not staked. By default all funds will be withdrawn.
 pub fn withdraw_voting_tokens<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -148,11 +189,12 @@ pub fn withdraw_voting_tokens<S: Storage, A: Api, Q: Querier>(
     let key = sender_address_raw.as_slice();
 
     if let Some(mut token_manager) = bank_read(&deps.storage).may_load(key)? {
-        let mut state: State = config(&mut deps.storage).load()?;
+        let config: Config = config_store(&mut deps.storage).load()?;
+        let mut state: State = state_store(&mut deps.storage).load()?;
         let total_share = state.total_share;
         let total_balance = load_token_balance(
             &deps,
-            &deps.api.human_address(&state.mirror_token)?,
+            &deps.api.human_address(&config.mirror_token)?,
             &state.contract_addr,
         )?;
 
@@ -174,14 +216,14 @@ pub fn withdraw_voting_tokens<S: Storage, A: Api, Q: Querier>(
             let share = token_manager.share.u128() - withdraw_share;
             token_manager.share = Uint128::from(share);
 
-            bank(&mut deps.storage).save(key, &token_manager)?;
+            bank_store(&mut deps.storage).save(key, &token_manager)?;
 
             state.total_share = Uint128::from(total_share.u128() - withdraw_share);
-            config(&mut deps.storage).save(&state)?;
+            state_store(&mut deps.storage).save(&state)?;
 
             send_tokens(
                 &deps.api,
-                &state.mirror_token,
+                &config.mirror_token,
                 &sender_address_raw,
                 // share to balance
                 Uint128(withdraw_share)
@@ -206,20 +248,21 @@ fn validate_description(description: &str) -> StdResult<()> {
     }
 }
 
-/// validate_quorum_percentage returns an error if the quorum_percentage is invalid
-/// (we require 0-100)
-fn validate_quorum_percentage(quorum_percentage: Option<u8>) -> StdResult<()> {
-    if quorum_percentage.is_some() && quorum_percentage.unwrap() > 100 {
-        Err(StdError::generic_err("quorum_percentage must be 0 to 100"))
+/// validate_quorum returns an error if the quorum is invalid
+/// (we require 0-1)
+fn validate_quorum(quorum: Decimal) -> StdResult<()> {
+    if quorum > Decimal::one() {
+        Err(StdError::generic_err("quorum must be 0 to 1"))
     } else {
         Ok(())
     }
 }
 
-/// validate_end_height returns an error if the poll ends in the past
-fn validate_end_height(end_height: Option<u64>, env: Env) -> StdResult<()> {
-    if end_height.is_some() && env.block.height >= end_height.unwrap() {
-        Err(StdError::generic_err("Poll cannot end in the past"))
+/// validate_threshold returns an error if the threshold is invalid
+/// (we require 0-1)
+fn validate_threshold(threshold: Decimal) -> StdResult<()> {
+    if threshold > Decimal::one() {
+        Err(StdError::generic_err("threshold must be 0 to 1"))
     } else {
         Ok(())
     }
@@ -229,17 +272,13 @@ fn validate_end_height(end_height: Option<u64>, env: Env) -> StdResult<()> {
 pub fn create_poll<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    quorum_percentage: Option<u8>,
     description: String,
-    start_height: Option<u64>,
-    end_height: Option<u64>,
     execute_msg: Option<ExecuteMsg>,
 ) -> StdResult<HandleResponse> {
-    validate_quorum_percentage(quorum_percentage)?;
-    validate_end_height(end_height, env.clone())?;
     validate_description(&description)?;
 
-    let mut state = config(&mut deps.storage).load()?;
+    let config: Config = config_store(&mut deps.storage).load()?;
+    let mut state: State = state_store(&mut deps.storage).load()?;
     let poll_count = state.poll_count;
     let poll_id = poll_count + 1;
     state.poll_count = poll_id;
@@ -257,21 +296,18 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
     let new_poll = Poll {
         creator: sender_address_raw,
         status: PollStatus::InProgress,
-        quorum_percentage,
         yes_votes: Uint128::zero(),
         no_votes: Uint128::zero(),
         voters: vec![],
         voter_info: vec![],
-        end_height: end_height.unwrap_or(env.block.height + DEFAULT_END_HEIGHT_BLOCKS),
-        start_height,
+        end_height: env.block.height + config.voting_period,
         description,
         execute_data,
     };
 
     let key = state.poll_count.to_string();
-    poll(&mut deps.storage).save(key.as_bytes(), &new_poll)?;
-
-    config(&mut deps.storage).save(&state)?;
+    poll_store(&mut deps.storage).save(key.as_bytes(), &new_poll)?;
+    state_store(&mut deps.storage).save(&state)?;
 
     let r = HandleResponse {
         messages: vec![],
@@ -282,9 +318,7 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
                 deps.api.human_address(&new_poll.creator)?.as_str(),
             ),
             log("poll_id", &poll_id.to_string()),
-            log("quorum_percentage", quorum_percentage.unwrap_or(0)),
             log("end_height", new_poll.end_height),
-            log("start_height", start_height.unwrap_or(0)),
         ],
         data: Some(to_binary(&CreatePollResponse { poll_id })?),
     };
@@ -300,7 +334,7 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
     poll_id: u64,
 ) -> HandleResult {
     let key = &poll_id.to_string();
-    let mut a_poll: Poll = poll(&mut deps.storage).load(key.as_bytes())?;
+    let mut a_poll: Poll = poll_store(&mut deps.storage).load(key.as_bytes())?;
 
     let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
     if a_poll.creator != sender_address_raw {
@@ -311,10 +345,6 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
 
     if a_poll.status != PollStatus::InProgress {
         return Err(StdError::generic_err("Poll is not in progress"));
-    }
-
-    if a_poll.start_height.is_some() && a_poll.start_height.unwrap() > env.block.height {
-        return Err(StdError::generic_err("Voting period has not started."));
     }
 
     if a_poll.end_height > env.block.height {
@@ -338,17 +368,17 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
     let mut passed = false;
 
     if tallied_weight > 0 {
-        let state: State = config_read(&deps.storage).load()?;
+        let config: Config = config_read(&deps.storage).load()?;
+        let state: State = state_read(&deps.storage).load()?;
 
         let staked_weight = state.total_share.u128();
         if staked_weight == 0 {
             return Err(StdError::generic_err("Nothing staked"));
         }
 
-        let quorum =
-            (Decimal::from_ratio(tallied_weight, staked_weight) * Uint128(100u128)).u128() as u8;
-        if a_poll.quorum_percentage.is_some() && quorum < a_poll.quorum_percentage.unwrap() {
-            // Quorum: More than quorum_percentage of the total staked tokens at the end of the voting
+        let quorum = Decimal::from_ratio(tallied_weight, staked_weight);
+        if quorum < config.quorum {
+            // Quorum: More than quorum of the total staked tokens at the end of the voting
             // period need to have participated in the vote.
             rejected_reason = "Quorum not reached";
         } else if yes > tallied_weight / 2 {
@@ -363,7 +393,7 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
         rejected_reason = "Quorum not reached";
     }
     a_poll.status = poll_status;
-    poll(&mut deps.storage).save(key.as_bytes(), &a_poll)?;
+    poll_store(&mut deps.storage).save(key.as_bytes(), &a_poll)?;
 
     for voter in &a_poll.voters {
         unlock_tokens(deps, voter, poll_id)?;
@@ -406,7 +436,7 @@ fn unlock_tokens<S: Storage, A: Api, Q: Querier>(
 
     // unlock entails removing the mapped poll_id, retaining the rest
     token_manager.locked_share.retain(|(k, _)| k != &poll_id);
-    bank(&mut deps.storage).save(voter_key, &token_manager)?;
+    bank_store(&mut deps.storage).save(voter_key, &token_manager)?;
     Ok(HandleResponse::default())
 }
 
@@ -438,12 +468,12 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
 ) -> HandleResult {
     let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
     let poll_key = &poll_id.to_string();
-    let state = config_read(&deps.storage).load()?;
+    let state = state_read(&deps.storage).load()?;
     if poll_id == 0 || state.poll_count > poll_id {
         return Err(StdError::generic_err("Poll does not exist"));
     }
 
-    let mut a_poll = poll(&mut deps.storage).load(poll_key.as_bytes())?;
+    let mut a_poll = poll_store(&mut deps.storage).load(poll_key.as_bytes())?;
 
     if a_poll.status != PollStatus::InProgress {
         return Err(StdError::generic_err("Poll is not in progress"));
@@ -463,14 +493,14 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
     }
     token_manager.participated_polls.push(poll_id);
     token_manager.locked_share.push((poll_id, share));
-    bank(&mut deps.storage).save(key, &token_manager)?;
+    bank_store(&mut deps.storage).save(key, &token_manager)?;
 
     a_poll.voters.push(sender_address_raw.clone());
 
     let voter_info = Voter { vote, share };
 
     a_poll.voter_info.push(voter_info);
-    poll(&mut deps.storage).save(poll_key.as_bytes(), &a_poll)?;
+    poll_store(&mut deps.storage).save(poll_key.as_bytes(), &a_poll)?;
 
     let log = vec![
         log("action", "vote_casted"),
@@ -523,6 +553,7 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(&deps)?),
+        QueryMsg::State {} => to_binary(&query_state(&deps)?),
         QueryMsg::Stake { address } => to_binary(&query_stake(deps, address)?),
         QueryMsg::Poll { poll_id } => to_binary(&query_poll(deps, poll_id)?),
     }
@@ -531,12 +562,21 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
 fn query_config<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
 ) -> StdResult<ConfigResponse> {
-    let config: State = config_read(&deps.storage).load()?;
+    let config: Config = config_read(&deps.storage).load()?;
     Ok(ConfigResponse {
         owner: deps.api.human_address(&config.owner)?,
         mirror_token: deps.api.human_address(&config.mirror_token)?,
-        poll_count: config.poll_count,
-        total_share: config.total_share,
+        quorum: config.quorum,
+        threshold: config.threshold,
+        voting_period: config.voting_period,
+    })
+}
+
+fn query_state<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>) -> StdResult<StateResponse> {
+    let state: State = state_read(&deps.storage).load()?;
+    Ok(StateResponse {
+        poll_count: state.poll_count,
+        total_share: state.total_share,
     })
 }
 
@@ -555,9 +595,7 @@ fn query_poll<S: Storage, A: Api, Q: Querier>(
     Ok(PollResponse {
         creator: deps.api.human_address(&poll.creator).unwrap(),
         status: poll.status,
-        quorum_percentage: poll.quorum_percentage,
-        end_height: Some(poll.end_height),
-        start_height: poll.start_height,
+        end_height: poll.end_height,
         description: poll.description,
     })
 }
@@ -567,14 +605,15 @@ fn query_stake<S: Storage, A: Api, Q: Querier>(
     address: HumanAddr,
 ) -> StdResult<StakeResponse> {
     let addr_raw = deps.api.canonical_address(&address).unwrap();
-    let state: State = config_read(&deps.storage).load()?;
+    let config: Config = config_read(&deps.storage).load()?;
+    let state: State = state_read(&deps.storage).load()?;
     let token_manager = bank_read(&deps.storage)
         .may_load(addr_raw.as_slice())?
         .unwrap_or_default();
 
     let total_balance = load_token_balance(
         &deps,
-        &deps.api.human_address(&state.mirror_token)?,
+        &deps.api.human_address(&config.mirror_token)?,
         &state.contract_addr,
     )?;
 

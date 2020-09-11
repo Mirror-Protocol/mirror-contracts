@@ -1,5 +1,5 @@
 use crate::state::PollStatus;
-use cosmwasm_std::{Binary, HumanAddr, Uint128};
+use cosmwasm_std::{Binary, Decimal, HumanAddr, Uint128};
 use cw20::Cw20ReceiveMsg;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -7,11 +7,21 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
     pub mirror_token: HumanAddr,
+    pub quorum: Decimal,
+    pub threshold: Decimal,
+    pub voting_period: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum HandleMsg {
+    Receive(Cw20ReceiveMsg),
+    UpdateConfig {
+        owner: Option<HumanAddr>,
+        quorum: Option<Decimal>,
+        threshold: Option<Decimal>,
+        voting_period: Option<u64>,
+    },
     CastVote {
         poll_id: u64,
         vote: String,
@@ -21,17 +31,12 @@ pub enum HandleMsg {
         amount: Option<Uint128>,
     },
     CreatePoll {
-        quorum_percentage: Option<u8>,
         description: String,
-        start_height: Option<u64>,
-        end_height: Option<u64>,
         execute_msg: Option<ExecuteMsg>,
     },
     EndPoll {
         poll_id: u64,
     },
-    /// Receive is cw20 token send handler
-    Receive(Cw20ReceiveMsg),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -51,6 +56,7 @@ pub struct ExecuteMsg {
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     Config {},
+    State {},
     Stake { address: HumanAddr },
     Poll { poll_id: u64 },
 }
@@ -59,6 +65,13 @@ pub enum QueryMsg {
 pub struct ConfigResponse {
     pub owner: HumanAddr,
     pub mirror_token: HumanAddr,
+    pub quorum: Decimal,
+    pub threshold: Decimal,
+    pub voting_period: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
+pub struct StateResponse {
     pub poll_count: u64,
     pub total_share: Uint128,
 }
@@ -67,9 +80,7 @@ pub struct ConfigResponse {
 pub struct PollResponse {
     pub creator: HumanAddr,
     pub status: PollStatus,
-    pub quorum_percentage: Option<u8>,
-    pub end_height: Option<u64>,
-    pub start_height: Option<u64>,
+    pub end_height: u64,
     pub description: String,
 }
 
