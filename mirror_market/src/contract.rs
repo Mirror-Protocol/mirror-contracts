@@ -1,18 +1,18 @@
 use cosmwasm_std::{
-    log, to_binary, Api, BankMsg, Binary, CanonicalAddr, Coin, CosmosMsg, Decimal, Env, Extern,
-    HandleResponse, HumanAddr, InitResponse, Querier, StdError, StdResult, Storage, Uint128,
-    WasmMsg,
+    from_binary, log, to_binary, Api, BankMsg, Binary, CanonicalAddr, Coin, CosmosMsg, Decimal,
+    Env, Extern, HandleResponse, HandleResult, HumanAddr, InitResponse, Querier, StdError,
+    StdResult, Storage, Uint128, WasmMsg,
 };
 
 use crate::msg::{
-    ConfigAssetResponse, ConfigGeneralResponse, ConfigSwapResponse, HandleMsg, InitMsg,
-    PoolResponse, QueryMsg, ReverseSimulationResponse, SimulationResponse, SwapOperation,
+    ConfigAssetResponse, ConfigGeneralResponse, ConfigSwapResponse, Cw20HookMsg, HandleMsg,
+    InitMsg, PoolResponse, QueryMsg, ReverseSimulationResponse, SimulationResponse, SwapOperation,
 };
 
 use crate::math::{decimal_subtraction, reverse_decimal};
 use crate::querier::{load_balance, load_supply, load_token_balance};
 
-use cw20::Cw20HandleMsg;
+use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
 use terra_cosmwasm::TerraQuerier;
 
 use crate::state::{
@@ -58,8 +58,9 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     msg: HandleMsg,
-) -> StdResult<HandleResponse> {
+) -> HandleResult {
     match msg {
+        HandleMsg::Receive(msg) => receive_cw20(deps, env, msg),
         HandleMsg::UpdateConfig {
             owner,
             active_commission,
@@ -71,7 +72,28 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::ProvideLiquidity { coins } => try_provide_liquidity(deps, env, coins),
         HandleMsg::WithdrawLiquidity { amount } => try_withdraw_liquidity(deps, env, amount),
         HandleMsg::Buy { max_spread } => try_buy(deps, env, max_spread),
-        HandleMsg::Sell { amount, max_spread } => try_sell(deps, env, amount, max_spread),
+    }
+}
+
+pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    cw20_msg: Cw20ReceiveMsg,
+) -> HandleResult {
+    // only asset contract can execute this message
+    let asset: ConfigAsset = read_config_asset(&deps.storage)?;
+    if asset.token != deps.api.canonical_address(&env.message.sender)? {
+        return Err(StdError::unauthorized());
+    }
+
+    if let Some(msg) = cw20_msg.msg {
+        match from_binary(&msg)? {
+            Cw20HookMsg::Sell { max_spread } => {
+                try_sell(deps, env, cw20_msg.sender, cw20_msg.amount, max_spread)
+            }
+        }
+    } else {
+        Err(StdError::generic_err("data should be given"))
     }
 }
 
@@ -79,7 +101,7 @@ pub fn try_post_initialize<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     liquidity_token: HumanAddr,
-) -> StdResult<HandleResponse> {
+) -> HandleResult {
     let config_general: ConfigGeneral = read_config_general(&deps.storage)?;
 
     // permission check
@@ -106,7 +128,7 @@ pub fn try_update_config<S: Storage, A: Api, Q: Querier>(
     owner: Option<HumanAddr>,
     active_commission: Option<Decimal>,
     inactive_commission: Option<Decimal>,
-) -> StdResult<HandleResponse> {
+) -> HandleResult {
     let mut config_general: ConfigGeneral = read_config_general(&deps.storage)?;
     let mut config_swap: ConfigSwap = read_config_swap(&deps.storage)?;
 
@@ -149,7 +171,7 @@ pub fn try_provide_liquidity<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     coins: Vec<Coin>,
-) -> StdResult<HandleResponse> {
+) -> HandleResult {
     let config_general: ConfigGeneral = read_config_general(&deps.storage)?;
     let config_asset: ConfigAsset = read_config_asset(&deps.storage)?;
 
@@ -232,7 +254,7 @@ pub fn try_withdraw_liquidity<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     amount: Uint128,
-) -> StdResult<HandleResponse> {
+) -> HandleResult {
     let config_general: ConfigGeneral = read_config_general(&deps.storage)?;
     let config_asset: ConfigAsset = read_config_asset(&deps.storage)?;
     let asset_addr: HumanAddr = deps.api.human_address(&config_asset.token)?;
@@ -300,7 +322,7 @@ pub fn try_buy<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     max_spread: Option<Decimal>,
-) -> StdResult<HandleResponse> {
+) -> HandleResult {
     let config_general: ConfigGeneral = read_config_general(&deps.storage)?;
     let config_asset: ConfigAsset = read_config_asset(&deps.storage)?;
     let config_swap: ConfigSwap = read_config_swap(&deps.storage)?;
@@ -394,9 +416,10 @@ pub fn try_buy<S: Storage, A: Api, Q: Querier>(
 pub fn try_sell<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
+    sender: HumanAddr,
     asset_amount: Uint128,
     max_spread: Option<Decimal>,
-) -> StdResult<HandleResponse> {
+) -> HandleResult {
     let config_general: ConfigGeneral = read_config_general(&deps.storage)?;
     let config_asset: ConfigAsset = read_config_asset(&deps.storage)?;
     let config_swap: ConfigSwap = read_config_swap(&deps.storage)?;
@@ -430,7 +453,7 @@ pub fn try_sell<S: Storage, A: Api, Q: Querier>(
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: asset_addr,
                 msg: to_binary(&Cw20HandleMsg::TransferFrom {
-                    owner: env.message.sender.clone(),
+                    owner: sender.clone(),
                     recipient: env.contract.address.clone(),
                     amount: asset_amount,
                 })?,
@@ -438,7 +461,7 @@ pub fn try_sell<S: Storage, A: Api, Q: Querier>(
             }),
             CosmosMsg::Bank(BankMsg::Send {
                 from_address: env.contract.address.clone(),
-                to_address: env.message.sender,
+                to_address: sender,
                 amount: vec![deduct_tax(
                     &deps,
                     Coin {

@@ -11,13 +11,13 @@ use crate::contract::{
 use crate::math::{decimal_multiplication, reverse_decimal};
 
 use crate::msg::{
-    ConfigAssetResponse, ConfigGeneralResponse, ConfigSwapResponse, HandleMsg, InitMsg,
-    PoolResponse, ReverseSimulationResponse, SimulationResponse, SwapOperation,
+    ConfigAssetResponse, ConfigGeneralResponse, ConfigSwapResponse, Cw20HookMsg, HandleMsg,
+    InitMsg, PoolResponse, ReverseSimulationResponse, SimulationResponse, SwapOperation,
 };
 
 use crate::mock_querier::mock_dependencies;
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
-use cw20::Cw20HandleMsg;
+use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
 
 #[test]
 fn proper_initialization() {
@@ -655,11 +655,12 @@ fn try_sell() {
 
     // normal sell
     let offer_amount = Uint128(1500000000u128);
-    let msg = HandleMsg::Sell {
+    let msg = HandleMsg::Receive(Cw20ReceiveMsg {
+        sender: HumanAddr::from("addr0000"),
         amount: offer_amount,
-        max_spread: None,
-    };
-    let env = mock_env_with_block_time("addr0000", &[], 1000);
+        msg: Some(to_binary(&Cw20HookMsg::Sell { max_spread: None }).unwrap()),
+    });
+    let env = mock_env_with_block_time("asset0000", &[], 1000);
 
     let res = handle(&mut deps, env, msg).unwrap();
     let msg_transfer_from = res.messages.get(0).expect("no message");
@@ -765,6 +766,19 @@ fn try_sell() {
         }),
         msg_commission_transfer,
     );
+
+    // failed due to non asset token contract try to execute sell
+    let msg = HandleMsg::Receive(Cw20ReceiveMsg {
+        sender: HumanAddr::from("addr0000"),
+        amount: offer_amount,
+        msg: Some(to_binary(&Cw20HookMsg::Sell { max_spread: None }).unwrap()),
+    });
+    let env = mock_env_with_block_time("liquidtity0000", &[], 1000);
+    let res = handle(&mut deps, env, msg).unwrap_err();
+    match res {
+        StdError::Unauthorized { .. } => (),
+        _ => panic!("DO NOT ENTER HERE")
+    }
 }
 
 #[test]
