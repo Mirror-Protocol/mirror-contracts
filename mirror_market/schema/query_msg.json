@@ -49,25 +49,6 @@
     {
       "type": "object",
       "required": [
-        "provider"
-      ],
-      "properties": {
-        "provider": {
-          "type": "object",
-          "required": [
-            "address"
-          ],
-          "properties": {
-            "address": {
-              "$ref": "#/definitions/HumanAddr"
-            }
-          }
-        }
-      }
-    },
-    {
-      "type": "object",
-      "required": [
         "simulation"
       ],
       "properties": {
@@ -113,9 +94,6 @@
     }
   ],
   "definitions": {
-    "HumanAddr": {
-      "type": "string"
-    },
     "SwapOperation": {
       "type": "string",
       "enum": [

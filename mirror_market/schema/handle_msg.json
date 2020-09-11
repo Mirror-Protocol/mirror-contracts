@@ -3,6 +3,17 @@
   "title": "HandleMsg",
   "anyOf": [
     {
+      "type": "object",
+      "required": [
+        "receive"
+      ],
+      "properties": {
+        "receive": {
+          "$ref": "#/definitions/Cw20ReceiveMsg"
+        }
+      }
+    },
+    {
       "description": "Post initize step to allow user to set controlled contract address after creating it",
       "type": "object",
       "required": [
@@ -95,7 +106,6 @@
       }
     },
     {
-      "description": "WithdrawLiquidity a liquidity provider can withdraw the asset",
       "type": "object",
       "required": [
         "withdraw_liquidity"
@@ -137,39 +147,13 @@
           }
         }
       }
-    },
-    {
-      "description": "Sell a given amount of asset",
-      "type": "object",
-      "required": [
-        "sell"
-      ],
-      "properties": {
-        "sell": {
-          "type": "object",
-          "required": [
-            "amount"
-          ],
-          "properties": {
-            "amount": {
-              "$ref": "#/definitions/Uint128"
-            },
-            "max_spread": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/Decimal"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            }
-          }
-        }
-      }
     }
   ],
   "definitions": {
+    "Binary": {
+      "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>",
+      "type": "string"
+    },
     "Coin": {
       "type": "object",
       "required": [
@@ -182,6 +166,32 @@
         },
         "denom": {
           "type": "string"
+        }
+      }
+    },
+    "Cw20ReceiveMsg": {
+      "description": "Cw20ReceiveMsg should be de/serialized under `Receive()` variant in a HandleMsg",
+      "type": "object",
+      "required": [
+        "amount",
+        "sender"
+      ],
+      "properties": {
+        "amount": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "msg": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Binary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sender": {
+          "$ref": "#/definitions/HumanAddr"
         }
       }
     },
