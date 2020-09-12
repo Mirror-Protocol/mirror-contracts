@@ -663,9 +663,8 @@ fn try_sell() {
     let env = mock_env_with_block_time("asset0000", &[], 1000);
 
     let res = handle(&mut deps, env, msg).unwrap();
-    let msg_transfer_from = res.messages.get(0).expect("no message");
-    let msg_transfer = res.messages.get(1).expect("no message");
-    let msg_commission_transfer = res.messages.get(2).expect("no message");
+    let msg_transfer = res.messages.get(0).expect("no message");
+    let msg_commission_transfer = res.messages.get(1).expect("no message");
     let log_return_amount = res.log.get(2).expect("no data");
     let log_spread_amount = res.log.get(3).expect("no data");
     let log_commission_amount = res.log.get(4).expect("no data");
@@ -727,20 +726,6 @@ fn try_sell() {
             expected_commission_amount.to_string() + "uusd"
         ),
         log_commission_amount
-    );
-
-    assert_eq!(
-        &CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: HumanAddr::from("asset0000"),
-            msg: to_binary(&Cw20HandleMsg::TransferFrom {
-                owner: HumanAddr::from("addr0000"),
-                recipient: HumanAddr::from(MOCK_CONTRACT_ADDR),
-                amount: offer_amount,
-            })
-            .unwrap(),
-            send: vec![],
-        }),
-        msg_transfer_from,
     );
 
     assert_eq!(
