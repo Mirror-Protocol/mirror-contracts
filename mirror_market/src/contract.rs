@@ -445,20 +445,10 @@ pub fn try_sell<S: Storage, A: Api, Q: Querier>(
     // check max spread limit if exist
     assert_max_spread(max_spread, return_amount, spread_amount)?;
 
-    // 1. send asset token from a user to the contract
-    // 2. send collateral token from the contract to a user
-    // 3. send inactive commission to collector
+    // 1. send collateral token from the contract to a user
+    // 2. send inactive commission to collector
     Ok(HandleResponse {
         messages: vec![
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: asset_addr,
-                msg: to_binary(&Cw20HandleMsg::TransferFrom {
-                    owner: sender.clone(),
-                    recipient: env.contract.address.clone(),
-                    amount: asset_amount,
-                })?,
-                send: vec![],
-            }),
             CosmosMsg::Bank(BankMsg::Send {
                 from_address: env.contract.address.clone(),
                 to_address: sender,
