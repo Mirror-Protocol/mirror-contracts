@@ -3,21 +3,14 @@
   "title": "InitMsg",
   "type": "object",
   "required": [
-    "mint_per_block",
-    "mirror_token"
+    "mint_per_block"
   ],
   "properties": {
     "mint_per_block": {
       "$ref": "#/definitions/Uint128"
-    },
-    "mirror_token": {
-      "$ref": "#/definitions/HumanAddr"
     }
   },
   "definitions": {
-    "HumanAddr": {
-      "type": "string"
-    },
     "Uint128": {
       "type": "string"
     }
