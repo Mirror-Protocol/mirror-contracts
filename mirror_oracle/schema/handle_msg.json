@@ -5,20 +5,19 @@
     {
       "type": "object",
       "required": [
-        "feed_price"
+        "update_config"
       ],
       "properties": {
-        "feed_price": {
+        "update_config": {
           "type": "object",
-          "required": [
-            "price"
-          ],
           "properties": {
-            "price": {
-              "description": "The price of asset with base token",
-              "allOf": [
+            "owner": {
+              "anyOf": [
                 {
-                  "$ref": "#/definitions/Decimal"
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
                 }
               ]
             }
@@ -29,37 +28,45 @@
     {
       "type": "object",
       "required": [
-        "update_config"
+        "register_asset"
       ],
       "properties": {
-        "update_config": {
+        "register_asset": {
           "type": "object",
+          "required": [
+            "feeder",
+            "symbol",
+            "token"
+          ],
           "properties": {
-            "asset_token": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/HumanAddr"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+            "feeder": {
+              "$ref": "#/definitions/HumanAddr"
             },
-            "base_denom": {
-              "type": [
-                "string",
-                "null"
-              ]
+            "symbol": {
+              "type": "string"
             },
-            "owner": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/HumanAddr"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+            "token": {
+              "$ref": "#/definitions/HumanAddr"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "feed_price"
+      ],
+      "properties": {
+        "feed_price": {
+          "type": "object",
+          "required": [
+            "price",
+            "symbol"
+          ],
+          "properties": {
+            "price": {
+              "$ref": "#/definitions/Decimal"
             },
             "price_multiplier": {
               "anyOf": [
@@ -71,11 +78,8 @@
                 }
               ]
             },
-            "quote_denom": {
-              "type": [
-                "string",
-                "null"
-              ]
+            "symbol": {
+              "type": "string"
             }
           }
         }

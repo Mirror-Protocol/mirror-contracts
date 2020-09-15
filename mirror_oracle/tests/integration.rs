@@ -34,9 +34,8 @@ fn proper_initialization() {
     let mut deps = mock_instance(WASM, &[]);
 
     let msg = InitMsg {
-        asset_token: HumanAddr("asset0000".to_string()),
+        owner: HumanAddr::from("owner0000"),
         base_denom: "base0000".to_string(),
-        quote_denom: "quote0000".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -48,19 +47,16 @@ fn proper_initialization() {
     // it worked, let's query the state
     let res = query(&mut deps, QueryMsg::Config {}).unwrap();
     let value: ConfigResponse = from_binary(&res).unwrap();
-    assert_eq!("addr0000", value.owner.as_str());
-    assert_eq!("asset0000", value.asset_token.as_str());
+    assert_eq!("owner0000", value.owner.as_str());
     assert_eq!("base0000", value.base_denom.as_str());
-    assert_eq!("quote0000", value.quote_denom.as_str());
 }
 
 #[test]
 fn update_owner() {
     let mut deps = mock_instance(WASM, &[]);
     let msg = InitMsg {
-        asset_token: HumanAddr("asset0000".to_string()),
+        owner: HumanAddr("owner0000".to_string()),
         base_denom: "base0000".to_string(),
-        quote_denom: "quote0000".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -68,13 +64,9 @@ fn update_owner() {
     // we can just call .unwrap() to assert this was a success
     let _res: InitResponse = init(&mut deps, env, msg).unwrap();
     // update owner
-    let env = mock_env("addr0000", &[]);
+    let env = mock_env("owner0000", &[]);
     let msg = HandleMsg::UpdateConfig {
-        owner: Some(HumanAddr("addr0001".to_string())),
-        asset_token: None,
-        base_denom: None,
-        quote_denom: None,
-        price_multiplier: None,
+        owner: Some(HumanAddr("owner0001".to_string())),
     };
 
     let res: HandleResponse = handle(&mut deps, env, msg).unwrap();
@@ -83,23 +75,12 @@ fn update_owner() {
     // it worked, let's query the state
     let query_result = query(&mut deps, QueryMsg::Config {}).unwrap();
     let value: ConfigResponse = from_binary(&query_result).unwrap();
-    assert_eq!("addr0001", value.owner.as_str());
-    assert_eq!("asset0000", value.asset_token.as_str());
+    assert_eq!("owner0001", value.owner.as_str());
     assert_eq!("base0000", value.base_denom.as_str());
-    assert_eq!("quote0000", value.quote_denom.as_str());
-    let query_result = query(&mut deps, QueryMsg::Price {}).unwrap();
-    let value: PriceResponse = from_binary(&query_result).unwrap();
-    assert_eq!(Decimal::one(), value.price_multiplier);
 
     // Unauthorzied err
     let env = mock_env("addr0000", &[]);
-    let msg = HandleMsg::UpdateConfig {
-        owner: None,
-        asset_token: None,
-        base_denom: None,
-        quote_denom: None,
-        price_multiplier: None,
-    };
+    let msg = HandleMsg::UpdateConfig { owner: None };
 
     let res: HandleResult = handle(&mut deps, env, msg);
     match res.unwrap_err() {
@@ -112,26 +93,44 @@ fn update_owner() {
 fn update_price() {
     let mut deps = mock_instance(WASM, &[]);
     let msg = InitMsg {
-        asset_token: HumanAddr("asset0000".to_string()),
+        owner: HumanAddr("owner0000".to_string()),
         base_denom: "base0000".to_string(),
-        quote_denom: "quote0000".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);
 
     // we can just call .unwrap() to assert this was a success
     let _res: InitResponse = init(&mut deps, env, msg).unwrap();
+
+    // register asset
+    let msg = HandleMsg::RegisterAsset {
+        symbol: "mAPPL".to_string(),
+        feeder: HumanAddr::from("addr0000"),
+        token: HumanAddr::from("asset0000"),
+    };
+
+    let env = mock_env("addr0000", &[]);
+    let _res: HandleResponse = handle(&mut deps, env, msg).unwrap();
+
     // update price
     let env = mock_env("addr0000", &[]);
     let msg = HandleMsg::FeedPrice {
+        symbol: "mAPPL".to_string(),
         price: Decimal::from_str("1.2").unwrap(),
+        price_multiplier: None,
     };
 
     let res: HandleResponse = handle(&mut deps, env, msg).unwrap();
     assert_eq!(0, res.messages.len());
 
     // it worked, let's query the state
-    let query_result = query(&mut deps, QueryMsg::Price {}).unwrap();
+    let query_result = query(
+        &mut deps,
+        QueryMsg::Price {
+            symbol: "mAPPL".to_string(),
+        },
+    )
+    .unwrap();
     let value: PriceResponse = from_binary(&query_result).unwrap();
     assert_eq!("1.2", format!("{}", value.price));
     assert_eq!(Decimal::one(), value.price_multiplier);
@@ -139,7 +138,9 @@ fn update_price() {
     // Unauthorzied err
     let env = mock_env("addr0001", &[]);
     let msg = HandleMsg::FeedPrice {
+        symbol: "mAPPL".to_string(),
         price: Decimal::from_str("1.2").unwrap(),
+        price_multiplier: None,
     };
 
     let res: HandleResult = handle(&mut deps, env, msg);

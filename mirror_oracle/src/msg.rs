@@ -5,23 +5,24 @@ use cosmwasm_std::{Decimal, HumanAddr};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
-    pub asset_token: HumanAddr,
+    pub owner: HumanAddr,
     pub base_denom: String,
-    pub quote_denom: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum HandleMsg {
-    FeedPrice {
-        /// The price of asset with base token
-        price: Decimal,
-    },
     UpdateConfig {
         owner: Option<HumanAddr>,
-        asset_token: Option<HumanAddr>,
-        base_denom: Option<String>,
-        quote_denom: Option<String>,
+    },
+    RegisterAsset {
+        symbol: String,
+        feeder: HumanAddr,
+        token: HumanAddr,
+    },
+    FeedPrice {
+        symbol: String,
+        price: Decimal,
         price_multiplier: Option<Decimal>,
     },
 }
@@ -30,16 +31,23 @@ pub enum HandleMsg {
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     Config {},
-    Price {},
+    Asset { symbol: String },
+    Price { symbol: String },
 }
 
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ConfigResponse {
     pub owner: HumanAddr,
-    pub asset_token: HumanAddr,
     pub base_denom: String,
-    pub quote_denom: String,
+}
+
+// We define a custom struct for each query response
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct AssetResponse {
+    pub symbol: String,
+    pub feeder: HumanAddr,
+    pub token: HumanAddr,
 }
 
 // We define a custom struct for each query response
