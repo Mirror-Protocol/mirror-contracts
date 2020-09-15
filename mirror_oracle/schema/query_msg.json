@@ -16,11 +16,38 @@
     {
       "type": "object",
       "required": [
+        "asset"
+      ],
+      "properties": {
+        "asset": {
+          "type": "object",
+          "required": [
+            "symbol"
+          ],
+          "properties": {
+            "symbol": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
         "price"
       ],
       "properties": {
         "price": {
-          "type": "object"
+          "type": "object",
+          "required": [
+            "symbol"
+          ],
+          "properties": {
+            "symbol": {
+              "type": "string"
+            }
+          }
         }
       }
     }
