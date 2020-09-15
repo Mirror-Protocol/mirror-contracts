@@ -5,6 +5,25 @@
     {
       "type": "object",
       "required": [
+        "post_initialize"
+      ],
+      "properties": {
+        "post_initialize": {
+          "type": "object",
+          "required": [
+            "mirror_token"
+          ],
+          "properties": {
+            "mirror_token": {
+              "$ref": "#/definitions/HumanAddr"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
         "update_config"
       ],
       "properties": {
