@@ -3,34 +3,18 @@
   "title": "HandleMsg",
   "anyOf": [
     {
-      "description": "Post initize step to allow user to set controlled contract address after creating it",
       "type": "object",
       "required": [
-        "post_initialize"
+        "receive"
       ],
       "properties": {
-        "post_initialize": {
-          "type": "object",
-          "required": [
-            "asset_oracle",
-            "asset_symbol",
-            "asset_token"
-          ],
-          "properties": {
-            "asset_oracle": {
-              "$ref": "#/definitions/HumanAddr"
-            },
-            "asset_symbol": {
-              "type": "string"
-            },
-            "asset_token": {
-              "$ref": "#/definitions/HumanAddr"
-            }
-          }
+        "receive": {
+          "$ref": "#/definitions/Cw20ReceiveMsg"
         }
       }
     },
     {
+      "description": "Update config; only owner is allowed to execute it",
       "type": "object",
       "required": [
         "update_config"
@@ -39,6 +23,44 @@
         "update_config": {
           "type": "object",
           "properties": {
+            "owner": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "token_code_id": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "Update asset related parameters",
+      "type": "object",
+      "required": [
+        "update_asset"
+      ],
+      "properties": {
+        "update_asset": {
+          "type": "object",
+          "required": [
+            "asset_info"
+          ],
+          "properties": {
+            "asset_info": {
+              "$ref": "#/definitions/AssetInfo"
+            },
             "auction_discount": {
               "anyOf": [
                 {
@@ -49,7 +71,7 @@
                 }
               ]
             },
-            "auction_threshold_rate": {
+            "auction_threshold_ratio": {
               "anyOf": [
                 {
                   "$ref": "#/definitions/Decimal"
@@ -59,20 +81,10 @@
                 }
               ]
             },
-            "mint_capacity": {
+            "min_collateral_ratio": {
               "anyOf": [
                 {
                   "$ref": "#/definitions/Decimal"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "owner": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/HumanAddr"
                 },
                 {
                   "type": "null"
@@ -84,56 +96,120 @@
       }
     },
     {
-      "description": "Mint a user sends the collateral coins to mint an asset",
+      "description": "Generate asset token initialize msg and register required infos except token address",
+      "type": "object",
+      "required": [
+        "register_asset"
+      ],
+      "properties": {
+        "register_asset": {
+          "type": "object",
+          "required": [
+            "auction_discount",
+            "auction_threshold_ratio",
+            "min_collateral_ratio",
+            "name",
+            "symbol"
+          ],
+          "properties": {
+            "auction_discount": {
+              "$ref": "#/definitions/Decimal"
+            },
+            "auction_threshold_ratio": {
+              "$ref": "#/definitions/Decimal"
+            },
+            "min_collateral_ratio": {
+              "$ref": "#/definitions/Decimal"
+            },
+            "name": {
+              "type": "string"
+            },
+            "symbol": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "Post initialize step; store token address to the given symbol store",
+      "type": "object",
+      "required": [
+        "register_hook"
+      ],
+      "properties": {
+        "register_hook": {
+          "type": "object"
+        }
+      }
+    },
+    {
+      "description": "Deposit collateral asset to mint an asset",
+      "type": "object",
+      "required": [
+        "deposit"
+      ],
+      "properties": {
+        "deposit": {
+          "type": "object",
+          "required": [
+            "asset_info",
+            "collateral"
+          ],
+          "properties": {
+            "asset_info": {
+              "$ref": "#/definitions/AssetInfo"
+            },
+            "collateral": {
+              "$ref": "#/definitions/Asset"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "Withdarw collateral asset, when there is enough buffer to cover min_collateral_ratio",
+      "type": "object",
+      "required": [
+        "withdraw"
+      ],
+      "properties": {
+        "withdraw": {
+          "type": "object",
+          "required": [
+            "asset_info",
+            "collateral"
+          ],
+          "properties": {
+            "asset_info": {
+              "$ref": "#/definitions/AssetInfo"
+            },
+            "collateral": {
+              "$ref": "#/definitions/Asset"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "Mint a user sends the collateral token to mint an asset If the collateral cannot cover min_collateral_ratio, the operation must be failed",
       "type": "object",
       "required": [
         "mint"
       ],
       "properties": {
         "mint": {
-          "type": "object"
-        }
-      }
-    },
-    {
-      "description": "Burn a user sends the asset tokens to the contract to get back the collteral tokens",
-      "type": "object",
-      "required": [
-        "burn"
-      ],
-      "properties": {
-        "burn": {
           "type": "object",
           "required": [
-            "amount"
+            "asset",
+            "collateral_info"
           ],
           "properties": {
-            "amount": {
-              "$ref": "#/definitions/Uint128"
-            }
-          }
-        }
-      }
-    },
-    {
-      "description": "Auction the contract sell the collteral token with discounted price of the asset tokens",
-      "type": "object",
-      "required": [
-        "auction"
-      ],
-      "properties": {
-        "auction": {
-          "type": "object",
-          "required": [
-            "amount",
-            "owner"
-          ],
-          "properties": {
-            "amount": {
-              "$ref": "#/definitions/Uint128"
+            "asset": {
+              "$ref": "#/definitions/Asset"
             },
-            "owner": {
-              "$ref": "#/definitions/HumanAddr"
+            "collateral_info": {
+              "$ref": "#/definitions/AssetInfo"
             }
           }
         }
@@ -141,6 +217,93 @@
     }
   ],
   "definitions": {
+    "Asset": {
+      "type": "object",
+      "required": [
+        "amount",
+        "info"
+      ],
+      "properties": {
+        "amount": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "info": {
+          "$ref": "#/definitions/AssetInfo"
+        }
+      }
+    },
+    "AssetInfo": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "token"
+          ],
+          "properties": {
+            "token": {
+              "type": "object",
+              "required": [
+                "contract_addr"
+              ],
+              "properties": {
+                "contract_addr": {
+                  "$ref": "#/definitions/HumanAddr"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "native_token"
+          ],
+          "properties": {
+            "native_token": {
+              "type": "object",
+              "required": [
+                "denom"
+              ],
+              "properties": {
+                "denom": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "Binary": {
+      "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>",
+      "type": "string"
+    },
+    "Cw20ReceiveMsg": {
+      "description": "Cw20ReceiveMsg should be de/serialized under `Receive()` variant in a HandleMsg",
+      "type": "object",
+      "required": [
+        "amount",
+        "sender"
+      ],
+      "properties": {
+        "amount": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "msg": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Binary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sender": {
+          "$ref": "#/definitions/HumanAddr"
+        }
+      }
+    },
     "Decimal": {
       "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0\n\nThe greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
       "type": "string"

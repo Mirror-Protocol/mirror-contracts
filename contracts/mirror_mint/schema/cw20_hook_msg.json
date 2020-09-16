@@ -1,85 +1,66 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "HandleMsg",
+  "title": "Cw20HookMsg",
   "anyOf": [
     {
+      "description": "Deposit a user also can deposit the collateral to any position",
       "type": "object",
       "required": [
-        "update_config"
+        "deposit"
       ],
       "properties": {
-        "update_config": {
+        "deposit": {
           "type": "object",
+          "required": [
+            "asset_info"
+          ],
           "properties": {
-            "owner": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/HumanAddr"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+            "asset_info": {
+              "$ref": "#/definitions/AssetInfo"
             }
           }
         }
       }
     },
     {
+      "description": "Burn a user sends the asset tokens to the contract to get back the collteral tokens",
       "type": "object",
       "required": [
-        "register_asset"
+        "burn"
       ],
       "properties": {
-        "register_asset": {
+        "burn": {
           "type": "object",
           "required": [
-            "asset_info",
-            "feeder",
-            "token"
+            "collateral_info"
           ],
           "properties": {
-            "asset_info": {
+            "collateral_info": {
               "$ref": "#/definitions/AssetInfo"
-            },
-            "feeder": {
-              "$ref": "#/definitions/HumanAddr"
-            },
-            "token": {
-              "$ref": "#/definitions/HumanAddr"
             }
           }
         }
       }
     },
     {
+      "description": "Auction a user can sell their asset tokens in discounted prices",
       "type": "object",
       "required": [
-        "feed_price"
+        "auction"
       ],
       "properties": {
-        "feed_price": {
+        "auction": {
           "type": "object",
           "required": [
-            "asset_info",
-            "price"
+            "collateral_info",
+            "position_owner"
           ],
           "properties": {
-            "asset_info": {
+            "collateral_info": {
               "$ref": "#/definitions/AssetInfo"
             },
-            "price": {
-              "$ref": "#/definitions/Decimal"
-            },
-            "price_multiplier": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/Decimal"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+            "position_owner": {
+              "$ref": "#/definitions/HumanAddr"
             }
           }
         }
@@ -128,10 +109,6 @@
           }
         }
       ]
-    },
-    "Decimal": {
-      "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0\n\nThe greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
-      "type": "string"
     },
     "HumanAddr": {
       "type": "string"
