@@ -1,30 +1,38 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "InitMsg",
+  "title": "PositionsResponse",
   "type": "object",
   "required": [
-    "base_asset_info",
-    "oracle",
-    "owner",
-    "token_code_id"
+    "minter",
+    "positions"
   ],
   "properties": {
-    "base_asset_info": {
-      "$ref": "#/definitions/AssetInfo"
-    },
-    "oracle": {
+    "minter": {
       "$ref": "#/definitions/HumanAddr"
     },
-    "owner": {
-      "$ref": "#/definitions/HumanAddr"
-    },
-    "token_code_id": {
-      "type": "integer",
-      "format": "uint64",
-      "minimum": 0.0
+    "positions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/PositionResponse"
+      }
     }
   },
   "definitions": {
+    "Asset": {
+      "type": "object",
+      "required": [
+        "amount",
+        "info"
+      ],
+      "properties": {
+        "amount": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "info": {
+          "$ref": "#/definitions/AssetInfo"
+        }
+      }
+    },
     "AssetInfo": {
       "anyOf": [
         {
@@ -68,6 +76,28 @@
       ]
     },
     "HumanAddr": {
+      "type": "string"
+    },
+    "PositionResponse": {
+      "type": "object",
+      "required": [
+        "asset",
+        "collateral",
+        "is_auction_open"
+      ],
+      "properties": {
+        "asset": {
+          "$ref": "#/definitions/Asset"
+        },
+        "collateral": {
+          "$ref": "#/definitions/Asset"
+        },
+        "is_auction_open": {
+          "type": "boolean"
+        }
+      }
+    },
+    "Uint128": {
       "type": "string"
     }
   }

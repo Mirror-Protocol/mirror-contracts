@@ -5,10 +5,10 @@
     {
       "type": "object",
       "required": [
-        "config_general"
+        "config"
       ],
       "properties": {
-        "config_general": {
+        "config": {
           "type": "object"
         }
       }
@@ -16,11 +16,19 @@
     {
       "type": "object",
       "required": [
-        "config_asset"
+        "asset_config"
       ],
       "properties": {
-        "config_asset": {
-          "type": "object"
+        "asset_config": {
+          "type": "object",
+          "required": [
+            "asset_info"
+          ],
+          "properties": {
+            "asset_info": {
+              "$ref": "#/definitions/AssetInfo"
+            }
+          }
         }
       }
     },
@@ -33,10 +41,37 @@
         "position": {
           "type": "object",
           "required": [
-            "address"
+            "asset_info",
+            "collateral_info",
+            "minter"
           ],
           "properties": {
-            "address": {
+            "asset_info": {
+              "$ref": "#/definitions/AssetInfo"
+            },
+            "collateral_info": {
+              "$ref": "#/definitions/AssetInfo"
+            },
+            "minter": {
+              "$ref": "#/definitions/HumanAddr"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "positions"
+      ],
+      "properties": {
+        "positions": {
+          "type": "object",
+          "required": [
+            "minter"
+          ],
+          "properties": {
+            "minter": {
               "$ref": "#/definitions/HumanAddr"
             }
           }
@@ -45,6 +80,48 @@
     }
   ],
   "definitions": {
+    "AssetInfo": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "token"
+          ],
+          "properties": {
+            "token": {
+              "type": "object",
+              "required": [
+                "contract_addr"
+              ],
+              "properties": {
+                "contract_addr": {
+                  "$ref": "#/definitions/HumanAddr"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "native_token"
+          ],
+          "properties": {
+            "native_token": {
+              "type": "object",
+              "required": [
+                "denom"
+              ],
+              "properties": {
+                "denom": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
     "HumanAddr": {
       "type": "string"
     }

@@ -3,22 +3,64 @@
   "title": "AssetResponse",
   "type": "object",
   "required": [
+    "asset_info",
     "feeder",
-    "symbol",
     "token"
   ],
   "properties": {
+    "asset_info": {
+      "$ref": "#/definitions/AssetInfo"
+    },
     "feeder": {
       "$ref": "#/definitions/HumanAddr"
-    },
-    "symbol": {
-      "type": "string"
     },
     "token": {
       "$ref": "#/definitions/HumanAddr"
     }
   },
   "definitions": {
+    "AssetInfo": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "token"
+          ],
+          "properties": {
+            "token": {
+              "type": "object",
+              "required": [
+                "contract_addr"
+              ],
+              "properties": {
+                "contract_addr": {
+                  "$ref": "#/definitions/HumanAddr"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "native_token"
+          ],
+          "properties": {
+            "native_token": {
+              "type": "object",
+              "required": [
+                "denom"
+              ],
+              "properties": {
+                "denom": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
     "HumanAddr": {
       "type": "string"
     }
