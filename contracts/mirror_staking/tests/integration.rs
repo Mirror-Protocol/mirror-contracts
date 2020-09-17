@@ -22,11 +22,13 @@ use cosmwasm_std::{
 };
 use cosmwasm_vm::testing::{handle, init, mock_env, mock_instance, query};
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
-use mirror_staking::msg::{ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, QueryMsg};
-use mirror_staking::state::{PoolInfo, RewardInfo};
+use mirror_staking::msg::{
+    ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, PoolInfoResponse, QueryMsg,
+    RewardInfoResponse, RewardInfoResponseItem,
+};
 
 // This line will test the output of cargo wasm
-static WASM: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/mirror_staking.wasm");
+static WASM: &[u8] = include_bytes!("../../../target/wasm32-unknown-unknown/release/mirror_staking.wasm");
 // You can uncomment this line instead to test productionified build from rust-optimizer
 // static WASM: &[u8] = include_bytes!("../contract.wasm");
 
@@ -35,7 +37,7 @@ fn proper_initialization() {
     let mut deps = mock_instance(WASM, &[]);
 
     let msg = InitMsg {
-        staking_token: HumanAddr("staking0000".to_string()),
+        owner: HumanAddr("owner0000".to_string()),
         mirror_token: HumanAddr("reward0000".to_string()),
     };
 
@@ -48,7 +50,7 @@ fn proper_initialization() {
     // it worked, let's query the state
     let res = query(&mut deps, QueryMsg::Config {}).unwrap();
     let value: ConfigResponse = from_binary(&res).unwrap();
-    assert_eq!("staking0000", value.staking_token.as_str());
+    assert_eq!("owner0000", value.owner.as_str());
     assert_eq!("reward0000", value.mirror_token.as_str());
 }
 
@@ -57,57 +59,117 @@ fn test_bond_tokens() {
     let mut deps = mock_instance(WASM, &[]);
 
     let msg = InitMsg {
-        staking_token: HumanAddr("staking0000".to_string()),
+        owner: HumanAddr("owner0000".to_string()),
         mirror_token: HumanAddr("reward0000".to_string()),
     };
 
     let env = mock_env("addr0000", &[]);
     let _res: InitResponse = init(&mut deps, env, msg).unwrap();
 
+    let msg = HandleMsg::RegiseterAsset {
+        asset_token: HumanAddr::from("asset0000"),
+        staking_token: HumanAddr::from("staking0000"),
+    };
+
+    let env = mock_env("owner0000", &[]);
+    let _res: HandleResponse = handle(&mut deps, env, msg.clone()).unwrap();
+
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         sender: HumanAddr::from("addr0000"),
         amount: Uint128(100u128),
-        msg: Some(to_binary(&Cw20HookMsg::Bond {}).unwrap()),
+        msg: Some(
+            to_binary(&Cw20HookMsg::Bond {
+                asset_token: HumanAddr::from("asset0000"),
+            })
+            .unwrap(),
+        ),
     });
     let env = mock_env("staking0000", &[]);
     let _res: HandleResponse = handle(&mut deps, env, msg).unwrap();
     let res = query(
         &mut deps,
         QueryMsg::RewardInfo {
-            address: HumanAddr::from("addr0000"),
+            staker: HumanAddr::from("addr0000"),
+            asset_token: Some(HumanAddr::from("asset0000")),
         },
     )
     .unwrap();
-    let value: RewardInfo = from_binary(&res).unwrap();
-    assert_eq!(value.bond_amount, Uint128(100u128));
-    assert_eq!(value.pending_reward, Uint128::zero());
-    assert_eq!(value.index, Decimal::zero());
+    let reward_info: RewardInfoResponse = from_binary(&res).unwrap();
+    assert_eq!(
+        reward_info,
+        RewardInfoResponse {
+            staker: HumanAddr::from("addr0000"),
+            reward_infos: vec![RewardInfoResponseItem {
+                asset_token: HumanAddr::from("asset0000"),
+                index: Decimal::zero(),
+                pending_reward: Uint128::zero(),
+                bond_amount: Uint128(100u128),
+            }],
+        }
+    );
 
-    let res = query(&mut deps, QueryMsg::PoolInfo {}).unwrap();
-    let value: PoolInfo = from_binary(&res).unwrap();
-    assert_eq!(value.reward_index, Decimal::zero());
-    assert_eq!(value.total_bond_amount, Uint128(100u128));
+    let res = query(
+        &mut deps,
+        QueryMsg::PoolInfo {
+            asset_token: HumanAddr::from("asset0000"),
+        },
+    )
+    .unwrap();
+    let pool_info: PoolInfoResponse = from_binary(&res).unwrap();
+    assert_eq!(
+        pool_info,
+        PoolInfoResponse {
+            asset_token: HumanAddr::from("asset0000"),
+            staking_token: HumanAddr::from("staking0000"),
+            total_bond_amount: Uint128(100u128),
+            reward_index: Decimal::zero(),
+        }
+    );
 
     // bond 100 more tokens from other account
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         sender: HumanAddr::from("addr0001"),
         amount: Uint128(100u128),
-        msg: Some(to_binary(&Cw20HookMsg::Bond {}).unwrap()),
+        msg: Some(
+            to_binary(&Cw20HookMsg::Bond {
+                asset_token: HumanAddr::from("asset0000"),
+            })
+            .unwrap(),
+        ),
     });
     let env = mock_env("staking0000", &[]);
     let _res: HandleResponse = handle(&mut deps, env, msg).unwrap();
 
-    let res = query(&mut deps, QueryMsg::PoolInfo {}).unwrap();
-    let value: PoolInfo = from_binary(&res).unwrap();
-    assert_eq!(value.reward_index, Decimal::zero());
-    assert_eq!(value.total_bond_amount, Uint128(200u128));
+    let data = query(
+        &mut deps,
+        QueryMsg::PoolInfo {
+            asset_token: HumanAddr::from("asset0000"),
+        },
+    )
+    .unwrap();
+    let pool_info: PoolInfoResponse = from_binary(&data).unwrap();
+    assert_eq!(
+        pool_info,
+        PoolInfoResponse {
+            asset_token: HumanAddr::from("asset0000"),
+            staking_token: HumanAddr::from("staking0000"),
+            total_bond_amount: Uint128(200u128),
+            reward_index: Decimal::zero(),
+        }
+    );
 
     // failed with unautorized
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         sender: HumanAddr::from("addr0000"),
         amount: Uint128(100u128),
-        msg: Some(to_binary(&Cw20HookMsg::Bond {}).unwrap()),
+        msg: Some(
+            to_binary(&Cw20HookMsg::Bond {
+                asset_token: HumanAddr::from("asset0000"),
+            })
+            .unwrap(),
+        ),
     });
+
     let env = mock_env("staking0001", &[]);
     let res: HandleResult = handle(&mut deps, env, msg);
     match res {
@@ -121,27 +183,45 @@ fn test_deposit_reward() {
     let mut deps = mock_instance(WASM, &[]);
 
     let msg = InitMsg {
-        staking_token: HumanAddr("staking0000".to_string()),
+        owner: HumanAddr("owner0000".to_string()),
         mirror_token: HumanAddr("reward0000".to_string()),
     };
 
     let env = mock_env("addr0000", &[]);
     let _res: InitResponse = init(&mut deps, env, msg).unwrap();
 
+    let msg = HandleMsg::RegiseterAsset {
+        asset_token: HumanAddr::from("asset0000"),
+        staking_token: HumanAddr::from("staking0000"),
+    };
+
+    let env = mock_env("owner0000", &[]);
+    let _res: HandleResponse = handle(&mut deps, env, msg.clone()).unwrap();
+
     // bond 100 tokens
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         sender: HumanAddr::from("addr0000"),
         amount: Uint128(100u128),
-        msg: Some(to_binary(&Cw20HookMsg::Bond {}).unwrap()),
+        msg: Some(
+            to_binary(&Cw20HookMsg::Bond {
+                asset_token: HumanAddr::from("asset0000"),
+            })
+            .unwrap(),
+        ),
     });
     let env = mock_env("staking0000", &[]);
     let _res: HandleResponse = handle(&mut deps, env, msg).unwrap();
 
     // unauthoirzed
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
-        sender: HumanAddr::from("factory0000"),
+        sender: HumanAddr::from("owner0000"),
         amount: Uint128(100u128),
-        msg: Some(to_binary(&Cw20HookMsg::DepositReward {}).unwrap()),
+        msg: Some(
+            to_binary(&Cw20HookMsg::DepositReward {
+                asset_token: HumanAddr::from("asset0000"),
+            })
+            .unwrap(),
+        ),
     });
 
     let env = mock_env("wrongtoken", &[]);
@@ -155,10 +235,23 @@ fn test_deposit_reward() {
     let env = mock_env("reward0000", &[]);
     let _res: HandleResponse = handle(&mut deps, env, msg).unwrap();
 
-    let res = query(&mut deps, QueryMsg::PoolInfo {}).unwrap();
-    let value: PoolInfo = from_binary(&res).unwrap();
-    assert_eq!(value.reward_index, Decimal::one());
-    assert_eq!(value.total_bond_amount, Uint128(100u128));
+    let data = query(
+        &mut deps,
+        QueryMsg::PoolInfo {
+            asset_token: HumanAddr::from("asset0000"),
+        },
+    )
+    .unwrap();
+    let pool_info: PoolInfoResponse = from_binary(&data).unwrap();
+    assert_eq!(
+        pool_info,
+        PoolInfoResponse {
+            asset_token: HumanAddr::from("asset0000"),
+            staking_token: HumanAddr::from("staking0000"),
+            total_bond_amount: Uint128(100u128),
+            reward_index: Decimal::one(),
+        }
+    );
 }
 
 #[test]
@@ -166,24 +259,39 @@ fn test_unbond() {
     let mut deps = mock_instance(WASM, &[]);
 
     let msg = InitMsg {
-        staking_token: HumanAddr("staking0000".to_string()),
+        owner: HumanAddr("owner0000".to_string()),
         mirror_token: HumanAddr("reward0000".to_string()),
     };
 
     let env = mock_env("addr0000", &[]);
     let _res: InitResponse = init(&mut deps, env, msg).unwrap();
 
+    // register asset
+    let msg = HandleMsg::RegiseterAsset {
+        asset_token: HumanAddr::from("asset0000"),
+        staking_token: HumanAddr::from("staking0000"),
+    };
+
+    let env = mock_env("owner0000", &[]);
+    let _res: HandleResponse = handle(&mut deps, env, msg.clone()).unwrap();
+
     // bond 100 tokens
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         sender: HumanAddr::from("addr0000"),
         amount: Uint128(100u128),
-        msg: Some(to_binary(&Cw20HookMsg::Bond {}).unwrap()),
+        msg: Some(
+            to_binary(&Cw20HookMsg::Bond {
+                asset_token: HumanAddr::from("asset0000"),
+            })
+            .unwrap(),
+        ),
     });
     let env = mock_env("staking0000", &[]);
     let _res: HandleResponse = handle(&mut deps, env, msg).unwrap();
 
     // unbond 150 tokens; failed
     let msg = HandleMsg::Unbond {
+        asset_token: HumanAddr::from("asset0000"),
         amount: Uint128(150u128),
     };
 
@@ -198,6 +306,7 @@ fn test_unbond() {
 
     // normal unbond
     let msg = HandleMsg::Unbond {
+        asset_token: HumanAddr::from("asset0000"),
         amount: Uint128(100u128),
     };
 
