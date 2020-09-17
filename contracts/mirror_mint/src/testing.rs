@@ -12,8 +12,8 @@ use crate::msg::{
 
 use crate::mock_querier::mock_dependencies;
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
-use cw20::{Cw20HandleMsg, Cw20ReceiveMsg, MinterResponse};
-use uniswap::{Asset, AssetInfo, InitHook, TokenInitMsg};
+use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
+use uniswap::{Asset, AssetInfo};
 
 static TOKEN_CODE_ID: u64 = 10u64;
 #[test]
@@ -108,8 +108,7 @@ fn register_asset() {
     let _res = init(&mut deps, env, msg).unwrap();
 
     let msg = HandleMsg::RegisterAsset {
-        name: "mirror apple".to_string(),
-        symbol: "mAPPL".to_string(),
+        asset_token_addr: HumanAddr::from("asset0000"),
         auction_discount: Decimal::percent(20),
         auction_threshold_ratio: Decimal::percent(130),
         min_collateral_ratio: Decimal::percent(150),
@@ -117,33 +116,7 @@ fn register_asset() {
 
     let env = mock_env("owner0000", &[]);
     let res = handle(&mut deps, env, msg).unwrap();
-    assert_eq!(
-        res.messages,
-        vec![CosmosMsg::Wasm(WasmMsg::Instantiate {
-            code_id: TOKEN_CODE_ID,
-            msg: to_binary(&TokenInitMsg {
-                name: "mirror apple".to_string(),
-                symbol: "mAPPL".to_string(),
-                decimals: 6u8,
-                initial_balances: vec![],
-                mint: Some(MinterResponse {
-                    minter: HumanAddr::from(MOCK_CONTRACT_ADDR),
-                    cap: None,
-                }),
-                init_hook: Some(InitHook {
-                    contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
-                    msg: to_binary(&HandleMsg::RegisterHook {}).unwrap(),
-                }),
-            })
-            .unwrap(),
-            send: vec![],
-            label: None,
-        })]
-    );
-
-    let msg = HandleMsg::RegisterHook {};
-    let env = mock_env("asset0000", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
+    assert_eq!(res.messages, vec![],);
 
     let res = query(
         &deps,
@@ -165,13 +138,32 @@ fn register_asset() {
         }
     );
 
-    // must be failed for the already registered token
-    let msg = HandleMsg::RegisterHook {};
-    let env = mock_env("asset0000", &[]);
+    // must be failed with the already registered token error
+    let msg = HandleMsg::RegisterAsset {
+        asset_token_addr: HumanAddr::from("asset0000"),
+        auction_discount: Decimal::percent(20),
+        auction_threshold_ratio: Decimal::percent(130),
+        min_collateral_ratio: Decimal::percent(150),
+    };
+    let env = mock_env("owner0000", &[]);
     let res = handle(&mut deps, env, msg).unwrap_err();
     match res {
-        StdError::GenericErr { msg, .. } => assert_eq!(msg, "no asset data stored"),
-        _ => panic!("Must return unauthorized error"),
+        StdError::GenericErr { msg, .. } => assert_eq!(msg, "Asset was already registered"),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    // must be failed with unauthorized error
+    let msg = HandleMsg::RegisterAsset {
+        asset_token_addr: HumanAddr::from("asset0000"),
+        auction_discount: Decimal::percent(20),
+        auction_threshold_ratio: Decimal::percent(130),
+        min_collateral_ratio: Decimal::percent(150),
+    };
+    let env = mock_env("owner0001", &[]);
+    let res = handle(&mut deps, env, msg).unwrap_err();
+    match res {
+        StdError::Unauthorized { .. } => {}
+        _ => panic!("DO NOT ENTER HERE"),
     }
 }
 
@@ -194,18 +186,13 @@ fn update_asset() {
     let _res = init(&mut deps, env, msg).unwrap();
 
     let msg = HandleMsg::RegisterAsset {
-        name: "mirror apple".to_string(),
-        symbol: "mAPPL".to_string(),
+        asset_token_addr: HumanAddr::from("asset0000"),
         auction_discount: Decimal::percent(20),
         auction_threshold_ratio: Decimal::percent(130),
         min_collateral_ratio: Decimal::percent(150),
     };
 
     let env = mock_env("owner0000", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
-
-    let msg = HandleMsg::RegisterHook {};
-    let env = mock_env("asset0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
     let msg = HandleMsg::UpdateAsset {
@@ -292,18 +279,13 @@ fn deposit() {
     let _res = init(&mut deps, env, msg).unwrap();
 
     let msg = HandleMsg::RegisterAsset {
-        name: "mirror apple".to_string(),
-        symbol: "mAPPL".to_string(),
+        asset_token_addr: HumanAddr::from("asset0000"),
         auction_discount: Decimal::percent(20),
         auction_threshold_ratio: Decimal::percent(130),
         min_collateral_ratio: Decimal::percent(150),
     };
 
     let env = mock_env("owner0000", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
-
-    let msg = HandleMsg::RegisterHook {};
-    let env = mock_env("asset0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
     let msg = HandleMsg::Deposit {
@@ -513,18 +495,13 @@ fn mint() {
     let _res = init(&mut deps, env, msg).unwrap();
 
     let msg = HandleMsg::RegisterAsset {
-        name: "mirror apple".to_string(),
-        symbol: "mAPPL".to_string(),
+        asset_token_addr: HumanAddr::from("asset0000"),
         auction_discount: Decimal::percent(20),
         auction_threshold_ratio: Decimal::percent(130),
         min_collateral_ratio: Decimal::percent(150),
     };
 
     let env = mock_env("owner0000", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
-
-    let msg = HandleMsg::RegisterHook {};
-    let env = mock_env("asset0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
     let msg = HandleMsg::Deposit {
@@ -717,18 +694,13 @@ fn burn() {
     let _res = init(&mut deps, env, msg).unwrap();
 
     let msg = HandleMsg::RegisterAsset {
-        name: "mirror apple".to_string(),
-        symbol: "mAPPL".to_string(),
+        asset_token_addr: HumanAddr::from("asset0000"),
         auction_discount: Decimal::percent(20),
         auction_threshold_ratio: Decimal::percent(130),
         min_collateral_ratio: Decimal::percent(150),
     };
 
     let env = mock_env("owner0000", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
-
-    let msg = HandleMsg::RegisterHook {};
-    let env = mock_env("asset0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
     let msg = HandleMsg::Deposit {
@@ -943,18 +915,13 @@ fn withdraw() {
     let _res = init(&mut deps, env, msg).unwrap();
 
     let msg = HandleMsg::RegisterAsset {
-        name: "mirror apple".to_string(),
-        symbol: "mAPPL".to_string(),
+        asset_token_addr: HumanAddr::from("asset0000"),
         auction_discount: Decimal::percent(20),
         auction_threshold_ratio: Decimal::percent(130),
         min_collateral_ratio: Decimal::percent(150),
     };
 
     let env = mock_env("owner0000", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
-
-    let msg = HandleMsg::RegisterHook {};
-    let env = mock_env("asset0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
     let msg = HandleMsg::Deposit {
@@ -1117,6 +1084,11 @@ fn withdraw() {
 #[test]
 fn auction() {
     let mut deps = mock_dependencies(20, &[]);
+    deps.querier.with_tax(
+        Decimal::percent(5u64),
+        &[(&"uusd".to_string(), &Uint128(1000000u128))],
+    );
+
     deps.querier.with_oracle_price(&[
         (
             &AssetInfo::Token {
@@ -1151,18 +1123,13 @@ fn auction() {
     let _res = init(&mut deps, env, msg).unwrap();
 
     let msg = HandleMsg::RegisterAsset {
-        name: "mirror apple".to_string(),
-        symbol: "mAPPL".to_string(),
+        asset_token_addr: HumanAddr::from("asset0000"),
         auction_discount: Decimal::percent(20),
         auction_threshold_ratio: Decimal::percent(130),
         min_collateral_ratio: Decimal::percent(150),
     };
 
     let env = mock_env("owner0000", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
-
-    let msg = HandleMsg::RegisterHook {};
-    let env = mock_env("asset0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
     let msg = HandleMsg::Deposit {
@@ -1387,7 +1354,7 @@ fn auction() {
                 to_address: HumanAddr::from("addr0000"),
                 amount: vec![Coin {
                     denom: "uusd".to_string(),
-                    amount: Uint128(72093u128)
+                    amount: Uint128(68489u128) // Tax (5%) 72093 -> 68489
                 }],
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
@@ -1403,7 +1370,7 @@ fn auction() {
                 to_address: HumanAddr::from("addr0001"),
                 amount: vec![Coin {
                     denom: "uusd".to_string(),
-                    amount: Uint128(927907u128)
+                    amount: Uint128(881512u128) // Tax (5%) 927907 -> 881512
                 }],
             })
         ],

@@ -31,14 +31,11 @@ pub enum HandleMsg {
     },
     /// Generate asset token initialize msg and register required infos except token address
     RegisterAsset {
-        name: String,
-        symbol: String,
+        asset_token_addr: HumanAddr,
         auction_discount: Decimal,
         auction_threshold_ratio: Decimal,
         min_collateral_ratio: Decimal,
     },
-    /// Post initialize step; store token address to the given symbol store
-    RegisterHook {},
     /// Deposit collateral asset to mint an asset
     Deposit {
         collateral: Asset,
