@@ -13,7 +13,6 @@ fn proper_initialization() {
         factory_contract: HumanAddr("factory0000".to_string()),
         gov_contract: HumanAddr("gov0000".to_string()),
         mirror_token: HumanAddr("mirror0000".to_string()),
-        mirror_symbol: "mirror".to_string(),
         collateral_denom: "uusd".to_string(),
     };
 
@@ -25,7 +24,6 @@ fn proper_initialization() {
     // it worked, let's query the state
     let config: ConfigResponse = query_config(&deps).unwrap();
     assert_eq!("factory0000", config.factory_contract.as_str());
-    assert_eq!("mirror", config.mirror_symbol.as_str());
     assert_eq!("uusd", config.collateral_denom.as_str());
 }
 
@@ -52,19 +50,17 @@ fn test_convert() {
         &HumanAddr::from("factory0000"),
         vec![
             (
-                &"mAPPL".to_string(),
+                &HumanAddr::from("tokenAPPL"),
                 &WhitelistItem {
                     token_contract: HumanAddr::from("tokenAPPL"),
-                    market_contract: HumanAddr::from("marketAPPL"),
-                    staking_contract: HumanAddr::from("stakingAPPL"),
+                    uniswap_contract: HumanAddr::from("marketAPPL"),
                 },
             ),
             (
-                &"MIRROR".to_string(),
+                &HumanAddr::from("tokenMIRROR"),
                 &WhitelistItem {
                     token_contract: HumanAddr::from("tokenMIRROR"),
-                    market_contract: HumanAddr::from("marketMIRROR"),
-                    staking_contract: HumanAddr::from("stakingMIRROR"),
+                    uniswap_contract: HumanAddr::from("marketMIRROR"),
                 },
             ),
         ],
@@ -73,8 +69,7 @@ fn test_convert() {
     let msg = InitMsg {
         factory_contract: HumanAddr("factory0000".to_string()),
         gov_contract: HumanAddr("gov0000".to_string()),
-        mirror_token: HumanAddr("mirror0000".to_string()),
-        mirror_symbol: "MIRROR".to_string(),
+        mirror_token: HumanAddr("tokenMIRROR".to_string()),
         collateral_denom: "uusd".to_string(),
     };
 
@@ -82,7 +77,7 @@ fn test_convert() {
     let _res = init(&mut deps, env, msg).unwrap();
 
     let msg = HandleMsg::Convert {
-        symbol: "mAPPL".to_string(),
+        asset_token: HumanAddr::from("tokenAPPL"),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -113,7 +108,7 @@ fn test_convert() {
     );
 
     let msg = HandleMsg::Convert {
-        symbol: "MIRROR".to_string(),
+        asset_token: HumanAddr::from("tokenMIRROR"),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -145,7 +140,6 @@ fn test_send() {
         factory_contract: HumanAddr("factory0000".to_string()),
         gov_contract: HumanAddr("gov0000".to_string()),
         mirror_token: HumanAddr("mirror0000".to_string()),
-        mirror_symbol: "MIRROR".to_string(),
         collateral_denom: "uusd".to_string(),
     };
 

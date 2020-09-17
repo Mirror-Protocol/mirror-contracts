@@ -571,6 +571,7 @@ dependencies = [
  "cw20",
  "schemars",
  "serde",
+ "uniswap",
 ]
 
 [[package]]

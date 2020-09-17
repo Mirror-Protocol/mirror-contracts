@@ -9,24 +9,23 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct WhitelistInfo {
     pub token_contract: CanonicalAddr,
-    pub mint_contract: CanonicalAddr,
-    pub market_contract: CanonicalAddr,
-    pub oracle_contract: CanonicalAddr,
-    pub staking_contract: CanonicalAddr,
+    pub uniswap_contract: CanonicalAddr,
 }
 
 pub fn load_whitelist_info<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     contract_addr: &HumanAddr,
-    symbol: String,
+    asset_token: &CanonicalAddr,
 ) -> StdResult<WhitelistInfo> {
-    deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
+    let res: Binary = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
         contract_addr: HumanAddr::from(contract_addr),
         key: Binary::from(concat(
             &to_length_prefixed(b"whitelist").to_vec(),
-            symbol.as_bytes(),
+            asset_token.as_slice(),
         )),
-    }))
+    }))?;
+
+    from_binary(&res)
 }
 
 pub fn load_balance<S: Storage, A: Api, Q: Querier>(
