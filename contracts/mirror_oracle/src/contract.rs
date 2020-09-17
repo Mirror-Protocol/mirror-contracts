@@ -36,11 +36,9 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
 ) -> HandleResult {
     match msg {
         HandleMsg::UpdateConfig { owner } => try_update_config(deps, env, owner),
-        HandleMsg::RegisterAsset {
-            asset_info,
-            feeder,
-            token,
-        } => try_register_asset(deps, env, asset_info, feeder, token),
+        HandleMsg::RegisterAsset { asset_info, feeder } => {
+            try_register_asset(deps, env, asset_info, feeder)
+        }
         HandleMsg::FeedPrice {
             asset_info,
             price,
@@ -69,14 +67,18 @@ pub fn try_update_config<S: Storage, A: Api, Q: Querier>(
 
 pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
-    _env: Env,
+    env: Env,
     asset_info: AssetInfo,
     feeder: HumanAddr,
-    token: HumanAddr,
 ) -> HandleResult {
+    let config: Config = read_config(&deps.storage)?;
+    if config.owner != deps.api.canonical_address(&env.message.sender)? {
+        return Err(StdError::unauthorized());
+    }
+
     let raw_info = asset_info.to_raw(&deps)?;
     if read_asset_config(&deps.storage, &raw_info).is_ok() {
-        return Err(StdError::unauthorized());
+        return Err(StdError::generic_err("Asset was already registered"));
     }
 
     store_price(
@@ -95,7 +97,6 @@ pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
         &AssetConfig {
             asset_info: raw_info.clone(),
             feeder: deps.api.canonical_address(&feeder)?,
-            token: deps.api.canonical_address(&token)?,
         },
     )?;
 
@@ -167,7 +168,6 @@ fn query_asset<S: Storage, A: Api, Q: Querier>(
     let resp = AssetResponse {
         asset_info: raw_info.to_normal(&deps)?,
         feeder: deps.api.human_address(&state.feeder)?,
-        token: deps.api.human_address(&state.token)?,
     };
 
     Ok(resp)
@@ -292,11 +292,39 @@ mod tests {
                 contract_addr: HumanAddr::from("mAPPL"),
             },
             feeder: HumanAddr::from("addr0000"),
-            token: HumanAddr::from("asset0000"),
         };
 
         let env = mock_env("addr0000", &[]);
+        let res = handle(&mut deps, env, msg).unwrap_err();
+        match res {
+            StdError::Unauthorized { .. } => {}
+            _ => panic!("DO NOT ENTER HERE"),
+        }
+
+        let msg = HandleMsg::RegisterAsset {
+            asset_info: AssetInfo::Token {
+                contract_addr: HumanAddr::from("mAPPL"),
+            },
+            feeder: HumanAddr::from("addr0000"),
+        };
+
+        let env = mock_env("owner0000", &[]);
         let _res = handle(&mut deps, env, msg).unwrap();
+
+        // try register the asset is already exists
+        let msg = HandleMsg::RegisterAsset {
+            asset_info: AssetInfo::Token {
+                contract_addr: HumanAddr::from("mAPPL"),
+            },
+            feeder: HumanAddr::from("addr0000"),
+        };
+
+        let env = mock_env("owner0000", &[]);
+        let res = handle(&mut deps, env, msg).unwrap_err();
+        match res {
+            StdError::GenericErr { msg, .. } => assert_eq!(msg, "Asset was already registered"),
+            _ => panic!("DO NOT ENTER HERE"),
+        }
 
         let value: AssetResponse = query_asset(
             &deps,
@@ -312,7 +340,6 @@ mod tests {
                     contract_addr: HumanAddr::from("mAPPL")
                 },
                 feeder: HumanAddr::from("addr0000"),
-                token: HumanAddr::from("asset0000"),
             }
         );
 

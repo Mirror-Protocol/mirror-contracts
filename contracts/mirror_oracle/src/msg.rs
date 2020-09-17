@@ -19,7 +19,6 @@ pub enum HandleMsg {
     RegisterAsset {
         asset_info: AssetInfo,
         feeder: HumanAddr,
-        token: HumanAddr,
     },
     FeedPrice {
         asset_info: AssetInfo,
@@ -48,7 +47,6 @@ pub struct ConfigResponse {
 pub struct AssetResponse {
     pub asset_info: AssetInfo,
     pub feeder: HumanAddr,
-    pub token: HumanAddr,
 }
 
 // We define a custom struct for each query response
