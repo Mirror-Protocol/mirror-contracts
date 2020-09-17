@@ -10,15 +10,15 @@ use crate::msg::{
 };
 
 use crate::state::{
-    positions_read, positions_store, read_asset_config, read_config, remove_asset_config,
-    store_asset_config, store_config, AssetConfig, Config, Position,
+    positions_read, positions_store, read_asset_config, read_config, store_asset_config,
+    store_config, AssetConfig, Config, Position,
 };
 
 use crate::math::reverse_decimal;
 use crate::querier::load_price;
-use cw20::{Cw20HandleMsg, Cw20ReceiveMsg, MinterResponse};
+use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
 use std::collections::HashMap;
-use uniswap::{Asset, AssetInfo, AssetInfoRaw, AssetRaw, InitHook, TokenInitMsg};
+use uniswap::{Asset, AssetInfo, AssetInfoRaw, AssetRaw};
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -61,21 +61,18 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             min_collateral_ratio,
         ),
         HandleMsg::RegisterAsset {
-            name,
-            symbol,
+            asset_token_addr,
             auction_discount,
             auction_threshold_ratio,
             min_collateral_ratio,
         } => try_register_asset(
             deps,
             env,
-            name,
-            symbol,
+            asset_token_addr,
             auction_discount,
             auction_threshold_ratio,
             min_collateral_ratio,
         ),
-        HandleMsg::RegisterHook {} => try_register_hook(deps, env),
         HandleMsg::Deposit {
             collateral,
             asset_info,
@@ -212,8 +209,7 @@ pub fn try_update_asset<S: Storage, A: Api, Q: Querier>(
 pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    name: String,
-    symbol: String,
+    asset_token_addr: HumanAddr,
     auction_discount: Decimal,
     auction_threshold_ratio: Decimal,
     min_collateral_ratio: Decimal,
@@ -225,12 +221,21 @@ pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::unauthorized());
     }
 
+    let asset_token_raw: CanonicalAddr = deps.api.canonical_address(&asset_token_addr)?;
+    let raw_info = AssetInfoRaw::Token {
+        contract_addr: asset_token_raw.clone(),
+    };
+
+    if read_asset_config(&deps.storage, &raw_info).is_ok() {
+        return Err(StdError::generic_err("Asset was already registered"));
+    }
+
     // Store temp info into base asset store
     store_asset_config(
         &mut deps.storage,
-        &config.base_asset_info,
+        &raw_info,
         &AssetConfig {
-            token: CanonicalAddr::default(),
+            token: asset_token_raw,
             auction_discount,
             auction_threshold_ratio,
             min_collateral_ratio,
@@ -238,55 +243,11 @@ pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
     )?;
 
     Ok(HandleResponse {
-        messages: vec![CosmosMsg::Wasm(WasmMsg::Instantiate {
-            code_id: config.token_code_id,
-            msg: to_binary(&TokenInitMsg {
-                name,
-                symbol: symbol.to_string(),
-                decimals: 6u8,
-                initial_balances: vec![],
-                mint: Some(MinterResponse {
-                    minter: env.contract.address.clone(),
-                    cap: None,
-                }),
-                init_hook: Some(InitHook {
-                    contract_addr: env.contract.address,
-                    msg: to_binary(&HandleMsg::RegisterHook {})?,
-                }),
-            })?,
-            send: vec![],
-            label: None,
-        })],
-        log: vec![log("action", "register"), log("symbol", symbol)],
-        data: None,
-    })
-}
-
-pub fn try_register_hook<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-) -> HandleResult {
-    let config: Config = read_config(&deps.storage)?;
-    let mut asset_config: AssetConfig = read_asset_config(&deps.storage, &config.base_asset_info)?;
-
-    // check the asset is in registeration state
-    if asset_config.token != CanonicalAddr::default() {
-        return Err(StdError::unauthorized());
-    }
-
-    let asset_info = AssetInfo::Token {
-        contract_addr: env.message.sender.clone(),
-    };
-    let raw_info = asset_info.to_raw(&deps)?;
-    asset_config.token = deps.api.canonical_address(&env.message.sender)?;
-    store_asset_config(&mut deps.storage, &raw_info, &asset_config)?;
-
-    // clear temp store
-    remove_asset_config(&mut deps.storage, &config.base_asset_info)?;
-
-    Ok(HandleResponse {
         messages: vec![],
-        log: vec![log("asset_token_addr", env.message.sender.as_str())],
+        log: vec![
+            log("action", "register"),
+            log("asset_token_addr", asset_token_addr),
+        ],
         data: None,
     })
 }
@@ -798,21 +759,19 @@ pub fn query_positions<S: Storage, A: Api, Q: Querier>(
         // collateral can be token or native token
         let collateral_price = if collateral_info.equal(&base_asset_info) {
             Decimal::one()
+        } else if let Some(price) = price_map.get(&collateral_info.to_string()) {
+            price.clone()
         } else {
-            if let Some(price) = price_map.get(&collateral_info.to_string()) {
-                price.clone()
-            } else {
-                // load collateral price form the oracle
-                let price = load_price(
-                    &deps,
-                    &deps.api.human_address(&config.oracle)?,
-                    &position.collateral.info,
-                    None,
-                )?;
+            // load collateral price form the oracle
+            let price = load_price(
+                &deps,
+                &deps.api.human_address(&config.oracle)?,
+                &position.collateral.info,
+                None,
+            )?;
 
-                price_map.insert(collateral_info.to_string(), price);
-                price
-            }
+            price_map.insert(collateral_info.to_string(), price);
+            price
         };
 
         // load asset price from the oracle

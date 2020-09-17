@@ -29,7 +29,8 @@ use mirror_mint::msg::{ConfigResponse, HandleMsg, InitMsg, QueryMsg};
 use uniswap::AssetInfo;
 
 // This line will test the output of cargo wasm
-static WASM: &[u8] = include_bytes!("../../../target/wasm32-unknown-unknown/release/mirror_mint.wasm");
+static WASM: &[u8] =
+    include_bytes!("../../../target/wasm32-unknown-unknown/release/mirror_mint.wasm");
 // You can uncomment this line instead to test productionified build from rust-optimizer
 // static WASM: &[u8] = include_bytes!("../contract.wasm");
 

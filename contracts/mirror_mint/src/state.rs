@@ -59,14 +59,6 @@ pub fn read_asset_config<S: Storage>(
     }
 }
 
-pub fn remove_asset_config<S: Storage>(
-    storage: &mut S,
-    asset_info: &AssetInfoRaw,
-) -> StdResult<()> {
-    PrefixedStorage::new(PREFIX_ASSET, storage).remove(asset_info.as_bytes());
-    Ok(())
-}
-
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Position {
     pub collateral: AssetRaw,
