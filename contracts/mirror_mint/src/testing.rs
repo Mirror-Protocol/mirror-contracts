@@ -108,7 +108,7 @@ fn register_asset() {
     let _res = init(&mut deps, env, msg).unwrap();
 
     let msg = HandleMsg::RegisterAsset {
-        asset_token_addr: HumanAddr::from("asset0000"),
+        asset_token: HumanAddr::from("asset0000"),
         auction_discount: Decimal::percent(20),
         auction_threshold_ratio: Decimal::percent(130),
         min_collateral_ratio: Decimal::percent(150),
@@ -140,7 +140,7 @@ fn register_asset() {
 
     // must be failed with the already registered token error
     let msg = HandleMsg::RegisterAsset {
-        asset_token_addr: HumanAddr::from("asset0000"),
+        asset_token: HumanAddr::from("asset0000"),
         auction_discount: Decimal::percent(20),
         auction_threshold_ratio: Decimal::percent(130),
         min_collateral_ratio: Decimal::percent(150),
@@ -154,7 +154,7 @@ fn register_asset() {
 
     // must be failed with unauthorized error
     let msg = HandleMsg::RegisterAsset {
-        asset_token_addr: HumanAddr::from("asset0000"),
+        asset_token: HumanAddr::from("asset0000"),
         auction_discount: Decimal::percent(20),
         auction_threshold_ratio: Decimal::percent(130),
         min_collateral_ratio: Decimal::percent(150),
@@ -186,7 +186,7 @@ fn update_asset() {
     let _res = init(&mut deps, env, msg).unwrap();
 
     let msg = HandleMsg::RegisterAsset {
-        asset_token_addr: HumanAddr::from("asset0000"),
+        asset_token: HumanAddr::from("asset0000"),
         auction_discount: Decimal::percent(20),
         auction_threshold_ratio: Decimal::percent(130),
         min_collateral_ratio: Decimal::percent(150),
@@ -279,7 +279,7 @@ fn deposit() {
     let _res = init(&mut deps, env, msg).unwrap();
 
     let msg = HandleMsg::RegisterAsset {
-        asset_token_addr: HumanAddr::from("asset0000"),
+        asset_token: HumanAddr::from("asset0000"),
         auction_discount: Decimal::percent(20),
         auction_threshold_ratio: Decimal::percent(130),
         min_collateral_ratio: Decimal::percent(150),
@@ -495,7 +495,7 @@ fn mint() {
     let _res = init(&mut deps, env, msg).unwrap();
 
     let msg = HandleMsg::RegisterAsset {
-        asset_token_addr: HumanAddr::from("asset0000"),
+        asset_token: HumanAddr::from("asset0000"),
         auction_discount: Decimal::percent(20),
         auction_threshold_ratio: Decimal::percent(130),
         min_collateral_ratio: Decimal::percent(150),
@@ -694,7 +694,7 @@ fn burn() {
     let _res = init(&mut deps, env, msg).unwrap();
 
     let msg = HandleMsg::RegisterAsset {
-        asset_token_addr: HumanAddr::from("asset0000"),
+        asset_token: HumanAddr::from("asset0000"),
         auction_discount: Decimal::percent(20),
         auction_threshold_ratio: Decimal::percent(130),
         min_collateral_ratio: Decimal::percent(150),
@@ -915,7 +915,7 @@ fn withdraw() {
     let _res = init(&mut deps, env, msg).unwrap();
 
     let msg = HandleMsg::RegisterAsset {
-        asset_token_addr: HumanAddr::from("asset0000"),
+        asset_token: HumanAddr::from("asset0000"),
         auction_discount: Decimal::percent(20),
         auction_threshold_ratio: Decimal::percent(130),
         min_collateral_ratio: Decimal::percent(150),
@@ -1123,7 +1123,7 @@ fn auction() {
     let _res = init(&mut deps, env, msg).unwrap();
 
     let msg = HandleMsg::RegisterAsset {
-        asset_token_addr: HumanAddr::from("asset0000"),
+        asset_token: HumanAddr::from("asset0000"),
         auction_discount: Decimal::percent(20),
         auction_threshold_ratio: Decimal::percent(130),
         min_collateral_ratio: Decimal::percent(150),
