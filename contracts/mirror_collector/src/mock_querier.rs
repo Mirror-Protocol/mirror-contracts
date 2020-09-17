@@ -94,18 +94,17 @@ pub(crate) fn caps_to_map(caps: &[(&String, &Uint128)]) -> HashMap<String, Uint1
 #[derive(Clone, Debug)]
 pub struct WhitelistItem {
     pub token_contract: HumanAddr,
-    pub market_contract: HumanAddr,
-    pub staking_contract: HumanAddr,
+    pub uniswap_contract: HumanAddr,
 }
 
 #[derive(Clone, Default)]
 pub struct WhitelistQuerier {
     // this lets us iterate over all pairs that match the first string
-    whitelist: HashMap<HumanAddr, HashMap<String, WhitelistItem>>,
+    whitelist: HashMap<HumanAddr, HashMap<HumanAddr, WhitelistItem>>,
 }
 
 impl WhitelistQuerier {
-    pub fn new(whitelist: &[(&HumanAddr, Vec<(&String, &WhitelistItem)>)]) -> Self {
+    pub fn new(whitelist: &[(&HumanAddr, Vec<(&HumanAddr, &WhitelistItem)>)]) -> Self {
         WhitelistQuerier {
             whitelist: whitelist_to_map(whitelist),
         }
@@ -113,13 +112,13 @@ impl WhitelistQuerier {
 }
 
 pub(crate) fn whitelist_to_map(
-    whitelists: &[(&HumanAddr, Vec<(&String, &WhitelistItem)>)],
-) -> HashMap<HumanAddr, HashMap<String, WhitelistItem>> {
-    let mut whitelists_map: HashMap<HumanAddr, HashMap<String, WhitelistItem>> = HashMap::new();
+    whitelists: &[(&HumanAddr, Vec<(&HumanAddr, &WhitelistItem)>)],
+) -> HashMap<HumanAddr, HashMap<HumanAddr, WhitelistItem>> {
+    let mut whitelists_map: HashMap<HumanAddr, HashMap<HumanAddr, WhitelistItem>> = HashMap::new();
     for (contract, whitelist) in whitelists.iter() {
-        let mut whitelist_map: HashMap<String, WhitelistItem> = HashMap::new();
+        let mut whitelist_map: HashMap<HumanAddr, WhitelistItem> = HashMap::new();
         for (symbol, item) in whitelist.iter() {
-            whitelist_map.insert(symbol.to_string(), (*item).clone());
+            whitelist_map.insert((*symbol).clone(), (*item).clone());
         }
 
         whitelists_map.insert(HumanAddr::from(contract), whitelist_map);
@@ -181,23 +180,19 @@ impl WasmMockQuerier {
                 if key.len() > prefix_whitelist.len()
                     && key[..prefix_whitelist.len()].to_vec() == prefix_whitelist
                 {
-                    let key_symbol: &[u8] = &key[prefix_whitelist.len()..];
-                    let symbol: String = match String::from_utf8(key_symbol.to_vec()) {
-                        Ok(v) => v,
-                        Err(e) => {
-                            return Err(SystemError::InvalidRequest {
-                                error: format!("Parsing query request: {}", e),
-                                request: key.into(),
-                            })
-                        }
-                    };
+                    let api: MockApi = MockApi::new(self.canonical_length);
+                    let key_address: &[u8] = &key[prefix_whitelist.len()..];
+                    let addr = api
+                        .human_address(&CanonicalAddr::from(key_address))
+                        .unwrap();
+
                     let item = match self.whitelist_querier.whitelist.get(&contract_addr) {
-                        Some(whitelist) => match whitelist.get(&symbol) {
+                        Some(whitelist) => match whitelist.get(&addr) {
                             Some(v) => v,
                             None => {
                                 return Ok(Err(StdError::generic_err(format!(
                                     "No whitelist info registered for {} {}",
-                                    contract_addr, symbol,
+                                    contract_addr, addr,
                                 ))))
                             }
                         },
@@ -209,14 +204,15 @@ impl WasmMockQuerier {
                         }
                     };
 
-                    let api: MockApi = MockApi::new(self.canonical_length);
-                    Ok(to_binary(&WhitelistInfo {
-                        mint_contract: CanonicalAddr::default(),
-                        market_contract: api.canonical_address(&item.market_contract).unwrap(),
-                        oracle_contract: CanonicalAddr::default(),
-                        token_contract: api.canonical_address(&item.token_contract).unwrap(),
-                        staking_contract: api.canonical_address(&item.staking_contract).unwrap(),
-                    }))
+                    Ok(to_binary(
+                        &to_binary(&WhitelistInfo {
+                            uniswap_contract: api
+                                .canonical_address(&item.uniswap_contract)
+                                .unwrap(),
+                            token_contract: api.canonical_address(&item.token_contract).unwrap(),
+                        })
+                        .unwrap(),
+                    ))
                 } else {
                     let balances: &HashMap<HumanAddr, Uint128> =
                         match self.token_querier.balances.get(contract_addr) {
@@ -294,7 +290,10 @@ impl WasmMockQuerier {
     }
 
     // configure the whitelist mock querier
-    pub fn with_whitelist(&mut self, whitelists: &[(&HumanAddr, Vec<(&String, &WhitelistItem)>)]) {
+    pub fn with_whitelist(
+        &mut self,
+        whitelists: &[(&HumanAddr, Vec<(&HumanAddr, &WhitelistItem)>)],
+    ) {
         self.whitelist_querier = WhitelistQuerier::new(whitelists);
     }
 }

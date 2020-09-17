@@ -3,7 +3,7 @@ mod hook;
 mod querier;
 mod init;
 
-pub use crate::asset::{Asset, AssetRaw, AssetInfo, AssetInfoRaw};
+pub use crate::asset::{Asset, AssetRaw, AssetInfo, AssetInfoRaw, PairInfo, PairInfoRaw};
 pub use crate::hook::InitHook;
 pub use crate::querier::{load_balance, load_supply, load_token_balance};
 pub use crate::init::{PairInitMsg, TokenInitMsg};

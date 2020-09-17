@@ -3,26 +3,14 @@
   "title": "WhitelistInfoResponse",
   "type": "object",
   "required": [
-    "market_contract",
-    "mint_contract",
-    "oracle_contract",
-    "staking_contract",
-    "token_contract"
+    "token_contract",
+    "uniswap_contract"
   ],
   "properties": {
-    "market_contract": {
-      "$ref": "#/definitions/HumanAddr"
-    },
-    "mint_contract": {
-      "$ref": "#/definitions/HumanAddr"
-    },
-    "oracle_contract": {
-      "$ref": "#/definitions/HumanAddr"
-    },
-    "staking_contract": {
-      "$ref": "#/definitions/HumanAddr"
-    },
     "token_contract": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "uniswap_contract": {
       "$ref": "#/definitions/HumanAddr"
     }
   },

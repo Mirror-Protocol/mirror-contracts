@@ -245,3 +245,16 @@ impl AssetInfoRaw {
         }
     }
 }
+
+// We define a custom struct for each query response
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct PairInfo {
+    pub contract_addr: HumanAddr,
+    pub asset_infos: [AssetInfo; 2],
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct PairInfoRaw {
+    pub contract_addr: CanonicalAddr,
+    pub asset_infos: [AssetInfoRaw; 2],
+}

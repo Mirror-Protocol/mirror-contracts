@@ -22,11 +22,11 @@
         "whitelist_info": {
           "type": "object",
           "required": [
-            "symbol"
+            "asset_token"
           ],
           "properties": {
-            "symbol": {
-              "type": "string"
+            "asset_token": {
+              "$ref": "#/definitions/HumanAddr"
             }
           }
         }
@@ -41,15 +41,20 @@
         "distribution_info": {
           "type": "object",
           "required": [
-            "symbol"
+            "asset_token"
           ],
           "properties": {
-            "symbol": {
-              "type": "string"
+            "asset_token": {
+              "$ref": "#/definitions/HumanAddr"
             }
           }
         }
       }
     }
-  ]
+  ],
+  "definitions": {
+    "HumanAddr": {
+      "type": "string"
+    }
+  }
 }

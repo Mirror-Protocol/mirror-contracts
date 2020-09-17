@@ -17,7 +17,7 @@ pub enum HandleMsg {
     UpdateConfig {
         owner: Option<HumanAddr>,
     },
-    RegiseterAsset {
+    RegisterAsset {
         asset_token: HumanAddr,
         staking_token: HumanAddr,
     },

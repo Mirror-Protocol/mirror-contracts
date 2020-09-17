@@ -40,7 +40,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     match msg {
         HandleMsg::Receive(msg) => receive_cw20(deps, env, msg),
         HandleMsg::UpdateConfig { owner } => try_update_config(deps, env, owner),
-        HandleMsg::RegiseterAsset {
+        HandleMsg::RegisterAsset {
             asset_token,
             staking_token,
         } => try_register_asset(deps, env, asset_token, staking_token),

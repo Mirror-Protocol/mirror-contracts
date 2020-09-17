@@ -66,7 +66,7 @@ fn test_bond_tokens() {
     let env = mock_env("addr0000", &[]);
     let _res: InitResponse = init(&mut deps, env, msg).unwrap();
 
-    let msg = HandleMsg::RegiseterAsset {
+    let msg = HandleMsg::RegisterAsset {
         asset_token: HumanAddr::from("asset0000"),
         staking_token: HumanAddr::from("staking0000"),
     };
@@ -190,7 +190,7 @@ fn test_deposit_reward() {
     let env = mock_env("addr0000", &[]);
     let _res: InitResponse = init(&mut deps, env, msg).unwrap();
 
-    let msg = HandleMsg::RegiseterAsset {
+    let msg = HandleMsg::RegisterAsset {
         asset_token: HumanAddr::from("asset0000"),
         staking_token: HumanAddr::from("staking0000"),
     };
@@ -267,7 +267,7 @@ fn test_unbond() {
     let _res: InitResponse = init(&mut deps, env, msg).unwrap();
 
     // register asset
-    let msg = HandleMsg::RegiseterAsset {
+    let msg = HandleMsg::RegisterAsset {
         asset_token: HumanAddr::from("asset0000"),
         staking_token: HumanAddr::from("staking0000"),
     };

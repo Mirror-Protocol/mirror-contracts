@@ -3,7 +3,6 @@ use crate::msg::{
     ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, PoolInfoResponse, QueryMsg,
     RewardInfoResponse, RewardInfoResponseItem,
 };
-use crate::state::{PoolInfo, RewardInfo};
 use cosmwasm_std::testing::{mock_dependencies, mock_env};
 use cosmwasm_std::{
     from_binary, log, to_binary, CosmosMsg, Decimal, HumanAddr, StdError, Uint128, WasmMsg,
@@ -82,7 +81,7 @@ fn test_register() {
     // we can just call .unwrap() to assert this was a success
     let _res = init(&mut deps, env, msg).unwrap();
 
-    let msg = HandleMsg::RegiseterAsset {
+    let msg = HandleMsg::RegisterAsset {
         asset_token: HumanAddr::from("asset0000"),
         staking_token: HumanAddr::from("staking0000"),
     };
@@ -136,7 +135,7 @@ fn test_bond_tokens() {
     let env = mock_env("addr0000", &[]);
     let _res = init(&mut deps, env, msg).unwrap();
 
-    let msg = HandleMsg::RegiseterAsset {
+    let msg = HandleMsg::RegisterAsset {
         asset_token: HumanAddr::from("asset0000"),
         staking_token: HumanAddr::from("staking0000"),
     };
@@ -262,7 +261,7 @@ fn test_deposit_reward() {
     let env = mock_env("addr0000", &[]);
     let _res = init(&mut deps, env, msg).unwrap();
 
-    let msg = HandleMsg::RegiseterAsset {
+    let msg = HandleMsg::RegisterAsset {
         asset_token: HumanAddr::from("asset0000"),
         staking_token: HumanAddr::from("staking0000"),
     };
@@ -339,7 +338,7 @@ fn test_unbond() {
     let _res = init(&mut deps, env, msg).unwrap();
 
     // register asset
-    let msg = HandleMsg::RegiseterAsset {
+    let msg = HandleMsg::RegisterAsset {
         asset_token: HumanAddr::from("asset0000"),
         staking_token: HumanAddr::from("staking0000"),
     };
@@ -410,7 +409,7 @@ fn test_before_share_changes() {
     let env = mock_env("addr0000", &[]);
     let _res = init(&mut deps, env, msg).unwrap();
 
-    let msg = HandleMsg::RegiseterAsset {
+    let msg = HandleMsg::RegisterAsset {
         asset_token: HumanAddr::from("asset0000"),
         staking_token: HumanAddr::from("staking0000"),
     };
@@ -538,7 +537,7 @@ fn test_withdraw() {
     let env = mock_env("addr0000", &[]);
     let _res = init(&mut deps, env, msg).unwrap();
 
-    let msg = HandleMsg::RegiseterAsset {
+    let msg = HandleMsg::RegisterAsset {
         asset_token: HumanAddr::from("asset0000"),
         staking_token: HumanAddr::from("staking0000"),
     };
@@ -606,7 +605,7 @@ fn withdraw_multiple_rewards() {
     let env = mock_env("addr0000", &[]);
     let _res = init(&mut deps, env, msg).unwrap();
 
-    let msg = HandleMsg::RegiseterAsset {
+    let msg = HandleMsg::RegisterAsset {
         asset_token: HumanAddr::from("asset0000"),
         staking_token: HumanAddr::from("staking0000"),
     };
@@ -614,7 +613,7 @@ fn withdraw_multiple_rewards() {
     let env = mock_env("owner0000", &[]);
     let _res = handle(&mut deps, env, msg.clone()).unwrap();
 
-    let msg = HandleMsg::RegiseterAsset {
+    let msg = HandleMsg::RegisterAsset {
         asset_token: HumanAddr::from("asset0001"),
         staking_token: HumanAddr::from("staking0001"),
     };

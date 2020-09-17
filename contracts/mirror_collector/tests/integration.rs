@@ -25,7 +25,7 @@ use mirror_collector::msg::{ConfigResponse, InitMsg, QueryMsg};
 
 // This line will test the output of cargo wasm
 static WASM: &[u8] =
-    include_bytes!("../target/wasm32-unknown-unknown/release/mirror_collector.wasm");
+    include_bytes!("../../../target/wasm32-unknown-unknown/release/mirror_collector.wasm");
 // You can uncomment this line instead to test productionified build from rust-optimizer
 // static WASM: &[u8] = include_bytes!("../contract.wasm");
 
@@ -50,7 +50,6 @@ fn proper_initialization() {
         factory_contract: HumanAddr("factory0000".to_string()),
         gov_contract: HumanAddr("gov0000".to_string()),
         mirror_token: HumanAddr("mirror0000".to_string()),
-        mirror_symbol: "mirror".to_string(),
         collateral_denom: "uusd".to_string(),
     };
 
@@ -63,6 +62,5 @@ fn proper_initialization() {
     assert_eq!("factory0000", config.factory_contract.as_str());
     assert_eq!("gov0000", config.gov_contract.as_str());
     assert_eq!("mirror0000", config.mirror_token.as_str());
-    assert_eq!("mirror", config.mirror_symbol.as_str());
     assert_eq!("uusd", config.collateral_denom.as_str());
 }
