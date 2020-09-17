@@ -132,11 +132,39 @@ fn update_price() {
             contract_addr: HumanAddr::from("mAPPL"),
         },
         feeder: HumanAddr::from("addr0000"),
-        token: HumanAddr::from("asset0000"),
     };
 
     let env = mock_env("addr0000", &[]);
+    let res: HandleResult = handle(&mut deps, env, msg);
+    match res {
+        Err(StdError::Unauthorized { .. }) => {}
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    let msg = HandleMsg::RegisterAsset {
+        asset_info: AssetInfo::Token {
+            contract_addr: HumanAddr::from("mAPPL"),
+        },
+        feeder: HumanAddr::from("addr0000"),
+    };
+
+    let env = mock_env("owner0000", &[]);
     let _res: HandleResponse = handle(&mut deps, env, msg).unwrap();
+
+    // try register the asset is already exists
+    let msg = HandleMsg::RegisterAsset {
+        asset_info: AssetInfo::Token {
+            contract_addr: HumanAddr::from("mAPPL"),
+        },
+        feeder: HumanAddr::from("addr0000"),
+    };
+
+    let env = mock_env("owner0000", &[]);
+    let res: HandleResult = handle(&mut deps, env, msg);
+    match res {
+        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Asset was already registered"),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
 
     // update price
     let env = mock_env("addr0000", &[]);

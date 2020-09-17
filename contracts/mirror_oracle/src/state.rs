@@ -30,7 +30,6 @@ pub fn read_config<S: Storage>(storage: &S) -> StdResult<Config> {
 pub struct AssetConfig {
     pub asset_info: AssetInfoRaw,
     pub feeder: CanonicalAddr,
-    pub token: CanonicalAddr,
 }
 
 pub fn store_asset_config<S: Storage>(
