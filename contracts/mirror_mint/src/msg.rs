@@ -31,7 +31,7 @@ pub enum HandleMsg {
     },
     /// Generate asset token initialize msg and register required infos except token address
     RegisterAsset {
-        asset_token_addr: HumanAddr,
+        asset_token: HumanAddr,
         auction_discount: Decimal,
         auction_threshold_ratio: Decimal,
         min_collateral_ratio: Decimal,

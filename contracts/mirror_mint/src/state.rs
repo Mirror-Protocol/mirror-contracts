@@ -65,7 +65,7 @@ pub struct Position {
     pub asset: AssetRaw,
 }
 
-/// returns a bucket with all allowances authorized by this owner (query it by asset)
+/// returns a bucket with all positions owned by this owner (query it by owner)
 pub fn positions_store<'a, S: Storage>(
     storage: &'a mut S,
     owner: &CanonicalAddr,
@@ -73,7 +73,7 @@ pub fn positions_store<'a, S: Storage>(
     Bucket::multilevel(&[PREFIX_POSITION, owner.as_slice()], storage)
 }
 
-/// returns a bucket with all allowances authorized by this owner (query it by asset)
+/// returns a bucket with all positions owned by this owner (query it by owner)
 /// (read-only version for queries)
 pub fn positions_read<'a, S: ReadonlyStorage>(
     storage: &'a S,

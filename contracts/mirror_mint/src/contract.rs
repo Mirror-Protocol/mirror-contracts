@@ -61,14 +61,14 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             min_collateral_ratio,
         ),
         HandleMsg::RegisterAsset {
-            asset_token_addr,
+            asset_token,
             auction_discount,
             auction_threshold_ratio,
             min_collateral_ratio,
         } => try_register_asset(
             deps,
             env,
-            asset_token_addr,
+            asset_token,
             auction_discount,
             auction_threshold_ratio,
             min_collateral_ratio,
@@ -209,7 +209,7 @@ pub fn try_update_asset<S: Storage, A: Api, Q: Querier>(
 pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    asset_token_addr: HumanAddr,
+    asset_token: HumanAddr,
     auction_discount: Decimal,
     auction_threshold_ratio: Decimal,
     min_collateral_ratio: Decimal,
@@ -221,7 +221,7 @@ pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::unauthorized());
     }
 
-    let asset_token_raw: CanonicalAddr = deps.api.canonical_address(&asset_token_addr)?;
+    let asset_token_raw: CanonicalAddr = deps.api.canonical_address(&asset_token)?;
     let raw_info = AssetInfoRaw::Token {
         contract_addr: asset_token_raw.clone(),
     };
@@ -246,7 +246,7 @@ pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
         messages: vec![],
         log: vec![
             log("action", "register"),
-            log("asset_token_addr", asset_token_addr),
+            log("asset_token", asset_token),
         ],
         data: None,
     })
@@ -693,7 +693,18 @@ pub fn query_position<S: Storage, A: Api, Q: Querier>(
     let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_raw_info)?;
     let position_bucket = positions_read(&deps.storage, &minter_raw);
     let position_key = [asset_raw_info.as_bytes(), collateral_raw_info.as_bytes()].concat();
-    let position: Position = position_bucket.load(&position_key)?;
+    let position: Position = position_bucket
+        .load(&position_key)
+        .unwrap_or_else(|_| Position {
+            collateral: AssetRaw {
+                info: collateral_raw_info.clone(),
+                amount: Uint128::zero(),
+            },
+            asset: AssetRaw {
+                info: asset_raw_info.clone(),
+                amount: Uint128::zero(),
+            },
+        });
 
     // collateral can be token or native token
     let collateral_price = if collateral_info.equal(&config.base_asset_info.to_normal(&deps)?) {
