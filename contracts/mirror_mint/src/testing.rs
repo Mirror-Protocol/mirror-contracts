@@ -7,7 +7,7 @@ use crate::contract::{handle, init, query};
 
 use crate::msg::{
     AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, PositionResponse,
-    PositionsResponse, QueryMsg,
+    QueryMsg,
 };
 
 use crate::mock_querier::mock_dependencies;
@@ -110,7 +110,6 @@ fn register_asset() {
     let msg = HandleMsg::RegisterAsset {
         asset_token: HumanAddr::from("asset0000"),
         auction_discount: Decimal::percent(20),
-        auction_threshold_ratio: Decimal::percent(130),
         min_collateral_ratio: Decimal::percent(150),
     };
 
@@ -133,7 +132,6 @@ fn register_asset() {
         AssetConfigResponse {
             token: HumanAddr::from("asset0000"),
             auction_discount: Decimal::percent(20),
-            auction_threshold_ratio: Decimal::percent(130),
             min_collateral_ratio: Decimal::percent(150),
         }
     );
@@ -142,7 +140,6 @@ fn register_asset() {
     let msg = HandleMsg::RegisterAsset {
         asset_token: HumanAddr::from("asset0000"),
         auction_discount: Decimal::percent(20),
-        auction_threshold_ratio: Decimal::percent(130),
         min_collateral_ratio: Decimal::percent(150),
     };
     let env = mock_env("owner0000", &[]);
@@ -156,7 +153,6 @@ fn register_asset() {
     let msg = HandleMsg::RegisterAsset {
         asset_token: HumanAddr::from("asset0000"),
         auction_discount: Decimal::percent(20),
-        auction_threshold_ratio: Decimal::percent(130),
         min_collateral_ratio: Decimal::percent(150),
     };
     let env = mock_env("owner0001", &[]);
@@ -188,7 +184,6 @@ fn update_asset() {
     let msg = HandleMsg::RegisterAsset {
         asset_token: HumanAddr::from("asset0000"),
         auction_discount: Decimal::percent(20),
-        auction_threshold_ratio: Decimal::percent(130),
         min_collateral_ratio: Decimal::percent(150),
     };
 
@@ -200,7 +195,6 @@ fn update_asset() {
             contract_addr: HumanAddr::from("asset0000"),
         },
         auction_discount: Some(Decimal::percent(30)),
-        auction_threshold_ratio: Some(Decimal::percent(150)),
         min_collateral_ratio: Some(Decimal::percent(200)),
     };
     let env = mock_env("owner0000", &[]);
@@ -221,7 +215,6 @@ fn update_asset() {
         AssetConfigResponse {
             token: HumanAddr::from("asset0000"),
             auction_discount: Decimal::percent(30),
-            auction_threshold_ratio: Decimal::percent(150),
             min_collateral_ratio: Decimal::percent(200),
         }
     );
@@ -231,7 +224,6 @@ fn update_asset() {
             contract_addr: HumanAddr::from("asset0000"),
         },
         auction_discount: Some(Decimal::percent(30)),
-        auction_threshold_ratio: Some(Decimal::percent(150)),
         min_collateral_ratio: Some(Decimal::percent(200)),
     };
     let env = mock_env("owner0001", &[]);
@@ -240,6 +232,219 @@ fn update_asset() {
         StdError::Unauthorized { .. } => {}
         _ => panic!("Must return unauthorized error"),
     }
+}
+
+#[test]
+fn open_position() {
+    let mut deps = mock_dependencies(20, &[]);
+    deps.querier.with_oracle_price(&[
+        (
+            &AssetInfo::Token {
+                contract_addr: HumanAddr::from("asset0000"),
+            }
+            .to_raw(&deps)
+            .unwrap(),
+            &Decimal::percent(100),
+        ),
+        (
+            &AssetInfo::Token {
+                contract_addr: HumanAddr::from("asset0001"),
+            }
+            .to_raw(&deps)
+            .unwrap(),
+            &Decimal::percent(50),
+        ),
+    ]);
+
+    let base_asset_info = AssetInfo::NativeToken {
+        denom: "uusd".to_string(),
+    };
+
+    let msg = InitMsg {
+        owner: HumanAddr::from("owner0000"),
+        oracle: HumanAddr::from("oracle0000"),
+        base_asset_info: base_asset_info.clone(),
+        token_code_id: TOKEN_CODE_ID,
+    };
+
+    let env = mock_env("addr0000", &[]);
+    let _res = init(&mut deps, env, msg).unwrap();
+
+    let msg = HandleMsg::RegisterAsset {
+        asset_token: HumanAddr::from("asset0000"),
+        auction_discount: Decimal::percent(20),
+        min_collateral_ratio: Decimal::percent(150),
+    };
+
+    let env = mock_env("owner0000", &[]);
+    let _res = handle(&mut deps, env, msg).unwrap();
+
+    // must be failed; collateral ratio is too low
+    let msg = HandleMsg::OpenPosition {
+        collateral: Asset {
+            info: AssetInfo::NativeToken {
+                denom: "uusd".to_string(),
+            },
+            amount: Uint128(1000000u128),
+        },
+        asset_info: AssetInfo::Token {
+            contract_addr: HumanAddr::from("asset0000"),
+        },
+        collateral_ratio: Decimal::percent(140),
+    };
+    let env = mock_env_with_block_time(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(1000000u128),
+        }],
+        1000,
+    );
+    let res = handle(&mut deps, env.clone(), msg).unwrap_err();
+    match res {
+        StdError::GenericErr { msg, .. } => assert_eq!(
+            msg,
+            "Can not open a position with low collateral ratio than minimum"
+        ),
+        _ => panic!("DO NOT ENTER ERROR"),
+    }
+
+    let msg = HandleMsg::OpenPosition {
+        collateral: Asset {
+            info: AssetInfo::NativeToken {
+                denom: "uusd".to_string(),
+            },
+            amount: Uint128(1000000u128),
+        },
+        asset_info: AssetInfo::Token {
+            contract_addr: HumanAddr::from("asset0000"),
+        },
+        collateral_ratio: Decimal::percent(150),
+    };
+    let res = handle(&mut deps, env.clone(), msg).unwrap();
+
+    assert_eq!(
+        res.log,
+        vec![
+            log("action", "open_position"),
+            log("position_idx", "1"),
+            log("mint_amount", "666666"),
+        ]
+    );
+
+    assert_eq!(
+        res.messages,
+        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: HumanAddr::from("asset0000"),
+            send: vec![],
+            msg: to_binary(&Cw20HandleMsg::Mint {
+                recipient: HumanAddr::from("addr0000"),
+                amount: Uint128(666666u128),
+            })
+            .unwrap(),
+        })]
+    );
+
+    let res = query(&deps, QueryMsg::Position { position_idx: 1 }).unwrap();
+    let position: PositionResponse = from_binary(&res).unwrap();
+    assert_eq!(
+        position,
+        PositionResponse {
+            owner: HumanAddr::from("addr0000"),
+            asset: Asset {
+                info: AssetInfo::Token {
+                    contract_addr: HumanAddr::from("asset0000"),
+                },
+                amount: Uint128(666666u128),
+            },
+            collateral: Asset {
+                info: AssetInfo::NativeToken {
+                    denom: "uusd".to_string(),
+                },
+                amount: Uint128(1000000u128),
+            },
+            is_auction_open: false
+        }
+    );
+
+    // Cannot directly deposit token
+    let msg = HandleMsg::OpenPosition {
+        collateral: Asset {
+            info: AssetInfo::Token {
+                contract_addr: HumanAddr::from("asset0001"),
+            },
+            amount: Uint128(1000000u128),
+        },
+        asset_info: AssetInfo::Token {
+            contract_addr: HumanAddr::from("asset0000"),
+        },
+        collateral_ratio: Decimal::percent(150),
+    };
+    let res = handle(&mut deps, env, msg).unwrap_err();
+    match res {
+        StdError::Unauthorized { .. } => (),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    let msg = HandleMsg::Receive(Cw20ReceiveMsg {
+        msg: Some(
+            to_binary(&Cw20HookMsg::OpenPosition {
+                asset_info: AssetInfo::Token {
+                    contract_addr: HumanAddr::from("asset0000"),
+                },
+                collateral_ratio: Decimal::percent(150),
+            })
+            .unwrap(),
+        ),
+        sender: HumanAddr::from("addr0000"),
+        amount: Uint128(1000000u128),
+    });
+    let env = mock_env_with_block_time("asset0001", &[], 1000);
+    let res = handle(&mut deps, env, msg).unwrap();
+
+    assert_eq!(
+        res.log,
+        vec![
+            log("action", "open_position"),
+            log("position_idx", "2"),
+            log("mint_amount", "333333"),
+        ]
+    );
+
+    assert_eq!(
+        res.messages,
+        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: HumanAddr::from("asset0000"),
+            send: vec![],
+            msg: to_binary(&Cw20HandleMsg::Mint {
+                recipient: HumanAddr::from("addr0000"),
+                amount: Uint128(333333u128),
+            })
+            .unwrap(),
+        })]
+    );
+
+    let res = query(&deps, QueryMsg::Position { position_idx: 2 }).unwrap();
+    let position: PositionResponse = from_binary(&res).unwrap();
+    assert_eq!(
+        position,
+        PositionResponse {
+            owner: HumanAddr::from("addr0000"),
+            asset: Asset {
+                info: AssetInfo::Token {
+                    contract_addr: HumanAddr::from("asset0000"),
+                },
+                amount: Uint128(333333u128),
+            },
+            collateral: Asset {
+                info: AssetInfo::Token {
+                    contract_addr: HumanAddr::from("asset0001"),
+                },
+                amount: Uint128(1000000u128),
+            },
+            is_auction_open: false
+        }
+    );
 }
 
 #[test]
@@ -281,14 +486,14 @@ fn deposit() {
     let msg = HandleMsg::RegisterAsset {
         asset_token: HumanAddr::from("asset0000"),
         auction_discount: Decimal::percent(20),
-        auction_threshold_ratio: Decimal::percent(130),
         min_collateral_ratio: Decimal::percent(150),
     };
 
     let env = mock_env("owner0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
-    let msg = HandleMsg::Deposit {
+    // open uusd-asset0000 position
+    let msg = HandleMsg::OpenPosition {
         collateral: Asset {
             info: AssetInfo::NativeToken {
                 denom: "uusd".to_string(),
@@ -297,6 +502,43 @@ fn deposit() {
         },
         asset_info: AssetInfo::Token {
             contract_addr: HumanAddr::from("asset0000"),
+        },
+        collateral_ratio: Decimal::percent(150),
+    };
+    let env = mock_env_with_block_time(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(1000000u128),
+        }],
+        1000,
+    );
+    let _res = handle(&mut deps, env.clone(), msg).unwrap();
+
+    // open asset0001-asset0000 position
+    let msg = HandleMsg::Receive(Cw20ReceiveMsg {
+        msg: Some(
+            to_binary(&Cw20HookMsg::OpenPosition {
+                asset_info: AssetInfo::Token {
+                    contract_addr: HumanAddr::from("asset0000"),
+                },
+                collateral_ratio: Decimal::percent(150),
+            })
+            .unwrap(),
+        ),
+        sender: HumanAddr::from("addr0000"),
+        amount: Uint128(1000000u128),
+    });
+    let env = mock_env_with_block_time("asset0001", &[], 1000);
+    let _res = handle(&mut deps, env, msg).unwrap();
+
+    let msg = HandleMsg::Deposit {
+        position_idx: 1,
+        collateral: Asset {
+            info: AssetInfo::NativeToken {
+                denom: "uusd".to_string(),
+            },
+            amount: Uint128(1000000u128),
         },
     };
     let env = mock_env(
@@ -307,35 +549,24 @@ fn deposit() {
         }],
     );
     let _res = handle(&mut deps, env, msg).unwrap();
-    let res = query(
-        &deps,
-        QueryMsg::Position {
-            minter: HumanAddr::from("addr0000"),
-            asset_info: AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0000"),
-            },
-            collateral_info: AssetInfo::NativeToken {
-                denom: "uusd".to_string(),
-            },
-        },
-    )
-    .unwrap();
+    let res = query(&deps, QueryMsg::Position { position_idx: 1 }).unwrap();
 
     let position: PositionResponse = from_binary(&res).unwrap();
     assert_eq!(
         position,
         PositionResponse {
+            owner: HumanAddr::from("addr0000"),
             asset: Asset {
                 info: AssetInfo::Token {
                     contract_addr: HumanAddr::from("asset0000"),
                 },
-                amount: Uint128::zero(),
+                amount: Uint128(666666u128),
             },
             collateral: Asset {
                 info: AssetInfo::NativeToken {
                     denom: "uusd".to_string(),
                 },
-                amount: Uint128(1000000u128),
+                amount: Uint128(2000000u128),
             },
             is_auction_open: false
         }
@@ -343,14 +574,12 @@ fn deposit() {
 
     // unauthorized failed; must be executed from token contract
     let msg = HandleMsg::Deposit {
+        position_idx: 2,
         collateral: Asset {
             info: AssetInfo::Token {
                 contract_addr: HumanAddr::from("asset0001"),
             },
             amount: Uint128(1000000u128),
-        },
-        asset_info: AssetInfo::Token {
-            contract_addr: HumanAddr::from("asset0000"),
         },
     };
     let env = mock_env("addr0000", &[]);
@@ -364,97 +593,32 @@ fn deposit() {
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         sender: HumanAddr::from("addr0000"),
         amount: Uint128(1000000u128),
-        msg: Some(
-            to_binary(&Cw20HookMsg::Deposit {
-                asset_info: AssetInfo::Token {
-                    contract_addr: HumanAddr::from("asset0000"),
-                },
-            })
-            .unwrap(),
-        ),
+        msg: Some(to_binary(&Cw20HookMsg::Deposit { position_idx: 2 }).unwrap()),
     });
 
     let env = mock_env("asset0001", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
-    let res = query(
-        &deps,
-        QueryMsg::Position {
-            minter: HumanAddr::from("addr0000"),
-            asset_info: AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0000"),
-            },
-            collateral_info: AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0001"),
-            },
-        },
-    )
-    .unwrap();
+    let res = query(&deps, QueryMsg::Position { position_idx: 2 }).unwrap();
 
     let position: PositionResponse = from_binary(&res).unwrap();
     assert_eq!(
         position,
         PositionResponse {
+            owner: HumanAddr::from("addr0000"),
             asset: Asset {
                 info: AssetInfo::Token {
                     contract_addr: HumanAddr::from("asset0000"),
                 },
-                amount: Uint128::zero(),
+                amount: Uint128(333333u128),
             },
             collateral: Asset {
                 info: AssetInfo::Token {
                     contract_addr: HumanAddr::from("asset0001"),
                 },
-                amount: Uint128(1000000u128),
+                amount: Uint128(2000000u128),
             },
             is_auction_open: false
         }
-    );
-    let res = query(
-        &deps,
-        QueryMsg::Positions {
-            minter: HumanAddr::from("addr0000"),
-        },
-    )
-    .unwrap();
-
-    let positions: PositionsResponse = from_binary(&res).unwrap();
-    assert_eq!(
-        positions,
-        PositionsResponse {
-            minter: HumanAddr::from("addr0000"),
-            positions: vec![
-                PositionResponse {
-                    asset: Asset {
-                        info: AssetInfo::Token {
-                            contract_addr: HumanAddr::from("asset0000"),
-                        },
-                        amount: Uint128::zero(),
-                    },
-                    collateral: Asset {
-                        info: AssetInfo::Token {
-                            contract_addr: HumanAddr::from("asset0001"),
-                        },
-                        amount: Uint128(1000000u128),
-                    },
-                    is_auction_open: false
-                },
-                PositionResponse {
-                    asset: Asset {
-                        info: AssetInfo::Token {
-                            contract_addr: HumanAddr::from("asset0000"),
-                        },
-                        amount: Uint128::zero(),
-                    },
-                    collateral: Asset {
-                        info: AssetInfo::NativeToken {
-                            denom: "uusd".to_string(),
-                        },
-                        amount: Uint128(1000000u128),
-                    },
-                    is_auction_open: false
-                }
-            ]
-        },
     );
 }
 
@@ -497,14 +661,14 @@ fn mint() {
     let msg = HandleMsg::RegisterAsset {
         asset_token: HumanAddr::from("asset0000"),
         auction_discount: Decimal::percent(20),
-        auction_threshold_ratio: Decimal::percent(130),
         min_collateral_ratio: Decimal::percent(150),
     };
 
     let env = mock_env("owner0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
-    let msg = HandleMsg::Deposit {
+    // open uusd-asset0000 position
+    let msg = HandleMsg::OpenPosition {
         collateral: Asset {
             info: AssetInfo::NativeToken {
                 denom: "uusd".to_string(),
@@ -513,6 +677,43 @@ fn mint() {
         },
         asset_info: AssetInfo::Token {
             contract_addr: HumanAddr::from("asset0000"),
+        },
+        collateral_ratio: Decimal::percent(150),
+    };
+    let env = mock_env_with_block_time(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(1000000u128),
+        }],
+        1000,
+    );
+    let _res = handle(&mut deps, env.clone(), msg).unwrap();
+
+    // open asset0001-asset0000 position
+    let msg = HandleMsg::Receive(Cw20ReceiveMsg {
+        msg: Some(
+            to_binary(&Cw20HookMsg::OpenPosition {
+                asset_info: AssetInfo::Token {
+                    contract_addr: HumanAddr::from("asset0000"),
+                },
+                collateral_ratio: Decimal::percent(150),
+            })
+            .unwrap(),
+        ),
+        sender: HumanAddr::from("addr0000"),
+        amount: Uint128(1000000u128),
+    });
+    let env = mock_env_with_block_time("asset0001", &[], 1000);
+    let _res = handle(&mut deps, env, msg).unwrap();
+
+    let msg = HandleMsg::Deposit {
+        position_idx: 1,
+        collateral: Asset {
+            info: AssetInfo::NativeToken {
+                denom: "uusd".to_string(),
+            },
+            amount: Uint128(1000000u128),
         },
     };
     let env = mock_env(
@@ -528,14 +729,7 @@ fn mint() {
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         sender: HumanAddr::from("addr0000"),
         amount: Uint128(1000000u128),
-        msg: Some(
-            to_binary(&Cw20HookMsg::Deposit {
-                asset_info: AssetInfo::Token {
-                    contract_addr: HumanAddr::from("asset0000"),
-                },
-            })
-            .unwrap(),
-        ),
+        msg: Some(to_binary(&Cw20HookMsg::Deposit { position_idx: 2 }).unwrap()),
     });
 
     let env = mock_env("asset0001", &[]);
@@ -546,14 +740,12 @@ fn mint() {
     // x * price * min_collateral_ratio < collateral
     // x < collateral/(price*min_collateral_ratio) = 10000 / 1.5
     let msg = HandleMsg::Mint {
+        position_idx: 1,
         asset: Asset {
             info: AssetInfo::Token {
                 contract_addr: HumanAddr::from("asset0000"),
             },
-            amount: Uint128(6667u128),
-        },
-        collateral_info: AssetInfo::NativeToken {
-            denom: "uusd".to_string(),
+            amount: Uint128(6668u128),
         },
     };
     let env = mock_env_with_block_time("addr0000", &[], 1000u64);
@@ -567,14 +759,12 @@ fn mint() {
 
     // successfully mint within the min_collateral_ratio
     let msg = HandleMsg::Mint {
+        position_idx: 1,
         asset: Asset {
             info: AssetInfo::Token {
                 contract_addr: HumanAddr::from("asset0000"),
             },
-            amount: Uint128(6666u128),
-        },
-        collateral_info: AssetInfo::NativeToken {
-            denom: "uusd".to_string(),
+            amount: Uint128(6667u128),
         },
     };
     let env = mock_env_with_block_time("addr0000", &[], 1000u64);
@@ -584,7 +774,7 @@ fn mint() {
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: HumanAddr::from("asset0000"),
             msg: to_binary(&Cw20HandleMsg::Mint {
-                amount: Uint128(6666u128),
+                amount: Uint128(6667u128),
                 recipient: HumanAddr::from("addr0000"),
             })
             .unwrap(),
@@ -595,21 +785,19 @@ fn mint() {
         res.log,
         vec![
             log("action", "mint"),
-            log("pair", "asset0000/uusd"),
-            log("mint_amount", "6666")
+            log("position_idx", "1"),
+            log("mint_amount", "6667")
         ]
     );
 
     // mint with other token; failed due to min collateral ratio
     let msg = HandleMsg::Mint {
+        position_idx: 2,
         asset: Asset {
             info: AssetInfo::Token {
                 contract_addr: HumanAddr::from("asset0000"),
             },
             amount: Uint128(333334u128),
-        },
-        collateral_info: AssetInfo::Token {
-            contract_addr: HumanAddr::from("asset0001"),
         },
     };
     let env = mock_env_with_block_time("addr0000", &[], 1000u64);
@@ -623,14 +811,12 @@ fn mint() {
 
     // mint with other token;
     let msg = HandleMsg::Mint {
+        position_idx: 2,
         asset: Asset {
             info: AssetInfo::Token {
                 contract_addr: HumanAddr::from("asset0000"),
             },
             amount: Uint128(333333u128),
-        },
-        collateral_info: AssetInfo::Token {
-            contract_addr: HumanAddr::from("asset0001"),
         },
     };
     let env = mock_env_with_block_time("addr0000", &[], 1000u64);
@@ -651,7 +837,7 @@ fn mint() {
         res.log,
         vec![
             log("action", "mint"),
-            log("pair", "asset0000/asset0001"),
+            log("position_idx", "2"),
             log("mint_amount", "333333")
         ]
     );
@@ -696,14 +882,14 @@ fn burn() {
     let msg = HandleMsg::RegisterAsset {
         asset_token: HumanAddr::from("asset0000"),
         auction_discount: Decimal::percent(20),
-        auction_threshold_ratio: Decimal::percent(130),
         min_collateral_ratio: Decimal::percent(150),
     };
 
     let env = mock_env("owner0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
-    let msg = HandleMsg::Deposit {
+    // open uusd-asset0000 position
+    let msg = HandleMsg::OpenPosition {
         collateral: Asset {
             info: AssetInfo::NativeToken {
                 denom: "uusd".to_string(),
@@ -712,6 +898,43 @@ fn burn() {
         },
         asset_info: AssetInfo::Token {
             contract_addr: HumanAddr::from("asset0000"),
+        },
+        collateral_ratio: Decimal::percent(150),
+    };
+    let env = mock_env_with_block_time(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(1000000u128),
+        }],
+        1000,
+    );
+    let _res = handle(&mut deps, env.clone(), msg).unwrap();
+
+    // open asset0001-asset0000 position
+    let msg = HandleMsg::Receive(Cw20ReceiveMsg {
+        msg: Some(
+            to_binary(&Cw20HookMsg::OpenPosition {
+                asset_info: AssetInfo::Token {
+                    contract_addr: HumanAddr::from("asset0000"),
+                },
+                collateral_ratio: Decimal::percent(150),
+            })
+            .unwrap(),
+        ),
+        sender: HumanAddr::from("addr0000"),
+        amount: Uint128(1000000u128),
+    });
+    let env = mock_env_with_block_time("asset0001", &[], 1000);
+    let _res = handle(&mut deps, env, msg).unwrap();
+
+    let msg = HandleMsg::Deposit {
+        position_idx: 1,
+        collateral: Asset {
+            info: AssetInfo::NativeToken {
+                denom: "uusd".to_string(),
+            },
+            amount: Uint128(1000000u128),
         },
     };
     let env = mock_env(
@@ -727,28 +950,19 @@ fn burn() {
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         sender: HumanAddr::from("addr0000"),
         amount: Uint128(1000000u128),
-        msg: Some(
-            to_binary(&Cw20HookMsg::Deposit {
-                asset_info: AssetInfo::Token {
-                    contract_addr: HumanAddr::from("asset0000"),
-                },
-            })
-            .unwrap(),
-        ),
+        msg: Some(to_binary(&Cw20HookMsg::Deposit { position_idx: 2 }).unwrap()),
     });
 
     let env = mock_env("asset0001", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
     let msg = HandleMsg::Mint {
+        position_idx: 1,
         asset: Asset {
             info: AssetInfo::Token {
                 contract_addr: HumanAddr::from("asset0000"),
             },
-            amount: Uint128(6666u128),
-        },
-        collateral_info: AssetInfo::NativeToken {
-            denom: "uusd".to_string(),
+            amount: Uint128(6667u128),
         },
     };
     let env = mock_env_with_block_time("addr0000", &[], 1000u64);
@@ -757,15 +971,8 @@ fn burn() {
     // failed to burn more than the position amount
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         sender: HumanAddr::from("addr0000"),
-        amount: Uint128(6667u128),
-        msg: Some(
-            to_binary(&Cw20HookMsg::Burn {
-                collateral_info: AssetInfo::NativeToken {
-                    denom: "uusd".to_string(),
-                },
-            })
-            .unwrap(),
-        ),
+        amount: Uint128(13334u128),
+        msg: Some(to_binary(&Cw20HookMsg::Burn { position_idx: 1 }).unwrap()),
     });
     let env = mock_env("asset0000", &[]);
     let res = handle(&mut deps, env, msg).unwrap_err();
@@ -776,15 +983,8 @@ fn burn() {
 
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         sender: HumanAddr::from("addr0000"),
-        amount: Uint128(6666u128),
-        msg: Some(
-            to_binary(&Cw20HookMsg::Burn {
-                collateral_info: AssetInfo::NativeToken {
-                    denom: "uusd".to_string(),
-                },
-            })
-            .unwrap(),
-        ),
+        amount: Uint128(13333u128),
+        msg: Some(to_binary(&Cw20HookMsg::Burn { position_idx: 1 }).unwrap()),
     });
     let env = mock_env("asset0000", &[]);
     let res = handle(&mut deps, env, msg).unwrap();
@@ -792,8 +992,8 @@ fn burn() {
         res.log,
         vec![
             log("action", "burn"),
-            log("pair", "asset0000/uusd"),
-            log("burn_amount", "6666"),
+            log("position_idx", "1"),
+            log("burn_amount", "13333"),
         ]
     );
     assert_eq!(
@@ -801,7 +1001,7 @@ fn burn() {
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: HumanAddr::from("asset0000"),
             msg: to_binary(&Cw20HandleMsg::Burn {
-                amount: Uint128(6666u128),
+                amount: Uint128(13333u128),
             })
             .unwrap(),
             send: vec![],
@@ -810,14 +1010,12 @@ fn burn() {
 
     // mint other asset
     let msg = HandleMsg::Mint {
+        position_idx: 2,
         asset: Asset {
             info: AssetInfo::Token {
                 contract_addr: HumanAddr::from("asset0000"),
             },
             amount: Uint128(333333u128),
-        },
-        collateral_info: AssetInfo::Token {
-            contract_addr: HumanAddr::from("asset0001"),
         },
     };
     let env = mock_env_with_block_time("addr0000", &[], 1000u64);
@@ -826,15 +1024,8 @@ fn burn() {
     // failed to burn more than the position amount
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         sender: HumanAddr::from("addr0000"),
-        amount: Uint128(333334u128),
-        msg: Some(
-            to_binary(&Cw20HookMsg::Burn {
-                collateral_info: AssetInfo::Token {
-                    contract_addr: HumanAddr::from("asset0001"),
-                },
-            })
-            .unwrap(),
-        ),
+        amount: Uint128(666667u128),
+        msg: Some(to_binary(&Cw20HookMsg::Burn { position_idx: 2 }).unwrap()),
     });
     let env = mock_env("asset0000", &[]);
     let res = handle(&mut deps, env, msg).unwrap_err();
@@ -845,15 +1036,8 @@ fn burn() {
 
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         sender: HumanAddr::from("addr0000"),
-        amount: Uint128(333333u128),
-        msg: Some(
-            to_binary(&Cw20HookMsg::Burn {
-                collateral_info: AssetInfo::Token {
-                    contract_addr: HumanAddr::from("asset0001"),
-                },
-            })
-            .unwrap(),
-        ),
+        amount: Uint128(666666u128),
+        msg: Some(to_binary(&Cw20HookMsg::Burn { position_idx: 2 }).unwrap()),
     });
     let env = mock_env("asset0000", &[]);
     let res = handle(&mut deps, env, msg).unwrap();
@@ -861,8 +1045,8 @@ fn burn() {
         res.log,
         vec![
             log("action", "burn"),
-            log("pair", "asset0000/asset0001"),
-            log("burn_amount", "333333"),
+            log("position_idx", "2"),
+            log("burn_amount", "666666"),
         ]
     );
     assert_eq!(
@@ -870,7 +1054,7 @@ fn burn() {
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: HumanAddr::from("asset0000"),
             msg: to_binary(&Cw20HandleMsg::Burn {
-                amount: Uint128(333333u128),
+                amount: Uint128(666666u128),
             })
             .unwrap(),
             send: vec![],
@@ -881,6 +1065,11 @@ fn burn() {
 #[test]
 fn withdraw() {
     let mut deps = mock_dependencies(20, &[]);
+    deps.querier.with_tax(
+        Decimal::percent(1),
+        &[(&"uusd".to_string(), &Uint128(1000000u128))],
+    );
+
     deps.querier.with_oracle_price(&[
         (
             &AssetInfo::Token {
@@ -917,14 +1106,14 @@ fn withdraw() {
     let msg = HandleMsg::RegisterAsset {
         asset_token: HumanAddr::from("asset0000"),
         auction_discount: Decimal::percent(20),
-        auction_threshold_ratio: Decimal::percent(130),
         min_collateral_ratio: Decimal::percent(150),
     };
 
     let env = mock_env("owner0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
-    let msg = HandleMsg::Deposit {
+    // open uusd-asset0000 position
+    let msg = HandleMsg::OpenPosition {
         collateral: Asset {
             info: AssetInfo::NativeToken {
                 denom: "uusd".to_string(),
@@ -934,68 +1123,39 @@ fn withdraw() {
         asset_info: AssetInfo::Token {
             contract_addr: HumanAddr::from("asset0000"),
         },
+        collateral_ratio: Decimal::percent(150),
     };
-    let env = mock_env(
+    let env = mock_env_with_block_time(
         "addr0000",
         &[Coin {
             denom: "uusd".to_string(),
             amount: Uint128(1000000u128),
         }],
+        1000,
     );
-    let _res = handle(&mut deps, env, msg).unwrap();
+    let _res = handle(&mut deps, env.clone(), msg).unwrap();
 
-    // deposit other token asset
+    // open asset0001-asset0000 position
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
-        sender: HumanAddr::from("addr0000"),
-        amount: Uint128(1000000u128),
         msg: Some(
-            to_binary(&Cw20HookMsg::Deposit {
+            to_binary(&Cw20HookMsg::OpenPosition {
                 asset_info: AssetInfo::Token {
                     contract_addr: HumanAddr::from("asset0000"),
                 },
+                collateral_ratio: Decimal::percent(150),
             })
             .unwrap(),
         ),
+        sender: HumanAddr::from("addr0000"),
+        amount: Uint128(1000000u128),
     });
-
-    let env = mock_env("asset0001", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
-
-    let msg = HandleMsg::Mint {
-        asset: Asset {
-            info: AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0000"),
-            },
-            amount: Uint128(6666u128),
-        },
-        collateral_info: AssetInfo::NativeToken {
-            denom: "uusd".to_string(),
-        },
-    };
-    let env = mock_env_with_block_time("addr0000", &[], 1000u64);
-    let _res = handle(&mut deps, env, msg).unwrap();
-
-    // mint other asset
-    let msg = HandleMsg::Mint {
-        asset: Asset {
-            info: AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0000"),
-            },
-            amount: Uint128(333333u128),
-        },
-        collateral_info: AssetInfo::Token {
-            contract_addr: HumanAddr::from("asset0001"),
-        },
-    };
-    let env = mock_env_with_block_time("addr0000", &[], 1000u64);
+    let env = mock_env_with_block_time("asset0001", &[], 1000);
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // cannot withdraw more than (100 collateral token == 1 token)
     // due to min collateral ratio
     let msg = HandleMsg::Withdraw {
-        asset_info: AssetInfo::Token {
-            contract_addr: HumanAddr::from("asset0000"),
-        },
+        position_idx: 1,
         collateral: Asset {
             info: AssetInfo::NativeToken {
                 denom: "uusd".to_string(),
@@ -1014,9 +1174,7 @@ fn withdraw() {
     }
 
     let msg = HandleMsg::Withdraw {
-        asset_info: AssetInfo::Token {
-            contract_addr: HumanAddr::from("asset0000"),
-        },
+        position_idx: 1,
         collateral: Asset {
             info: AssetInfo::NativeToken {
                 denom: "uusd".to_string(),
@@ -1030,17 +1188,16 @@ fn withdraw() {
         res.log,
         vec![
             log("action", "withdraw"),
-            log("pair", "asset0000/uusd"),
+            log("position_idx", "1"),
             log("withdraw_amount", "100"),
+            log("tax_amount", "1"),
         ]
     );
 
     // cannot withdraw more than (2 collateral token == 1 token)
     // due to min collateral ratio
     let msg = HandleMsg::Withdraw {
-        asset_info: AssetInfo::Token {
-            contract_addr: HumanAddr::from("asset0000"),
-        },
+        position_idx: 2,
         collateral: Asset {
             info: AssetInfo::Token {
                 contract_addr: HumanAddr::from("asset0001"),
@@ -1059,9 +1216,7 @@ fn withdraw() {
     }
 
     let msg = HandleMsg::Withdraw {
-        asset_info: AssetInfo::Token {
-            contract_addr: HumanAddr::from("asset0000"),
-        },
+        position_idx: 2,
         collateral: Asset {
             info: AssetInfo::Token {
                 contract_addr: HumanAddr::from("asset0001"),
@@ -1075,8 +1230,9 @@ fn withdraw() {
         res.log,
         vec![
             log("action", "withdraw"),
-            log("pair", "asset0000/asset0001"),
+            log("position_idx", "2"),
             log("withdraw_amount", "1"),
+            log("tax_amount", "0"),
         ]
     );
 }
@@ -1125,14 +1281,14 @@ fn auction() {
     let msg = HandleMsg::RegisterAsset {
         asset_token: HumanAddr::from("asset0000"),
         auction_discount: Decimal::percent(20),
-        auction_threshold_ratio: Decimal::percent(130),
-        min_collateral_ratio: Decimal::percent(150),
+        min_collateral_ratio: Decimal::percent(130),
     };
 
     let env = mock_env("owner0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
-    let msg = HandleMsg::Deposit {
+    // open uusd-asset0000 position
+    let msg = HandleMsg::OpenPosition {
         collateral: Asset {
             info: AssetInfo::NativeToken {
                 denom: "uusd".to_string(),
@@ -1142,60 +1298,33 @@ fn auction() {
         asset_info: AssetInfo::Token {
             contract_addr: HumanAddr::from("asset0000"),
         },
+        collateral_ratio: Decimal::percent(150),
     };
-    let env = mock_env(
+    let env = mock_env_with_block_time(
         "addr0000",
         &[Coin {
             denom: "uusd".to_string(),
             amount: Uint128(1000000u128),
         }],
+        1000,
     );
-    let _res = handle(&mut deps, env, msg).unwrap();
+    let _res = handle(&mut deps, env.clone(), msg).unwrap();
 
-    // deposit other token asset
+    // open asset0001-asset0000 position
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
-        sender: HumanAddr::from("addr0000"),
-        amount: Uint128(1000000u128),
         msg: Some(
-            to_binary(&Cw20HookMsg::Deposit {
+            to_binary(&Cw20HookMsg::OpenPosition {
                 asset_info: AssetInfo::Token {
                     contract_addr: HumanAddr::from("asset0000"),
                 },
+                collateral_ratio: Decimal::percent(150),
             })
             .unwrap(),
         ),
+        sender: HumanAddr::from("addr0000"),
+        amount: Uint128(1000000u128),
     });
-
-    let env = mock_env("asset0001", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
-
-    let msg = HandleMsg::Mint {
-        asset: Asset {
-            info: AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0000"),
-            },
-            amount: Uint128(6666u128),
-        },
-        collateral_info: AssetInfo::NativeToken {
-            denom: "uusd".to_string(),
-        },
-    };
-    let env = mock_env_with_block_time("addr0000", &[], 1000u64);
-    let _res = handle(&mut deps, env, msg).unwrap();
-
-    // mint other asset
-    let msg = HandleMsg::Mint {
-        asset: Asset {
-            info: AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0000"),
-            },
-            amount: Uint128(333333u128),
-        },
-        collateral_info: AssetInfo::Token {
-            contract_addr: HumanAddr::from("asset0001"),
-        },
-    };
-    let env = mock_env_with_block_time("addr0000", &[], 1000u64);
+    let env = mock_env_with_block_time("asset0001", &[], 1000);
     let _res = handle(&mut deps, env, msg).unwrap();
 
     deps.querier.with_oracle_price(&[
@@ -1220,15 +1349,7 @@ fn auction() {
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         sender: HumanAddr::from("addr0001"),
         amount: Uint128(1u128),
-        msg: Some(
-            to_binary(&Cw20HookMsg::Auction {
-                collateral_info: AssetInfo::NativeToken {
-                    denom: "uusd".to_string(),
-                },
-                position_owner: HumanAddr::from("addr0000"),
-            })
-            .unwrap(),
-        ),
+        msg: Some(to_binary(&Cw20HookMsg::Auction { position_idx: 1 }).unwrap()),
     });
 
     let env = mock_env_with_block_time("asset0000", &[], 1000u64);
@@ -1242,15 +1363,7 @@ fn auction() {
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         sender: HumanAddr::from("addr0001"),
         amount: Uint128(1u128),
-        msg: Some(
-            to_binary(&Cw20HookMsg::Auction {
-                collateral_info: AssetInfo::Token {
-                    contract_addr: HumanAddr::from("asset0001"),
-                },
-                position_owner: HumanAddr::from("addr0000"),
-            })
-            .unwrap(),
-        ),
+        msg: Some(to_binary(&Cw20HookMsg::Auction { position_idx: 1 }).unwrap()),
     });
 
     let env = mock_env_with_block_time("asset0000", &[], 1000u64);
@@ -1285,15 +1398,7 @@ fn auction() {
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         sender: HumanAddr::from("addr0001"),
         amount: Uint128(6667u128),
-        msg: Some(
-            to_binary(&Cw20HookMsg::Auction {
-                collateral_info: AssetInfo::NativeToken {
-                    denom: "uusd".to_string(),
-                },
-                position_owner: HumanAddr::from("addr0000"),
-            })
-            .unwrap(),
-        ),
+        msg: Some(to_binary(&Cw20HookMsg::Auction { position_idx: 1 }).unwrap()),
     });
 
     let env = mock_env_with_block_time("asset0000", &[], 1000u64);
@@ -1309,15 +1414,7 @@ fn auction() {
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         sender: HumanAddr::from("addr0001"),
         amount: Uint128(333334u128),
-        msg: Some(
-            to_binary(&Cw20HookMsg::Auction {
-                collateral_info: AssetInfo::Token {
-                    contract_addr: HumanAddr::from("asset0001"),
-                },
-                position_owner: HumanAddr::from("addr0000"),
-            })
-            .unwrap(),
-        ),
+        msg: Some(to_binary(&Cw20HookMsg::Auction { position_idx: 2 }).unwrap()),
     });
 
     let env = mock_env_with_block_time("asset0000", &[], 1000u64);
@@ -1333,15 +1430,7 @@ fn auction() {
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         sender: HumanAddr::from("addr0001"),
         amount: Uint128(6666u128),
-        msg: Some(
-            to_binary(&Cw20HookMsg::Auction {
-                collateral_info: AssetInfo::NativeToken {
-                    denom: "uusd".to_string(),
-                },
-                position_owner: HumanAddr::from("addr0000"),
-            })
-            .unwrap(),
-        ),
+        msg: Some(to_binary(&Cw20HookMsg::Auction { position_idx: 1 }).unwrap()),
     });
 
     let env = mock_env_with_block_time("asset0000", &[], 1000u64);
@@ -1382,6 +1471,7 @@ fn auction() {
             log("owner", "addr0000"),
             log("return_collateral_amount", "927907"),
             log("liquidated_amount", "6666"),
+            log("tax_amount", "46395"),
         ]
     );
 
@@ -1409,15 +1499,7 @@ fn auction() {
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         sender: HumanAddr::from("addr0001"),
         amount: Uint128(210000u128),
-        msg: Some(
-            to_binary(&Cw20HookMsg::Auction {
-                collateral_info: AssetInfo::Token {
-                    contract_addr: HumanAddr::from("asset0001"),
-                },
-                position_owner: HumanAddr::from("addr0000"),
-            })
-            .unwrap(),
-        ),
+        msg: Some(to_binary(&Cw20HookMsg::Auction { position_idx: 2 }).unwrap()),
     });
 
     let env = mock_env_with_block_time("asset0000", &[], 1000u64);
@@ -1452,6 +1534,7 @@ fn auction() {
             log("owner", "addr0000"),
             log("return_collateral_amount", "1000000"),
             log("liquidated_amount", "210000"),
+            log("tax_amount", "0"),
         ]
     );
 }

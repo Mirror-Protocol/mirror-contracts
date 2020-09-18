@@ -71,16 +71,6 @@
                 }
               ]
             },
-            "auction_threshold_ratio": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/Decimal"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
             "min_collateral_ratio": {
               "anyOf": [
                 {
@@ -105,46 +95,53 @@
         "register_asset": {
           "type": "object",
           "required": [
+            "asset_token",
             "auction_discount",
-            "auction_threshold_ratio",
-            "min_collateral_ratio",
-            "name",
-            "symbol"
+            "min_collateral_ratio"
           ],
           "properties": {
-            "auction_discount": {
-              "$ref": "#/definitions/Decimal"
+            "asset_token": {
+              "$ref": "#/definitions/HumanAddr"
             },
-            "auction_threshold_ratio": {
+            "auction_discount": {
               "$ref": "#/definitions/Decimal"
             },
             "min_collateral_ratio": {
               "$ref": "#/definitions/Decimal"
-            },
-            "name": {
-              "type": "string"
-            },
-            "symbol": {
-              "type": "string"
             }
           }
         }
       }
     },
     {
-      "description": "Post initialize step; store token address to the given symbol store",
       "type": "object",
       "required": [
-        "register_hook"
+        "open_position"
       ],
       "properties": {
-        "register_hook": {
-          "type": "object"
+        "open_position": {
+          "type": "object",
+          "required": [
+            "asset_info",
+            "collateral",
+            "collateral_ratio"
+          ],
+          "properties": {
+            "asset_info": {
+              "$ref": "#/definitions/AssetInfo"
+            },
+            "collateral": {
+              "$ref": "#/definitions/Asset"
+            },
+            "collateral_ratio": {
+              "$ref": "#/definitions/Decimal"
+            }
+          }
         }
       }
     },
     {
-      "description": "Deposit collateral asset to mint an asset",
+      "description": "deposit more collateral",
       "type": "object",
       "required": [
         "deposit"
@@ -153,22 +150,24 @@
         "deposit": {
           "type": "object",
           "required": [
-            "asset_info",
-            "collateral"
+            "collateral",
+            "position_idx"
           ],
           "properties": {
-            "asset_info": {
-              "$ref": "#/definitions/AssetInfo"
-            },
             "collateral": {
               "$ref": "#/definitions/Asset"
+            },
+            "position_idx": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
             }
           }
         }
       }
     },
     {
-      "description": "Withdarw collateral asset, when there is enough buffer to cover min_collateral_ratio",
+      "description": "withdraw collateral",
       "type": "object",
       "required": [
         "withdraw"
@@ -177,22 +176,24 @@
         "withdraw": {
           "type": "object",
           "required": [
-            "asset_info",
-            "collateral"
+            "collateral",
+            "position_idx"
           ],
           "properties": {
-            "asset_info": {
-              "$ref": "#/definitions/AssetInfo"
-            },
             "collateral": {
               "$ref": "#/definitions/Asset"
+            },
+            "position_idx": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
             }
           }
         }
       }
     },
     {
-      "description": "Mint a user sends the collateral token to mint an asset If the collateral cannot cover min_collateral_ratio, the operation must be failed",
+      "description": "convert all deposit collateral to asset",
       "type": "object",
       "required": [
         "mint"
@@ -202,14 +203,16 @@
           "type": "object",
           "required": [
             "asset",
-            "collateral_info"
+            "position_idx"
           ],
           "properties": {
             "asset": {
               "$ref": "#/definitions/Asset"
             },
-            "collateral_info": {
-              "$ref": "#/definitions/AssetInfo"
+            "position_idx": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
             }
           }
         }

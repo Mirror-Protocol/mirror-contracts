@@ -41,38 +41,13 @@
         "position": {
           "type": "object",
           "required": [
-            "asset_info",
-            "collateral_info",
-            "minter"
+            "position_idx"
           ],
           "properties": {
-            "asset_info": {
-              "$ref": "#/definitions/AssetInfo"
-            },
-            "collateral_info": {
-              "$ref": "#/definitions/AssetInfo"
-            },
-            "minter": {
-              "$ref": "#/definitions/HumanAddr"
-            }
-          }
-        }
-      }
-    },
-    {
-      "type": "object",
-      "required": [
-        "positions"
-      ],
-      "properties": {
-        "positions": {
-          "type": "object",
-          "required": [
-            "minter"
-          ],
-          "properties": {
-            "minter": {
-              "$ref": "#/definitions/HumanAddr"
+            "position_idx": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
             }
           }
         }

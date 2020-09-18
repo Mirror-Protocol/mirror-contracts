@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::asset::AssetInfo;
 use crate::hook::InitHook;
-use cosmwasm_std::{Decimal, HumanAddr, StdError, StdResult, Uint128};
-use cw20::{MinterResponse, Cw20CoinHuman};
+use cosmwasm_std::{CanonicalAddr, Decimal, HumanAddr, StdError, StdResult, Uint128};
+use cw20::{Cw20CoinHuman, MinterResponse};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct PairInitMsg {
@@ -15,9 +15,9 @@ pub struct PairInitMsg {
     /// Asset infos
     pub asset_infos: [AssetInfo; 2],
     /// Commission rate for active liquidity provider
-    pub active_commission: Decimal,
+    pub lp_commission: Decimal,
     /// Commission rate for owner controlled commission
-    pub passive_commission: Decimal,
+    pub owner_commission: Decimal,
     /// Token contract code id for initialization
     pub token_code_id: u64,
     /// Hook for post initalization
@@ -78,4 +78,12 @@ fn is_valid_symbol(symbol: &str) -> bool {
         }
     }
     true
+}
+
+#[derive(Serialize, Deserialize, JsonSchema)]
+pub struct PairConfigRaw {
+    pub owner: CanonicalAddr,
+    pub contract_addr: CanonicalAddr,
+    pub liquidity_token: CanonicalAddr,
+    pub commission_collector: CanonicalAddr,
 }

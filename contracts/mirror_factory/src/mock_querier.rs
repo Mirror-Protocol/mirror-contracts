@@ -5,17 +5,8 @@ use cosmwasm_std::{
 };
 use cosmwasm_storage::to_length_prefixed;
 
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use uniswap::{AssetInfoRaw, PairInfoRaw};
-
-#[derive(Deserialize, Serialize)]
-pub struct UniswapPairConfig {
-    pub owner: CanonicalAddr,
-    pub contract_addr: CanonicalAddr,
-    pub liquidity_token: CanonicalAddr,
-    pub commission_collector: CanonicalAddr,
-}
+use uniswap::{AssetInfoRaw, PairConfigRaw, PairInfoRaw};
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
 /// this uses our CustomQuerier.
@@ -133,7 +124,7 @@ impl WasmMockQuerier {
 
                     let api: MockApi = MockApi::new(self.canonical_length);
                     Ok(to_binary(
-                        &to_binary(&UniswapPairConfig {
+                        &to_binary(&PairConfigRaw {
                             owner: CanonicalAddr::default(),
                             contract_addr: CanonicalAddr::default(),
                             commission_collector: CanonicalAddr::default(),

@@ -558,6 +558,7 @@ dependencies = [
  "schemars",
  "serde",
  "terra-cosmwasm",
+ "uniswap",
 ]
 
 [[package]]

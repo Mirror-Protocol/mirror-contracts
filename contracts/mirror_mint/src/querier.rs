@@ -3,6 +3,7 @@ use cosmwasm_std::{
     StdResult, Storage, Uint128, WasmQuery,
 };
 
+use crate::state::Config;
 use cosmwasm_storage::to_length_prefixed;
 use serde::{Deserialize, Serialize};
 use uniswap::AssetInfoRaw;
@@ -15,6 +16,36 @@ pub struct PriceInfo {
     pub price: Decimal,
     pub price_multiplier: Decimal,
     pub last_update_time: u64,
+}
+
+pub fn load_prices<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    config: &Config,
+    collateral_info: &AssetInfoRaw,
+    asset_info: &AssetInfoRaw,
+    time: Option<u64>,
+) -> StdResult<(Decimal, Decimal)> {
+    let collateral_price = if collateral_info.equal(&config.base_asset_info) {
+        Decimal::one()
+    } else {
+        // load collateral price form the oracle
+        load_price(
+            &deps,
+            &deps.api.human_address(&config.oracle)?,
+            &collateral_info,
+            time,
+        )?
+    };
+
+    // load asset price from the oracle
+    let asset_price = load_price(
+        &deps,
+        &deps.api.human_address(&config.oracle)?,
+        &asset_info,
+        time,
+    )?;
+
+    Ok((collateral_price, asset_price))
 }
 
 pub fn load_price<S: Storage, A: Api, Q: Querier>(

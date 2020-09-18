@@ -61,7 +61,6 @@ pub enum HandleMsg {
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     Config {},
-    WhitelistInfo { asset_token: HumanAddr },
     DistributionInfo { asset_token: HumanAddr },
 }
 
@@ -78,13 +77,6 @@ pub struct ConfigResponse {
     pub mint_per_block: Uint128,
     pub token_code_id: u64,
     pub base_denom: String,
-}
-
-// We define a custom struct for each query response
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct WhitelistInfoResponse {
-    pub token_contract: HumanAddr,
-    pub uniswap_contract: HumanAddr,
 }
 
 // We define a custom struct for each query response

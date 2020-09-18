@@ -10,7 +10,6 @@ pub enum MintHandleMsg {
     RegisterAsset {
         asset_token: HumanAddr,
         auction_discount: Decimal,
-        auction_threshold_ratio: Decimal,
         min_collateral_ratio: Decimal,
     },
 }
@@ -24,9 +23,9 @@ pub enum UniswapHandleMsg {
         /// Inactive commission collector
         commission_collector: HumanAddr,
         /// Commission rate for active liquidity provider
-        active_commission: Decimal,
+        lp_commission: Decimal,
         /// Commission rate for owner controlled commission
-        passive_commission: Decimal,
+        owner_commission: Decimal,
         /// Asset infos
         asset_infos: [AssetInfo; 2],
     },

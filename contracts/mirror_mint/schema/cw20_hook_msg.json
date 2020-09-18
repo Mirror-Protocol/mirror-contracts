@@ -3,7 +3,30 @@
   "title": "Cw20HookMsg",
   "anyOf": [
     {
-      "description": "Deposit a user also can deposit the collateral to any position",
+      "type": "object",
+      "required": [
+        "open_position"
+      ],
+      "properties": {
+        "open_position": {
+          "type": "object",
+          "required": [
+            "asset_info",
+            "collateral_ratio"
+          ],
+          "properties": {
+            "asset_info": {
+              "$ref": "#/definitions/AssetInfo"
+            },
+            "collateral_ratio": {
+              "$ref": "#/definitions/Decimal"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "deposit more collateral",
       "type": "object",
       "required": [
         "deposit"
@@ -12,18 +35,20 @@
         "deposit": {
           "type": "object",
           "required": [
-            "asset_info"
+            "position_idx"
           ],
           "properties": {
-            "asset_info": {
-              "$ref": "#/definitions/AssetInfo"
+            "position_idx": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
             }
           }
         }
       }
     },
     {
-      "description": "Burn a user sends the asset tokens to the contract to get back the collteral tokens",
+      "description": "convert specified asset amount and send back to user",
       "type": "object",
       "required": [
         "burn"
@@ -32,11 +57,13 @@
         "burn": {
           "type": "object",
           "required": [
-            "collateral_info"
+            "position_idx"
           ],
           "properties": {
-            "collateral_info": {
-              "$ref": "#/definitions/AssetInfo"
+            "position_idx": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
             }
           }
         }
@@ -52,15 +79,13 @@
         "auction": {
           "type": "object",
           "required": [
-            "collateral_info",
-            "position_owner"
+            "position_idx"
           ],
           "properties": {
-            "collateral_info": {
-              "$ref": "#/definitions/AssetInfo"
-            },
-            "position_owner": {
-              "$ref": "#/definitions/HumanAddr"
+            "position_idx": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
             }
           }
         }
@@ -109,6 +134,10 @@
           }
         }
       ]
+    },
+    "Decimal": {
+      "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0\n\nThe greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
+      "type": "string"
     },
     "HumanAddr": {
       "type": "string"

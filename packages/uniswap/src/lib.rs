@@ -1,12 +1,14 @@
 mod asset;
 mod hook;
-mod querier;
 mod init;
+mod querier;
 
-pub use crate::asset::{Asset, AssetRaw, AssetInfo, AssetInfoRaw, PairInfo, PairInfoRaw};
+pub use crate::asset::{Asset, AssetInfo, AssetInfoRaw, AssetRaw, PairInfo, PairInfoRaw};
 pub use crate::hook::InitHook;
-pub use crate::querier::{load_balance, load_supply, load_token_balance};
-pub use crate::init::{PairInitMsg, TokenInitMsg};
+pub use crate::init::{PairConfigRaw, PairInitMsg, TokenInitMsg};
+pub use crate::querier::{
+    load_balance, load_liquidity_token, load_pair_contract, load_supply, load_token_balance,
+};
 
 #[cfg(test)]
 mod mock_querier;

@@ -1,6 +1,8 @@
 use crate::asset::{Asset, AssetInfo};
 use crate::mock_querier::mock_dependencies;
-use crate::querier::{load_balance, load_supply, load_token_balance};
+use crate::querier::{
+    load_balance, load_liquidity_token, load_pair_contract, load_supply, load_token_balance,
+};
 use cosmwasm_std::testing::MOCK_CONTRACT_ADDR;
 use cosmwasm_std::{to_binary, BankMsg, Coin, CosmosMsg, Decimal, HumanAddr, Uint128, WasmMsg};
 use cw20::Cw20HandleMsg;
@@ -214,4 +216,40 @@ fn test_asset() {
             }]
         })
     );
+}
+
+#[test]
+fn query_uniswap_pair_contract() {
+    let mut deps = mock_dependencies(20, &[]);
+
+    deps.querier.with_uniswap_pairs(&[(
+        &"asset0000\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}uusd".to_string(),
+        &HumanAddr::from("pair0000"),
+    )]);
+
+    let pair_contract = load_pair_contract(
+        &deps,
+        &HumanAddr::from(MOCK_CONTRACT_ADDR),
+        &[
+            AssetInfo::NativeToken {
+                denom: "uusd".to_string(),
+            },
+            AssetInfo::Token {
+                contract_addr: HumanAddr::from("asset0000"),
+            },
+        ],
+    )
+    .unwrap();
+
+    assert_eq!(pair_contract, HumanAddr::from("pair0000"),);
+}
+
+#[test]
+fn query_uniswap_lp_token() {
+    let mut deps = mock_dependencies(20, &[]);
+    deps.querier
+        .with_uniswap_pair_lp_token(&[(&HumanAddr::from("pair0000"), &HumanAddr::from("LP0000"))]);
+
+    let liquidity_token = load_liquidity_token(&deps, &HumanAddr::from("pair0000")).unwrap();
+    assert_eq!(liquidity_token, HumanAddr::from("LP0000"));
 }
