@@ -4,15 +4,11 @@
   "type": "object",
   "required": [
     "auction_discount",
-    "auction_threshold_ratio",
     "min_collateral_ratio",
     "token"
   ],
   "properties": {
     "auction_discount": {
-      "$ref": "#/definitions/Decimal"
-    },
-    "auction_threshold_ratio": {
       "$ref": "#/definitions/Decimal"
     },
     "min_collateral_ratio": {

@@ -12,7 +12,6 @@ use cosmwasm_storage::{
 static KEY_CONFIG: &[u8] = b"config";
 static KEY_PARAMS: &[u8] = b"params";
 
-static PREFIX_WHITELIST: &[u8] = b"whitelist";
 static PREFIX_DISTRIBUTION: &[u8] = b"distribution";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -43,13 +42,11 @@ pub struct Params {
     /// inflation weight
     pub weight: Decimal,
     /// Commission rate for active liquidity provider
-    pub active_commission: Decimal,
+    pub lp_commission: Decimal,
     /// Commission rate for owner controlled commission
-    pub passive_commission: Decimal,
+    pub owner_commission: Decimal,
     /// Auction discount rate applied to asset mint
     pub auction_discount: Decimal,
-    /// Auction threshold rate applied to asset mint
-    pub auction_threshold_ratio: Decimal,
     /// Minium collateral ratio applied to asset mint
     pub min_collateral_ratio: Decimal,
 }
@@ -65,32 +62,6 @@ pub fn remove_params<S: Storage>(storage: &mut S) {
 
 pub fn read_params<S: Storage>(storage: &S) -> StdResult<Params> {
     singleton_read(storage, KEY_PARAMS).load()
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct WhitelistInfo {
-    pub token_contract: CanonicalAddr,
-    pub uniswap_contract: CanonicalAddr,
-}
-
-pub fn store_whitelist_info<S: Storage>(
-    storage: &mut S,
-    asset_token: &CanonicalAddr,
-    data: &WhitelistInfo,
-) -> StdResult<()> {
-    PrefixedStorage::new(PREFIX_WHITELIST, storage).set(asset_token.as_slice(), &to_vec(data)?);
-    Ok(())
-}
-
-pub fn read_whitelist_info<S: Storage>(
-    storage: &S,
-    asset_token: &CanonicalAddr,
-) -> StdResult<WhitelistInfo> {
-    let data = ReadonlyPrefixedStorage::new(PREFIX_WHITELIST, storage).get(asset_token.as_slice());
-    match data {
-        Some(v) => from_slice(&v),
-        None => Err(StdError::generic_err("No whitelist info stored")),
-    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

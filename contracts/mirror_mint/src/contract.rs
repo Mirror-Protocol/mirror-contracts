@@ -1,23 +1,23 @@
 use cosmwasm_std::{
     from_binary, log, to_binary, Api, Binary, CanonicalAddr, CosmosMsg, Decimal, Env, Extern,
-    HandleResponse, HandleResult, HumanAddr, InitResponse, Order, Querier, StdError, StdResult,
-    Storage, Uint128, WasmMsg,
+    HandleResponse, HandleResult, HumanAddr, InitResponse, Querier, StdError, StdResult, Storage,
+    Uint128, WasmMsg,
 };
 
 use crate::msg::{
     AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, PositionResponse,
-    PositionsResponse, QueryMsg,
+    QueryMsg,
 };
 
 use crate::state::{
-    positions_read, positions_store, read_asset_config, read_config, store_asset_config,
-    store_config, AssetConfig, Config, Position,
+    read_asset_config, read_config, read_position, read_position_idx, remove_position,
+    store_asset_config, store_config, store_position, store_position_idx, AssetConfig, Config,
+    Position,
 };
 
 use crate::math::reverse_decimal;
-use crate::querier::load_price;
+use crate::querier::load_prices;
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
-use std::collections::HashMap;
 use uniswap::{Asset, AssetInfo, AssetInfoRaw, AssetRaw};
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
@@ -33,6 +33,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     };
 
     store_config(&mut deps.storage, &config)?;
+    store_position_idx(&mut deps.storage, 1u64)?;
     Ok(InitResponse::default())
 }
 
@@ -50,54 +51,69 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::UpdateAsset {
             asset_info,
             auction_discount,
-            auction_threshold_ratio,
             min_collateral_ratio,
         } => try_update_asset(
             deps,
             env,
             asset_info,
             auction_discount,
-            auction_threshold_ratio,
             min_collateral_ratio,
         ),
         HandleMsg::RegisterAsset {
             asset_token,
             auction_discount,
-            auction_threshold_ratio,
             min_collateral_ratio,
         } => try_register_asset(
             deps,
             env,
             asset_token,
             auction_discount,
-            auction_threshold_ratio,
             min_collateral_ratio,
         ),
-        HandleMsg::Deposit {
+        HandleMsg::OpenPosition {
             collateral,
             asset_info,
+            collateral_ratio,
         } => {
             // only native token can be deposited directly
             if !collateral.is_native_token() {
                 return Err(StdError::unauthorized());
             }
 
-            try_deposit(
+            // Check the actual deposit happens
+            collateral.assert_sent_native_token_balance(&env)?;
+
+            try_open_position(
                 deps,
                 env.clone(),
                 env.message.sender,
                 collateral,
                 asset_info,
+                collateral_ratio,
             )
         }
-        HandleMsg::Withdraw {
+        HandleMsg::Deposit {
+            position_idx,
             collateral,
-            asset_info,
-        } => try_withdraw(deps, env, collateral, asset_info),
+        } => {
+            // only native token can be deposited directly
+            if !collateral.is_native_token() {
+                return Err(StdError::unauthorized());
+            }
+
+            // Check the actual deposit happens
+            collateral.assert_sent_native_token_balance(&env)?;
+
+            try_deposit(deps, env.message.sender, position_idx, collateral)
+        }
+        HandleMsg::Withdraw {
+            position_idx,
+            collateral,
+        } => try_withdraw(deps, env, position_idx, collateral),
         HandleMsg::Mint {
+            position_idx,
             asset,
-            collateral_info,
-        } => try_mint(deps, env, asset, collateral_info),
+        } => try_mint(deps, env, position_idx, asset),
     }
 }
 
@@ -115,26 +131,25 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
 
     if let Some(msg) = cw20_msg.msg {
         match from_binary(&msg)? {
-            Cw20HookMsg::Burn { collateral_info } => try_burn(
+            Cw20HookMsg::OpenPosition {
+                asset_info,
+                collateral_ratio,
+            } => try_open_position(
                 deps,
-                env.clone(),
+                env,
                 cw20_msg.sender,
                 passed_asset,
-                collateral_info,
+                asset_info,
+                collateral_ratio,
             ),
-            Cw20HookMsg::Auction {
-                collateral_info,
-                position_owner,
-            } => try_auction(
-                deps,
-                env.clone(),
-                cw20_msg.sender,
-                position_owner,
-                passed_asset,
-                collateral_info,
-            ),
-            Cw20HookMsg::Deposit { asset_info } => {
-                try_deposit(deps, env.clone(), cw20_msg.sender, passed_asset, asset_info)
+            Cw20HookMsg::Deposit { position_idx } => {
+                try_deposit(deps, cw20_msg.sender, position_idx, passed_asset)
+            }
+            Cw20HookMsg::Burn { position_idx } => {
+                try_burn(deps, cw20_msg.sender, position_idx, passed_asset)
+            }
+            Cw20HookMsg::Auction { position_idx } => {
+                try_auction(deps, env, cw20_msg.sender, position_idx, passed_asset)
             }
         }
     } else {
@@ -175,7 +190,6 @@ pub fn try_update_asset<S: Storage, A: Api, Q: Querier>(
     env: Env,
     asset_info: AssetInfo,
     auction_discount: Option<Decimal>,
-    auction_threshold_rate: Option<Decimal>,
     min_collateral_ratio: Option<Decimal>,
 ) -> StdResult<HandleResponse> {
     let raw_info = asset_info.to_raw(&deps)?;
@@ -188,10 +202,6 @@ pub fn try_update_asset<S: Storage, A: Api, Q: Querier>(
 
     if let Some(auction_discount) = auction_discount {
         asset.auction_discount = auction_discount;
-    }
-
-    if let Some(auction_threshold_rate) = auction_threshold_rate {
-        asset.auction_threshold_ratio = auction_threshold_rate;
     }
 
     if let Some(min_collateral_ratio) = min_collateral_ratio {
@@ -211,7 +221,6 @@ pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
     env: Env,
     asset_token: HumanAddr,
     auction_discount: Decimal,
-    auction_threshold_ratio: Decimal,
     min_collateral_ratio: Decimal,
 ) -> StdResult<HandleResponse> {
     let config: Config = read_config(&deps.storage)?;
@@ -237,16 +246,87 @@ pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
         &AssetConfig {
             token: asset_token_raw,
             auction_discount,
-            auction_threshold_ratio,
             min_collateral_ratio,
         },
     )?;
 
     Ok(HandleResponse {
         messages: vec![],
+        log: vec![log("action", "register"), log("asset_token", asset_token)],
+        data: None,
+    })
+}
+
+pub fn try_open_position<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    sender: HumanAddr,
+    collateral: Asset,
+    asset_info: AssetInfo,
+    collateral_ratio: Decimal,
+) -> StdResult<HandleResponse> {
+    if collateral.amount.is_zero() {
+        return Err(StdError::generic_err("Wrong collateral"));
+    }
+
+    let collateral_info_raw: AssetInfoRaw = collateral.info.to_raw(&deps)?;
+    let asset_info_raw: AssetInfoRaw = asset_info.to_raw(&deps)?;
+
+    let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_info_raw)?;
+    if collateral_ratio < asset_config.min_collateral_ratio {
+        return Err(StdError::generic_err(
+            "Can not open a position with low collateral ratio than minimum",
+        ));
+    }
+
+    let config: Config = read_config(&deps.storage)?;
+    let (collateral_price, asset_price) = load_prices(
+        &deps,
+        &config,
+        &collateral_info_raw,
+        &asset_info_raw,
+        Some(env.block.time),
+    )?;
+
+    let mint_amount = collateral.amount
+        * collateral_price
+        * reverse_decimal(asset_price)
+        * reverse_decimal(collateral_ratio);
+    if mint_amount.is_zero() {
+        return Err(StdError::generic_err("collateral is too small"));
+    }
+
+    let position_idx = read_position_idx(&deps.storage)?;
+    store_position(
+        &mut deps.storage,
+        position_idx,
+        &Position {
+            owner: deps.api.canonical_address(&sender)?,
+            collateral: AssetRaw {
+                amount: collateral.amount,
+                info: collateral_info_raw,
+            },
+            asset: AssetRaw {
+                amount: mint_amount,
+                info: asset_info_raw,
+            },
+        },
+    )?;
+
+    store_position_idx(&mut deps.storage, position_idx + 1)?;
+    Ok(HandleResponse {
+        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: deps.api.human_address(&asset_config.token)?,
+            send: vec![],
+            msg: to_binary(&Cw20HandleMsg::Mint {
+                recipient: sender,
+                amount: mint_amount,
+            })?,
+        })],
         log: vec![
-            log("action", "register"),
-            log("asset_token", asset_token),
+            log("action", "open_position"),
+            log("position_idx", position_idx.to_string()),
+            log("mint_amount", mint_amount.to_string()),
         ],
         data: None,
     })
@@ -254,44 +334,26 @@ pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
 
 pub fn try_deposit<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
-    env: Env,
     sender: HumanAddr,
+    position_idx: u64,
     collateral: Asset,
-    asset_info: AssetInfo,
 ) -> HandleResult {
-    collateral.assert_sent_native_token_balance(&env)?;
-    if collateral.amount.is_zero() {
-        return Err(StdError::generic_err("Cannot deposit zero amount"));
+    let mut position: Position = read_position(&deps.storage, position_idx)?;
+    if position.owner != deps.api.canonical_address(&sender)? {
+        return Err(StdError::unauthorized());
     }
 
-    let minter: CanonicalAddr = deps.api.canonical_address(&sender)?;
-    let asset_raw_info: AssetInfoRaw = asset_info.to_raw(&deps)?;
-    let collateral_raw_info: AssetInfoRaw = collateral.info.to_raw(&deps)?;
+    assert_collateral(deps, &position, &collateral)?;
 
-    let position_bucket = positions_read(&deps.storage, &minter);
-    let position_key = [asset_raw_info.as_bytes(), collateral_raw_info.as_bytes()].concat();
-    let mut position: Position = position_bucket
-        .load(&position_key)
-        .unwrap_or_else(|_| Position {
-            collateral: AssetRaw {
-                info: collateral_raw_info.clone(),
-                amount: Uint128::zero(),
-            },
-            asset: AssetRaw {
-                info: asset_raw_info.clone(),
-                amount: Uint128::zero(),
-            },
-        });
-
-    // just update collateral amount
+    // Increase collateral amount
     position.collateral.amount += collateral.amount;
-    positions_store(&mut deps.storage, &minter).save(&position_key, &position)?;
+    store_position(&mut deps.storage, position_idx, &position)?;
 
     Ok(HandleResponse {
         messages: vec![],
         log: vec![
             log("action", "deposit"),
-            log("pair", format!("{}/{}", asset_info, collateral.info)),
+            log("position_idx", position_idx.to_string()),
             log("deposit_amount", collateral.amount.to_string()),
         ],
         data: None,
@@ -301,22 +363,15 @@ pub fn try_deposit<S: Storage, A: Api, Q: Querier>(
 pub fn try_withdraw<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
+    position_idx: u64,
     collateral: Asset,
-    asset_info: AssetInfo,
 ) -> HandleResult {
-    if collateral.amount.is_zero() {
-        return Err(StdError::generic_err("Cannot deposit zero amount"));
+    let mut position: Position = read_position(&deps.storage, position_idx)?;
+    if position.owner != deps.api.canonical_address(&env.message.sender)? {
+        return Err(StdError::unauthorized());
     }
 
-    let minter: CanonicalAddr = deps.api.canonical_address(&env.message.sender)?;
-    let asset_raw_info: AssetInfoRaw = asset_info.to_raw(&deps)?;
-    let collateral_raw_info: AssetInfoRaw = collateral.info.to_raw(&deps)?;
-
-    let config = read_config(&deps.storage)?;
-    let asset_config = read_asset_config(&deps.storage, &asset_raw_info)?;
-    let position_bucket = positions_read(&deps.storage, &minter);
-    let position_key = [asset_raw_info.as_bytes(), collateral_raw_info.as_bytes()].concat();
-    let mut position: Position = position_bucket.load(&position_key)?;
+    assert_collateral(deps, &position, &collateral)?;
 
     if position.collateral.amount < collateral.amount {
         return Err(StdError::generic_err(
@@ -324,27 +379,14 @@ pub fn try_withdraw<S: Storage, A: Api, Q: Querier>(
         ));
     }
 
-    // collateral can be token or native token
-    let collateral_price = if collateral
-        .info
-        .equal(&config.base_asset_info.to_normal(&deps)?)
-    {
-        Decimal::one()
-    } else {
-        // load collateral price form the oracle
-        load_price(
-            &deps,
-            &deps.api.human_address(&config.oracle)?,
-            &collateral_raw_info,
-            Some(env.block.time),
-        )?
-    };
+    let config = read_config(&deps.storage)?;
+    let asset_config = read_asset_config(&deps.storage, &position.asset.info)?;
 
-    // load asset price from the oracle
-    let asset_price = load_price(
+    let (collateral_price, asset_price) = load_prices(
         &deps,
-        &deps.api.human_address(&config.oracle)?,
-        &asset_raw_info,
+        &config,
+        &position.collateral.info,
+        &position.asset.info,
         Some(env.block.time),
     )?;
 
@@ -359,11 +401,12 @@ pub fn try_withdraw<S: Storage, A: Api, Q: Querier>(
 
     position.collateral.amount = collateral_amount;
     if position.collateral.amount == Uint128::zero() && position.asset.amount == Uint128::zero() {
-        positions_store(&mut deps.storage, &minter).remove(&position_key);
+        remove_position(&mut deps.storage, position_idx);
     } else {
-        positions_store(&mut deps.storage, &minter).save(&position_key, &position)?;
+        store_position(&mut deps.storage, position_idx, &position)?;
     }
 
+    let tax_amount = collateral.compute_tax(&deps)?;
     Ok(HandleResponse {
         messages: vec![collateral.clone().into_msg(
             &deps,
@@ -372,8 +415,9 @@ pub fn try_withdraw<S: Storage, A: Api, Q: Querier>(
         )?],
         log: vec![
             log("action", "withdraw"),
-            log("pair", format!("{}/{}", asset_info, collateral.info)),
+            log("position_idx", position_idx.to_string()),
             log("withdraw_amount", collateral.amount.to_string()),
+            log("tax_amount", tax_amount.to_string()),
         ],
         data: None,
     })
@@ -382,41 +426,24 @@ pub fn try_withdraw<S: Storage, A: Api, Q: Querier>(
 pub fn try_mint<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
+    position_idx: u64,
     asset: Asset,
-    collateral_info: AssetInfo,
 ) -> HandleResult {
-    if asset.amount.is_zero() {
-        return Err(StdError::generic_err("Cannot mint zero amount"));
+    let mut position: Position = read_position(&deps.storage, position_idx)?;
+    if position.owner != deps.api.canonical_address(&env.message.sender)? {
+        return Err(StdError::unauthorized());
     }
 
+    assert_asset(&deps, &position, &asset)?;
+
     let config: Config = read_config(&deps.storage)?;
-    let minter: CanonicalAddr = deps.api.canonical_address(&env.message.sender)?;
-    let asset_raw_info: AssetInfoRaw = asset.info.to_raw(&deps)?;
-    let collateral_raw_info: AssetInfoRaw = collateral_info.to_raw(&deps)?;
+    let asset_config: AssetConfig = read_asset_config(&deps.storage, &position.asset.info)?;
 
-    let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_raw_info)?;
-    let position_bucket = positions_read(&deps.storage, &minter);
-    let position_key = [asset_raw_info.as_bytes(), collateral_raw_info.as_bytes()].concat();
-    let mut position: Position = position_bucket.load(&position_key)?;
-
-    // collateral can be token or native token
-    let collateral_price = if collateral_info.equal(&config.base_asset_info.to_normal(&deps)?) {
-        Decimal::one()
-    } else {
-        // load collateral price form the oracle
-        load_price(
-            &deps,
-            &deps.api.human_address(&config.oracle)?,
-            &collateral_raw_info,
-            Some(env.block.time),
-        )?
-    };
-
-    // load asset price from the oracle
-    let asset_price = load_price(
+    let (collateral_price, asset_price) = load_prices(
         &deps,
-        &deps.api.human_address(&config.oracle)?,
-        &asset_raw_info,
+        &config,
+        &position.collateral.info,
+        &position.asset.info,
         Some(env.block.time),
     )?;
 
@@ -433,21 +460,21 @@ pub fn try_mint<S: Storage, A: Api, Q: Querier>(
         ));
     }
 
-    position.asset.amount = asset_amount;
-    positions_store(&mut deps.storage, &minter).save(&position_key, &position)?;
+    position.asset.amount += asset.amount;
+    store_position(&mut deps.storage, position_idx, &position)?;
 
     Ok(HandleResponse {
         messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps.api.human_address(&asset_config.token)?,
             msg: to_binary(&Cw20HandleMsg::Mint {
                 amount: asset.amount,
-                recipient: env.message.sender.clone(),
+                recipient: env.message.sender,
             })?,
             send: vec![],
         })],
         log: vec![
             log("action", "mint"),
-            log("pair", format!("{}/{}", asset.info, collateral_info)),
+            log("position_idx", position_idx.to_string()),
             log("mint_amount", asset.amount.to_string()),
         ],
         data: None,
@@ -456,24 +483,18 @@ pub fn try_mint<S: Storage, A: Api, Q: Querier>(
 
 pub fn try_burn<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
-    _env: Env,
     sender: HumanAddr,
+    position_idx: u64,
     asset: Asset,
-    collateral_info: AssetInfo,
 ) -> StdResult<HandleResponse> {
-    // burn only can be called from asset contract
-    if asset.amount.is_zero() {
-        return Err(StdError::generic_err("Cannot burn zero amount"));
+    let mut position: Position = read_position(&deps.storage, position_idx)?;
+    if position.owner != deps.api.canonical_address(&sender)? {
+        return Err(StdError::unauthorized());
     }
 
-    let minter: CanonicalAddr = deps.api.canonical_address(&sender)?;
-    let asset_raw_info: AssetInfoRaw = asset.info.to_raw(&deps)?;
-    let collateral_raw_info: AssetInfoRaw = collateral_info.to_raw(&deps)?;
+    assert_asset(deps, &position, &asset)?;
 
-    let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_raw_info)?;
-    let position_bucket = positions_read(&deps.storage, &minter);
-    let position_key = [asset_raw_info.as_bytes(), collateral_raw_info.as_bytes()].concat();
-    let mut position: Position = position_bucket.load(&position_key)?;
+    let asset_config: AssetConfig = read_asset_config(&deps.storage, &position.asset.info)?;
 
     if position.asset.amount < asset.amount {
         return Err(StdError::generic_err(
@@ -481,11 +502,12 @@ pub fn try_burn<S: Storage, A: Api, Q: Querier>(
         ));
     }
 
+    // Update asset amount
     position.asset.amount = (position.asset.amount - asset.amount)?;
     if position.collateral.amount == Uint128::zero() && position.asset.amount == Uint128::zero() {
-        positions_store(&mut deps.storage, &minter).remove(&position_key);
+        remove_position(&mut deps.storage, position_idx);
     } else {
-        positions_store(&mut deps.storage, &minter).save(&position_key, &position)?;
+        store_position(&mut deps.storage, position_idx, &position)?;
     }
 
     Ok(HandleResponse {
@@ -498,7 +520,7 @@ pub fn try_burn<S: Storage, A: Api, Q: Querier>(
         })],
         log: vec![
             log("action", "burn"),
-            log("pair", format!("{}/{}", asset.info, collateral_info)),
+            log("position_idx", position_idx.to_string()),
             log("burn_amount", asset.amount.to_string()),
         ],
         data: None,
@@ -509,18 +531,17 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     sender: HumanAddr,
-    position_owner: HumanAddr,
+    position_idx: u64,
     asset: Asset,
-    collateral_info: AssetInfo,
 ) -> StdResult<HandleResponse> {
-    let asset_raw_info: AssetInfoRaw = asset.info.to_raw(&deps)?;
-    let collateral_raw_info: AssetInfoRaw = collateral_info.to_raw(&deps)?;
-    let position_owner_raw: CanonicalAddr = deps.api.canonical_address(&position_owner)?;
+    let mut position: Position = read_position(&deps.storage, position_idx)?;
+    assert_asset(&deps, &position, &asset)?;
+
     let config: Config = read_config(&deps.storage)?;
-    let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_raw_info)?;
-    let position_bucket = positions_read(&deps.storage, &position_owner_raw);
-    let position_key = [asset_raw_info.as_bytes(), collateral_raw_info.as_bytes()].concat();
-    let mut position: Position = position_bucket.load(&position_key)?;
+    let asset_config: AssetConfig = read_asset_config(&deps.storage, &position.asset.info)?;
+
+    let collateral_info = position.collateral.info.to_normal(&deps)?;
+    let position_owner = deps.api.human_address(&position.owner)?;
 
     if asset.amount > position.asset.amount {
         return Err(StdError::generic_err(
@@ -528,24 +549,11 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
         ));
     }
 
-    // collateral can be token or native token
-    let collateral_price = if collateral_info.equal(&config.base_asset_info.to_normal(&deps)?) {
-        Decimal::one()
-    } else {
-        // load collateral price form the oracle
-        load_price(
-            &deps,
-            &deps.api.human_address(&config.oracle)?,
-            &collateral_raw_info,
-            Some(env.block.time),
-        )?
-    };
-
-    // load asset price from the oracle
-    let asset_price = load_price(
+    let (collateral_price, asset_price) = load_prices(
         &deps,
-        &deps.api.human_address(&config.oracle)?,
-        &asset_raw_info,
+        &config,
+        &position.collateral.info,
+        &position.asset.info,
         Some(env.block.time),
     )?;
 
@@ -554,7 +562,7 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
     let asset_amount: Uint128 = asset.amount + position.asset.amount;
     let asset_value_in_collateral_asset: Uint128 =
         asset_amount * asset_price * reverse_decimal(collateral_price);
-    if asset_value_in_collateral_asset * asset_config.auction_threshold_ratio
+    if asset_value_in_collateral_asset * asset_config.min_collateral_ratio
         < position.collateral.amount
     {
         return Err(StdError::generic_err(
@@ -577,10 +585,10 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
     let mut messages: Vec<CosmosMsg> = vec![];
     if left_collateral_amount.is_zero() {
         // all collaterals are sold out
-        positions_store(&mut deps.storage, &position_owner_raw).remove(&position_key);
+        remove_position(&mut deps.storage, position_idx);
     } else if left_asset_amount.is_zero() {
         // all assets are paid
-        positions_store(&mut deps.storage, &position_owner_raw).remove(&position_key);
+        remove_position(&mut deps.storage, position_idx);
 
         // refunds left collaterals to position owner
         let refund_collateral_asset: Asset = Asset {
@@ -597,7 +605,7 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
         position.collateral.amount = left_collateral_amount;
         position.asset.amount = left_asset_amount;
 
-        positions_store(&mut deps.storage, &position_owner_raw).save(&position_key, &position)?;
+        store_position(&mut deps.storage, position_idx, &position)?;
     }
 
     // token burn message
@@ -615,6 +623,7 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
         amount: return_collateral_amount,
     };
 
+    let tax_amount = return_collateral_asset.compute_tax(&deps)?;
     messages.push(return_collateral_asset.into_msg(&deps, env.contract.address, sender)?);
 
     Ok(HandleResponse {
@@ -626,6 +635,7 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
                 return_collateral_amount.to_string(),
             ),
             log("liquidated_amount", asset.amount.to_string()),
+            log("tax_amount", tax_amount.to_string()),
         ],
         messages,
         data: None,
@@ -639,12 +649,7 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::AssetConfig { asset_info } => to_binary(&query_asset_config(deps, asset_info)?),
-        QueryMsg::Position {
-            minter,
-            asset_info,
-            collateral_info,
-        } => to_binary(&query_position(deps, minter, asset_info, collateral_info)?),
-        QueryMsg::Positions { minter } => to_binary(&query_positions(deps, minter)?),
+        QueryMsg::Position { position_idx } => to_binary(&query_position(deps, position_idx)?),
     }
 }
 
@@ -672,7 +677,6 @@ pub fn query_asset_config<S: Storage, A: Api, Q: Querier>(
     let resp = AssetConfigResponse {
         token: deps.api.human_address(&asset_config.token).unwrap(),
         auction_discount: asset_config.auction_discount,
-        auction_threshold_ratio: asset_config.auction_threshold_ratio,
         min_collateral_ratio: asset_config.min_collateral_ratio,
     };
 
@@ -681,49 +685,18 @@ pub fn query_asset_config<S: Storage, A: Api, Q: Querier>(
 
 pub fn query_position<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
-    minter: HumanAddr,
-    asset_info: AssetInfo,
-    collateral_info: AssetInfo,
+    position_idx: u64,
 ) -> StdResult<PositionResponse> {
-    let asset_raw_info: AssetInfoRaw = asset_info.to_raw(&deps)?;
-    let collateral_raw_info: AssetInfoRaw = collateral_info.to_raw(&deps)?;
-    let minter_raw = deps.api.canonical_address(&minter)?;
-
     let config: Config = read_config(&deps.storage)?;
-    let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_raw_info)?;
-    let position_bucket = positions_read(&deps.storage, &minter_raw);
-    let position_key = [asset_raw_info.as_bytes(), collateral_raw_info.as_bytes()].concat();
-    let position: Position = position_bucket
-        .load(&position_key)
-        .unwrap_or_else(|_| Position {
-            collateral: AssetRaw {
-                info: collateral_raw_info.clone(),
-                amount: Uint128::zero(),
-            },
-            asset: AssetRaw {
-                info: asset_raw_info.clone(),
-                amount: Uint128::zero(),
-            },
-        });
+    let position: Position = read_position(&deps.storage, position_idx)?;
 
-    // collateral can be token or native token
-    let collateral_price = if collateral_info.equal(&config.base_asset_info.to_normal(&deps)?) {
-        Decimal::one()
-    } else {
-        // load collateral price form the oracle
-        load_price(
-            &deps,
-            &deps.api.human_address(&config.oracle)?,
-            &collateral_raw_info,
-            None,
-        )?
-    };
+    let asset_config: AssetConfig = read_asset_config(&deps.storage, &position.asset.info)?;
 
-    // load asset price from the oracle
-    let asset_price = load_price(
+    let (collateral_price, asset_price) = load_prices(
         &deps,
-        &deps.api.human_address(&config.oracle)?,
-        &asset_raw_info,
+        &config,
+        &position.collateral.info,
+        &position.asset.info,
         None,
     )?;
 
@@ -731,10 +704,11 @@ pub fn query_position<S: Storage, A: Api, Q: Querier>(
     // asset_amount * price_to_collateral * auction_threshold > collateral_amount
     let asset_value_in_collateral_asset: Uint128 =
         position.asset.amount * asset_price * reverse_decimal(collateral_price);
-    let is_auction_open = asset_value_in_collateral_asset * asset_config.auction_threshold_ratio
+    let is_auction_open = asset_value_in_collateral_asset * asset_config.min_collateral_ratio
         > position.collateral.amount;
 
     let resp = PositionResponse {
+        owner: deps.api.human_address(&position.owner)?,
         collateral: position.collateral.to_normal(&deps)?,
         asset: position.asset.to_normal(&deps)?,
         is_auction_open,
@@ -743,81 +717,32 @@ pub fn query_position<S: Storage, A: Api, Q: Querier>(
     Ok(resp)
 }
 
-pub fn query_positions<S: Storage, A: Api, Q: Querier>(
+// Check zero balance & same collateral with position
+fn assert_collateral<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
-    minter: HumanAddr,
-) -> StdResult<PositionsResponse> {
-    let minter_raw = deps.api.canonical_address(&minter)?;
-
-    let config: Config = read_config(&deps.storage)?;
-    let position_bucket = positions_read(&deps.storage, &minter_raw);
-    let positions: StdResult<Vec<Position>> = position_bucket
-        .range(None, None, Order::Ascending)
-        .map(|item| {
-            let (_k, v) = item?;
-            Ok(v)
-        })
-        .collect();
-
-    let mut responses: Vec<PositionResponse> = vec![];
-    let mut price_map: HashMap<String, Decimal> = HashMap::new();
-    let base_asset_info: AssetInfo = config.base_asset_info.to_normal(&deps)?;
-    for position in positions? {
-        let asset_config: AssetConfig = read_asset_config(&deps.storage, &position.asset.info)?;
-        let asset_info = position.asset.info.to_normal(&deps)?;
-        let collateral_info = position.collateral.info.to_normal(&deps)?;
-
-        // collateral can be token or native token
-        let collateral_price = if collateral_info.equal(&base_asset_info) {
-            Decimal::one()
-        } else if let Some(price) = price_map.get(&collateral_info.to_string()) {
-            price.clone()
-        } else {
-            // load collateral price form the oracle
-            let price = load_price(
-                &deps,
-                &deps.api.human_address(&config.oracle)?,
-                &position.collateral.info,
-                None,
-            )?;
-
-            price_map.insert(collateral_info.to_string(), price);
-            price
-        };
-
-        // load asset price from the oracle
-        let asset_price = if let Some(price) = price_map.get(&asset_info.to_string()) {
-            price.clone()
-        } else {
-            // load collateral price form the oracle
-            let price = load_price(
-                &deps,
-                &deps.api.human_address(&config.oracle)?,
-                &position.asset.info,
-                None,
-            )?;
-
-            price_map.insert(collateral_info.to_string(), price);
-            price
-        };
-
-        // the position is in auction state, when
-        // asset_amount * price_to_collateral * auction_threshold > collateral_amount
-        let asset_value_in_collateral_asset: Uint128 =
-            position.asset.amount * asset_price * reverse_decimal(collateral_price);
-        let is_auction_open = asset_value_in_collateral_asset
-            * asset_config.auction_threshold_ratio
-            > position.collateral.amount;
-
-        responses.push(PositionResponse {
-            collateral: position.collateral.to_normal(&deps)?,
-            asset: position.asset.to_normal(&deps)?,
-            is_auction_open,
-        });
+    position: &Position,
+    collateral: &Asset,
+) -> StdResult<()> {
+    if !collateral
+        .info
+        .equal(&position.collateral.info.to_normal(&deps)?)
+        || collateral.amount.is_zero()
+    {
+        return Err(StdError::generic_err("Wrong collateral"));
     }
 
-    Ok(PositionsResponse {
-        minter,
-        positions: responses,
-    })
+    Ok(())
+}
+
+// Check zero balance & same asset with position
+fn assert_asset<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    position: &Position,
+    asset: &Asset,
+) -> StdResult<()> {
+    if !asset.info.equal(&position.asset.info.to_normal(&deps)?) || asset.amount.is_zero() {
+        return Err(StdError::generic_err("Wrong asset"));
+    }
+
+    Ok(())
 }

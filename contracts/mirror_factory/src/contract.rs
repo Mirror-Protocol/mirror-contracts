@@ -5,18 +5,15 @@ use cosmwasm_std::{
 
 use crate::msg::{
     ConfigResponse, DistributionInfoResponse, HandleMsg, InitMsg, QueryMsg, StakingCw20HookMsg,
-    WhitelistInfoResponse,
 };
-use crate::querier::{load_pair_contract, load_staking_token};
 use crate::register_msgs::*;
 use crate::state::{
-    read_config, read_distribution_info, read_params, read_whitelist_info, remove_params,
-    store_config, store_distribution_info, store_params, store_whitelist_info, Config,
-    DistributionInfo, Params, WhitelistInfo,
+    read_config, read_distribution_info, read_params, remove_params, store_config,
+    store_distribution_info, store_params, Config, DistributionInfo, Params,
 };
 
 use cw20::{Cw20HandleMsg, MinterResponse};
-use uniswap::{AssetInfo, AssetInfoRaw, InitHook, TokenInitMsg};
+use uniswap::{load_liquidity_token, load_pair_contract, AssetInfo, InitHook, TokenInitMsg};
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -123,15 +120,6 @@ pub fn try_post_initialize<S: Storage, A: Api, Q: Querier>(
 
     // for the mirror token, we skip token creation hook
     // just calling uniswap creation hook is enough
-    store_whitelist_info(
-        &mut deps.storage,
-        &config.mirror_token,
-        &WhitelistInfo {
-            token_contract: config.mirror_token.clone(),
-            uniswap_contract: CanonicalAddr::default(),
-        },
-    )?;
-
     // mirror staking pool rewards x2
     store_distribution_info(
         &mut deps.storage,
@@ -254,7 +242,7 @@ pub fn try_whitelist<S: Storage, A: Api, Q: Querier>(
             send: vec![],
             label: None,
             msg: to_binary(&TokenInitMsg {
-                name,
+                name: name.clone(),
                 symbol: symbol.to_string(),
                 decimals: 6u8,
                 initial_balances: vec![],
@@ -268,7 +256,11 @@ pub fn try_whitelist<S: Storage, A: Api, Q: Querier>(
                 }),
             })?,
         })],
-        log: vec![log("action", "whitelist"), log("symbol", symbol)],
+        log: vec![
+            log("action", "whitelist"),
+            log("symbol", symbol),
+            log("name", name),
+        ],
         data: None,
     })
 }
@@ -301,17 +293,6 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
         },
     )?;
 
-    // Store empty market contract data
-    // to use it as flag on market creation hook
-    store_whitelist_info(
-        &mut deps.storage,
-        &asset_token_raw,
-        &WhitelistInfo {
-            token_contract: asset_token_raw.clone(),
-            uniswap_contract: CanonicalAddr::default(),
-        },
-    )?;
-
     // Remove params == clear flag
     remove_params(&mut deps.storage);
 
@@ -326,7 +307,6 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
                 msg: to_binary(&MintHandleMsg::RegisterAsset {
                     asset_token: asset_token.clone(),
                     auction_discount: params.auction_discount,
-                    auction_threshold_ratio: params.auction_threshold_ratio,
                     min_collateral_ratio: params.min_collateral_ratio,
                 })?,
             }),
@@ -346,74 +326,56 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
                 msg: to_binary(&UniswapHandleMsg::CreatePair {
                     pair_owner: env.contract.address,
                     commission_collector: deps.api.human_address(&config.commission_collector)?,
-                    active_commission: params.active_commission,
-                    passive_commission: params.passive_commission,
+                    lp_commission: params.lp_commission,
+                    owner_commission: params.owner_commission,
                     asset_infos: [
                         AssetInfo::NativeToken {
                             denom: config.base_denom,
                         },
                         AssetInfo::Token {
-                            contract_addr: asset_token,
+                            contract_addr: asset_token.clone(),
                         },
                     ],
                 })?,
             }),
         ],
-        log: vec![],
+        log: vec![log("asset_token_addr", asset_token.as_str())],
         data: None,
     })
 }
 
 pub fn uniswap_creation_hook<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
-    _env: Env,
+    env: Env,
     asset_token: HumanAddr,
 ) -> HandleResult {
     // Now uniswap contract is already created,
     // and liquidty token also created
     let config: Config = read_config(&deps.storage)?;
     let asset_token_raw = deps.api.canonical_address(&asset_token)?;
+    let sender_raw = deps.api.canonical_address(&env.message.sender)?;
 
-    // Check whether the asset is in whitelist process or not
-    let whitelist_info: StdResult<WhitelistInfo> =
-        read_whitelist_info(&deps.storage, &asset_token_raw);
-    match whitelist_info {
-        Ok(v) => {
-            if v.uniswap_contract != CanonicalAddr::default() {
-                return Err(StdError::generic_err("Asset is not in whitelist process"));
-            }
-        }
-        Err(_) => return Err(StdError::generic_err("Asset is not in whitelist process")),
+    if config.mirror_token != asset_token_raw && config.uniswap_factory != sender_raw {
+        return Err(StdError::unauthorized());
     }
 
     let asset_infos = [
-        AssetInfoRaw::NativeToken {
+        AssetInfo::NativeToken {
             denom: "uusd".to_string(),
         },
-        AssetInfoRaw::Token {
-            contract_addr: asset_token_raw.clone(),
+        AssetInfo::Token {
+            contract_addr: asset_token.clone(),
         },
     ];
     // Load uniswap pair contract
-    let uniswap_contract: CanonicalAddr = load_pair_contract(
+    let uniswap_contract: HumanAddr = load_pair_contract(
         &deps,
         &deps.api.human_address(&config.uniswap_factory)?,
         &asset_infos,
     )?;
 
     // Load uniswap pair LP token
-    let staking_token: CanonicalAddr =
-        load_staking_token(&deps, &deps.api.human_address(&uniswap_contract)?)?;
-
-    // Store full whitelist info
-    store_whitelist_info(
-        &mut deps.storage,
-        &asset_token_raw,
-        &WhitelistInfo {
-            token_contract: asset_token_raw.clone(),
-            uniswap_contract,
-        },
-    )?;
+    let liquidity_token: HumanAddr = load_liquidity_token(&deps, &uniswap_contract)?;
 
     // Execute staking contract to register staking token of newly created asset
     Ok(HandleResponse {
@@ -422,7 +384,7 @@ pub fn uniswap_creation_hook<S: Storage, A: Api, Q: Querier>(
             send: vec![],
             msg: to_binary(&StakingHandleMsg::RegisterAsset {
                 asset_token,
-                staking_token: deps.api.human_address(&staking_token)?,
+                staking_token: liquidity_token,
             })?,
         })],
         log: vec![],
@@ -493,9 +455,6 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
-        QueryMsg::WhitelistInfo { asset_token } => {
-            to_binary(&query_whitelist_info(deps, asset_token)?)
-        }
         QueryMsg::DistributionInfo { asset_token } => {
             to_binary(&query_distribution_info(deps, asset_token)?)
         }
@@ -517,19 +476,6 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
         mint_per_block: state.mint_per_block,
         token_code_id: state.token_code_id,
         base_denom: state.base_denom,
-    };
-
-    Ok(resp)
-}
-
-pub fn query_whitelist_info<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    asset_token: HumanAddr,
-) -> StdResult<WhitelistInfoResponse> {
-    let state = read_whitelist_info(&deps.storage, &deps.api.canonical_address(&asset_token)?)?;
-    let resp = WhitelistInfoResponse {
-        uniswap_contract: deps.api.human_address(&state.uniswap_contract)?,
-        token_contract: deps.api.human_address(&state.token_contract)?,
     };
 
     Ok(resp)

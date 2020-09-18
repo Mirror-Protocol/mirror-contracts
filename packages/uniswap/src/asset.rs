@@ -244,6 +244,27 @@ impl AssetInfoRaw {
             AssetInfoRaw::Token { contract_addr } => contract_addr.as_slice(),
         }
     }
+
+    pub fn equal(&self, asset: &AssetInfoRaw) -> bool {
+        match self {
+            AssetInfoRaw::Token { contract_addr, .. } => {
+                let self_contract_addr = contract_addr;
+                match asset {
+                    AssetInfoRaw::Token { contract_addr, .. } => {
+                        self_contract_addr == contract_addr
+                    }
+                    AssetInfoRaw::NativeToken { .. } => false,
+                }
+            }
+            AssetInfoRaw::NativeToken { denom, .. } => {
+                let self_denom = denom;
+                match asset {
+                    AssetInfoRaw::Token { .. } => false,
+                    AssetInfoRaw::NativeToken { denom, .. } => self_denom == denom,
+                }
+            }
+        }
+    }
 }
 
 // We define a custom struct for each query response
@@ -257,4 +278,19 @@ pub struct PairInfo {
 pub struct PairInfoRaw {
     pub contract_addr: CanonicalAddr,
     pub asset_infos: [AssetInfoRaw; 2],
+}
+
+impl PairInfoRaw {
+    pub fn to_normal<S: Storage, A: Api, Q: Querier>(
+        &self,
+        deps: &Extern<S, A, Q>,
+    ) -> StdResult<PairInfo> {
+        Ok(PairInfo {
+            contract_addr: deps.api.human_address(&self.contract_addr)?,
+            asset_infos: [
+                self.asset_infos[0].to_normal(&deps)?,
+                self.asset_infos[1].to_normal(&deps)?,
+            ],
+        })
+    }
 }

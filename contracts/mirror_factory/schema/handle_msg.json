@@ -248,22 +248,13 @@
     "Params": {
       "type": "object",
       "required": [
-        "active_commission",
         "auction_discount",
-        "auction_threshold_ratio",
+        "lp_commission",
         "min_collateral_ratio",
-        "passive_commission",
+        "owner_commission",
         "weight"
       ],
       "properties": {
-        "active_commission": {
-          "description": "Commission rate for active liquidity provider",
-          "allOf": [
-            {
-              "$ref": "#/definitions/Decimal"
-            }
-          ]
-        },
         "auction_discount": {
           "description": "Auction discount rate applied to asset mint",
           "allOf": [
@@ -272,8 +263,8 @@
             }
           ]
         },
-        "auction_threshold_ratio": {
-          "description": "Auction threshold rate applied to asset mint",
+        "lp_commission": {
+          "description": "Commission rate for active liquidity provider",
           "allOf": [
             {
               "$ref": "#/definitions/Decimal"
@@ -288,7 +279,7 @@
             }
           ]
         },
-        "passive_commission": {
+        "owner_commission": {
           "description": "Commission rate for owner controlled commission",
           "allOf": [
             {

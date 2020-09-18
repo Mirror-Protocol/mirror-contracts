@@ -16,25 +16,6 @@
     {
       "type": "object",
       "required": [
-        "whitelist_info"
-      ],
-      "properties": {
-        "whitelist_info": {
-          "type": "object",
-          "required": [
-            "asset_token"
-          ],
-          "properties": {
-            "asset_token": {
-              "$ref": "#/definitions/HumanAddr"
-            }
-          }
-        }
-      }
-    },
-    {
-      "type": "object",
-      "required": [
         "distribution_info"
       ],
       "properties": {

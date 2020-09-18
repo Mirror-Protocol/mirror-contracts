@@ -5,7 +5,8 @@
   "required": [
     "asset",
     "collateral",
-    "is_auction_open"
+    "is_auction_open",
+    "owner"
   ],
   "properties": {
     "asset": {
@@ -16,6 +17,9 @@
     },
     "is_auction_open": {
       "type": "boolean"
+    },
+    "owner": {
+      "$ref": "#/definitions/HumanAddr"
     }
   },
   "definitions": {

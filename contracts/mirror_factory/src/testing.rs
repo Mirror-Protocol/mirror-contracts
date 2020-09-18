@@ -2,7 +2,6 @@ use crate::contract::{handle, init, query};
 use crate::mock_querier::mock_dependencies;
 use crate::msg::{
     ConfigResponse, DistributionInfoResponse, HandleMsg, InitMsg, QueryMsg, StakingCw20HookMsg,
-    WhitelistInfoResponse,
 };
 use crate::register_msgs::*;
 use crate::state::{read_params, Params};
@@ -201,10 +200,9 @@ fn test_whitelist() {
         oracle_feeder: HumanAddr::from("feeder0000"),
         params: Params {
             weight: Decimal::from_ratio(15u64, 10u64),
-            active_commission: Decimal::percent(1),
-            passive_commission: Decimal::percent(1),
+            lp_commission: Decimal::percent(1),
+            owner_commission: Decimal::percent(1),
             auction_discount: Decimal::percent(5),
-            auction_threshold_ratio: Decimal::percent(130),
             min_collateral_ratio: Decimal::percent(150),
         },
     };
@@ -213,7 +211,11 @@ fn test_whitelist() {
 
     assert_eq!(
         res.log,
-        vec![log("action", "whitelist"), log("symbol", "mAPPL"),]
+        vec![
+            log("action", "whitelist"),
+            log("symbol", "mAPPL"),
+            log("name", "apple derivative")
+        ]
     );
 
     // token creation msg should be returned
@@ -249,10 +251,9 @@ fn test_whitelist() {
         params,
         Params {
             weight: Decimal::from_ratio(15u64, 10u64),
-            active_commission: Decimal::percent(1),
-            passive_commission: Decimal::percent(1),
+            lp_commission: Decimal::percent(1),
+            owner_commission: Decimal::percent(1),
             auction_discount: Decimal::percent(5),
-            auction_threshold_ratio: Decimal::percent(130),
             min_collateral_ratio: Decimal::percent(150),
         }
     );
@@ -314,10 +315,9 @@ fn test_token_creation_hook() {
         oracle_feeder: HumanAddr::from("feeder0000"),
         params: Params {
             weight: Decimal::from_ratio(15u64, 10u64),
-            active_commission: Decimal::percent(1),
-            passive_commission: Decimal::percent(1),
+            lp_commission: Decimal::percent(1),
+            owner_commission: Decimal::percent(1),
             auction_discount: Decimal::percent(5),
-            auction_threshold_ratio: Decimal::percent(130),
             min_collateral_ratio: Decimal::percent(150),
         },
     };
@@ -338,7 +338,6 @@ fn test_token_creation_hook() {
                 msg: to_binary(&MintHandleMsg::RegisterAsset {
                     asset_token: HumanAddr::from("asset0000"),
                     auction_discount: Decimal::percent(5),
-                    auction_threshold_ratio: Decimal::percent(130),
                     min_collateral_ratio: Decimal::percent(150),
                 })
                 .unwrap(),
@@ -360,8 +359,8 @@ fn test_token_creation_hook() {
                 msg: to_binary(&UniswapHandleMsg::CreatePair {
                     pair_owner: env.contract.address,
                     commission_collector: HumanAddr::from("collector0000"),
-                    active_commission: Decimal::percent(1),
-                    passive_commission: Decimal::percent(1),
+                    lp_commission: Decimal::percent(1),
+                    owner_commission: Decimal::percent(1),
                     asset_infos: [
                         AssetInfo::NativeToken {
                             denom: BASE_DENOM.to_string(),
@@ -444,10 +443,9 @@ fn test_uniswap_creation_hook() {
         oracle_feeder: HumanAddr::from("feeder0000"),
         params: Params {
             weight: Decimal::from_ratio(15u64, 10u64),
-            active_commission: Decimal::percent(1),
-            passive_commission: Decimal::percent(1),
+            lp_commission: Decimal::percent(1),
+            owner_commission: Decimal::percent(1),
             auction_discount: Decimal::percent(5),
-            auction_threshold_ratio: Decimal::percent(130),
             min_collateral_ratio: Decimal::percent(150),
         },
     };
@@ -476,22 +474,6 @@ fn test_uniswap_creation_hook() {
             })
             .unwrap(),
         })]
-    );
-
-    let res = query(
-        &deps,
-        QueryMsg::WhitelistInfo {
-            asset_token: HumanAddr::from("asset0000"),
-        },
-    )
-    .unwrap();
-    let whitelist_info: WhitelistInfoResponse = from_binary(&res).unwrap();
-    assert_eq!(
-        whitelist_info,
-        WhitelistInfoResponse {
-            token_contract: HumanAddr::from("asset0000"),
-            uniswap_contract: HumanAddr::from("pair0000"),
-        }
     );
 }
 
@@ -533,10 +515,9 @@ fn test_update_weight() {
         oracle_feeder: HumanAddr::from("feeder0000"),
         params: Params {
             weight: Decimal::from_ratio(15u64, 10u64),
-            active_commission: Decimal::percent(1),
-            passive_commission: Decimal::percent(1),
+            lp_commission: Decimal::percent(1),
+            owner_commission: Decimal::percent(1),
             auction_discount: Decimal::percent(5),
-            auction_threshold_ratio: Decimal::percent(130),
             min_collateral_ratio: Decimal::percent(150),
         },
     };
@@ -632,10 +613,9 @@ fn test_mint() {
         oracle_feeder: HumanAddr::from("feeder0000"),
         params: Params {
             weight: Decimal::from_ratio(15u64, 10u64),
-            active_commission: Decimal::percent(1),
-            passive_commission: Decimal::percent(1),
+            lp_commission: Decimal::percent(1),
+            owner_commission: Decimal::percent(1),
             auction_discount: Decimal::percent(5),
-            auction_threshold_ratio: Decimal::percent(130),
             min_collateral_ratio: Decimal::percent(150),
         },
     };

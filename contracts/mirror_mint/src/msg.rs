@@ -26,65 +26,59 @@ pub enum HandleMsg {
     UpdateAsset {
         asset_info: AssetInfo,
         auction_discount: Option<Decimal>,
-        auction_threshold_ratio: Option<Decimal>,
         min_collateral_ratio: Option<Decimal>,
     },
     /// Generate asset token initialize msg and register required infos except token address
     RegisterAsset {
         asset_token: HumanAddr,
         auction_discount: Decimal,
-        auction_threshold_ratio: Decimal,
         min_collateral_ratio: Decimal,
     },
-    /// Deposit collateral asset to mint an asset
+    // create position to meet collateral ratio
+    OpenPosition {
+        collateral: Asset,
+        asset_info: AssetInfo,
+        collateral_ratio: Decimal,
+    },
+    /// deposit more collateral
     Deposit {
+        position_idx: u64,
         collateral: Asset,
-        asset_info: AssetInfo,
     },
-    /// Withdarw collateral asset, when there is enough
-    /// buffer to cover min_collateral_ratio
+    /// withdraw collateral
     Withdraw {
+        position_idx: u64,
         collateral: Asset,
-        asset_info: AssetInfo,
     },
-    /// Mint a user sends the collateral token to mint an asset
-    /// If the collateral cannot cover min_collateral_ratio,
-    /// the operation must be failed
+    /// convert all deposit collateral to asset
     Mint {
+        position_idx: u64,
         asset: Asset,
-        collateral_info: AssetInfo,
     },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Cw20HookMsg {
-    /// Deposit a user also can deposit the collateral to any position
-    Deposit { asset_info: AssetInfo },
-    /// Burn a user sends the asset tokens to the contract to get back the collteral tokens
-    Burn { collateral_info: AssetInfo },
-    /// Auction a user can sell their asset tokens in discounted prices
-    Auction {
-        collateral_info: AssetInfo,
-        position_owner: HumanAddr,
+    // create position to meet collateral ratio
+    OpenPosition {
+        asset_info: AssetInfo,
+        collateral_ratio: Decimal,
     },
+    /// deposit more collateral
+    Deposit { position_idx: u64 },
+    /// convert specified asset amount and send back to user
+    Burn { position_idx: u64 },
+    /// Auction a user can sell their asset tokens in discounted prices
+    Auction { position_idx: u64 },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     Config {},
-    AssetConfig {
-        asset_info: AssetInfo,
-    },
-    Position {
-        minter: HumanAddr,
-        asset_info: AssetInfo,
-        collateral_info: AssetInfo,
-    },
-    Positions {
-        minter: HumanAddr,
-    },
+    AssetConfig { asset_info: AssetInfo },
+    Position { position_idx: u64 },
 }
 
 // We define a custom struct for each query response
@@ -101,19 +95,12 @@ pub struct ConfigResponse {
 pub struct AssetConfigResponse {
     pub token: HumanAddr,
     pub auction_discount: Decimal,
-    pub auction_threshold_ratio: Decimal,
     pub min_collateral_ratio: Decimal,
-}
-
-// We define a custom struct for each query response
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct PositionsResponse {
-    pub minter: HumanAddr,
-    pub positions: Vec<PositionResponse>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct PositionResponse {
+    pub owner: HumanAddr,
     pub collateral: Asset,
     pub asset: Asset,
     pub is_auction_open: bool,
