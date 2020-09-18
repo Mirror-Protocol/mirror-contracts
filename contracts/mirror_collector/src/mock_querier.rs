@@ -1,14 +1,14 @@
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
     from_slice, to_binary, Api, CanonicalAddr, Coin, Decimal, Extern, HumanAddr, Querier,
-    QuerierResult, QueryRequest, StdError, SystemError, Uint128, WasmQuery,
+    QuerierResult, QueryRequest, SystemError, Uint128, WasmQuery,
 };
 use cosmwasm_storage::to_length_prefixed;
 
 use std::collections::HashMap;
 
-use crate::querier::WhitelistInfo;
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper};
+use uniswap::{AssetInfoRaw, PairInfoRaw};
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
 /// this uses our CustomQuerier.
@@ -34,7 +34,7 @@ pub struct WasmMockQuerier {
     base: MockQuerier<TerraQueryWrapper>,
     token_querier: TokenQuerier,
     tax_querier: TaxQuerier,
-    whitelist_querier: WhitelistQuerier,
+    uniswap_factory_querier: UniswapFactoryQuerier,
     canonical_length: usize,
 }
 
@@ -91,40 +91,25 @@ pub(crate) fn caps_to_map(caps: &[(&String, &Uint128)]) -> HashMap<String, Uint1
     owner_map
 }
 
-#[derive(Clone, Debug)]
-pub struct WhitelistItem {
-    pub token_contract: HumanAddr,
-    pub uniswap_contract: HumanAddr,
-}
-
 #[derive(Clone, Default)]
-pub struct WhitelistQuerier {
-    // this lets us iterate over all pairs that match the first string
-    whitelist: HashMap<HumanAddr, HashMap<HumanAddr, WhitelistItem>>,
+pub struct UniswapFactoryQuerier {
+    pairs: HashMap<String, HumanAddr>,
 }
 
-impl WhitelistQuerier {
-    pub fn new(whitelist: &[(&HumanAddr, Vec<(&HumanAddr, &WhitelistItem)>)]) -> Self {
-        WhitelistQuerier {
-            whitelist: whitelist_to_map(whitelist),
+impl UniswapFactoryQuerier {
+    pub fn new(pairs: &[(&String, &HumanAddr)]) -> Self {
+        UniswapFactoryQuerier {
+            pairs: pairs_to_map(pairs),
         }
     }
 }
 
-pub(crate) fn whitelist_to_map(
-    whitelists: &[(&HumanAddr, Vec<(&HumanAddr, &WhitelistItem)>)],
-) -> HashMap<HumanAddr, HashMap<HumanAddr, WhitelistItem>> {
-    let mut whitelists_map: HashMap<HumanAddr, HashMap<HumanAddr, WhitelistItem>> = HashMap::new();
-    for (contract, whitelist) in whitelists.iter() {
-        let mut whitelist_map: HashMap<HumanAddr, WhitelistItem> = HashMap::new();
-        for (symbol, item) in whitelist.iter() {
-            whitelist_map.insert((*symbol).clone(), (*item).clone());
-        }
-
-        whitelists_map.insert(HumanAddr::from(contract), whitelist_map);
+pub(crate) fn pairs_to_map(pairs: &[(&String, &HumanAddr)]) -> HashMap<String, HumanAddr> {
+    let mut pairs_map: HashMap<String, HumanAddr> = HashMap::new();
+    for (key, pair) in pairs.iter() {
+        pairs_map.insert(key.to_string(), HumanAddr::from(pair));
     }
-
-    whitelists_map
+    pairs_map
 }
 
 impl Querier for WasmMockQuerier {
@@ -175,41 +160,43 @@ impl WasmMockQuerier {
             QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
                 let key: &[u8] = key.as_slice();
                 let prefix_balance = to_length_prefixed(b"balance").to_vec();
-                let prefix_whitelist = to_length_prefixed(b"whitelist").to_vec();
+                let prefix_pair = to_length_prefixed(b"pair").to_vec();
 
-                if key.len() > prefix_whitelist.len()
-                    && key[..prefix_whitelist.len()].to_vec() == prefix_whitelist
+                if key.len() > prefix_pair.len() && key[..prefix_pair.len()].to_vec() == prefix_pair
                 {
-                    let api: MockApi = MockApi::new(self.canonical_length);
-                    let key_address: &[u8] = &key[prefix_whitelist.len()..];
-                    let addr = api
-                        .human_address(&CanonicalAddr::from(key_address))
-                        .unwrap();
-
-                    let item = match self.whitelist_querier.whitelist.get(&contract_addr) {
-                        Some(whitelist) => match whitelist.get(&addr) {
-                            Some(v) => v,
-                            None => {
-                                return Ok(Err(StdError::generic_err(format!(
-                                    "No whitelist info registered for {} {}",
-                                    contract_addr, addr,
-                                ))))
-                            }
-                        },
-                        None => {
-                            return Ok(Err(StdError::generic_err(format!(
-                                "No whitelist info registered for {}",
-                                contract_addr,
-                            ))))
+                    let rest_key: &[u8] = &key[prefix_pair.len()..];
+                    let key_str: String = match String::from_utf8(rest_key.to_vec()) {
+                        Ok(v) => v,
+                        Err(e) => {
+                            return Err(SystemError::InvalidRequest {
+                                error: format!("Parsing query request: {}", e),
+                                request: key.into(),
+                            })
                         }
                     };
 
+                    let pair_contract = match self.uniswap_factory_querier.pairs.get(&key_str) {
+                        Some(v) => v,
+                        None => {
+                            return Err(SystemError::InvalidRequest {
+                                error: format!("PairInfo is not found for {}", key_str),
+                                request: key.into(),
+                            })
+                        }
+                    };
+
+                    let api: MockApi = MockApi::new(self.canonical_length);
                     Ok(to_binary(
-                        &to_binary(&WhitelistInfo {
-                            uniswap_contract: api
-                                .canonical_address(&item.uniswap_contract)
-                                .unwrap(),
-                            token_contract: api.canonical_address(&item.token_contract).unwrap(),
+                        &to_binary(&PairInfoRaw {
+                            contract_addr: api.canonical_address(&pair_contract).unwrap(),
+                            asset_infos: [
+                                AssetInfoRaw::NativeToken {
+                                    denom: "uusd".to_string(),
+                                },
+                                AssetInfoRaw::NativeToken {
+                                    denom: "uusd".to_string(),
+                                },
+                            ],
                         })
                         .unwrap(),
                     ))
@@ -274,7 +261,7 @@ impl WasmMockQuerier {
             base,
             token_querier: TokenQuerier::default(),
             tax_querier: TaxQuerier::default(),
-            whitelist_querier: WhitelistQuerier::default(),
+            uniswap_factory_querier: UniswapFactoryQuerier::default(),
             canonical_length,
         }
     }
@@ -289,11 +276,8 @@ impl WasmMockQuerier {
         self.tax_querier = TaxQuerier::new(rate, caps);
     }
 
-    // configure the whitelist mock querier
-    pub fn with_whitelist(
-        &mut self,
-        whitelists: &[(&HumanAddr, Vec<(&HumanAddr, &WhitelistItem)>)],
-    ) {
-        self.whitelist_querier = WhitelistQuerier::new(whitelists);
+    // configure the uniswap pair
+    pub fn with_uniswap_pairs(&mut self, pairs: &[(&String, &HumanAddr)]) {
+        self.uniswap_factory_querier = UniswapFactoryQuerier::new(pairs);
     }
 }

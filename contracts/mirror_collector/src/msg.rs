@@ -5,8 +5,8 @@ use cosmwasm_std::{Decimal, HumanAddr, Uint128};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
-    pub gov_contract: HumanAddr, // collected rewards receiver
-    pub factory_contract: HumanAddr,
+    pub distribution_contract: HumanAddr, // collected rewards receiver
+    pub uniswap_factory: HumanAddr,
     pub mirror_token: HumanAddr,
     pub collateral_denom: String,
 }
@@ -27,8 +27,8 @@ pub enum QueryMsg {
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ConfigResponse {
-    pub gov_contract: HumanAddr, // collected rewards receiver
-    pub factory_contract: HumanAddr,
+    pub distribution_contract: HumanAddr, // collected rewards receiver
+    pub uniswap_factory: HumanAddr,
     pub mirror_token: HumanAddr,
     pub collateral_denom: String,
 }

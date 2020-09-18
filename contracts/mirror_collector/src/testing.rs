@@ -1,5 +1,5 @@
 use crate::contract::{handle, init, query_config};
-use crate::mock_querier::{mock_dependencies, WhitelistItem};
+use crate::mock_querier::mock_dependencies;
 use crate::msg::{ConfigResponse, HandleMsg, InitMsg, MarketHandleMsg};
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{to_binary, Coin, CosmosMsg, Decimal, HumanAddr, Uint128, WasmMsg};
@@ -10,8 +10,8 @@ fn proper_initialization() {
     let mut deps = mock_dependencies(20, &[]);
 
     let msg = InitMsg {
-        factory_contract: HumanAddr("factory0000".to_string()),
-        gov_contract: HumanAddr("gov0000".to_string()),
+        uniswap_factory: HumanAddr("uniswapfactory".to_string()),
+        distribution_contract: HumanAddr("gov0000".to_string()),
         mirror_token: HumanAddr("mirror0000".to_string()),
         collateral_denom: "uusd".to_string(),
     };
@@ -23,7 +23,7 @@ fn proper_initialization() {
 
     // it worked, let's query the state
     let config: ConfigResponse = query_config(&deps).unwrap();
-    assert_eq!("factory0000", config.factory_contract.as_str());
+    assert_eq!("uniswapfactory", config.uniswap_factory.as_str());
     assert_eq!("uusd", config.collateral_denom.as_str());
 }
 
@@ -46,29 +46,20 @@ fn test_convert() {
         &[(&"uusd".to_string(), &Uint128(1000000u128))],
     );
 
-    deps.querier.with_whitelist(&[(
-        &HumanAddr::from("factory0000"),
-        vec![
-            (
-                &HumanAddr::from("tokenAPPL"),
-                &WhitelistItem {
-                    token_contract: HumanAddr::from("tokenAPPL"),
-                    uniswap_contract: HumanAddr::from("marketAPPL"),
-                },
-            ),
-            (
-                &HumanAddr::from("tokenMIRROR"),
-                &WhitelistItem {
-                    token_contract: HumanAddr::from("tokenMIRROR"),
-                    uniswap_contract: HumanAddr::from("marketMIRROR"),
-                },
-            ),
-        ],
-    )]);
+    deps.querier.with_uniswap_pairs(&[
+        (
+            &"tokenAPPL\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}uusd".to_string(),
+            &HumanAddr::from("pairAPPL"),
+        ),
+        (
+            &"tokenMIRROR\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}uusd".to_string(),
+            &HumanAddr::from("pairMIRROR"),
+        ),
+    ]);
 
     let msg = InitMsg {
-        factory_contract: HumanAddr("factory0000".to_string()),
-        gov_contract: HumanAddr("gov0000".to_string()),
+        uniswap_factory: HumanAddr("uniswapfactory".to_string()),
+        distribution_contract: HumanAddr("gov0000".to_string()),
         mirror_token: HumanAddr("tokenMIRROR".to_string()),
         collateral_denom: "uusd".to_string(),
     };
@@ -88,7 +79,7 @@ fn test_convert() {
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: HumanAddr::from("tokenAPPL"),
                 msg: to_binary(&Cw20HandleMsg::IncreaseAllowance {
-                    spender: HumanAddr::from("marketAPPL"),
+                    spender: HumanAddr::from("pairAPPL"),
                     amount: Uint128(100u128),
                     expires: None,
                 })
@@ -96,7 +87,7 @@ fn test_convert() {
                 send: vec![],
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("marketAPPL"),
+                contract_addr: HumanAddr::from("pairAPPL"),
                 msg: to_binary(&MarketHandleMsg::Sell {
                     amount: Uint128(100u128),
                     max_spread: None,
@@ -118,7 +109,7 @@ fn test_convert() {
     assert_eq!(
         res.messages,
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: HumanAddr::from("marketMIRROR"),
+            contract_addr: HumanAddr::from("pairMIRROR"),
             msg: to_binary(&MarketHandleMsg::Buy { max_spread: None }).unwrap(),
             send: vec![Coin {
                 denom: "uusd".to_string(),
@@ -137,8 +128,8 @@ fn test_send() {
     )]);
 
     let msg = InitMsg {
-        factory_contract: HumanAddr("factory0000".to_string()),
-        gov_contract: HumanAddr("gov0000".to_string()),
+        uniswap_factory: HumanAddr("uniswapfactory".to_string()),
+        distribution_contract: HumanAddr("gov0000".to_string()),
         mirror_token: HumanAddr("mirror0000".to_string()),
         collateral_denom: "uusd".to_string(),
     };
