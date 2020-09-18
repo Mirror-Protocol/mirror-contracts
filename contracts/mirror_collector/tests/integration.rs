@@ -47,8 +47,8 @@ fn proper_initialization() {
     let mut deps = mock_instance(WASM, &[]);
 
     let msg = InitMsg {
-        factory_contract: HumanAddr("factory0000".to_string()),
-        gov_contract: HumanAddr("gov0000".to_string()),
+        uniswap_factory: HumanAddr("uniswapfactory".to_string()),
+        distribution_contract: HumanAddr("gov0000".to_string()),
         mirror_token: HumanAddr("mirror0000".to_string()),
         collateral_denom: "uusd".to_string(),
     };
@@ -59,8 +59,8 @@ fn proper_initialization() {
     // it worked, let's query the state
     let res = query(&mut deps, QueryMsg::Config {}).unwrap();
     let config: ConfigResponse = from_binary(&res).unwrap();
-    assert_eq!("factory0000", config.factory_contract.as_str());
-    assert_eq!("gov0000", config.gov_contract.as_str());
+    assert_eq!("uniswapfactory", config.uniswap_factory.as_str());
+    assert_eq!("gov0000", config.distribution_contract.as_str());
     assert_eq!("mirror0000", config.mirror_token.as_str());
     assert_eq!("uusd", config.collateral_denom.as_str());
 }

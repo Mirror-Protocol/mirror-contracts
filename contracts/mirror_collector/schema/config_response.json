@@ -4,25 +4,21 @@
   "type": "object",
   "required": [
     "collateral_denom",
-    "factory_contract",
-    "gov_contract",
-    "mirror_symbol",
-    "mirror_token"
+    "distribution_contract",
+    "mirror_token",
+    "uniswap_factory"
   ],
   "properties": {
     "collateral_denom": {
       "type": "string"
     },
-    "factory_contract": {
+    "distribution_contract": {
       "$ref": "#/definitions/HumanAddr"
-    },
-    "gov_contract": {
-      "$ref": "#/definitions/HumanAddr"
-    },
-    "mirror_symbol": {
-      "type": "string"
     },
     "mirror_token": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "uniswap_factory": {
       "$ref": "#/definitions/HumanAddr"
     }
   },
