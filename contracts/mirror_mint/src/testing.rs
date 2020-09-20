@@ -328,8 +328,8 @@ fn open_position() {
         vec![
             log("action", "open_position"),
             log("position_idx", "1"),
-            log("mint_amount", "666666"),
-            log("collateral_amount", "1000000"),
+            log("mint_amount", "666666asset0000"),
+            log("collateral_amount", "1000000uusd"),
         ]
     );
 
@@ -408,8 +408,8 @@ fn open_position() {
         vec![
             log("action", "open_position"),
             log("position_idx", "2"),
-            log("mint_amount", "333333"),
-            log("collateral_amount", "1000000"),
+            log("mint_amount", "333333asset0000"),
+            log("collateral_amount", "1000000asset0001"),
         ]
     );
 
@@ -788,7 +788,7 @@ fn mint() {
         vec![
             log("action", "mint"),
             log("position_idx", "1"),
-            log("mint_amount", "6667")
+            log("mint_amount", "6667asset0000")
         ]
     );
 
@@ -840,7 +840,7 @@ fn mint() {
         vec![
             log("action", "mint"),
             log("position_idx", "2"),
-            log("mint_amount", "333333")
+            log("mint_amount", "333333asset0000")
         ]
     );
 }
@@ -995,7 +995,7 @@ fn burn() {
         vec![
             log("action", "burn"),
             log("position_idx", "1"),
-            log("burn_amount", "13333"),
+            log("burn_amount", "13333asset0000"),
         ]
     );
     assert_eq!(
@@ -1048,7 +1048,7 @@ fn burn() {
         vec![
             log("action", "burn"),
             log("position_idx", "2"),
-            log("burn_amount", "666666"),
+            log("burn_amount", "666666asset0000"),
         ]
     );
     assert_eq!(
@@ -1191,8 +1191,8 @@ fn withdraw() {
         vec![
             log("action", "withdraw"),
             log("position_idx", "1"),
-            log("withdraw_amount", "100"),
-            log("tax_amount", "1"),
+            log("withdraw_amount", "100uusd"),
+            log("tax_amount", "1uusd"),
         ]
     );
 
@@ -1233,8 +1233,8 @@ fn withdraw() {
         vec![
             log("action", "withdraw"),
             log("position_idx", "2"),
-            log("withdraw_amount", "1"),
-            log("tax_amount", "0"),
+            log("withdraw_amount", "1asset0001"),
+            log("tax_amount", "0asset0001"),
         ]
     );
 }
@@ -1471,9 +1471,9 @@ fn auction() {
         vec![
             log("action", "auction"),
             log("owner", "addr0000"),
-            log("return_collateral_amount", "927907"),
-            log("liquidated_amount", "6666"),
-            log("tax_amount", "46395"),
+            log("return_collateral_amount", "927907uusd"),
+            log("liquidated_amount", "6666asset0000"),
+            log("tax_amount", "46395uusd"),
         ]
     );
 
@@ -1534,9 +1534,9 @@ fn auction() {
         vec![
             log("action", "auction"),
             log("owner", "addr0000"),
-            log("return_collateral_amount", "1000000"),
-            log("liquidated_amount", "210000"),
-            log("tax_amount", "0"),
+            log("return_collateral_amount", "1000000asset0001"),
+            log("liquidated_amount", "210000asset0000"),
+            log("tax_amount", "0asset0001"),
         ]
     );
 }

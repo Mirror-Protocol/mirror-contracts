@@ -326,8 +326,11 @@ pub fn try_open_position<S: Storage, A: Api, Q: Querier>(
         log: vec![
             log("action", "open_position"),
             log("position_idx", position_idx.to_string()),
-            log("mint_amount", mint_amount.to_string()),
-            log("collateral_amount", collateral.amount),
+            log(
+                "mint_amount",
+                mint_amount.to_string() + &asset_info.to_string(),
+            ),
+            log("collateral_amount", collateral.to_string()),
         ],
         data: None,
     })
@@ -355,7 +358,7 @@ pub fn try_deposit<S: Storage, A: Api, Q: Querier>(
         log: vec![
             log("action", "deposit"),
             log("position_idx", position_idx.to_string()),
-            log("deposit_amount", collateral.amount.to_string()),
+            log("deposit_amount", collateral.to_string()),
         ],
         data: None,
     })
@@ -417,8 +420,11 @@ pub fn try_withdraw<S: Storage, A: Api, Q: Querier>(
         log: vec![
             log("action", "withdraw"),
             log("position_idx", position_idx.to_string()),
-            log("withdraw_amount", collateral.amount.to_string()),
-            log("tax_amount", tax_amount.to_string()),
+            log("withdraw_amount", collateral.to_string()),
+            log(
+                "tax_amount",
+                tax_amount.to_string() + &collateral.info.to_string(),
+            ),
         ],
         data: None,
     })
@@ -476,7 +482,7 @@ pub fn try_mint<S: Storage, A: Api, Q: Querier>(
         log: vec![
             log("action", "mint"),
             log("position_idx", position_idx.to_string()),
-            log("mint_amount", asset.amount.to_string()),
+            log("mint_amount", asset.to_string()),
         ],
         data: None,
     })
@@ -522,7 +528,7 @@ pub fn try_burn<S: Storage, A: Api, Q: Querier>(
         log: vec![
             log("action", "burn"),
             log("position_idx", position_idx.to_string()),
-            log("burn_amount", asset.amount.to_string()),
+            log("burn_amount", asset.to_string()),
         ],
         data: None,
     })
@@ -620,7 +626,7 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
 
     // return collateral to liqudation initiator(sender)
     let return_collateral_asset = Asset {
-        info: collateral_info,
+        info: collateral_info.clone(),
         amount: return_collateral_amount,
     };
 
@@ -633,10 +639,13 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
             log("owner", position_owner.as_str()),
             log(
                 "return_collateral_amount",
-                return_collateral_amount.to_string(),
+                return_collateral_amount.to_string() + &collateral_info.to_string(),
             ),
-            log("liquidated_amount", asset.amount.to_string()),
-            log("tax_amount", tax_amount.to_string()),
+            log("liquidated_amount", asset.to_string()),
+            log(
+                "tax_amount",
+                tax_amount.to_string() + &collateral_info.to_string(),
+            ),
         ],
         messages,
         data: None,

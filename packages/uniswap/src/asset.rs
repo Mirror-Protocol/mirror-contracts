@@ -18,7 +18,7 @@ pub struct Asset {
 
 impl fmt::Display for Asset {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} {}", self.amount, self.info)
+        write!(f, "{}{}", self.amount, self.info)
     }
 }
 
