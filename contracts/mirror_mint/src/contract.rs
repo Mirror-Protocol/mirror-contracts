@@ -327,6 +327,7 @@ pub fn try_open_position<S: Storage, A: Api, Q: Querier>(
             log("action", "open_position"),
             log("position_idx", position_idx.to_string()),
             log("mint_amount", mint_amount.to_string()),
+            log("collateral_amount", collateral.amount),
         ],
         data: None,
     })
