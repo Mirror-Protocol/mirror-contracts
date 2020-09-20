@@ -329,6 +329,7 @@ fn open_position() {
             log("action", "open_position"),
             log("position_idx", "1"),
             log("mint_amount", "666666"),
+            log("collateral_amount", "1000000"),
         ]
     );
 
@@ -408,6 +409,7 @@ fn open_position() {
             log("action", "open_position"),
             log("position_idx", "2"),
             log("mint_amount", "333333"),
+            log("collateral_amount", "1000000"),
         ]
     );
 
