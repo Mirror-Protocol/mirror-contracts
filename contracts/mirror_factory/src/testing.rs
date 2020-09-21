@@ -369,6 +369,13 @@ fn test_token_creation_hook() {
                             contract_addr: HumanAddr::from("asset0000"),
                         },
                     ],
+                    init_hook: Some(InitHook {
+                        msg: to_binary(&HandleMsg::UniswapCreationHook {
+                            asset_token: HumanAddr::from("asset0000"),
+                        })
+                        .unwrap(),
+                        contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
+                    }),
                 })
                 .unwrap(),
             })

@@ -2,7 +2,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{Decimal, HumanAddr};
-use uniswap::AssetInfo;
+use uniswap::{AssetInfo, InitHook};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -28,6 +28,8 @@ pub enum UniswapHandleMsg {
         owner_commission: Decimal,
         /// Asset infos
         asset_infos: [AssetInfo; 2],
+        /// Init hook
+        init_hook: Option<InitHook>,
     },
 }
 
