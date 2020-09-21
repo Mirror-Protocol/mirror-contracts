@@ -22,6 +22,8 @@ impl fmt::Display for Asset {
     }
 }
 
+static DECIMAL_FRACTION: Uint128 = Uint128(1_000_000_000_000_000_000u128);
+
 impl Asset {
     pub fn is_native_token(&self) -> bool {
         self.info.is_native_token()
@@ -36,7 +38,14 @@ impl Asset {
             let terra_querier = TerraQuerier::new(&deps.querier);
             let tax_rate: Decimal = terra_querier.query_tax_rate()?;
             let tax_cap: Uint128 = terra_querier.query_tax_cap(denom.to_string())?;
-            Ok(std::cmp::min(amount * tax_rate, tax_cap))
+            Ok(std::cmp::min(
+                (amount
+                    - amount.multiply_ratio(
+                        DECIMAL_FRACTION,
+                        DECIMAL_FRACTION * tax_rate + DECIMAL_FRACTION,
+                    ))?,
+                tax_cap,
+            ))
         } else {
             Ok(Uint128::zero())
         }
