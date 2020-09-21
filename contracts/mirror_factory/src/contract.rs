@@ -324,7 +324,7 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
                 contract_addr: deps.api.human_address(&config.uniswap_factory)?,
                 send: vec![],
                 msg: to_binary(&UniswapHandleMsg::CreatePair {
-                    pair_owner: env.contract.address,
+                    pair_owner: env.contract.address.clone(),
                     commission_collector: deps.api.human_address(&config.commission_collector)?,
                     lp_commission: params.lp_commission,
                     owner_commission: params.owner_commission,
@@ -336,6 +336,12 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
                             contract_addr: asset_token.clone(),
                         },
                     ],
+                    init_hook: Some(InitHook {
+                        msg: to_binary(&HandleMsg::UniswapCreationHook {
+                            asset_token: asset_token.clone(),
+                        })?,
+                        contract_addr: env.contract.address,
+                    }),
                 })?,
             }),
         ],
@@ -367,6 +373,7 @@ pub fn uniswap_creation_hook<S: Storage, A: Api, Q: Querier>(
             contract_addr: asset_token.clone(),
         },
     ];
+
     // Load uniswap pair contract
     let uniswap_contract: HumanAddr = load_pair_contract(
         &deps,
