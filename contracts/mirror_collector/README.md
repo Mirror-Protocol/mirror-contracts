@@ -1,19 +1,21 @@
-# Collector Contract
+# Mirror Collector
 
-This contract is a rewards collector contract, which converts all collected rewards to `config.staking_token` and send it to `config.distribution_contract`. 
+This contract is a rewards collector contract, which converts all collected rewards to `config.mirror_token` through uniswap and send it to `config.distribution_contract`. 
 
 ## Features
 
-* Convert
-   Swap all given symbol token to `config.collateral_denom` thorugh market(uniswap) contract. It retreives all symbol related infos from `config.factory_contract` with `whitelist` query. If the given symbol is `config.staking_symbol`, it will try to swap all `config.collateral_denom` to `config.staking_symbol`.
+* **Convert**
+
+   It is permissionless function to swap all balance of an asset token to `config.collateral_denom` thorugh uniswap contract. It retreives uniswap pair(`config.distribution_contract`<>`asset_token`) contract address from the `config.uniswap_factory`. If the given asset token is `config.mirror_token`, it swaps all `config.collateral_denom` to `config.mirror_token`.
 
    ```json
-    {"convert": { "symbol": String } }
+    {"convert": { "asset_token": HumanAddr } }
    ```
    
    The steps are 
    * Asset Token => Collateral Denom
-   * Collateral Denom => Staking
+   * Collateral Denom => Mirror Token
 
-* Send
-   Send all collected `config.staking_symbol` to `stkaing_contract` of `staking_symbol` by executing `distribute_reward` operation.
+* **Send**
+
+   Send all balance of the `config.mirror_token` to `config.distribution_contract`.

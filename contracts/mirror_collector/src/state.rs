@@ -11,7 +11,7 @@ pub struct Config {
     pub distribution_contract: CanonicalAddr, // collected rewards receiver
     pub uniswap_factory: CanonicalAddr, // uniswap factory contract
     pub mirror_token: CanonicalAddr,
-    pub collateral_denom: String,
+    pub base_denom: String,
 }
 
 pub fn store_config<S: Storage>(storage: &mut S, config: &Config) -> StdResult<()> {

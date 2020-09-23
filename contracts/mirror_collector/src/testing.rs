@@ -1,9 +1,10 @@
 use crate::contract::{handle, init, query_config};
 use crate::mock_querier::mock_dependencies;
-use crate::msg::{ConfigResponse, HandleMsg, InitMsg, MarketHandleMsg};
+use crate::msg::{ConfigResponse, HandleMsg, InitMsg, UniswapCw20HookMsg, UniswapHandleMsg};
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{to_binary, Coin, CosmosMsg, Decimal, HumanAddr, Uint128, WasmMsg};
 use cw20::Cw20HandleMsg;
+use uniswap::{Asset, AssetInfo};
 
 #[test]
 fn proper_initialization() {
@@ -13,7 +14,7 @@ fn proper_initialization() {
         uniswap_factory: HumanAddr("uniswapfactory".to_string()),
         distribution_contract: HumanAddr("gov0000".to_string()),
         mirror_token: HumanAddr("mirror0000".to_string()),
-        collateral_denom: "uusd".to_string(),
+        base_denom: "uusd".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -24,7 +25,7 @@ fn proper_initialization() {
     // it worked, let's query the state
     let config: ConfigResponse = query_config(&deps).unwrap();
     assert_eq!("uniswapfactory", config.uniswap_factory.as_str());
-    assert_eq!("uusd", config.collateral_denom.as_str());
+    assert_eq!("uusd", config.base_denom.as_str());
 }
 
 #[test]
@@ -61,7 +62,7 @@ fn test_convert() {
         uniswap_factory: HumanAddr("uniswapfactory".to_string()),
         distribution_contract: HumanAddr("gov0000".to_string()),
         mirror_token: HumanAddr("tokenMIRROR".to_string()),
-        collateral_denom: "uusd".to_string(),
+        base_denom: "uusd".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -75,27 +76,16 @@ fn test_convert() {
     let res = handle(&mut deps, env, msg).unwrap();
     assert_eq!(
         res.messages,
-        vec![
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("tokenAPPL"),
-                msg: to_binary(&Cw20HandleMsg::IncreaseAllowance {
-                    spender: HumanAddr::from("pairAPPL"),
-                    amount: Uint128(100u128),
-                    expires: None,
-                })
-                .unwrap(),
-                send: vec![],
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("pairAPPL"),
-                msg: to_binary(&MarketHandleMsg::Sell {
-                    amount: Uint128(100u128),
-                    max_spread: None,
-                })
-                .unwrap(),
-                send: vec![],
+        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: HumanAddr::from("tokenAPPL"),
+            msg: to_binary(&Cw20HandleMsg::Send {
+                contract: HumanAddr::from("pairAPPL"),
+                amount: Uint128(100u128),
+                msg: Some(to_binary(&UniswapCw20HookMsg::Swap { max_spread: None }).unwrap()),
             })
-        ]
+            .unwrap(),
+            send: vec![],
+        })]
     );
 
     let msg = HandleMsg::Convert {
@@ -110,10 +100,19 @@ fn test_convert() {
         res.messages,
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: HumanAddr::from("pairMIRROR"),
-            msg: to_binary(&MarketHandleMsg::Buy { max_spread: None }).unwrap(),
+            msg: to_binary(&UniswapHandleMsg::Swap {
+                offer_asset: Asset {
+                    info: AssetInfo::NativeToken {
+                        denom: "uusd".to_string()
+                    },
+                    amount: Uint128(99u128),
+                },
+                max_spread: None
+            })
+            .unwrap(),
             send: vec![Coin {
-                denom: "uusd".to_string(),
                 amount: Uint128(99u128),
+                denom: "uusd".to_string(),
             }],
         })]
     );
@@ -131,7 +130,7 @@ fn test_send() {
         uniswap_factory: HumanAddr("uniswapfactory".to_string()),
         distribution_contract: HumanAddr("gov0000".to_string()),
         mirror_token: HumanAddr("mirror0000".to_string()),
-        collateral_denom: "uusd".to_string(),
+        base_denom: "uusd".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);

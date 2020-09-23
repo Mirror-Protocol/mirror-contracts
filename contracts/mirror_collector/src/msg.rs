@@ -1,14 +1,15 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Decimal, HumanAddr, Uint128};
+use cosmwasm_std::{Decimal, HumanAddr};
+use uniswap::Asset;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
     pub distribution_contract: HumanAddr, // collected rewards receiver
     pub uniswap_factory: HumanAddr,
     pub mirror_token: HumanAddr,
-    pub collateral_denom: String,
+    pub base_denom: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -30,7 +31,7 @@ pub struct ConfigResponse {
     pub distribution_contract: HumanAddr, // collected rewards receiver
     pub uniswap_factory: HumanAddr,
     pub mirror_token: HumanAddr,
-    pub collateral_denom: String,
+    pub base_denom: String,
 }
 
 ////////////////////////
@@ -42,15 +43,20 @@ pub enum StakingCw20HookMsg {
 }
 
 //////////////////////////////
-/// Market contract handle msg
+/// Uniswap contract handle msg
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum MarketHandleMsg {
-    /// Buy an asset
-    Buy { max_spread: Option<Decimal> },
-    /// Sell a given amount of asset
-    Sell {
-        amount: Uint128,
+pub enum UniswapHandleMsg {
+    /// Swap an offer asset to the other
+    Swap {
+        offer_asset: Asset,
         max_spread: Option<Decimal>,
     },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum UniswapCw20HookMsg {
+    /// Sell a given amount of asset
+    Swap { max_spread: Option<Decimal> },
 }

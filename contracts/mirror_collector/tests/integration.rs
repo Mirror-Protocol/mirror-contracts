@@ -50,7 +50,7 @@ fn proper_initialization() {
         uniswap_factory: HumanAddr("uniswapfactory".to_string()),
         distribution_contract: HumanAddr("gov0000".to_string()),
         mirror_token: HumanAddr("mirror0000".to_string()),
-        collateral_denom: "uusd".to_string(),
+        base_denom: "uusd".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -62,5 +62,5 @@ fn proper_initialization() {
     assert_eq!("uniswapfactory", config.uniswap_factory.as_str());
     assert_eq!("gov0000", config.distribution_contract.as_str());
     assert_eq!("mirror0000", config.mirror_token.as_str());
-    assert_eq!("uusd", config.collateral_denom.as_str());
+    assert_eq!("uusd", config.base_denom.as_str());
 }
