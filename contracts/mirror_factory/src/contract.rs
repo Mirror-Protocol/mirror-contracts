@@ -216,7 +216,15 @@ pub fn try_pass_command<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-// only owner can exeucte whitelist
+/// Whitelisting process
+/// 1. Create asset token contract with `config.token_code_id` with `minter` argument
+/// 2. Call `TokenCreationHook`
+///    2-1. Initialize distribution info
+///    2-2. Register asset to mint contract
+///    2-3. Register asset and oracle feeder to oracle contract
+///    2-4. Create uniswap pair through uniswap factory
+/// 3. Call `UniswapCreationHook`
+///    3-1. Register asset to staking contract
 pub fn try_whitelist<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
@@ -265,6 +273,11 @@ pub fn try_whitelist<S: Storage, A: Api, Q: Querier>(
     })
 }
 
+/// TokenCreationHook
+/// 1. Initialize distribution info
+/// 2. Register asset to mint contract
+/// 3. Register asset and oracle feeder to oracle contract
+/// 4. Create uniswap pair through uniswap factory with `UniswapCreationHook`
 pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
@@ -350,6 +363,8 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
     })
 }
 
+/// UniswapCreationHook
+/// 1. Register asset and liquidity(LP) token to staking contract
 pub fn uniswap_creation_hook<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
@@ -399,7 +414,9 @@ pub fn uniswap_creation_hook<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-// Anyone can execute mint function to receive rewards
+/// Mint
+/// Anyone can execute mint operation to distribute
+/// mirror inflation rewards on the staking pool
 pub fn try_mint<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
