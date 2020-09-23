@@ -1,21 +1,16 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "PositionResponse",
+  "title": "PositionsResponse",
   "type": "object",
   "required": [
-    "asset",
-    "collateral",
-    "owner"
+    "positions"
   ],
   "properties": {
-    "asset": {
-      "$ref": "#/definitions/Asset"
-    },
-    "collateral": {
-      "$ref": "#/definitions/Asset"
-    },
-    "owner": {
-      "$ref": "#/definitions/HumanAddr"
+    "positions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/PositionResponse"
+      }
     }
   },
   "definitions": {
@@ -78,6 +73,25 @@
     },
     "HumanAddr": {
       "type": "string"
+    },
+    "PositionResponse": {
+      "type": "object",
+      "required": [
+        "asset",
+        "collateral",
+        "owner"
+      ],
+      "properties": {
+        "asset": {
+          "$ref": "#/definitions/Asset"
+        },
+        "collateral": {
+          "$ref": "#/definitions/Asset"
+        },
+        "owner": {
+          "$ref": "#/definitions/HumanAddr"
+        }
+      }
     },
     "Uint128": {
       "type": "string"
