@@ -45,9 +45,7 @@
           ],
           "properties": {
             "position_idx": {
-              "type": "integer",
-              "format": "uint64",
-              "minimum": 0.0
+              "$ref": "#/definitions/Uint128"
             }
           }
         }
@@ -77,12 +75,14 @@
               "$ref": "#/definitions/HumanAddr"
             },
             "start_after": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint64",
-              "minimum": 0.0
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Uint128"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             }
           }
         }
@@ -133,6 +133,9 @@
       ]
     },
     "HumanAddr": {
+      "type": "string"
+    },
+    "Uint128": {
       "type": "string"
     }
   }

@@ -79,6 +79,7 @@
       "required": [
         "asset",
         "collateral",
+        "idx",
         "owner"
       ],
       "properties": {
@@ -87,6 +88,9 @@
         },
         "collateral": {
           "$ref": "#/definitions/Asset"
+        },
+        "idx": {
+          "$ref": "#/definitions/Uint128"
         },
         "owner": {
           "$ref": "#/definitions/HumanAddr"

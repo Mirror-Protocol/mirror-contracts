@@ -39,9 +39,7 @@
           ],
           "properties": {
             "position_idx": {
-              "type": "integer",
-              "format": "uint64",
-              "minimum": 0.0
+              "$ref": "#/definitions/Uint128"
             }
           }
         }
@@ -61,9 +59,7 @@
           ],
           "properties": {
             "position_idx": {
-              "type": "integer",
-              "format": "uint64",
-              "minimum": 0.0
+              "$ref": "#/definitions/Uint128"
             }
           }
         }
@@ -83,9 +79,7 @@
           ],
           "properties": {
             "position_idx": {
-              "type": "integer",
-              "format": "uint64",
-              "minimum": 0.0
+              "$ref": "#/definitions/Uint128"
             }
           }
         }
@@ -140,6 +134,9 @@
       "type": "string"
     },
     "HumanAddr": {
+      "type": "string"
+    },
+    "Uint128": {
       "type": "string"
     }
   }
