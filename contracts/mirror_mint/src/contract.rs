@@ -6,13 +6,13 @@ use cosmwasm_std::{
 
 use crate::msg::{
     AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, PositionResponse,
-    QueryMsg,
+    PositionsResponse, QueryMsg,
 };
 
 use crate::state::{
-    read_asset_config, read_config, read_position, read_position_idx, remove_position,
-    store_asset_config, store_config, store_position, store_position_idx, AssetConfig, Config,
-    Position,
+    create_position, read_asset_config, read_config, read_position, read_position_idx,
+    read_positions, remove_position, store_asset_config, store_config, store_position,
+    store_position_idx, AssetConfig, Config, Position,
 };
 
 use crate::math::reverse_decimal;
@@ -297,7 +297,7 @@ pub fn try_open_position<S: Storage, A: Api, Q: Querier>(
     }
 
     let position_idx = read_position_idx(&deps.storage)?;
-    store_position(
+    create_position(
         &mut deps.storage,
         position_idx,
         &Position {
@@ -405,7 +405,7 @@ pub fn try_withdraw<S: Storage, A: Api, Q: Querier>(
 
     position.collateral.amount = collateral_amount;
     if position.collateral.amount == Uint128::zero() && position.asset.amount == Uint128::zero() {
-        remove_position(&mut deps.storage, position_idx);
+        remove_position(&mut deps.storage, position_idx, &position.owner);
     } else {
         store_position(&mut deps.storage, position_idx, &position)?;
     }
@@ -512,7 +512,7 @@ pub fn try_burn<S: Storage, A: Api, Q: Querier>(
     // Update asset amount
     position.asset.amount = (position.asset.amount - asset.amount)?;
     if position.collateral.amount == Uint128::zero() && position.asset.amount == Uint128::zero() {
-        remove_position(&mut deps.storage, position_idx);
+        remove_position(&mut deps.storage, position_idx, &position.owner);
     } else {
         store_position(&mut deps.storage, position_idx, &position)?;
     }
@@ -592,10 +592,10 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
     let mut messages: Vec<CosmosMsg> = vec![];
     if left_collateral_amount.is_zero() {
         // all collaterals are sold out
-        remove_position(&mut deps.storage, position_idx);
+        remove_position(&mut deps.storage, position_idx, &position.owner);
     } else if left_asset_amount.is_zero() {
         // all assets are paid
-        remove_position(&mut deps.storage, position_idx);
+        remove_position(&mut deps.storage, position_idx, &position.owner);
 
         // refunds left collaterals to position owner
         let refund_collateral_asset: Asset = Asset {
@@ -660,6 +660,11 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::AssetConfig { asset_info } => to_binary(&query_asset_config(deps, asset_info)?),
         QueryMsg::Position { position_idx } => to_binary(&query_position(deps, position_idx)?),
+        QueryMsg::Positions {
+            owner_addr,
+            start_after,
+            limit,
+        } => to_binary(&query_positions(deps, owner_addr, start_after, limit)?),
     }
 }
 
@@ -697,34 +702,43 @@ pub fn query_position<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     position_idx: u64,
 ) -> StdResult<PositionResponse> {
-    let config: Config = read_config(&deps.storage)?;
     let position: Position = read_position(&deps.storage, position_idx)?;
-
-    let asset_config: AssetConfig = read_asset_config(&deps.storage, &position.asset.info)?;
-
-    let (collateral_price, asset_price) = load_prices(
-        &deps,
-        &config,
-        &position.collateral.info,
-        &position.asset.info,
-        None,
-    )?;
-
-    // the position is in auction state, when
-    // asset_amount * price_to_collateral * auction_threshold > collateral_amount
-    let asset_value_in_collateral_asset: Uint128 =
-        position.asset.amount * asset_price * reverse_decimal(collateral_price);
-    let is_auction_open = asset_value_in_collateral_asset * asset_config.min_collateral_ratio
-        > position.collateral.amount;
-
     let resp = PositionResponse {
         owner: deps.api.human_address(&position.owner)?,
         collateral: position.collateral.to_normal(&deps)?,
         asset: position.asset.to_normal(&deps)?,
-        is_auction_open,
     };
 
     Ok(resp)
+}
+
+pub fn query_positions<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    owner_addr: HumanAddr,
+    start_after: Option<u64>,
+    limit: Option<u32>,
+) -> StdResult<PositionsResponse> {
+    let positions: Vec<Position> = read_positions(
+        &deps.storage,
+        &deps.api.canonical_address(&owner_addr)?,
+        start_after,
+        limit,
+    )?;
+
+    let position_responses: StdResult<Vec<PositionResponse>> = positions
+        .iter()
+        .map(|position| {
+            Ok(PositionResponse {
+                owner: deps.api.human_address(&position.owner)?,
+                collateral: position.collateral.to_normal(&deps)?,
+                asset: position.asset.to_normal(&deps)?,
+            })
+        })
+        .collect();
+
+    Ok(PositionsResponse {
+        positions: position_responses?,
+    })
 }
 
 // Check zero balance & same collateral with position

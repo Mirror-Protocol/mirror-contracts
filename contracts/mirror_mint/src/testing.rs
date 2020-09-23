@@ -7,7 +7,7 @@ use crate::contract::{handle, init, query};
 
 use crate::msg::{
     AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, PositionResponse,
-    QueryMsg,
+    PositionsResponse, QueryMsg,
 };
 
 use crate::mock_querier::mock_dependencies;
@@ -364,7 +364,38 @@ fn open_position() {
                 },
                 amount: Uint128(1000000u128),
             },
-            is_auction_open: false
+        }
+    );
+
+    // can query positions
+    let res = query(
+        &deps,
+        QueryMsg::Positions {
+            owner_addr: HumanAddr::from("addr0000"),
+            limit: None,
+            start_after: None,
+        },
+    )
+    .unwrap();
+    let positions: PositionsResponse = from_binary(&res).unwrap();
+    assert_eq!(
+        positions,
+        PositionsResponse {
+            positions: vec![PositionResponse {
+                owner: HumanAddr::from("addr0000"),
+                asset: Asset {
+                    info: AssetInfo::Token {
+                        contract_addr: HumanAddr::from("asset0000"),
+                    },
+                    amount: Uint128(666666u128),
+                },
+                collateral: Asset {
+                    info: AssetInfo::NativeToken {
+                        denom: "uusd".to_string(),
+                    },
+                    amount: Uint128(1000000u128),
+                },
+            }],
         }
     );
 
@@ -444,7 +475,38 @@ fn open_position() {
                 },
                 amount: Uint128(1000000u128),
             },
-            is_auction_open: false
+        }
+    );
+
+    // can query positions
+    let res = query(
+        &deps,
+        QueryMsg::Positions {
+            owner_addr: HumanAddr::from("addr0000"),
+            limit: None,
+            start_after: Some(1u64),
+        },
+    )
+    .unwrap();
+    let positions: PositionsResponse = from_binary(&res).unwrap();
+    assert_eq!(
+        positions,
+        PositionsResponse {
+            positions: vec![PositionResponse {
+                owner: HumanAddr::from("addr0000"),
+                asset: Asset {
+                    info: AssetInfo::Token {
+                        contract_addr: HumanAddr::from("asset0000"),
+                    },
+                    amount: Uint128(333333u128),
+                },
+                collateral: Asset {
+                    info: AssetInfo::Token {
+                        contract_addr: HumanAddr::from("asset0001"),
+                    },
+                    amount: Uint128(1000000u128),
+                },
+            }],
         }
     );
 }
@@ -570,7 +632,6 @@ fn deposit() {
                 },
                 amount: Uint128(2000000u128),
             },
-            is_auction_open: false
         }
     );
 
@@ -619,7 +680,6 @@ fn deposit() {
                 },
                 amount: Uint128(2000000u128),
             },
-            is_auction_open: false
         }
     );
 }
