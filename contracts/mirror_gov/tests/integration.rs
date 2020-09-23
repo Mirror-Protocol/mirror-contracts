@@ -19,25 +19,26 @@
 //! 4. Anywhere you see query(&deps, ...) you must replace it with query(&mut deps, ...)
 
 use cosmwasm_std::{
-    coins, from_binary, Decimal, HandleResponse, HandleResult, HumanAddr, InitResponse,
-    StdError,
+    coins, from_binary, Decimal, HandleResponse, HandleResult, HumanAddr, InitResponse, StdError,
+    Uint128,
 };
 use cosmwasm_storage::to_length_prefixed;
 use cosmwasm_vm::testing::{handle, init, mock_env, mock_instance, query};
 use cosmwasm_vm::{from_slice, Api, Storage};
-use mirror_gov::contract::VOTING_TOKEN;
 use mirror_gov::msg::{ConfigResponse, HandleMsg, InitMsg, QueryMsg};
 use mirror_gov::state::Config;
 
 // This line will test the output of cargo wasm
-static WASM: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/mirror_gov.wasm");
+static WASM: &[u8] = include_bytes!("../../../target/wasm32-unknown-unknown/release/mirror_gov.wasm");
 // You can uncomment this line instead to test productionified build from rust-optimizer
 // static WASM: &[u8] = include_bytes!("../contract.wasm");
 
+const VOTING_TOKEN: &str = "voting_token";
 const TEST_CREATOR: &str = "creator";
 const DEFAULT_QUORUM: u64 = 30u64;
 const DEFAULT_THRESHOLD: u64 = 50u64;
 const DEFAULT_VOTING_PERIOD: u64 = 10000u64;
+const DEFAULT_PROPOSAL_DEPOSIT: u128 = 10000000000u128;
 
 fn init_msg() -> InitMsg {
     InitMsg {
@@ -45,6 +46,7 @@ fn init_msg() -> InitMsg {
         quorum: Decimal::percent(DEFAULT_QUORUM),
         threshold: Decimal::percent(DEFAULT_THRESHOLD),
         voting_period: DEFAULT_VOTING_PERIOD,
+        proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
     }
 }
 
@@ -79,6 +81,7 @@ fn proper_initialization() {
                 quorum: Decimal::percent(DEFAULT_QUORUM),
                 threshold: Decimal::percent(DEFAULT_THRESHOLD),
                 voting_period: DEFAULT_VOTING_PERIOD,
+                proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
             }
         );
         Ok(())
@@ -104,6 +107,7 @@ fn update_config() {
         quorum: None,
         threshold: None,
         voting_period: None,
+        proposal_deposit: None,
     };
 
     let res: HandleResponse = handle(&mut deps, env, msg).unwrap();
@@ -116,6 +120,7 @@ fn update_config() {
     assert_eq!(Decimal::percent(DEFAULT_QUORUM), config.quorum);
     assert_eq!(Decimal::percent(DEFAULT_THRESHOLD), config.threshold);
     assert_eq!(DEFAULT_VOTING_PERIOD, config.voting_period);
+    assert_eq!(DEFAULT_PROPOSAL_DEPOSIT, config.proposal_deposit.u128());
 
     // update left items
     let env = mock_env("addr0001", &[]);
@@ -124,6 +129,7 @@ fn update_config() {
         quorum: Some(Decimal::percent(20)),
         threshold: Some(Decimal::percent(75)),
         voting_period: Some(20000u64),
+        proposal_deposit: Some(Uint128(123u128)),
     };
 
     let res: HandleResponse = handle(&mut deps, env, msg).unwrap();
@@ -136,6 +142,7 @@ fn update_config() {
     assert_eq!(Decimal::percent(20), config.quorum);
     assert_eq!(Decimal::percent(75), config.threshold);
     assert_eq!(20000u64, config.voting_period);
+    assert_eq!(123u128, config.proposal_deposit.u128());
 
     // Unauthorzied err
     let env = mock_env(TEST_CREATOR, &[]);
@@ -144,6 +151,7 @@ fn update_config() {
         quorum: None,
         threshold: None,
         voting_period: None,
+        proposal_deposit: None,
     };
 
     let res: HandleResult = handle(&mut deps, env, msg);
