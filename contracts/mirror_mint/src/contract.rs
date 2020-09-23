@@ -33,7 +33,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     };
 
     store_config(&mut deps.storage, &config)?;
-    store_position_idx(&mut deps.storage, 1u64)?;
+    store_position_idx(&mut deps.storage, Uint128(1u128))?;
     Ok(InitResponse::default())
 }
 
@@ -301,6 +301,7 @@ pub fn try_open_position<S: Storage, A: Api, Q: Querier>(
         &mut deps.storage,
         position_idx,
         &Position {
+            idx: position_idx,
             owner: deps.api.canonical_address(&sender)?,
             collateral: AssetRaw {
                 amount: collateral.amount,
@@ -313,7 +314,7 @@ pub fn try_open_position<S: Storage, A: Api, Q: Querier>(
         },
     )?;
 
-    store_position_idx(&mut deps.storage, position_idx + 1)?;
+    store_position_idx(&mut deps.storage, position_idx + Uint128(1u128))?;
     Ok(HandleResponse {
         messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps.api.human_address(&asset_config.token)?,
@@ -339,7 +340,7 @@ pub fn try_open_position<S: Storage, A: Api, Q: Querier>(
 pub fn try_deposit<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     sender: HumanAddr,
-    position_idx: u64,
+    position_idx: Uint128,
     collateral: Asset,
 ) -> HandleResult {
     let mut position: Position = read_position(&deps.storage, position_idx)?;
@@ -367,7 +368,7 @@ pub fn try_deposit<S: Storage, A: Api, Q: Querier>(
 pub fn try_withdraw<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    position_idx: u64,
+    position_idx: Uint128,
     collateral: Asset,
 ) -> HandleResult {
     let mut position: Position = read_position(&deps.storage, position_idx)?;
@@ -405,7 +406,7 @@ pub fn try_withdraw<S: Storage, A: Api, Q: Querier>(
 
     position.collateral.amount = collateral_amount;
     if position.collateral.amount == Uint128::zero() && position.asset.amount == Uint128::zero() {
-        remove_position(&mut deps.storage, position_idx, &position.owner);
+        remove_position(&mut deps.storage, position_idx, &position.owner)?;
     } else {
         store_position(&mut deps.storage, position_idx, &position)?;
     }
@@ -433,7 +434,7 @@ pub fn try_withdraw<S: Storage, A: Api, Q: Querier>(
 pub fn try_mint<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    position_idx: u64,
+    position_idx: Uint128,
     asset: Asset,
 ) -> HandleResult {
     let mut position: Position = read_position(&deps.storage, position_idx)?;
@@ -491,7 +492,7 @@ pub fn try_mint<S: Storage, A: Api, Q: Querier>(
 pub fn try_burn<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     sender: HumanAddr,
-    position_idx: u64,
+    position_idx: Uint128,
     asset: Asset,
 ) -> StdResult<HandleResponse> {
     let mut position: Position = read_position(&deps.storage, position_idx)?;
@@ -512,7 +513,7 @@ pub fn try_burn<S: Storage, A: Api, Q: Querier>(
     // Update asset amount
     position.asset.amount = (position.asset.amount - asset.amount)?;
     if position.collateral.amount == Uint128::zero() && position.asset.amount == Uint128::zero() {
-        remove_position(&mut deps.storage, position_idx, &position.owner);
+        remove_position(&mut deps.storage, position_idx, &position.owner)?;
     } else {
         store_position(&mut deps.storage, position_idx, &position)?;
     }
@@ -538,7 +539,7 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     sender: HumanAddr,
-    position_idx: u64,
+    position_idx: Uint128,
     asset: Asset,
 ) -> StdResult<HandleResponse> {
     let mut position: Position = read_position(&deps.storage, position_idx)?;
@@ -592,10 +593,10 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
     let mut messages: Vec<CosmosMsg> = vec![];
     if left_collateral_amount.is_zero() {
         // all collaterals are sold out
-        remove_position(&mut deps.storage, position_idx, &position.owner);
+        remove_position(&mut deps.storage, position_idx, &position.owner)?;
     } else if left_asset_amount.is_zero() {
         // all assets are paid
-        remove_position(&mut deps.storage, position_idx, &position.owner);
+        remove_position(&mut deps.storage, position_idx, &position.owner)?;
 
         // refunds left collaterals to position owner
         let refund_collateral_asset: Asset = Asset {
@@ -700,10 +701,11 @@ pub fn query_asset_config<S: Storage, A: Api, Q: Querier>(
 
 pub fn query_position<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
-    position_idx: u64,
+    position_idx: Uint128,
 ) -> StdResult<PositionResponse> {
     let position: Position = read_position(&deps.storage, position_idx)?;
     let resp = PositionResponse {
+        idx: position.idx,
         owner: deps.api.human_address(&position.owner)?,
         collateral: position.collateral.to_normal(&deps)?,
         asset: position.asset.to_normal(&deps)?,
@@ -715,7 +717,7 @@ pub fn query_position<S: Storage, A: Api, Q: Querier>(
 pub fn query_positions<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     owner_addr: HumanAddr,
-    start_after: Option<u64>,
+    start_after: Option<Uint128>,
     limit: Option<u32>,
 ) -> StdResult<PositionsResponse> {
     let positions: Vec<Position> = read_positions(
@@ -729,6 +731,7 @@ pub fn query_positions<S: Storage, A: Api, Q: Querier>(
         .iter()
         .map(|position| {
             Ok(PositionResponse {
+                idx: position.idx,
                 owner: deps.api.human_address(&position.owner)?,
                 collateral: position.collateral.to_normal(&deps)?,
                 asset: position.asset.to_normal(&deps)?,

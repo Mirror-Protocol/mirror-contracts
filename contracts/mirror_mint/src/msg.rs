@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Decimal, HumanAddr};
+use cosmwasm_std::{Decimal, HumanAddr, Uint128};
 use cw20::Cw20ReceiveMsg;
 use uniswap::{Asset, AssetInfo};
 
@@ -42,17 +42,17 @@ pub enum HandleMsg {
     },
     /// deposit more collateral
     Deposit {
-        position_idx: u64,
+        position_idx: Uint128,
         collateral: Asset,
     },
     /// withdraw collateral
     Withdraw {
-        position_idx: u64,
+        position_idx: Uint128,
         collateral: Asset,
     },
     /// convert all deposit collateral to asset
     Mint {
-        position_idx: u64,
+        position_idx: Uint128,
         asset: Asset,
     },
 }
@@ -66,11 +66,11 @@ pub enum Cw20HookMsg {
         collateral_ratio: Decimal,
     },
     /// deposit more collateral
-    Deposit { position_idx: u64 },
+    Deposit { position_idx: Uint128 },
     /// convert specified asset amount and send back to user
-    Burn { position_idx: u64 },
+    Burn { position_idx: Uint128 },
     /// Auction a user can sell their asset tokens in discounted prices
-    Auction { position_idx: u64 },
+    Auction { position_idx: Uint128 },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -81,11 +81,11 @@ pub enum QueryMsg {
         asset_info: AssetInfo,
     },
     Position {
-        position_idx: u64,
+        position_idx: Uint128,
     },
     Positions {
         owner_addr: HumanAddr,
-        start_after: Option<u64>,
+        start_after: Option<Uint128>,
         limit: Option<u32>,
     },
 }
@@ -109,6 +109,7 @@ pub struct AssetConfigResponse {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct PositionResponse {
+    pub idx: Uint128,
     pub owner: HumanAddr,
     pub collateral: Asset,
     pub asset: Asset,
