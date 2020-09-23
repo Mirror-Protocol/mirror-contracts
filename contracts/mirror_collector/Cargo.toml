@@ -39,7 +39,6 @@ singlepass = ["cosmwasm-vm/default-singlepass"]
 [dependencies]
 uniswap = { path = "../../packages/uniswap", default-features = false, version = "0.1.0"}
 cw20 = "0.2"
-terra-cosmwasm = "1.0"
 cosmwasm-std = { version = "0.10.1" }
 cosmwasm-storage = { version = "0.10.1" }
 schemars = "0.7"
@@ -48,3 +47,4 @@ serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 [dev-dependencies]
 cosmwasm-vm = { version = "0.10.1", default-features = false }
 cosmwasm-schema = "0.10.1"
+terra-cosmwasm = "1.0"

@@ -1,14 +1,15 @@
 use cosmwasm_std::{
-    log, to_binary, Api, Binary, Coin, CosmosMsg, Decimal, Env, Extern, HandleResponse,
-    HandleResult, HumanAddr, InitResponse, Querier, StdResult, Storage, Uint128, WasmMsg,
+    log, to_binary, Api, Binary, Coin, CosmosMsg, Env, Extern, HandleResponse,
+    HandleResult, HumanAddr, InitResponse, Querier, StdResult, Storage, WasmMsg,
 };
 
-use crate::msg::{ConfigResponse, HandleMsg, InitMsg, MarketHandleMsg, QueryMsg};
+use crate::msg::{
+    ConfigResponse, HandleMsg, InitMsg, QueryMsg, UniswapCw20HookMsg, UniswapHandleMsg,
+};
 use crate::state::{read_config, store_config, Config};
 
 use cw20::Cw20HandleMsg;
-use terra_cosmwasm::TerraQuerier;
-use uniswap::{load_balance, load_pair_contract, load_token_balance, AssetInfo};
+use uniswap::{load_balance, load_pair_contract, load_token_balance, Asset, AssetInfo};
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -21,7 +22,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
             distribution_contract: deps.api.canonical_address(&msg.distribution_contract)?,
             uniswap_factory: deps.api.canonical_address(&msg.uniswap_factory)?,
             mirror_token: deps.api.canonical_address(&msg.mirror_token)?,
-            collateral_denom: msg.collateral_denom,
+            base_denom: msg.base_denom,
         },
     )?;
 
@@ -39,7 +40,10 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     }
 }
 
-// Anyone can execute convert function to convert rewards to staking token
+/// Convert
+/// Anyone can execute convert function to swap
+/// asset token => collateral denom
+/// collateral denom => mirror token
 pub fn try_convert<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
@@ -62,48 +66,46 @@ pub fn try_convert<S: Storage, A: Api, Q: Querier>(
         ],
     )?;
 
-    let mut messages: Vec<CosmosMsg> = vec![];
+    let messages: Vec<CosmosMsg>;
     if config.mirror_token == asset_token_raw {
         // uusd => staking token
-        let amount = load_balance(
-            &deps,
-            &env.contract.address,
-            config.collateral_denom.to_string(),
-        )?;
+        let amount = load_balance(&deps, &env.contract.address, config.base_denom.to_string())?;
+        let swap_asset = Asset {
+            info: AssetInfo::NativeToken {
+                denom: config.base_denom.clone(),
+            },
+            amount,
+        };
 
-        messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+        // deduct tax first
+        let amount = (swap_asset.deduct_tax(&deps)?).amount;
+        messages = vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: pair_contract,
-            msg: to_binary(&MarketHandleMsg::Buy { max_spread: None })?,
-            send: vec![deduct_tax(
-                deps,
-                Coin {
-                    denom: config.collateral_denom,
+            msg: to_binary(&UniswapHandleMsg::Swap {
+                offer_asset: Asset {
                     amount,
+                    ..swap_asset
                 },
-            )?],
-        }));
+                max_spread: None,
+            })?,
+            send: vec![Coin {
+                denom: config.base_denom,
+                amount,
+            }],
+        })];
     } else {
         // asset token => uusd
         let amount = load_token_balance(&deps, &asset_token, &env.contract.address)?;
 
-        messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+        messages = vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: asset_token.clone(),
-            msg: to_binary(&Cw20HandleMsg::IncreaseAllowance {
-                spender: pair_contract.clone(),
+            msg: to_binary(&Cw20HandleMsg::Send {
+                contract: pair_contract.clone(),
                 amount,
-                expires: None,
+                msg: Some(to_binary(&UniswapCw20HookMsg::Swap { max_spread: None })?),
             })?,
             send: vec![],
-        }));
-
-        messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: pair_contract,
-            msg: to_binary(&MarketHandleMsg::Sell {
-                amount,
-                max_spread: None,
-            })?,
-            send: vec![],
-        }));
+        })];
     }
 
     Ok(HandleResponse {
@@ -159,24 +161,8 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
         distribution_contract: deps.api.human_address(&state.distribution_contract)?,
         uniswap_factory: deps.api.human_address(&state.uniswap_factory)?,
         mirror_token: deps.api.human_address(&state.mirror_token)?,
-        collateral_denom: state.collateral_denom,
+        base_denom: state.base_denom,
     };
 
     Ok(resp)
-}
-
-pub fn deduct_tax<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    coin: Coin,
-) -> StdResult<Coin> {
-    let terra_querier = TerraQuerier::new(&deps.querier);
-    let tax_rate: Decimal = terra_querier.query_tax_rate()?;
-    let tax_cap: Uint128 = terra_querier.query_tax_cap(coin.denom.to_string())?;
-    Ok(Coin {
-        amount: std::cmp::max(
-            (coin.amount - coin.amount * tax_rate)?,
-            (coin.amount - tax_cap).unwrap_or_else(|_| Uint128::zero()),
-        ),
-        ..coin
-    })
 }
