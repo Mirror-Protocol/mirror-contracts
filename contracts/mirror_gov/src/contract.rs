@@ -5,7 +5,7 @@ use crate::msg::{
 use crate::querier::load_token_balance;
 use crate::state::{
     bank_read, bank_store, config_read, config_store, poll_read, poll_store, state_read,
-    state_store, Config, ExecuteData, Poll, PollStatus, State, Voter,
+    state_store, Config, ExecuteData, Poll, PollStatus, State, VoteOption, Voter,
 };
 use cosmwasm_std::{
     from_binary, log, to_binary, Api, Binary, CanonicalAddr, CosmosMsg, Decimal, Env, Extern,
@@ -14,7 +14,6 @@ use cosmwasm_std::{
 };
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
 
-pub const VOTING_TOKEN: &str = "voting_token";
 const MIN_DESC_LENGTH: usize = 3;
 const MAX_DESC_LENGTH: usize = 256;
 
@@ -32,12 +31,14 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         quorum: msg.quorum,
         threshold: msg.threshold,
         voting_period: msg.voting_period,
+        proposal_deposit: msg.proposal_deposit,
     };
 
     let state = State {
         contract_addr: deps.api.canonical_address(&env.contract.address)?,
         poll_count: 0,
         total_share: Uint128::zero(),
+        total_deposit: Uint128::zero(),
     };
 
     config_store(&mut deps.storage).save(&config)?;
@@ -58,7 +59,16 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             quorum,
             threshold,
             voting_period,
-        } => update_config(deps, env, owner, quorum, threshold, voting_period),
+            proposal_deposit,
+        } => update_config(
+            deps,
+            env,
+            owner,
+            quorum,
+            threshold,
+            voting_period,
+            proposal_deposit,
+        ),
         HandleMsg::WithdrawVotingTokens { amount } => withdraw_voting_tokens(deps, env, amount),
         HandleMsg::CastVote {
             poll_id,
@@ -66,10 +76,6 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             share,
         } => cast_vote(deps, env, poll_id, vote, share),
         HandleMsg::EndPoll { poll_id } => end_poll(deps, env, poll_id),
-        HandleMsg::CreatePoll {
-            description,
-            execute_msg,
-        } => create_poll(deps, env, description, execute_msg),
     }
 }
 
@@ -89,6 +95,17 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
             Cw20HookMsg::StakeVotingTokens {} => {
                 stake_voting_tokens(deps, env, cw20_msg.sender, cw20_msg.amount)
             }
+            Cw20HookMsg::CreatePoll {
+                description,
+                execute_msg,
+            } => create_poll(
+                deps,
+                env,
+                cw20_msg.sender,
+                cw20_msg.amount,
+                description,
+                execute_msg,
+            ),
         }
     } else {
         Err(StdError::generic_err("data should be given"))
@@ -150,6 +167,7 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     quorum: Option<Decimal>,
     threshold: Option<Decimal>,
     voting_period: Option<u64>,
+    proposal_deposit: Option<Uint128>,
 ) -> HandleResult {
     let api = deps.api;
     config_store(&mut deps.storage).update(|mut config| {
@@ -173,6 +191,10 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
             config.voting_period = voting_period;
         }
 
+        if let Some(proposal_deposit) = proposal_deposit {
+            config.proposal_deposit = proposal_deposit;
+        }
+
         Ok(config)
     })?;
     Ok(HandleResponse::default())
@@ -190,12 +212,14 @@ pub fn withdraw_voting_tokens<S: Storage, A: Api, Q: Querier>(
     if let Some(mut token_manager) = bank_read(&deps.storage).may_load(key)? {
         let config: Config = config_store(&mut deps.storage).load()?;
         let mut state: State = state_store(&mut deps.storage).load()?;
+
+        // Load total share & total balance except proposal deposit amount
         let total_share = state.total_share;
-        let total_balance = load_token_balance(
+        let total_balance = (load_token_balance(
             &deps,
             &deps.api.human_address(&config.mirror_token)?,
             &state.contract_addr,
-        )?;
+        )? - state.total_deposit)?;
 
         let locked_share = locked_share(&sender_address_raw, deps);
         let withdraw_share = match amount {
@@ -271,16 +295,28 @@ fn validate_threshold(threshold: Decimal) -> StdResult<()> {
 pub fn create_poll<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
+    proposer: HumanAddr,
+    deposit_amount: Uint128,
     description: String,
     execute_msg: Option<ExecuteMsg>,
 ) -> StdResult<HandleResponse> {
     validate_description(&description)?;
 
     let config: Config = config_store(&mut deps.storage).load()?;
+    if deposit_amount < config.proposal_deposit {
+        return Err(StdError::generic_err(format!(
+            "Must deposit more than {} token",
+            config.proposal_deposit
+        )));
+    }
+
     let mut state: State = state_store(&mut deps.storage).load()?;
     let poll_count = state.poll_count;
     let poll_id = poll_count + 1;
+
+    // Increase poll count & total deposit amount
     state.poll_count = poll_id;
+    state.total_deposit += deposit_amount;
 
     let execute_data = if let Some(execute_msg) = execute_msg {
         Some(ExecuteData {
@@ -291,7 +327,7 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
         None
     };
 
-    let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
+    let sender_address_raw = deps.api.canonical_address(&proposer)?;
     let new_poll = Poll {
         creator: sender_address_raw,
         status: PollStatus::InProgress,
@@ -302,6 +338,7 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
         end_height: env.block.height + config.voting_period,
         description,
         execute_data,
+        deposit_amount,
     };
 
     let key = state.poll_count.to_string();
@@ -335,13 +372,6 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
     let key = &poll_id.to_string();
     let mut a_poll: Poll = poll_store(&mut deps.storage).load(key.as_bytes())?;
 
-    let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
-    if a_poll.creator != sender_address_raw {
-        return Err(StdError::generic_err(
-            "User is not the creator of the poll.",
-        ));
-    }
-
     if a_poll.status != PollStatus::InProgress {
         return Err(StdError::generic_err("Poll is not in progress"));
     }
@@ -354,7 +384,7 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
     let mut yes = 0u128;
 
     for voter in &a_poll.voter_info {
-        if voter.vote == "yes" {
+        if voter.vote == VoteOption::YES {
             yes += voter.share.u128();
         } else {
             no += voter.share.u128();
@@ -366,21 +396,20 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
     let mut rejected_reason = "";
     let mut passed = false;
 
-    if tallied_weight > 0 {
-        let config: Config = config_read(&deps.storage).load()?;
-        let state: State = state_read(&deps.storage).load()?;
-
-        let staked_weight = state.total_share.u128();
-        if staked_weight == 0 {
-            return Err(StdError::generic_err("Nothing staked"));
-        }
-
-        let quorum = Decimal::from_ratio(tallied_weight, staked_weight);
-        if quorum < config.quorum {
-            // Quorum: More than quorum of the total staked tokens at the end of the voting
-            // period need to have participated in the vote.
-            rejected_reason = "Quorum not reached";
-        } else if Decimal::from_ratio(yes, tallied_weight) > config.threshold {
+    let mut messages: Vec<CosmosMsg> = vec![];
+    let config: Config = config_read(&deps.storage).load()?;
+    let mut state: State = state_read(&deps.storage).load()?;
+    let staked_weight = state.total_share.u128();
+    if staked_weight == 0 {
+        return Err(StdError::generic_err("Nothing staked"));
+    }
+    let quorum = Decimal::from_ratio(tallied_weight, staked_weight);
+    if tallied_weight == 0 || quorum < config.quorum {
+        // Quorum: More than quorum of the total staked tokens at the end of the voting
+        // period need to have participated in the vote.
+        rejected_reason = "Quorum not reached";
+    } else {
+        if Decimal::from_ratio(yes, tallied_weight) > config.threshold {
             //Threshold: More than 50% of the tokens that participated in the vote
             // (after excluding “Abstain” votes) need to have voted in favor of the proposal (“Yes”).
             a_poll.status = PollStatus::Passed;
@@ -388,9 +417,25 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
         } else {
             rejected_reason = "Threshold not reached";
         }
-    } else {
-        rejected_reason = "Quorum not reached";
+
+        // Refunds deposit only when quorum is reached
+        if !a_poll.deposit_amount.is_zero() {
+            messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: deps.api.human_address(&config.mirror_token)?,
+                send: vec![],
+                msg: to_binary(&Cw20HandleMsg::Transfer {
+                    recipient: env.message.sender,
+                    amount: a_poll.deposit_amount,
+                })?,
+            }))
+        }
     }
+
+    // Decrease total deposit amount
+    state.total_deposit = (state.total_deposit - a_poll.deposit_amount)?;
+    state_store(&mut deps.storage).save(&state)?;
+
+    // Update poll status
     a_poll.status = poll_status;
     poll_store(&mut deps.storage).save(key.as_bytes(), &a_poll)?;
 
@@ -405,7 +450,6 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
         log("passed", &passed.to_string()),
     ];
 
-    let mut messages: Vec<CosmosMsg> = vec![];
     if passed {
         if let Some(execute_data) = a_poll.execute_data {
             messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
@@ -462,7 +506,7 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     poll_id: u64,
-    vote: String,
+    vote: VoteOption,
     share: Uint128,
 ) -> HandleResult {
     let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
@@ -490,6 +534,7 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
             "User does not have enough staked tokens.",
         ));
     }
+
     token_manager.participated_polls.push(poll_id);
     token_manager.locked_share.push((poll_id, share));
     bank_store(&mut deps.storage).save(key, &token_manager)?;
@@ -568,6 +613,7 @@ fn query_config<S: Storage, A: Api, Q: Querier>(
         quorum: config.quorum,
         threshold: config.threshold,
         voting_period: config.voting_period,
+        proposal_deposit: config.proposal_deposit,
     })
 }
 
@@ -596,6 +642,7 @@ fn query_poll<S: Storage, A: Api, Q: Querier>(
         status: poll.status,
         end_height: poll.end_height,
         description: poll.description,
+        deposit_amount: poll.deposit_amount,
     })
 }
 

@@ -32,6 +32,16 @@
                 }
               ]
             },
+            "proposal_deposit": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Uint128"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "quorum": {
               "anyOf": [
                 {
@@ -87,7 +97,7 @@
               "$ref": "#/definitions/Uint128"
             },
             "vote": {
-              "type": "string"
+              "$ref": "#/definitions/VoteOption"
             }
           }
         }
@@ -106,35 +116,6 @@
               "anyOf": [
                 {
                   "$ref": "#/definitions/Uint128"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            }
-          }
-        }
-      }
-    },
-    {
-      "type": "object",
-      "required": [
-        "create_poll"
-      ],
-      "properties": {
-        "create_poll": {
-          "type": "object",
-          "required": [
-            "description"
-          ],
-          "properties": {
-            "description": {
-              "type": "string"
-            },
-            "execute_msg": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/ExecuteMsg"
                 },
                 {
                   "type": "null"
@@ -202,26 +183,18 @@
       "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0\n\nThe greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
       "type": "string"
     },
-    "ExecuteMsg": {
-      "type": "object",
-      "required": [
-        "contract",
-        "msg"
-      ],
-      "properties": {
-        "contract": {
-          "$ref": "#/definitions/HumanAddr"
-        },
-        "msg": {
-          "$ref": "#/definitions/Binary"
-        }
-      }
-    },
     "HumanAddr": {
       "type": "string"
     },
     "Uint128": {
       "type": "string"
+    },
+    "VoteOption": {
+      "type": "string",
+      "enum": [
+        "y_e_s",
+        "n_o"
+      ]
     }
   }
 }

@@ -4,6 +4,7 @@
   "type": "object",
   "required": [
     "creator",
+    "deposit_amount",
     "description",
     "end_height",
     "status"
@@ -11,6 +12,9 @@
   "properties": {
     "creator": {
       "$ref": "#/definitions/HumanAddr"
+    },
+    "deposit_amount": {
+      "$ref": "#/definitions/Uint128"
     },
     "description": {
       "type": "string"
@@ -29,12 +33,16 @@
       "type": "string"
     },
     "PollStatus": {
+      "type": "string",
       "enum": [
-        "InProgress",
-        "Tally",
-        "Passed",
-        "Rejected"
+        "in_progress",
+        "tally",
+        "passed",
+        "rejected"
       ]
+    },
+    "Uint128": {
+      "type": "string"
     }
   }
 }

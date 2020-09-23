@@ -18,6 +18,7 @@ pub struct Config {
     pub quorum: Decimal,
     pub threshold: Decimal,
     pub voting_period: u64,
+    pub proposal_deposit: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -25,22 +26,31 @@ pub struct State {
     pub contract_addr: CanonicalAddr,
     pub poll_count: u64,
     pub total_share: Uint128,
+    pub total_deposit: Uint128,
 }
 
 #[derive(Default, Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct TokenManager {
     pub share: Uint128,                    // total staked balance
-    pub locked_share: Vec<(u64, Uint128)>, //maps poll_id to weight voted
+    pub locked_share: Vec<(u64, Uint128)>, // maps poll_id to weight voted
     pub participated_polls: Vec<u64>,      // poll_id
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum VoteOption {
+    YES,
+    NO,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Voter {
-    pub vote: String,
+    pub vote: VoteOption,
     pub share: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
 pub enum PollStatus {
     InProgress,
     Tally,
@@ -59,6 +69,7 @@ pub struct Poll {
     pub end_height: u64,
     pub description: String,
     pub execute_data: Option<ExecuteData>,
+    pub deposit_amount: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

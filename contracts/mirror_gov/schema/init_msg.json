@@ -4,6 +4,7 @@
   "type": "object",
   "required": [
     "mirror_token",
+    "proposal_deposit",
     "quorum",
     "threshold",
     "voting_period"
@@ -11,6 +12,9 @@
   "properties": {
     "mirror_token": {
       "$ref": "#/definitions/HumanAddr"
+    },
+    "proposal_deposit": {
+      "$ref": "#/definitions/Uint128"
     },
     "quorum": {
       "$ref": "#/definitions/Decimal"
@@ -30,6 +34,9 @@
       "type": "string"
     },
     "HumanAddr": {
+      "type": "string"
+    },
+    "Uint128": {
       "type": "string"
     }
   }

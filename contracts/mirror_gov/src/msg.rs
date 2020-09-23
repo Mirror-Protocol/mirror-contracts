@@ -1,4 +1,4 @@
-use crate::state::PollStatus;
+use crate::state::{PollStatus, VoteOption};
 use cosmwasm_std::{Binary, Decimal, HumanAddr, Uint128};
 use cw20::Cw20ReceiveMsg;
 use schemars::JsonSchema;
@@ -10,6 +10,7 @@ pub struct InitMsg {
     pub quorum: Decimal,
     pub threshold: Decimal,
     pub voting_period: u64,
+    pub proposal_deposit: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -21,18 +22,15 @@ pub enum HandleMsg {
         quorum: Option<Decimal>,
         threshold: Option<Decimal>,
         voting_period: Option<u64>,
+        proposal_deposit: Option<Uint128>,
     },
     CastVote {
         poll_id: u64,
-        vote: String,
+        vote: VoteOption,
         share: Uint128,
     },
     WithdrawVotingTokens {
         amount: Option<Uint128>,
-    },
-    CreatePoll {
-        description: String,
-        execute_msg: Option<ExecuteMsg>,
     },
     EndPoll {
         poll_id: u64,
@@ -42,7 +40,14 @@ pub enum HandleMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Cw20HookMsg {
+    /// StakeVotingTokens a user can stake their mirror token to receive rewards
+    /// or do vote on polls
     StakeVotingTokens {},
+    /// CreatePoll need to receive deposit from a proposer
+    CreatePoll {
+        description: String,
+        execute_msg: Option<ExecuteMsg>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -68,6 +73,7 @@ pub struct ConfigResponse {
     pub quorum: Decimal,
     pub threshold: Decimal,
     pub voting_period: u64,
+    pub proposal_deposit: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
@@ -82,6 +88,7 @@ pub struct PollResponse {
     pub status: PollStatus,
     pub end_height: u64,
     pub description: String,
+    pub deposit_amount: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
