@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PollResponse",
+  "type": "object",
+  "required": [
+    "creator",
+    "deposit_amount",
+    "description",
+    "end_height",
+    "status"
+  ],
+  "properties": {
+    "creator": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "deposit_amount": {
+      "$ref": "#/definitions/Uint128"
+    },
+    "description": {
+      "type": "string"
+    },
+    "end_height": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    },
+    "status": {
+      "$ref": "#/definitions/PollStatus"
+    }
+  },
+  "definitions": {
+    "HumanAddr": {
+      "type": "string"
+    },
+    "PollStatus": {
+      "type": "string",
+      "enum": [
+        "in_progress",
+        "tally",
+        "passed",
+        "rejected"
+      ]
+    },
+    "Uint128": {
+      "type": "string"
+    }
+  }
+}

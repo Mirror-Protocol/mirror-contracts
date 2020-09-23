@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ConfigResponse",
+  "type": "object",
+  "required": [
+    "base_denom",
+    "commission_collector",
+    "mint_contract",
+    "mint_per_block",
+    "mirror_token",
+    "oracle_contract",
+    "owner",
+    "staking_contract",
+    "token_code_id",
+    "uniswap_factory"
+  ],
+  "properties": {
+    "base_denom": {
+      "type": "string"
+    },
+    "commission_collector": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "mint_contract": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "mint_per_block": {
+      "$ref": "#/definitions/Uint128"
+    },
+    "mirror_token": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "oracle_contract": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "owner": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "staking_contract": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "token_code_id": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    },
+    "uniswap_factory": {
+      "$ref": "#/definitions/HumanAddr"
+    }
+  },
+  "definitions": {
+    "HumanAddr": {
+      "type": "string"
+    },
+    "Uint128": {
+      "type": "string"
+    }
+  }
+}
