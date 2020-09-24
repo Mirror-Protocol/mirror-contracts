@@ -33,6 +33,7 @@ pub enum QueryMsg {
     Config {},
     Asset { asset_info: AssetInfo },
     Price { asset_info: AssetInfo },
+    Prices {},
 }
 
 // We define a custom struct for each query response
@@ -55,4 +56,11 @@ pub struct PriceResponse {
     pub price: Decimal,
     pub price_multiplier: Decimal,
     pub last_update_time: u64,
+    pub asset_info: AssetInfo,
+}
+
+// We define a custom struct for each query response
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct PricesResponse {
+    pub prices: Vec<PriceResponse>,
 }

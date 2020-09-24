@@ -1,7 +1,7 @@
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_slice, to_binary, Coin, Decimal, Extern, HumanAddr, Querier, QuerierResult, QueryRequest,
-    StdError, SystemError, Uint128, WasmQuery,
+    from_slice, to_binary, CanonicalAddr, Coin, Decimal, Extern, HumanAddr, Querier, QuerierResult,
+    QueryRequest, StdError, SystemError, Uint128, WasmQuery,
 };
 use cosmwasm_storage::to_length_prefixed;
 use schemars::JsonSchema;
@@ -158,6 +158,9 @@ impl WasmMockQuerier {
                         price: *price,
                         price_multiplier: Decimal::one(),
                         last_update_time: 1000u64,
+                        asset_info: AssetInfoRaw::Token {
+                            contract_addr: CanonicalAddr::default(),
+                        },
                     };
 
                     Ok(to_binary(&to_binary(&price_info).unwrap()))

@@ -16,6 +16,7 @@ pub struct PriceInfo {
     pub price: Decimal,
     pub price_multiplier: Decimal,
     pub last_update_time: u64,
+    pub asset_info: AssetInfoRaw,
 }
 
 pub fn load_prices<S: Storage, A: Api, Q: Querier>(
