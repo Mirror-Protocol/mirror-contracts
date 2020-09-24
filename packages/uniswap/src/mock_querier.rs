@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use crate::asset::{AssetInfoRaw, PairInfoRaw};
 use crate::init::PairConfigRaw;
 use cw20::TokenInfoResponse;
-use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper};
+use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
 /// this uses our CustomQuerier.
@@ -157,8 +157,7 @@ impl WasmMockQuerier {
     pub fn handle_query(&self, request: &QueryRequest<TerraQueryWrapper>) -> QuerierResult {
         match &request {
             QueryRequest::Custom(TerraQueryWrapper { route, query_data }) => {
-                let route_str = route.as_str();
-                if route_str == "treasury" {
+                if &TerraRoute::Treasury == route {
                     match query_data {
                         TerraQuery::TaxRate {} => {
                             let res = TaxRateResponse {

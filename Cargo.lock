@@ -981,9 +981,9 @@ checksum = "ab0e7238dcc7b40a7be719a25365910f6807bd864f4cce6b2e6b873658e2b19d"
 
 [[package]]
 name = "terra-cosmwasm"
-version = "1.1.0"
+version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "293b020a968fdd2df1099fb99392ce348201b8416bbc92d6b4de291e3ca0b744"
+checksum = "e414791554fbc27ef2c50301e84b7b542778cb82ef5a93cfb486ea3ac27065ac"
 dependencies = [
  "cosmwasm-std",
  "schemars",
