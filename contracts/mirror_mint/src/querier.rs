@@ -56,12 +56,26 @@ pub fn load_price<S: Storage, A: Api, Q: Querier>(
     block_time: Option<u64>,
 ) -> StdResult<Decimal> {
     // load price form the oracle
-    let res: Binary = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
+    let res: StdResult<Binary> = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
         contract_addr: HumanAddr::from(contract_addr),
         key: Binary::from(concat(&to_length_prefixed(b"price"), asset_info.as_bytes())),
-    }))?;
+    }));
 
-    let price_info: PriceInfo = from_binary(&res)?;
+    let res = match res {
+        Ok(v) => v,
+        Err(_) => {
+            return Err(StdError::generic_err("Falied to fetch the price"));
+        }
+    };
+
+    let price_info: StdResult<PriceInfo> = from_binary(&res);
+    let price_info = match price_info {
+        Ok(v) => v,
+        Err(_) => {
+            return Err(StdError::generic_err("Falied to fetch the price"));
+        }
+    };
+
     if let Some(block_time) = block_time {
         if price_info.last_update_time < (block_time - PRICE_EXPIRE_TIME) {
             return Err(StdError::generic_err("Price is too old".to_string()));
