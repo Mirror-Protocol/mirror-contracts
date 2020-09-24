@@ -16,6 +16,7 @@ pub enum HandleMsg {
     UpdateConfig {
         owner: Option<HumanAddr>,
     },
+    /// Used to register new asset or to update feeder
     RegisterAsset {
         asset_info: AssetInfo,
         feeder: HumanAddr,
