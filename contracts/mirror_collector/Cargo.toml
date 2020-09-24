@@ -47,4 +47,4 @@ serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 [dev-dependencies]
 cosmwasm-vm = { version = "0.10.1", default-features = false }
 cosmwasm-schema = "0.10.1"
-terra-cosmwasm = "1.0"
+terra-cosmwasm = "1.2.2"
