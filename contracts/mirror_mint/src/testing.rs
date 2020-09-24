@@ -1595,7 +1595,7 @@ fn auction() {
                 to_address: HumanAddr::from("addr0000"),
                 amount: vec![Coin {
                     denom: "uusd".to_string(),
-                    amount: Uint128(68660u128) // Tax (5%) 72093 * 1 / 1.05 -> 68489
+                    amount: Uint128(31838u128) // Tax (5%) 33430 * 1 / 1.05 -> 31838
                 }],
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
@@ -1611,7 +1611,7 @@ fn auction() {
                 to_address: HumanAddr::from("addr0001"),
                 amount: vec![Coin {
                     denom: "uusd".to_string(),
-                    amount: Uint128(883720u128) // Tax (5%) 927907 * 1 / 1.05 -> 883720
+                    amount: Uint128(920542u128) // Tax (5%) 966570 * 1 / 1.05 -> 920542
                 }],
             })
         ],
@@ -1621,9 +1621,9 @@ fn auction() {
         vec![
             log("action", "auction"),
             log("owner", "addr0000"),
-            log("return_collateral_amount", "927907uusd"),
+            log("return_collateral_amount", "966570uusd"),
             log("liquidated_amount", "6666asset0000"),
-            log("tax_amount", "44187uusd"),
+            log("tax_amount", "46028uusd"),
         ]
     );
 

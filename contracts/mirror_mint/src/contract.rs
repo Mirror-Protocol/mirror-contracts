@@ -15,7 +15,7 @@ use crate::state::{
     store_position_idx, AssetConfig, Config, Position,
 };
 
-use crate::math::reverse_decimal;
+use crate::math::{decimal_multiplication, decimal_subtraction, reverse_decimal};
 use crate::querier::load_prices;
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
 use uniswap::{Asset, AssetInfo, AssetInfoRaw, AssetRaw};
@@ -348,6 +348,9 @@ pub fn try_deposit<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::unauthorized());
     }
 
+    // Check the given collateral has same asset info
+    // with position's collateral token
+    // also Check the collateral amount is non-zero
     assert_collateral(deps, &position, &collateral)?;
 
     // Increase collateral amount
@@ -376,6 +379,9 @@ pub fn try_withdraw<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::unauthorized());
     }
 
+    // Check the given collateral has same asset info
+    // with position's collateral token
+    // also Check the collateral amount is non-zero
     assert_collateral(deps, &position, &collateral)?;
 
     if position.collateral.amount < collateral.amount {
@@ -387,6 +393,7 @@ pub fn try_withdraw<S: Storage, A: Api, Q: Querier>(
     let config = read_config(&deps.storage)?;
     let asset_config = read_asset_config(&deps.storage, &position.asset.info)?;
 
+    // Load collateral & asset prices in base token price
     let (collateral_price, asset_price) = load_prices(
         &deps,
         &config,
@@ -395,9 +402,13 @@ pub fn try_withdraw<S: Storage, A: Api, Q: Querier>(
         Some(env.block.time),
     )?;
 
+    // Compute new collateral amount
     let collateral_amount: Uint128 = (position.collateral.amount - collateral.amount)?;
+
+    // Convert asset to collateral unit
     let asset_value_in_collateral_asset: Uint128 =
         position.asset.amount * asset_price * reverse_decimal(collateral_price);
+    // Check minimum collateral ratio is statified
     if asset_value_in_collateral_asset * asset_config.min_collateral_ratio > collateral_amount {
         return Err(StdError::generic_err(
             "Cannot withdraw collateral over than minimum collateral ratio",
@@ -455,11 +466,14 @@ pub fn try_mint<S: Storage, A: Api, Q: Querier>(
         Some(env.block.time),
     )?;
 
-    // asset amount always satisfy;
-    // asset_amount * price_to_collateral * min_collateral_ratio < collateral_amount
+    // Compute new asset amount
     let asset_amount: Uint128 = asset.amount + position.asset.amount;
+
+    // Convert asset to collateral unit
     let asset_value_in_collateral_asset: Uint128 =
         asset_amount * asset_price * reverse_decimal(collateral_price);
+
+    // Check minimum collateral ratio is statified
     if asset_value_in_collateral_asset * asset_config.min_collateral_ratio
         > position.collateral.amount
     {
@@ -500,6 +514,8 @@ pub fn try_burn<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::unauthorized());
     }
 
+    // Check the asset has same token with position asset
+    // also Check burn amount is non-zero
     assert_asset(deps, &position, &asset)?;
 
     let asset_config: AssetConfig = read_asset_config(&deps.storage, &position.asset.info)?;
@@ -567,9 +583,8 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
 
     // Check the position is in auction state
     // asset_amount * price_to_collateral * auction_threshold > collateral_amount
-    let asset_amount: Uint128 = asset.amount + position.asset.amount;
     let asset_value_in_collateral_asset: Uint128 =
-        asset_amount * asset_price * reverse_decimal(collateral_price);
+        position.asset.amount * asset_price * reverse_decimal(collateral_price);
     if asset_value_in_collateral_asset * asset_config.min_collateral_ratio
         < position.collateral.amount
     {
@@ -578,14 +593,19 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
         ));
     }
 
-    // compute collateral amount from the asset amount a user sent
-    let asset_value_in_collateral_asset: Uint128 =
-        asset.amount * asset_price * reverse_decimal(collateral_price);
-    let return_collateral_amount: Uint128 = std::cmp::min(
-        asset_value_in_collateral_asset
-            + asset_value_in_collateral_asset * asset_config.auction_discount,
-        position.collateral.amount,
+    // Compute discounted collateral price
+    let discounted_collateral_price: Decimal = decimal_multiplication(
+        collateral_price,
+        decimal_subtraction(Decimal::one(), asset_config.auction_discount),
     );
+
+    // Convert asset value in discounted colalteral unit
+    let asset_value_in_collateral_asset: Uint128 =
+        asset.amount * asset_price * reverse_decimal(discounted_collateral_price);
+
+    // Cap return collateral amount to position collateral amount
+    let return_collateral_amount: Uint128 =
+        std::cmp::min(asset_value_in_collateral_asset, position.collateral.amount);
 
     let left_asset_amount = (position.asset.amount - asset.amount).unwrap();
     let left_collateral_amount = (position.collateral.amount - return_collateral_amount).unwrap();
