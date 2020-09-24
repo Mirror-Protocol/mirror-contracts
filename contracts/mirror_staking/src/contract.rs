@@ -228,7 +228,11 @@ pub fn try_unbond<S: Storage, A: Api, Q: Querier>(
             })?,
             send: vec![],
         })],
-        log: vec![log("action", "unbond"), log("amount", amount.to_string())],
+        log: vec![
+            log("action", "unbond"),
+            log("asset_token", asset_token.as_str()),
+            log("amount", amount.to_string()),
+        ],
         data: None,
     })
 }
@@ -313,7 +317,10 @@ pub fn try_withdraw<S: Storage, A: Api, Q: Querier>(
             })?,
             send: vec![],
         })],
-        log: vec![log("action", "withdraw"), log("amount", amount.to_string())],
+        log: vec![
+            log("action", "withdraw"),
+            log("amount", amount.to_string()),
+        ],
         data: None,
     })
 }
