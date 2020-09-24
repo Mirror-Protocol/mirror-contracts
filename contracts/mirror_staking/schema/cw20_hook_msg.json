@@ -1,25 +1,14 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "QueryMsg",
+  "title": "Cw20HookMsg",
   "anyOf": [
     {
       "type": "object",
       "required": [
-        "config"
+        "bond"
       ],
       "properties": {
-        "config": {
-          "type": "object"
-        }
-      }
-    },
-    {
-      "type": "object",
-      "required": [
-        "pool_info"
-      ],
-      "properties": {
-        "pool_info": {
+        "bond": {
           "type": "object",
           "required": [
             "asset_token"
@@ -35,26 +24,16 @@
     {
       "type": "object",
       "required": [
-        "reward_info"
+        "deposit_reward"
       ],
       "properties": {
-        "reward_info": {
+        "deposit_reward": {
           "type": "object",
           "required": [
-            "staker"
+            "asset_token"
           ],
           "properties": {
             "asset_token": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/HumanAddr"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "staker": {
               "$ref": "#/definitions/HumanAddr"
             }
           }

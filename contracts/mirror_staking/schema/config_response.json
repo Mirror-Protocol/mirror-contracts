@@ -4,13 +4,13 @@
   "type": "object",
   "required": [
     "mirror_token",
-    "staking_token"
+    "owner"
   ],
   "properties": {
     "mirror_token": {
       "$ref": "#/definitions/HumanAddr"
     },
-    "staking_token": {
+    "owner": {
       "$ref": "#/definitions/HumanAddr"
     }
   },
