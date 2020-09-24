@@ -16,17 +16,67 @@
     {
       "type": "object",
       "required": [
+        "update_config"
+      ],
+      "properties": {
+        "update_config": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "register_asset"
+      ],
+      "properties": {
+        "register_asset": {
+          "type": "object",
+          "required": [
+            "asset_token",
+            "staking_token"
+          ],
+          "properties": {
+            "asset_token": {
+              "$ref": "#/definitions/HumanAddr"
+            },
+            "staking_token": {
+              "$ref": "#/definitions/HumanAddr"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
         "unbond"
       ],
       "properties": {
         "unbond": {
           "type": "object",
           "required": [
-            "amount"
+            "amount",
+            "asset_token"
           ],
           "properties": {
             "amount": {
               "$ref": "#/definitions/Uint128"
+            },
+            "asset_token": {
+              "$ref": "#/definitions/HumanAddr"
             }
           }
         }
@@ -40,7 +90,19 @@
       ],
       "properties": {
         "withdraw": {
-          "type": "object"
+          "type": "object",
+          "properties": {
+            "asset_token": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
         }
       }
     }
