@@ -2,7 +2,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{
-    from_slice, to_vec, CanonicalAddr, Decimal, ReadonlyStorage, StdError, StdResult, Storage,
+    from_slice, to_vec, CanonicalAddr, Decimal, Order, ReadonlyStorage, StdError, StdResult,
+    Storage,
 };
 use cosmwasm_storage::{singleton, singleton_read, PrefixedStorage, ReadonlyPrefixedStorage};
 use uniswap::AssetInfoRaw;
@@ -53,25 +54,37 @@ pub fn read_asset_config<S: Storage>(
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct Price {
+pub struct PriceInfo {
     pub price: Decimal,
     pub price_multiplier: Decimal,
     pub last_update_time: u64,
+    pub asset_info: AssetInfoRaw,
 }
 
 pub fn store_price<S: Storage>(
     storage: &mut S,
     asset_info: &AssetInfoRaw,
-    price: &Price,
+    price: &PriceInfo,
 ) -> StdResult<()> {
     PrefixedStorage::new(PREFIX_PRICE, storage).set(asset_info.as_bytes(), &to_vec(&price)?);
     Ok(())
 }
 
-pub fn read_price<S: Storage>(storage: &S, asset_info: &AssetInfoRaw) -> StdResult<Price> {
+pub fn read_price<S: Storage>(storage: &S, asset_info: &AssetInfoRaw) -> StdResult<PriceInfo> {
     let res = ReadonlyPrefixedStorage::new(PREFIX_PRICE, storage).get(asset_info.as_bytes());
     match res {
         Some(data) => from_slice(&data),
         None => Err(StdError::generic_err("no asset data stored")),
     }
+}
+
+pub fn read_prices<S: Storage>(storage: &S) -> StdResult<Vec<PriceInfo>> {
+    ReadonlyPrefixedStorage::new(PREFIX_PRICE, storage)
+        .range(None, None, Order::Ascending)
+        .map(|item| {
+            let (_, v) = item;
+
+            from_slice(&v)
+        })
+        .collect()
 }
