@@ -16,15 +16,11 @@ Request Format
        "feed_price": {
            "price_infos": [
                 { 
-                    "asset_info": {
-                       "token": { "contract_addr": "terra~~~" }
-                    }, 
+                    "asset_token": "terra~~~", 
                     "price": "1300.0" 
                 },
                 { 
-                    "asset_info": {
-                       "token": { "contract_addr": "terra~~~" }
-                    }, 
+                    "asset_token": "terra~~~", 
                     "price": "1.3" 
                 },
                 ...
@@ -42,16 +38,12 @@ Request Format
        "feed_price": {
            "price_infos": [
                 { 
-                    "asset_info": {
-                       "token": { "contract_addr": "terra~~~" }
-                    }, 
+                    "asset_token": "terra~~~", 
                     "price": "1300.0",
                     "price_multiplier": "1.2",
                 },
                 { 
-                    "asset_info": {
-                       "token": { "contract_addr": "terra~~~" }
-                    }, 
+                    "asset_token": "terra~~~", 
                     "price": "1.3" 
                 },
                 ...
@@ -75,11 +67,9 @@ The owner can register new asset and also can update the feeder for a specific a
 Request Format
 
 ```json
-{ "register_assset": {
-    "asset_info": { 
-        "token": {
-            "contract_addr": "terra~~"
-        },
+{ 
+    "register_assset": {
+        "asset_token": "terra~~~",
         "feeder": "terra~~",
     }
 }
@@ -116,11 +106,7 @@ Request
 ```json
 {
     "asset": {
-        "asset_info": {
-            "token": {
-                "contract_addr": "terra~~",
-            }
-        }
+        "asset_token": "terra~~",
     }
 }
 ```
@@ -129,11 +115,7 @@ Response
 
 ```json
 {
-    "asset_info": {
-        "token": {
-            "contract_addr": "terra~~",
-        }
-    },
+    "asset_token": "terra~~",
     "feeder": "terra~~"
 }
 ```
@@ -146,11 +128,7 @@ Request
 ```json
 {
     "price": {
-        "asset_info": {
-            "token": {
-                "contract_addr": "terra~~",
-            }
-        }
+        "asset_token": "terra~~",
     }
 }
 ```
@@ -162,11 +140,7 @@ Response
     "price": "1300.0",
     "price_multiplier": "1.2",
     "last_update_time": 1023832823,
-    "asset_info": {
-        "token": {
-            "contract_addr": "terra~~",
-        }
-    }
+    "asset_token": "terra~~",
 }
 ```
 
@@ -186,11 +160,7 @@ Response
             "price": "1300.0",
             "price_multiplier": "1.2",
             "last_update_time": 1023832823,
-            "asset_info": {
-                "token": {
-                    "contract_addr": "terra~~",
-                }
-            }
+            "asset_token": "terra~~",
         }
         ...
     ]    
