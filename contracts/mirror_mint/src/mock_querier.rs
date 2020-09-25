@@ -158,9 +158,7 @@ impl WasmMockQuerier {
                         price: *price,
                         price_multiplier: Decimal::one(),
                         last_update_time: 1000u64,
-                        asset_info: AssetInfoRaw::Token {
-                            contract_addr: CanonicalAddr::default(),
-                        },
+                        asset_token: CanonicalAddr::default(),
                     };
 
                     Ok(to_binary(&to_binary(&price_info).unwrap()))

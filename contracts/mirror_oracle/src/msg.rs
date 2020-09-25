@@ -18,7 +18,7 @@ pub enum HandleMsg {
     },
     /// Used to register new asset or to update feeder
     RegisterAsset {
-        asset_info: AssetInfo,
+        asset_token: HumanAddr,
         feeder: HumanAddr,
     },
     FeedPrice {
@@ -28,7 +28,7 @@ pub enum HandleMsg {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct PriceInfo {
-    pub asset_info: AssetInfo,
+    pub asset_token: HumanAddr,
     pub price: Decimal,
     pub price_multiplier: Option<Decimal>,
 }
@@ -37,8 +37,8 @@ pub struct PriceInfo {
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     Config {},
-    Asset { asset_info: AssetInfo },
-    Price { asset_info: AssetInfo },
+    Asset { asset_token: HumanAddr },
+    Price { asset_token: HumanAddr },
     Prices {},
 }
 
@@ -52,7 +52,7 @@ pub struct ConfigResponse {
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct AssetResponse {
-    pub asset_info: AssetInfo,
+    pub asset_token: HumanAddr,
     pub feeder: HumanAddr,
 }
 
@@ -62,7 +62,7 @@ pub struct PriceResponse {
     pub price: Decimal,
     pub price_multiplier: Decimal,
     pub last_update_time: u64,
-    pub asset_info: AssetInfo,
+    pub asset_token: HumanAddr,
 }
 
 // We define a custom struct for each query response

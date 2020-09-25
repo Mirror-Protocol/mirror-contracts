@@ -346,9 +346,7 @@ fn test_token_creation_hook() {
                 contract_addr: HumanAddr::from("oracle0000"),
                 send: vec![],
                 msg: to_binary(&OracleHandleMsg::RegisterAsset {
-                    asset_info: AssetInfo::Token {
-                        contract_addr: HumanAddr::from("asset0000"),
-                    },
+                    asset_token: HumanAddr::from("asset0000"),
                     feeder: HumanAddr::from("feeder0000"),
                 })
                 .unwrap(),
