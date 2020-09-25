@@ -4,12 +4,13 @@ use cosmwasm_std::{
 };
 
 use crate::msg::{
-    AssetResponse, ConfigResponse, HandleMsg, InitMsg, PriceResponse, PricesResponse, QueryMsg,
+    AssetResponse, ConfigResponse, HandleMsg, InitMsg, PriceInfo, PriceResponse, PricesResponse,
+    QueryMsg,
 };
 
 use crate::state::{
     read_asset_config, read_config, read_price, read_prices, store_asset_config, store_config,
-    store_price, AssetConfig, Config, PriceInfo,
+    store_price, AssetConfig, Config, PriceInfoRaw,
 };
 
 use uniswap::{AssetInfo, AssetInfoRaw};
@@ -41,11 +42,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::RegisterAsset { asset_info, feeder } => {
             try_register_asset(deps, env, asset_info, feeder)
         }
-        HandleMsg::FeedPrice {
-            asset_info,
-            price,
-            price_multiplier,
-        } => try_feed_price(deps, env, asset_info, price, price_multiplier),
+        HandleMsg::FeedPrice { price_infos } => try_feed_price(deps, env, price_infos),
     }
 }
 
@@ -86,7 +83,7 @@ pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
     store_price(
         &mut deps.storage,
         &raw_info,
-        &PriceInfo {
+        &PriceInfoRaw {
             asset_info: raw_info.clone(),
             price: Decimal::zero(),
             price_multiplier: Decimal::one(),
@@ -109,34 +106,41 @@ pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
 pub fn try_feed_price<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    asset_info: AssetInfo,
-    price: Decimal,
-    price_multiplier: Option<Decimal>,
+    price_infos: Vec<PriceInfo>,
 ) -> HandleResult {
-    let raw_info = asset_info.to_raw(&deps)?;
-    let asset: AssetConfig = read_asset_config(&deps.storage, &raw_info)?;
-    if deps.api.canonical_address(&env.message.sender)? != asset.feeder {
-        return Err(StdError::unauthorized());
+    let feeder_raw = deps.api.canonical_address(&env.message.sender)?;
+
+    let mut logs = vec![log("action", "price_feed")];
+    for price_info in price_infos {
+        logs.push(log("asset_info", price_info.asset_info.to_string()));
+        logs.push(log("price", price_info.price.to_string()));
+
+        let raw_info = price_info.asset_info.to_raw(&deps)?;
+        let asset: AssetConfig = read_asset_config(&deps.storage, &raw_info)?;
+
+        // Check feeder permission
+        if feeder_raw != asset.feeder {
+            return Err(StdError::unauthorized());
+        }
+
+        let mut state: PriceInfoRaw = read_price(&deps.storage, &raw_info)?;
+        state.last_update_time = env.block.time;
+        state.price = price_info.price;
+
+        // Update price multiplier, only when the price multiplier is given
+        if let Some(price_multiplier) = price_info.price_multiplier {
+            state.price_multiplier = price_multiplier;
+            logs.push(log("price_multiplier", price_multiplier.to_string()));
+        }
+
+        store_price(&mut deps.storage, &raw_info, &state)?;
     }
 
-    let mut state: PriceInfo = read_price(&deps.storage, &raw_info)?;
-    state.last_update_time = env.block.time;
-    state.price = price;
-    if let Some(price_multiplier) = price_multiplier {
-        state.price_multiplier = price_multiplier;
-    }
-
-    store_price(&mut deps.storage, &raw_info, &state)?;
-    let res = HandleResponse {
+    Ok(HandleResponse {
         messages: vec![],
-        log: vec![
-            log("action", "price_feed"),
-            log("price", &price.to_string()),
-        ],
+        log: logs,
         data: None,
-    };
-
-    Ok(res)
+    })
 }
 
 pub fn query<S: Storage, A: Api, Q: Querier>(
@@ -196,7 +200,7 @@ fn query_price<S: Storage, A: Api, Q: Querier>(
 fn query_prices<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
 ) -> StdResult<PricesResponse> {
-    let states: Vec<PriceInfo> = read_prices(&deps.storage)?;
+    let states: Vec<PriceInfoRaw> = read_prices(&deps.storage)?;
 
     let mut prices: Vec<PriceResponse> = vec![];
     for state in states {
@@ -297,11 +301,13 @@ mod tests {
         // update price
         let env = mock_env("addr0000", &[]);
         let msg = HandleMsg::FeedPrice {
-            asset_info: AssetInfo::Token {
-                contract_addr: HumanAddr::from("mAPPL"),
-            },
-            price: Decimal::from_str("1.2").unwrap(),
-            price_multiplier: None,
+            price_infos: vec![PriceInfo {
+                asset_info: AssetInfo::Token {
+                    contract_addr: HumanAddr::from("mAPPL"),
+                },
+                price: Decimal::from_str("1.2").unwrap(),
+                price_multiplier: None,
+            }],
         };
 
         let res = handle(&mut deps, env, msg).unwrap_err();
@@ -337,7 +343,7 @@ mod tests {
             asset_info: AssetInfo::Token {
                 contract_addr: HumanAddr::from("mGOGL"),
             },
-            feeder: HumanAddr::from("addr0001"),
+            feeder: HumanAddr::from("addr0000"),
         };
 
         let env = mock_env("owner0000", &[]);
@@ -395,11 +401,22 @@ mod tests {
         );
 
         let msg = HandleMsg::FeedPrice {
-            asset_info: AssetInfo::Token {
-                contract_addr: HumanAddr::from("mAPPL"),
-            },
-            price: Decimal::from_str("1.2").unwrap(),
-            price_multiplier: None,
+            price_infos: vec![
+                PriceInfo {
+                    asset_info: AssetInfo::Token {
+                        contract_addr: HumanAddr::from("mAPPL"),
+                    },
+                    price: Decimal::from_str("1.2").unwrap(),
+                    price_multiplier: None,
+                },
+                PriceInfo {
+                    asset_info: AssetInfo::Token {
+                        contract_addr: HumanAddr::from("mGOGL"),
+                    },
+                    price: Decimal::from_str("2.2").unwrap(),
+                    price_multiplier: None,
+                },
+            ],
         };
         let env = mock_env("addr0000", &[]);
         let _res = handle(&mut deps, env.clone(), msg).unwrap();
@@ -422,15 +439,6 @@ mod tests {
             }
         );
 
-        let msg = HandleMsg::FeedPrice {
-            asset_info: AssetInfo::Token {
-                contract_addr: HumanAddr::from("mGOGL"),
-            },
-            price: Decimal::from_str("2.2").unwrap(),
-            price_multiplier: None,
-        };
-        let env = mock_env("addr0001", &[]);
-        let _res = handle(&mut deps, env.clone(), msg).unwrap();
         let value: PricesResponse = query_prices(&deps).unwrap();
         assert_eq!(
             value,
@@ -459,11 +467,13 @@ mod tests {
         // Unautorized try
         let env = mock_env("addr0001", &[]);
         let msg = HandleMsg::FeedPrice {
-            asset_info: AssetInfo::Token {
-                contract_addr: HumanAddr::from("mAPPL"),
-            },
-            price: Decimal::from_str("1.2").unwrap(),
-            price_multiplier: None,
+            price_infos: vec![PriceInfo {
+                asset_info: AssetInfo::Token {
+                    contract_addr: HumanAddr::from("mAPPL"),
+                },
+                price: Decimal::from_str("1.2").unwrap(),
+                price_multiplier: None,
+            }],
         };
 
         let res = handle(&mut deps, env, msg);
