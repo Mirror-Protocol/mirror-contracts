@@ -54,7 +54,7 @@ pub fn read_asset_config<S: Storage>(
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct PriceInfo {
+pub struct PriceInfoRaw {
     pub price: Decimal,
     pub price_multiplier: Decimal,
     pub last_update_time: u64,
@@ -64,13 +64,13 @@ pub struct PriceInfo {
 pub fn store_price<S: Storage>(
     storage: &mut S,
     asset_info: &AssetInfoRaw,
-    price: &PriceInfo,
+    price: &PriceInfoRaw,
 ) -> StdResult<()> {
     PrefixedStorage::new(PREFIX_PRICE, storage).set(asset_info.as_bytes(), &to_vec(&price)?);
     Ok(())
 }
 
-pub fn read_price<S: Storage>(storage: &S, asset_info: &AssetInfoRaw) -> StdResult<PriceInfo> {
+pub fn read_price<S: Storage>(storage: &S, asset_info: &AssetInfoRaw) -> StdResult<PriceInfoRaw> {
     let res = ReadonlyPrefixedStorage::new(PREFIX_PRICE, storage).get(asset_info.as_bytes());
     match res {
         Some(data) => from_slice(&data),
@@ -78,7 +78,7 @@ pub fn read_price<S: Storage>(storage: &S, asset_info: &AssetInfoRaw) -> StdResu
     }
 }
 
-pub fn read_prices<S: Storage>(storage: &S) -> StdResult<Vec<PriceInfo>> {
+pub fn read_prices<S: Storage>(storage: &S) -> StdResult<Vec<PriceInfoRaw>> {
     ReadonlyPrefixedStorage::new(PREFIX_PRICE, storage)
         .range(None, None, Order::Ascending)
         .map(|item| {

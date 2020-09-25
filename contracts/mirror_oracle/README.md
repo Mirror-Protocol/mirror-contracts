@@ -6,13 +6,31 @@ This contract is a OCS conformant smart contract. It provides simple interfcae t
 
 ### Feed Price
 
-The asset has authorized feeder address in its config. The feeder is the only address can feed price of that asset.
+Only authorized feeder addresses are allowed to report prices. It provides an interface to update multiple prices at once from a feeder address.
 
 Request Format
 * Feed Price
 
    ```json
-   { "feed_price": { "price": "1300.0" } }
+   { 
+       "feed_price": {
+           "price_infos": [
+                { 
+                    "asset_info": {
+                       "token": { "contract_addr": "terra~~~" }
+                    }, 
+                    "price": "1300.0" 
+                },
+                { 
+                    "asset_info": {
+                       "token": { "contract_addr": "terra~~~" }
+                    }, 
+                    "price": "1.3" 
+                },
+                ...
+            ]
+        },
+    }
    ```
 
 * Feed Price with Price Multiplier
@@ -20,7 +38,26 @@ Request Format
    A feeder also can do update price multiplier, when there is some event on asset. The updated price multiplier replaces origin one so the feeder do not need to feed it more than once.
 
    ```json
-   { "feed_price": { "price": "1300.0", "price_multiplier": "1.2" } }
+      { 
+       "feed_price": {
+           "price_infos": [
+                { 
+                    "asset_info": {
+                       "token": { "contract_addr": "terra~~~" }
+                    }, 
+                    "price": "1300.0",
+                    "price_multiplier": "1.2",
+                },
+                { 
+                    "asset_info": {
+                       "token": { "contract_addr": "terra~~~" }
+                    }, 
+                    "price": "1.3" 
+                },
+                ...
+            ]
+        },
+    }
    ```
 
 ### Update Config

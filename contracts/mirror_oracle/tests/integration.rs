@@ -25,7 +25,7 @@ use cosmwasm_vm::testing::{
     handle, init, mock_dependencies, mock_env, query, MockApi, MockQuerier, MockStorage,
 };
 use cosmwasm_vm::Instance;
-use mirror_oracle::msg::{ConfigResponse, HandleMsg, InitMsg, PriceResponse, QueryMsg};
+use mirror_oracle::msg::{ConfigResponse, HandleMsg, InitMsg, PriceInfo, PriceResponse, QueryMsg};
 use uniswap::AssetInfo;
 
 // This line will test the output of cargo wasm
@@ -169,11 +169,13 @@ fn update_price() {
     // update price
     let env = mock_env("addr0000", &[]);
     let msg = HandleMsg::FeedPrice {
-        asset_info: AssetInfo::Token {
-            contract_addr: HumanAddr::from("mAPPL"),
-        },
-        price: Decimal::from_str("1.2").unwrap(),
-        price_multiplier: None,
+        price_infos: vec![PriceInfo {
+            asset_info: AssetInfo::Token {
+                contract_addr: HumanAddr::from("mAPPL"),
+            },
+            price: Decimal::from_str("1.2").unwrap(),
+            price_multiplier: None,
+        }],
     };
 
     let res: HandleResponse = handle(&mut deps, env, msg).unwrap();
@@ -196,11 +198,13 @@ fn update_price() {
     // Unauthorzied err
     let env = mock_env("addr0001", &[]);
     let msg = HandleMsg::FeedPrice {
-        asset_info: AssetInfo::Token {
-            contract_addr: HumanAddr::from("mAPPL"),
-        },
-        price: Decimal::from_str("1.2").unwrap(),
-        price_multiplier: None,
+        price_infos: vec![PriceInfo {
+            asset_info: AssetInfo::Token {
+                contract_addr: HumanAddr::from("mAPPL"),
+            },
+            price: Decimal::from_str("1.2").unwrap(),
+            price_multiplier: None,
+        }],
     };
 
     let res: HandleResult = handle(&mut deps, env, msg);

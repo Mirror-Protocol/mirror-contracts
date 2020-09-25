@@ -22,10 +22,15 @@ pub enum HandleMsg {
         feeder: HumanAddr,
     },
     FeedPrice {
-        asset_info: AssetInfo,
-        price: Decimal,
-        price_multiplier: Option<Decimal>,
+        price_infos: Vec<PriceInfo>,
     },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct PriceInfo {
+    pub asset_info: AssetInfo,
+    pub price: Decimal,
+    pub price_multiplier: Option<Decimal>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
