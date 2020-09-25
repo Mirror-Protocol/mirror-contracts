@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    from_binary, Api, Binary, Decimal, Extern, HumanAddr, Querier, QueryRequest, StdError,
-    StdResult, Storage, Uint128, WasmQuery,
+    from_binary, Api, Binary, CanonicalAddr, Decimal, Extern, HumanAddr, Querier, QueryRequest,
+    StdError, StdResult, Storage, Uint128, WasmQuery,
 };
 
 use crate::state::Config;
@@ -16,7 +16,7 @@ pub struct PriceInfo {
     pub price: Decimal,
     pub price_multiplier: Decimal,
     pub last_update_time: u64,
-    pub asset_info: AssetInfoRaw,
+    pub asset_token: CanonicalAddr,
 }
 
 pub fn load_prices<S: Storage, A: Api, Q: Querier>(

@@ -327,9 +327,7 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
                 contract_addr: deps.api.human_address(&config.oracle_contract)?,
                 send: vec![],
                 msg: to_binary(&OracleHandleMsg::RegisterAsset {
-                    asset_info: AssetInfo::Token {
-                        contract_addr: asset_token.clone(),
-                    },
+                    asset_token: asset_token.clone(),
                     feeder: oracle_feeder,
                 })?,
             }),

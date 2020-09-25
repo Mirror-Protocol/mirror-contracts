@@ -128,9 +128,7 @@ fn update_price() {
 
     // register asset
     let msg = HandleMsg::RegisterAsset {
-        asset_info: AssetInfo::Token {
-            contract_addr: HumanAddr::from("mAPPL"),
-        },
+        asset_token: HumanAddr::from("mAPPL"),
         feeder: HumanAddr::from("addr0000"),
     };
 
@@ -142,9 +140,7 @@ fn update_price() {
     }
 
     let msg = HandleMsg::RegisterAsset {
-        asset_info: AssetInfo::Token {
-            contract_addr: HumanAddr::from("mAPPL"),
-        },
+        asset_token: HumanAddr::from("mAPPL"),
         feeder: HumanAddr::from("addr0000"),
     };
 
@@ -153,9 +149,7 @@ fn update_price() {
 
     // try register the asset is already exists
     let msg = HandleMsg::RegisterAsset {
-        asset_info: AssetInfo::Token {
-            contract_addr: HumanAddr::from("mAPPL"),
-        },
+        asset_token: HumanAddr::from("mAPPL"),
         feeder: HumanAddr::from("addr0000"),
     };
 
@@ -170,9 +164,7 @@ fn update_price() {
     let env = mock_env("addr0000", &[]);
     let msg = HandleMsg::FeedPrice {
         price_infos: vec![PriceInfo {
-            asset_info: AssetInfo::Token {
-                contract_addr: HumanAddr::from("mAPPL"),
-            },
+            asset_token: HumanAddr::from("mAPPL"),
             price: Decimal::from_str("1.2").unwrap(),
             price_multiplier: None,
         }],
@@ -185,9 +177,7 @@ fn update_price() {
     let query_result = query(
         &mut deps,
         QueryMsg::Price {
-            asset_info: AssetInfo::Token {
-                contract_addr: HumanAddr::from("mAPPL"),
-            },
+            asset_token: HumanAddr::from("mAPPL"),
         },
     )
     .unwrap();
@@ -199,9 +189,7 @@ fn update_price() {
     let env = mock_env("addr0001", &[]);
     let msg = HandleMsg::FeedPrice {
         price_infos: vec![PriceInfo {
-            asset_info: AssetInfo::Token {
-                contract_addr: HumanAddr::from("mAPPL"),
-            },
+            asset_token: HumanAddr::from("mAPPL"),
             price: Decimal::from_str("1.2").unwrap(),
             price_multiplier: None,
         }],

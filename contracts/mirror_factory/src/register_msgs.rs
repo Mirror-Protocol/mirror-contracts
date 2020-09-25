@@ -46,7 +46,7 @@ pub enum StakingHandleMsg {
 #[serde(rename_all = "snake_case")]
 pub enum OracleHandleMsg {
     RegisterAsset {
-        asset_info: AssetInfo,
+        asset_token: HumanAddr,
         feeder: HumanAddr,
     },
 }

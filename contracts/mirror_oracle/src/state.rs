@@ -29,24 +29,24 @@ pub fn read_config<S: Storage>(storage: &S) -> StdResult<Config> {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct AssetConfig {
-    pub asset_info: AssetInfoRaw,
+    pub asset_token: CanonicalAddr,
     pub feeder: CanonicalAddr,
 }
 
 pub fn store_asset_config<S: Storage>(
     storage: &mut S,
-    asset_info: &AssetInfoRaw,
+    asset_token: &CanonicalAddr,
     asset: &AssetConfig,
 ) -> StdResult<()> {
-    PrefixedStorage::new(PREFIX_ASSET, storage).set(asset_info.as_bytes(), &to_vec(&asset)?);
+    PrefixedStorage::new(PREFIX_ASSET, storage).set(asset_token.as_slice(), &to_vec(&asset)?);
     Ok(())
 }
 
 pub fn read_asset_config<S: Storage>(
     storage: &S,
-    asset_info: &AssetInfoRaw,
+    asset_token: &CanonicalAddr,
 ) -> StdResult<AssetConfig> {
-    let res = ReadonlyPrefixedStorage::new(PREFIX_ASSET, storage).get(asset_info.as_bytes());
+    let res = ReadonlyPrefixedStorage::new(PREFIX_ASSET, storage).get(asset_token.as_slice());
     match res {
         Some(data) => from_slice(&data),
         None => Err(StdError::generic_err("no asset data stored")),
@@ -58,20 +58,20 @@ pub struct PriceInfoRaw {
     pub price: Decimal,
     pub price_multiplier: Decimal,
     pub last_update_time: u64,
-    pub asset_info: AssetInfoRaw,
+    pub asset_token: CanonicalAddr,
 }
 
 pub fn store_price<S: Storage>(
     storage: &mut S,
-    asset_info: &AssetInfoRaw,
+    asset_token: &CanonicalAddr,
     price: &PriceInfoRaw,
 ) -> StdResult<()> {
-    PrefixedStorage::new(PREFIX_PRICE, storage).set(asset_info.as_bytes(), &to_vec(&price)?);
+    PrefixedStorage::new(PREFIX_PRICE, storage).set(asset_token.as_slice(), &to_vec(&price)?);
     Ok(())
 }
 
-pub fn read_price<S: Storage>(storage: &S, asset_info: &AssetInfoRaw) -> StdResult<PriceInfoRaw> {
-    let res = ReadonlyPrefixedStorage::new(PREFIX_PRICE, storage).get(asset_info.as_bytes());
+pub fn read_price<S: Storage>(storage: &S, asset_token: &CanonicalAddr) -> StdResult<PriceInfoRaw> {
+    let res = ReadonlyPrefixedStorage::new(PREFIX_PRICE, storage).get(asset_token.as_slice());
     match res {
         Some(data) => from_slice(&data),
         None => Err(StdError::generic_err("no asset data stored")),
