@@ -3,18 +3,19 @@ This is a simple voting contract. It creates a contract to manage token weighted
 where voters deposit predefined gov cw20 tokens in order to vote.
 
 ## Configs
-| Name             | Description                                                      |
-| ---------------- | ---------------------------------------------------------------- |
-| mirror_token     | Mirror token contract address                                    |
-| quorum           | The minium percentage of participation required to pass the poll |
-| threshold        | The minimum percentage of yes vote required to pass the poll     |
-| voting_period    | The number of block the poll should be in voting state           |
-| proposal_deposit | The minium deposit token to register proposal                    |
+| Name             | Description                                                          |
+| ---------------- | -------------------------------------------------------------------- |
+| mirror_token     | Mirror token contract address                                        |
+| quorum           | The minium percentage of participation required to pass the poll     |
+| threshold        | The minimum percentage of yes vote required to pass the poll         |
+| voting_period    | The number of block the poll should be in voting state               |
+| effetive_delay   | The number of block it takes for the polls to actually be reflected. |
+| proposal_deposit | The minium deposit token to register proposal                        |
 
 
 ## Handle Messages
 ### Create Poll & End Poll
-Anyone can create a poll with predefined `config.deposit` amount of tokens. After the voting period is over, anyone can close the poll. If the quorum is satisfied, the deposit will be returned to the creator, and if not, the deposit will not be returned. The non-refundable deposit is distributed on the staking pool so that all users can divide and withdraw.
+Anyone can create a poll with predefined `config.deposit` amount of tokens. After the voting period is over, anyone can close the poll. If the quorum is satisfied, the deposit will be returned to the creator, and if not, the deposit will not be returned. The non-refundable deposit is distributed to the staking pool so that all users share it.
 
 A user need to send `Cw20HandleMsg::Send{Cw20HookMsg::CreatePoll}` to mirror token contract.
 
@@ -37,6 +38,17 @@ pub enum HandleMsg {
 }
 ```
 
+### Execute Poll
+
+There is some time window for the polls to actually be reflected. Anyone can execute this operation to reflect the poll result after `config.effective_delay` of blocks has passed.
+
+```rust
+pub enum HandleMsg {
+    ExecutePoll {
+        poll_id: u64,
+    }
+}
+```
 
 ### Staking
 Users can stake their mirror token to receive staking incomes, which are collected from the uniswap, or to cast vote on the polls. 

@@ -29,7 +29,8 @@ use mirror_gov::msg::{ConfigResponse, HandleMsg, InitMsg, QueryMsg};
 use mirror_gov::state::Config;
 
 // This line will test the output of cargo wasm
-static WASM: &[u8] = include_bytes!("../../../target/wasm32-unknown-unknown/release/mirror_gov.wasm");
+static WASM: &[u8] =
+    include_bytes!("../../../target/wasm32-unknown-unknown/release/mirror_gov.wasm");
 // You can uncomment this line instead to test productionified build from rust-optimizer
 // static WASM: &[u8] = include_bytes!("../contract.wasm");
 
@@ -38,6 +39,7 @@ const TEST_CREATOR: &str = "creator";
 const DEFAULT_QUORUM: u64 = 30u64;
 const DEFAULT_THRESHOLD: u64 = 50u64;
 const DEFAULT_VOTING_PERIOD: u64 = 10000u64;
+const DEFAULT_EFFECTIVE_DELAY: u64 = 10000u64;
 const DEFAULT_PROPOSAL_DEPOSIT: u128 = 10000000000u128;
 
 fn init_msg() -> InitMsg {
@@ -46,6 +48,7 @@ fn init_msg() -> InitMsg {
         quorum: Decimal::percent(DEFAULT_QUORUM),
         threshold: Decimal::percent(DEFAULT_THRESHOLD),
         voting_period: DEFAULT_VOTING_PERIOD,
+        effective_delay: DEFAULT_EFFECTIVE_DELAY,
         proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
     }
 }
@@ -81,6 +84,7 @@ fn proper_initialization() {
                 quorum: Decimal::percent(DEFAULT_QUORUM),
                 threshold: Decimal::percent(DEFAULT_THRESHOLD),
                 voting_period: DEFAULT_VOTING_PERIOD,
+                effective_delay: DEFAULT_EFFECTIVE_DELAY,
                 proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
             }
         );
@@ -107,6 +111,7 @@ fn update_config() {
         quorum: None,
         threshold: None,
         voting_period: None,
+        effective_delay: None,
         proposal_deposit: None,
     };
 
@@ -129,6 +134,7 @@ fn update_config() {
         quorum: Some(Decimal::percent(20)),
         threshold: Some(Decimal::percent(75)),
         voting_period: Some(20000u64),
+        effective_delay: Some(20000u64),
         proposal_deposit: Some(Uint128(123u128)),
     };
 
@@ -151,6 +157,7 @@ fn update_config() {
         quorum: None,
         threshold: None,
         voting_period: None,
+        effective_delay: None,
         proposal_deposit: None,
     };
 

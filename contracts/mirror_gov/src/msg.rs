@@ -10,6 +10,7 @@ pub struct InitMsg {
     pub quorum: Decimal,
     pub threshold: Decimal,
     pub voting_period: u64,
+    pub effective_delay: u64,
     pub proposal_deposit: Uint128,
 }
 
@@ -22,6 +23,7 @@ pub enum HandleMsg {
         quorum: Option<Decimal>,
         threshold: Option<Decimal>,
         voting_period: Option<u64>,
+        effective_delay: Option<u64>,
         proposal_deposit: Option<Uint128>,
     },
     CastVote {
@@ -33,6 +35,9 @@ pub enum HandleMsg {
         amount: Option<Uint128>,
     },
     EndPoll {
+        poll_id: u64,
+    },
+    ExecutePoll {
         poll_id: u64,
     },
 }
@@ -73,6 +78,7 @@ pub struct ConfigResponse {
     pub quorum: Decimal,
     pub threshold: Decimal,
     pub voting_period: u64,
+    pub effective_delay: u64,
     pub proposal_deposit: Uint128,
 }
 

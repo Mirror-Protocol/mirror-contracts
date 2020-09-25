@@ -21,6 +21,7 @@ mod tests {
     const DEFAULT_QUORUM: u64 = 30u64;
     const DEFAULT_THRESHOLD: u64 = 50u64;
     const DEFAULT_VOTING_PERIOD: u64 = 10000u64;
+    const DEFAULT_EFFECTIVE_DELAY: u64 = 10000u64;
     const DEFAULT_PROPOSAL_DEPOSIT: u128 = 10000000000u128;
 
     fn mock_init(mut deps: &mut Extern<MockStorage, MockApi, WasmMockQuerier>) {
@@ -29,6 +30,7 @@ mod tests {
             quorum: Decimal::percent(DEFAULT_QUORUM),
             threshold: Decimal::percent(DEFAULT_THRESHOLD),
             voting_period: DEFAULT_VOTING_PERIOD,
+            effective_delay: DEFAULT_EFFECTIVE_DELAY,
             proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
         };
 
@@ -49,6 +51,7 @@ mod tests {
             quorum: Decimal::percent(DEFAULT_QUORUM),
             threshold: Decimal::percent(DEFAULT_THRESHOLD),
             voting_period: DEFAULT_VOTING_PERIOD,
+            effective_delay: DEFAULT_EFFECTIVE_DELAY,
             proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
         }
     }
@@ -77,6 +80,7 @@ mod tests {
                 quorum: Decimal::percent(DEFAULT_QUORUM),
                 threshold: Decimal::percent(DEFAULT_THRESHOLD),
                 voting_period: DEFAULT_VOTING_PERIOD,
+                effective_delay: DEFAULT_EFFECTIVE_DELAY,
                 proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
             }
         );
@@ -119,6 +123,7 @@ mod tests {
             quorum: Decimal::percent(101),
             threshold: Decimal::percent(DEFAULT_THRESHOLD),
             voting_period: DEFAULT_VOTING_PERIOD,
+            effective_delay: DEFAULT_EFFECTIVE_DELAY,
             proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
         };
 
@@ -140,6 +145,7 @@ mod tests {
             quorum: Decimal::percent(DEFAULT_QUORUM),
             threshold: Decimal::percent(101),
             voting_period: DEFAULT_VOTING_PERIOD,
+            effective_delay: DEFAULT_EFFECTIVE_DELAY,
             proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
         };
 
@@ -283,7 +289,7 @@ mod tests {
         match handle_res {
             Ok(_) => panic!("Must return error"),
             Err(StdError::GenericErr { msg, .. }) => {
-                assert_eq!(msg, "Voting period has not expired.")
+                assert_eq!(msg, "Voting period has not expired")
             }
             Err(e) => panic!("Unexpected error: {:?}", e),
         }
@@ -369,11 +375,19 @@ mod tests {
             ]
         );
 
+        // not in passed status
+        let msg = HandleMsg::ExecutePoll { poll_id: 1 };
+        let handle_res = handle(&mut deps, creator_env.clone(), msg).unwrap_err();
+        match handle_res {
+            StdError::GenericErr{ msg, ..} => assert_eq!(msg, "Poll is not in passed status"),
+            _ => panic!("DO NOT ENTER HERE"),
+        }
+
         creator_env.message.sender = HumanAddr::from(TEST_CREATOR);
         creator_env.block.height = &creator_env.block.height + DEFAULT_VOTING_PERIOD;
 
         let msg = HandleMsg::EndPoll { poll_id: 1 };
-        let handle_res = handle(&mut deps, creator_env, msg).unwrap();
+        let handle_res = handle(&mut deps, creator_env.clone(), msg).unwrap();
 
         assert_eq!(
             handle_res.log,
@@ -386,22 +400,40 @@ mod tests {
         );
         assert_eq!(
             handle_res.messages,
-            vec![
-                CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: HumanAddr::from(VOTING_TOKEN),
-                    msg: to_binary(&Cw20HandleMsg::Transfer {
-                        recipient: HumanAddr::from(TEST_CREATOR),
-                        amount: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
-                    })
-                    .unwrap(),
-                    send: vec![],
-                }),
-                CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: HumanAddr::from(VOTING_TOKEN),
-                    msg: exec_msg_bz,
-                    send: vec![],
+            vec![CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from(VOTING_TOKEN),
+                msg: to_binary(&Cw20HandleMsg::Transfer {
+                    recipient: HumanAddr::from(TEST_CREATOR),
+                    amount: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
                 })
-            ]
+                .unwrap(),
+                send: vec![],
+            })]
+        );
+
+        // effective delay has not expired
+        let msg = HandleMsg::ExecutePoll { poll_id: 1 };
+        let handle_res = handle(&mut deps, creator_env.clone(), msg).unwrap_err();
+        match handle_res {
+            StdError::GenericErr{ msg, ..} => assert_eq!(msg, "Effective delay has not expired"),
+            _ => panic!("DO NOT ENTER HERE"),
+        }
+
+
+        creator_env.block.height = &creator_env.block.height + DEFAULT_EFFECTIVE_DELAY;
+        let msg = HandleMsg::ExecutePoll { poll_id: 1 };
+        let handle_res = handle(&mut deps, creator_env, msg).unwrap();
+        assert_eq!(
+            handle_res.messages,
+            vec![CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from(VOTING_TOKEN),
+                msg: exec_msg_bz,
+                send: vec![],
+            }),]
+        );
+        assert_eq!(
+            handle_res.log,
+            vec![log("action", "execute_poll"), log("poll_id", "1"),]
         );
     }
 
@@ -1173,6 +1205,7 @@ mod tests {
             quorum: None,
             threshold: None,
             voting_period: None,
+            effective_delay: None,
             proposal_deposit: None,
         };
 
@@ -1186,6 +1219,7 @@ mod tests {
         assert_eq!(Decimal::percent(DEFAULT_QUORUM), config.quorum);
         assert_eq!(Decimal::percent(DEFAULT_THRESHOLD), config.threshold);
         assert_eq!(DEFAULT_VOTING_PERIOD, config.voting_period);
+        assert_eq!(DEFAULT_EFFECTIVE_DELAY, config.effective_delay);
         assert_eq!(DEFAULT_PROPOSAL_DEPOSIT, config.proposal_deposit.u128());
 
         // update left items
@@ -1195,6 +1229,7 @@ mod tests {
             quorum: Some(Decimal::percent(20)),
             threshold: Some(Decimal::percent(75)),
             voting_period: Some(20000u64),
+            effective_delay: Some(20000u64),
             proposal_deposit: Some(Uint128(123u128)),
         };
 
@@ -1208,6 +1243,7 @@ mod tests {
         assert_eq!(Decimal::percent(20), config.quorum);
         assert_eq!(Decimal::percent(75), config.threshold);
         assert_eq!(20000u64, config.voting_period);
+        assert_eq!(20000u64, config.effective_delay);
         assert_eq!(123u128, config.proposal_deposit.u128());
 
         // Unauthorzied err
@@ -1217,6 +1253,7 @@ mod tests {
             quorum: None,
             threshold: None,
             voting_period: None,
+            effective_delay: None,
             proposal_deposit: None,
         };
 
