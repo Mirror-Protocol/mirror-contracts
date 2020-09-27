@@ -1,8 +1,8 @@
-# Staking Contract
+# Mirror Staking <!-- omit in toc -->
 
-This contract is a rewards distribution contract, which takes `config.staking_token` and gives `config.reward_token` as rewards. 
+This contract is a rewards distribution contract, which takes `config.staking_token` and gives `config.reward_token` as rewards.
 
-It keeps a reward index, which represent the cumulated rewards per 1 staking token. Whenever a user change its bonding amount, the pending reward and the index are automatically changed with following equation: 
+It keeps a reward index, which represent the cumulated rewards per 1 staking token. Whenever a user change its bonding amount, the pending reward and the index are automatically changed with following equation:
 
 ```rust
     let pending_reward = (reward_info.bond_amount * pool_info.reward_index
@@ -12,14 +12,35 @@ It keeps a reward index, which represent the cumulated rewards per 1 staking tok
     reward_info.pending_reward += pending_reward;
 ```
 
+## Table of Contents <!-- omit in toc -->
 
-## Features
+- [InitMsg](#initmsg)
+- [HandleMsg](#handlemsg)
+  - [`update_config`](#update_config)
+  - [`register_asset`](#register_asset)
+  - [`unbond`](#unbond)
+  - [`withdraw`](#withdraw)
+- [QueryMsg](#querymsg)
+  - [`config`](#config)
+  - [`pool_info`](#pool_info)
+  - [`reward_info`](#reward_info)
 
-* Bond
+## InitMsg
 
-* Unbond
+## HandleMsg
 
-* Distribute Reward
+### `update_config`
 
-* Withdraw Reward
-    
+### `register_asset`
+
+### `unbond`
+
+### `withdraw`
+
+## QueryMsg
+
+### `config`
+
+### `pool_info`
+
+### `reward_info`

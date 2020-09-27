@@ -4,14 +4,14 @@ This repository contains the smart contracts that implement Mirror Protocol on T
 
 ## Contracts
 
-| Name                                               | Description |
-| -------------------------------------------------- | ----------- |
-| [`mirror_collector`](./contracts/mirror_collector) |             |
-| [`mirror_factory`](./contracts/mirror_factory)     |             |
-| [`mirror_gov`](./contracts/mirror_gov)             |             |
-| [`mirror_mint`](./contracts/mirror_mint)           |             |
-| [`mirror_oracle`](./contracts/mirror_oracle)       |             |
-| [`mirror_staking`](./contracts/mirror_staking)     |             |
+| Name                                                         | Description |
+| ------------------------------------------------------------ | ----------- |
+| [`mirror_collector`](./contracts/mirror_collector/README.md) |             |
+| [`mirror_factory`](./contracts/mirror_factory/README.md)     |             |
+| [`mirror_gov`](./contracts/mirror_gov/README.md)             |             |
+| [`mirror_mint`](./contracts/mirror_mint/README.md)           |             |
+| [`mirror_oracle`](./contracts/mirror_oracle/README.md)       |             |
+| [`mirror_staking`](./contracts/mirror_staking/README.md)     |             |
 
 ## Organization
 
