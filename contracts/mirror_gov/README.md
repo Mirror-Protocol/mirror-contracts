@@ -51,7 +51,7 @@ pub enum HandleMsg {
 ```
 
 ### Staking
-Users can stake their mirror token to receive staking incomes, which are collected from the uniswap, or to cast vote on the polls. 
+Users can stake their mirror token to receive staking incomes, which are collected from the terraswap, or to cast vote on the polls. 
 
 A user need to send `Cw20HandleMsg::Send{Cw20HookMsg::StakeVotingTokens}` to mirror token contract.
 

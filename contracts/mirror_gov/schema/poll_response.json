@@ -38,7 +38,8 @@
         "in_progress",
         "tally",
         "passed",
-        "rejected"
+        "rejected",
+        "executed"
       ]
     },
     "Uint128": {

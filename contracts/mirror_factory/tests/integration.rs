@@ -66,7 +66,7 @@ fn proper_initialization() {
         staking_contract: HumanAddr::from("staking0000"),
         commission_collector: HumanAddr::from("collector0000"),
         oracle_contract: HumanAddr::from("oracle0000"),
-        uniswap_factory: HumanAddr::from("uniswapfactory"),
+        terraswap_factory: HumanAddr::from("terraswapfactory"),
     };
     let _res: HandleResponse = handle(&mut deps, env.clone(), msg).unwrap();
 
@@ -78,7 +78,7 @@ fn proper_initialization() {
         staking_contract: HumanAddr::from("staking0000"),
         commission_collector: HumanAddr::from("collector0000"),
         oracle_contract: HumanAddr::from("oracle0000"),
-        uniswap_factory: HumanAddr::from("uniswapfactory"),
+        terraswap_factory: HumanAddr::from("terraswapfactory"),
     };
     let res: HandleResult = handle(&mut deps, env, msg);
     match res {
@@ -98,7 +98,7 @@ fn proper_initialization() {
             staking_contract: HumanAddr::from("staking0000"),
             commission_collector: HumanAddr::from("collector0000"),
             oracle_contract: HumanAddr::from("oracle0000"),
-            uniswap_factory: HumanAddr::from("uniswapfactory"),
+            terraswap_factory: HumanAddr::from("terraswapfactory"),
             mint_per_block: Uint128(100u128),
             base_denom: BASE_DENOM.to_string(),
             token_code_id: TOKEN_CODE_ID,
@@ -126,7 +126,7 @@ fn test_update_config() {
         staking_contract: HumanAddr::from("staking0000"),
         commission_collector: HumanAddr::from("collector0000"),
         oracle_contract: HumanAddr::from("oracle0000"),
-        uniswap_factory: HumanAddr::from("uniswapfactory"),
+        terraswap_factory: HumanAddr::from("terraswapfactory"),
     };
     let _res: HandleResponse = handle(&mut deps, env.clone(), msg).unwrap();
 
@@ -150,7 +150,7 @@ fn test_update_config() {
             staking_contract: HumanAddr::from("staking0000"),
             commission_collector: HumanAddr::from("collector0000"),
             oracle_contract: HumanAddr::from("oracle0000"),
-            uniswap_factory: HumanAddr::from("uniswapfactory"),
+            terraswap_factory: HumanAddr::from("terraswapfactory"),
             mint_per_block: Uint128(100u128),
             base_denom: BASE_DENOM.to_string(),
             token_code_id: TOKEN_CODE_ID,
@@ -177,7 +177,7 @@ fn test_update_config() {
             staking_contract: HumanAddr::from("staking0000"),
             commission_collector: HumanAddr::from("collector0000"),
             oracle_contract: HumanAddr::from("oracle0000"),
-            uniswap_factory: HumanAddr::from("uniswapfactory"),
+            terraswap_factory: HumanAddr::from("terraswapfactory"),
             mint_per_block: Uint128(200u128),
             base_denom: BASE_DENOM.to_string(),
             token_code_id: TOKEN_CODE_ID + 1,

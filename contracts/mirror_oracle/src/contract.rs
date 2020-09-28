@@ -220,7 +220,7 @@ mod tests {
     use cosmwasm_std::testing::{mock_dependencies, mock_env};
     use cosmwasm_std::StdError;
     use std::str::FromStr;
-    use uniswap::AssetInfo;
+    use terraswap::AssetInfo;
 
     #[test]
     fn proper_initialization() {
