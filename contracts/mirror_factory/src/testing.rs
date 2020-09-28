@@ -10,7 +10,7 @@ use cosmwasm_std::{
     from_binary, log, to_binary, CosmosMsg, Decimal, Env, HumanAddr, StdError, Uint128, WasmMsg,
 };
 use cw20::{Cw20HandleMsg, MinterResponse};
-use uniswap::{AssetInfo, InitHook, TokenInitMsg};
+use terraswap::{AssetInfo, InitHook, TokenInitMsg};
 
 fn mock_env_height(signer: &HumanAddr, height: u64) -> Env {
     let mut env = mock_env(signer, &[]);
@@ -41,7 +41,7 @@ fn proper_initialization() {
         staking_contract: HumanAddr::from("staking0000"),
         commission_collector: HumanAddr::from("collector0000"),
         oracle_contract: HumanAddr::from("oracle0000"),
-        uniswap_factory: HumanAddr::from("uniswapfactory"),
+        terraswap_factory: HumanAddr::from("terraswapfactory"),
     };
     let _res = handle(&mut deps, env.clone(), msg).unwrap();
 
@@ -53,7 +53,7 @@ fn proper_initialization() {
         staking_contract: HumanAddr::from("staking0000"),
         commission_collector: HumanAddr::from("collector0000"),
         oracle_contract: HumanAddr::from("oracle0000"),
-        uniswap_factory: HumanAddr::from("uniswapfactory"),
+        terraswap_factory: HumanAddr::from("terraswapfactory"),
     };
     let _res = handle(&mut deps, env, msg).unwrap_err();
 
@@ -69,7 +69,7 @@ fn proper_initialization() {
             staking_contract: HumanAddr::from("staking0000"),
             commission_collector: HumanAddr::from("collector0000"),
             oracle_contract: HumanAddr::from("oracle0000"),
-            uniswap_factory: HumanAddr::from("uniswapfactory"),
+            terraswap_factory: HumanAddr::from("terraswapfactory"),
             mint_per_block: Uint128(100u128),
             base_denom: BASE_DENOM.to_string(),
             token_code_id: TOKEN_CODE_ID,
@@ -97,7 +97,7 @@ fn test_update_config() {
         staking_contract: HumanAddr::from("staking0000"),
         commission_collector: HumanAddr::from("collector0000"),
         oracle_contract: HumanAddr::from("oracle0000"),
-        uniswap_factory: HumanAddr::from("uniswapfactory"),
+        terraswap_factory: HumanAddr::from("terraswapfactory"),
     };
     let _res = handle(&mut deps, env.clone(), msg).unwrap();
 
@@ -121,7 +121,7 @@ fn test_update_config() {
             staking_contract: HumanAddr::from("staking0000"),
             commission_collector: HumanAddr::from("collector0000"),
             oracle_contract: HumanAddr::from("oracle0000"),
-            uniswap_factory: HumanAddr::from("uniswapfactory"),
+            terraswap_factory: HumanAddr::from("terraswapfactory"),
             mint_per_block: Uint128(100u128),
             base_denom: BASE_DENOM.to_string(),
             token_code_id: TOKEN_CODE_ID,
@@ -148,7 +148,7 @@ fn test_update_config() {
             staking_contract: HumanAddr::from("staking0000"),
             commission_collector: HumanAddr::from("collector0000"),
             oracle_contract: HumanAddr::from("oracle0000"),
-            uniswap_factory: HumanAddr::from("uniswapfactory"),
+            terraswap_factory: HumanAddr::from("terraswapfactory"),
             mint_per_block: Uint128(200u128),
             base_denom: BASE_DENOM.to_string(),
             token_code_id: TOKEN_CODE_ID + 1,
@@ -190,7 +190,7 @@ fn test_whitelist() {
         staking_contract: HumanAddr::from("staking0000"),
         commission_collector: HumanAddr::from("collector0000"),
         oracle_contract: HumanAddr::from("oracle0000"),
-        uniswap_factory: HumanAddr::from("uniswapfactory"),
+        terraswap_factory: HumanAddr::from("terraswapfactory"),
     };
     let _res = handle(&mut deps, env.clone(), msg).unwrap();
 
@@ -292,7 +292,7 @@ fn test_token_creation_hook() {
         staking_contract: HumanAddr::from("staking0000"),
         commission_collector: HumanAddr::from("collector0000"),
         oracle_contract: HumanAddr::from("oracle0000"),
-        uniswap_factory: HumanAddr::from("uniswapfactory"),
+        terraswap_factory: HumanAddr::from("terraswapfactory"),
     };
     let _res = handle(&mut deps, env.clone(), msg).unwrap();
 
@@ -352,9 +352,9 @@ fn test_token_creation_hook() {
                 .unwrap(),
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("uniswapfactory"),
+                contract_addr: HumanAddr::from("terraswapfactory"),
                 send: vec![],
-                msg: to_binary(&UniswapHandleMsg::CreatePair {
+                msg: to_binary(&TerraSwapHandleMsg::CreatePair {
                     pair_owner: env.contract.address,
                     commission_collector: HumanAddr::from("collector0000"),
                     lp_commission: Decimal::percent(1),
@@ -368,7 +368,7 @@ fn test_token_creation_hook() {
                         },
                     ],
                     init_hook: Some(InitHook {
-                        msg: to_binary(&HandleMsg::UniswapCreationHook {
+                        msg: to_binary(&HandleMsg::TerraSwapCreationHook {
                             asset_token: HumanAddr::from("asset0000"),
                         })
                         .unwrap(),
@@ -411,13 +411,13 @@ fn test_token_creation_hook() {
 }
 
 #[test]
-fn test_uniswap_creation_hook() {
+fn test_terraswap_creation_hook() {
     let mut deps = mock_dependencies(20, &[]);
-    deps.querier.with_uniswap_pairs(&[(
+    deps.querier.with_terraswap_pairs(&[(
         &"asset0000\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}uusd".to_string(),
         &HumanAddr::from("pair0000"),
     )]);
-    deps.querier.with_uniswap_pair_staking_token(&[(
+    deps.querier.with_terraswap_pair_staking_token(&[(
         &HumanAddr::from("pair0000"),
         &HumanAddr::from("LP0000"),
     )]);
@@ -438,7 +438,7 @@ fn test_uniswap_creation_hook() {
         staking_contract: HumanAddr::from("staking0000"),
         commission_collector: HumanAddr::from("collector0000"),
         oracle_contract: HumanAddr::from("oracle0000"),
-        uniswap_factory: HumanAddr::from("uniswapfactory"),
+        terraswap_factory: HumanAddr::from("terraswapfactory"),
     };
     let _res = handle(&mut deps, env, msg).unwrap();
 
@@ -463,10 +463,10 @@ fn test_uniswap_creation_hook() {
     let env = mock_env("asset0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
-    let msg = HandleMsg::UniswapCreationHook {
+    let msg = HandleMsg::TerraSwapCreationHook {
         asset_token: HumanAddr::from("asset0000"),
     };
-    let env = mock_env("uniswapfactory", &[]);
+    let env = mock_env("terraswapfactory", &[]);
     let res = handle(&mut deps, env, msg).unwrap();
     assert_eq!(
         res.messages,
@@ -485,11 +485,11 @@ fn test_uniswap_creation_hook() {
 #[test]
 fn test_update_weight() {
     let mut deps = mock_dependencies(20, &[]);
-    deps.querier.with_uniswap_pairs(&[(
+    deps.querier.with_terraswap_pairs(&[(
         &"asset0000\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}uusd".to_string(),
         &HumanAddr::from("pair0000"),
     )]);
-    deps.querier.with_uniswap_pair_staking_token(&[(
+    deps.querier.with_terraswap_pair_staking_token(&[(
         &HumanAddr::from("pair0000"),
         &HumanAddr::from("LP0000"),
     )]);
@@ -510,7 +510,7 @@ fn test_update_weight() {
         staking_contract: HumanAddr::from("staking0000"),
         commission_collector: HumanAddr::from("collector0000"),
         oracle_contract: HumanAddr::from("oracle0000"),
-        uniswap_factory: HumanAddr::from("uniswapfactory"),
+        terraswap_factory: HumanAddr::from("terraswapfactory"),
     };
     let _res = handle(&mut deps, env, msg).unwrap();
 
@@ -535,10 +535,10 @@ fn test_update_weight() {
     let env = mock_env("asset0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
-    let msg = HandleMsg::UniswapCreationHook {
+    let msg = HandleMsg::TerraSwapCreationHook {
         asset_token: HumanAddr::from("asset0000"),
     };
-    let env = mock_env("uniswapfactory", &[]);
+    let env = mock_env("terraswapfactory", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
     let msg = HandleMsg::UpdateWeight {
@@ -583,11 +583,11 @@ fn test_update_weight() {
 #[test]
 fn test_mint() {
     let mut deps = mock_dependencies(20, &[]);
-    deps.querier.with_uniswap_pairs(&[(
+    deps.querier.with_terraswap_pairs(&[(
         &"asset0000\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}uusd".to_string(),
         &HumanAddr::from("pair0000"),
     )]);
-    deps.querier.with_uniswap_pair_staking_token(&[(
+    deps.querier.with_terraswap_pair_staking_token(&[(
         &HumanAddr::from("pair0000"),
         &HumanAddr::from("LP0000"),
     )]);
@@ -608,7 +608,7 @@ fn test_mint() {
         staking_contract: HumanAddr::from("staking0000"),
         commission_collector: HumanAddr::from("collector0000"),
         oracle_contract: HumanAddr::from("oracle0000"),
-        uniswap_factory: HumanAddr::from("uniswapfactory"),
+        terraswap_factory: HumanAddr::from("terraswapfactory"),
     };
     let _res = handle(&mut deps, env, msg).unwrap();
 
@@ -633,10 +633,10 @@ fn test_mint() {
     let env = mock_env("asset0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
-    let msg = HandleMsg::UniswapCreationHook {
+    let msg = HandleMsg::TerraSwapCreationHook {
         asset_token: HumanAddr::from("asset0000"),
     };
-    let env = mock_env("uniswapfactory", &[]);
+    let env = mock_env("terraswapfactory", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // height is not increased so zero amount will be minted

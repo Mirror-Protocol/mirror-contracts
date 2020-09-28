@@ -9,25 +9,25 @@ This contract is for mirror token distribution. It continually mints mirror toke
 | mirror_token         | Mirror token contract address                                                           |
 | mint_contract        | The contract address which has minter permission of the created asset token             |
 | oracle_contract      | The contract address which is used to feed asset price                                  |
-| uniswap_factory      | The contract address which creates uniswap pair contract when a new asset is registered |
+| terraswap_factory      | The contract address which creates terraswap pair contract when a new asset is registered |
 | staking_contract     | The contract address which provides staking pools for liqudity(LP) token                |
-| commission_collector | The contract address which collects all uniswap owner commission                        |
+| commission_collector | The contract address which collects all terraswap owner commission                        |
 | mint_per_block       | The amount of mirror token to mint per block for each 1 weight                          |
 | token_code_id        | The code ID for asset token                                                             |
-| base_denom           | The native token denom used to create uniswap pair                                      |
+| base_denom           | The native token denom used to create terraswap pair                                      |
 
 ## HandleMsgs
 
 * PostInitialize (Owner)
 
-   This operation is used to register all relevant contracts `uniswap_factory`, `mirror_token`, `staking_contract`, `oracle_contract`, `mint_contract`, `commission_collector`. Only owner is allowed to execute it.
+   This operation is used to register all relevant contracts `terraswap_factory`, `mirror_token`, `staking_contract`, `oracle_contract`, `mint_contract`, `commission_collector`. Only owner is allowed to execute it.
 
    **Request Format**
    ```rust
    pub enum HandleMsg {
       PostInitialize {
          owner: HumanAddr,
-         uniswap_factory: HumanAddr,
+         terraswap_factory: HumanAddr,
          mirror_token: HumanAddr,
          staking_contract: HumanAddr,
          oracle_contract: HumanAddr,
@@ -80,9 +80,9 @@ This contract is for mirror token distribution. It continually mints mirror toke
       2-3. Register asset and oracle feeder 
       to oracle contract
 
-      2-4. Create uniswap pair through uniswap factory
+      2-4. Create terraswap pair through terraswap factory
 
-   3. Call `UniswapCreationHook`
+   3. Call `TerraSwapCreationHook`
    
       3-1. Register asset and liquidity(LP) token to staking contract
 

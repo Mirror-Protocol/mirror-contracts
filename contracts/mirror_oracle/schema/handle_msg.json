@@ -26,6 +26,7 @@
       }
     },
     {
+      "description": "Used to register new asset or to update feeder",
       "type": "object",
       "required": [
         "register_asset"
@@ -34,18 +35,14 @@
         "register_asset": {
           "type": "object",
           "required": [
-            "asset_info",
-            "feeder",
-            "token"
+            "asset_token",
+            "feeder"
           ],
           "properties": {
-            "asset_info": {
-              "$ref": "#/definitions/AssetInfo"
-            },
-            "feeder": {
+            "asset_token": {
               "$ref": "#/definitions/HumanAddr"
             },
-            "token": {
+            "feeder": {
               "$ref": "#/definitions/HumanAddr"
             }
           }
@@ -61,25 +58,14 @@
         "feed_price": {
           "type": "object",
           "required": [
-            "asset_info",
-            "price"
+            "price_infos"
           ],
           "properties": {
-            "asset_info": {
-              "$ref": "#/definitions/AssetInfo"
-            },
-            "price": {
-              "$ref": "#/definitions/Decimal"
-            },
-            "price_multiplier": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/Decimal"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+            "price_infos": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/PriceInfo"
+              }
             }
           }
         }
@@ -87,54 +73,37 @@
     }
   ],
   "definitions": {
-    "AssetInfo": {
-      "anyOf": [
-        {
-          "type": "object",
-          "required": [
-            "token"
-          ],
-          "properties": {
-            "token": {
-              "type": "object",
-              "required": [
-                "contract_addr"
-              ],
-              "properties": {
-                "contract_addr": {
-                  "$ref": "#/definitions/HumanAddr"
-                }
-              }
-            }
-          }
-        },
-        {
-          "type": "object",
-          "required": [
-            "native_token"
-          ],
-          "properties": {
-            "native_token": {
-              "type": "object",
-              "required": [
-                "denom"
-              ],
-              "properties": {
-                "denom": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        }
-      ]
-    },
     "Decimal": {
       "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0\n\nThe greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
       "type": "string"
     },
     "HumanAddr": {
       "type": "string"
+    },
+    "PriceInfo": {
+      "type": "object",
+      "required": [
+        "asset_token",
+        "price"
+      ],
+      "properties": {
+        "asset_token": {
+          "$ref": "#/definitions/HumanAddr"
+        },
+        "price": {
+          "$ref": "#/definitions/Decimal"
+        },
+        "price_multiplier": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Decimal"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
     }
   }
 }

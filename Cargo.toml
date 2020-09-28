@@ -1,7 +1,7 @@
 [workspace]
 members = ["packages/*", "contracts/*"]
 
-[profile.release.package.uniswap]
+[profile.release.package.terraswap]
 opt-level = 3
 debug = false
 debug-assertions = false

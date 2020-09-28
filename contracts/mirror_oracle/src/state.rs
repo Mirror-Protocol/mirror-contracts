@@ -6,7 +6,7 @@ use cosmwasm_std::{
     Storage,
 };
 use cosmwasm_storage::{singleton, singleton_read, PrefixedStorage, ReadonlyPrefixedStorage};
-use uniswap::AssetInfoRaw;
+use terraswap::AssetInfoRaw;
 
 static PREFIX_ASSET: &[u8] = b"asset";
 static PREFIX_PRICE: &[u8] = b"price";

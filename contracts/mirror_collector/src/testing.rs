@@ -1,17 +1,17 @@
 use crate::contract::{handle, init, query_config};
 use crate::mock_querier::mock_dependencies;
-use crate::msg::{ConfigResponse, HandleMsg, InitMsg, UniswapCw20HookMsg, UniswapHandleMsg};
+use crate::msg::{ConfigResponse, HandleMsg, InitMsg, TerraSwapCw20HookMsg, TerraSwapHandleMsg};
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{to_binary, Coin, CosmosMsg, Decimal, HumanAddr, Uint128, WasmMsg};
 use cw20::Cw20HandleMsg;
-use uniswap::{Asset, AssetInfo};
+use terraswap::{Asset, AssetInfo};
 
 #[test]
 fn proper_initialization() {
     let mut deps = mock_dependencies(20, &[]);
 
     let msg = InitMsg {
-        uniswap_factory: HumanAddr("uniswapfactory".to_string()),
+        terraswap_factory: HumanAddr("terraswapfactory".to_string()),
         distribution_contract: HumanAddr("gov0000".to_string()),
         mirror_token: HumanAddr("mirror0000".to_string()),
         base_denom: "uusd".to_string(),
@@ -24,7 +24,7 @@ fn proper_initialization() {
 
     // it worked, let's query the state
     let config: ConfigResponse = query_config(&deps).unwrap();
-    assert_eq!("uniswapfactory", config.uniswap_factory.as_str());
+    assert_eq!("terraswapfactory", config.terraswap_factory.as_str());
     assert_eq!("uusd", config.base_denom.as_str());
 }
 
@@ -47,7 +47,7 @@ fn test_convert() {
         &[(&"uusd".to_string(), &Uint128(1000000u128))],
     );
 
-    deps.querier.with_uniswap_pairs(&[
+    deps.querier.with_terraswap_pairs(&[
         (
             &"tokenAPPL\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}uusd".to_string(),
             &HumanAddr::from("pairAPPL"),
@@ -59,7 +59,7 @@ fn test_convert() {
     ]);
 
     let msg = InitMsg {
-        uniswap_factory: HumanAddr("uniswapfactory".to_string()),
+        terraswap_factory: HumanAddr("terraswapfactory".to_string()),
         distribution_contract: HumanAddr("gov0000".to_string()),
         mirror_token: HumanAddr("tokenMIRROR".to_string()),
         base_denom: "uusd".to_string(),
@@ -81,7 +81,7 @@ fn test_convert() {
             msg: to_binary(&Cw20HandleMsg::Send {
                 contract: HumanAddr::from("pairAPPL"),
                 amount: Uint128(100u128),
-                msg: Some(to_binary(&UniswapCw20HookMsg::Swap { max_spread: None }).unwrap()),
+                msg: Some(to_binary(&TerraSwapCw20HookMsg::Swap { max_spread: None }).unwrap()),
             })
             .unwrap(),
             send: vec![],
@@ -100,7 +100,7 @@ fn test_convert() {
         res.messages,
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: HumanAddr::from("pairMIRROR"),
-            msg: to_binary(&UniswapHandleMsg::Swap {
+            msg: to_binary(&TerraSwapHandleMsg::Swap {
                 offer_asset: Asset {
                     info: AssetInfo::NativeToken {
                         denom: "uusd".to_string()
@@ -127,7 +127,7 @@ fn test_send() {
     )]);
 
     let msg = InitMsg {
-        uniswap_factory: HumanAddr("uniswapfactory".to_string()),
+        terraswap_factory: HumanAddr("terraswapfactory".to_string()),
         distribution_contract: HumanAddr("gov0000".to_string()),
         mirror_token: HumanAddr("mirror0000".to_string()),
         base_denom: "uusd".to_string(),

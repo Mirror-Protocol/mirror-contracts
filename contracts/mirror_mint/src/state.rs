@@ -9,7 +9,7 @@ use cosmwasm_std::{
 use cosmwasm_storage::{
     singleton, singleton_read, Bucket, PrefixedStorage, ReadonlyBucket, ReadonlyPrefixedStorage,
 };
-use uniswap::{AssetInfoRaw, AssetRaw};
+use terraswap::{AssetInfoRaw, AssetRaw};
 
 static PREFIX_ASSET: &[u8] = b"asset";
 static PREFIX_POSITION: &[u8] = b"position";

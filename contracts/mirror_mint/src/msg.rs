@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{Decimal, HumanAddr, Uint128};
 use cw20::Cw20ReceiveMsg;
-use uniswap::{Asset, AssetInfo};
+use terraswap::{Asset, AssetInfo};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {

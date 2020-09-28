@@ -20,7 +20,7 @@ pub struct Config {
     pub mirror_token: CanonicalAddr,
     pub mint_contract: CanonicalAddr,
     pub oracle_contract: CanonicalAddr,
-    pub uniswap_factory: CanonicalAddr,
+    pub terraswap_factory: CanonicalAddr,
     pub staking_contract: CanonicalAddr,
     pub commission_collector: CanonicalAddr,
     pub mint_per_block: Uint128,

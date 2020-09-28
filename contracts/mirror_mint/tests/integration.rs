@@ -26,7 +26,7 @@ use cosmwasm_vm::testing::{
 use cosmwasm_vm::Instance;
 
 use mirror_mint::msg::{ConfigResponse, HandleMsg, InitMsg, QueryMsg};
-use uniswap::AssetInfo;
+use terraswap::AssetInfo;
 
 // This line will test the output of cargo wasm
 static WASM: &[u8] =
