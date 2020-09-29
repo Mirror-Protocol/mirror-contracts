@@ -16,7 +16,7 @@ pub enum MintHandleMsg {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum TerraSwapHandleMsg {
+pub enum TerraswapHandleMsg {
     CreatePair {
         /// Pair contract owner
         pair_owner: HumanAddr,

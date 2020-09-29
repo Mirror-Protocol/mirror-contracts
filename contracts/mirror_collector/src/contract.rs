@@ -4,7 +4,7 @@ use cosmwasm_std::{
 };
 
 use crate::msg::{
-    ConfigResponse, HandleMsg, InitMsg, QueryMsg, TerraSwapCw20HookMsg, TerraSwapHandleMsg,
+    ConfigResponse, HandleMsg, InitMsg, QueryMsg, TerraswapCw20HookMsg, TerraswapHandleMsg,
 };
 use crate::state::{read_config, store_config, Config};
 
@@ -81,7 +81,7 @@ pub fn try_convert<S: Storage, A: Api, Q: Querier>(
         let amount = (swap_asset.deduct_tax(&deps)?).amount;
         messages = vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: pair_contract,
-            msg: to_binary(&TerraSwapHandleMsg::Swap {
+            msg: to_binary(&TerraswapHandleMsg::Swap {
                 offer_asset: Asset {
                     amount,
                     ..swap_asset
@@ -102,7 +102,7 @@ pub fn try_convert<S: Storage, A: Api, Q: Querier>(
             msg: to_binary(&Cw20HandleMsg::Send {
                 contract: pair_contract.clone(),
                 amount,
-                msg: Some(to_binary(&TerraSwapCw20HookMsg::Swap { max_spread: None })?),
+                msg: Some(to_binary(&TerraswapCw20HookMsg::Swap { max_spread: None })?),
             })?,
             send: vec![],
         })];

@@ -30,19 +30,19 @@ pub fn mock_dependencies(
 
 pub struct WasmMockQuerier {
     base: MockQuerier<Empty>,
-    terraswap_factory_querier: TerraSwapFactoryQuerier,
-    terraswap_pair_querier: TerraSwapPairQuerier,
+    terraswap_factory_querier: TerraswapFactoryQuerier,
+    terraswap_pair_querier: TerraswapPairQuerier,
     canonical_length: usize,
 }
 
 #[derive(Clone, Default)]
-pub struct TerraSwapFactoryQuerier {
+pub struct TerraswapFactoryQuerier {
     pairs: HashMap<String, HumanAddr>,
 }
 
-impl TerraSwapFactoryQuerier {
+impl TerraswapFactoryQuerier {
     pub fn new(pairs: &[(&String, &HumanAddr)]) -> Self {
-        TerraSwapFactoryQuerier {
+        TerraswapFactoryQuerier {
             pairs: pairs_to_map(pairs),
         }
     }
@@ -57,13 +57,13 @@ pub(crate) fn pairs_to_map(pairs: &[(&String, &HumanAddr)]) -> HashMap<String, H
 }
 
 #[derive(Clone, Default)]
-pub struct TerraSwapPairQuerier {
+pub struct TerraswapPairQuerier {
     staking_tokens: HashMap<HumanAddr, HumanAddr>,
 }
 
-impl TerraSwapPairQuerier {
+impl TerraswapPairQuerier {
     pub fn new(staking_tokens: &[(&HumanAddr, &HumanAddr)]) -> Self {
-        TerraSwapPairQuerier {
+        TerraswapPairQuerier {
             staking_tokens: staking_tokens_to_map(staking_tokens),
         }
     }
@@ -184,19 +184,19 @@ impl WasmMockQuerier {
     pub fn new<A: Api>(base: MockQuerier<Empty>, _api: A, canonical_length: usize) -> Self {
         WasmMockQuerier {
             base,
-            terraswap_factory_querier: TerraSwapFactoryQuerier::default(),
-            terraswap_pair_querier: TerraSwapPairQuerier::default(),
+            terraswap_factory_querier: TerraswapFactoryQuerier::default(),
+            terraswap_pair_querier: TerraswapPairQuerier::default(),
             canonical_length,
         }
     }
 
     // configure the terraswap pair
     pub fn with_terraswap_pairs(&mut self, pairs: &[(&String, &HumanAddr)]) {
-        self.terraswap_factory_querier = TerraSwapFactoryQuerier::new(pairs);
+        self.terraswap_factory_querier = TerraswapFactoryQuerier::new(pairs);
     }
 
     // configure the staking token mock querier
     pub fn with_terraswap_pair_staking_token(&mut self, staking_tokens: &[(&HumanAddr, &HumanAddr)]) {
-        self.terraswap_pair_querier = TerraSwapPairQuerier::new(staking_tokens);
+        self.terraswap_pair_querier = TerraswapPairQuerier::new(staking_tokens);
     }
 }

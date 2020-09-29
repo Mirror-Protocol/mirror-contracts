@@ -43,10 +43,10 @@ pub enum StakingCw20HookMsg {
 }
 
 //////////////////////////////
-/// TerraSwap contract handle msg
+/// Terraswap contract handle msg
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum TerraSwapHandleMsg {
+pub enum TerraswapHandleMsg {
     /// Swap an offer asset to the other
     Swap {
         offer_asset: Asset,
@@ -56,7 +56,7 @@ pub enum TerraSwapHandleMsg {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum TerraSwapCw20HookMsg {
+pub enum TerraswapCw20HookMsg {
     /// Sell a given amount of asset
     Swap { max_spread: Option<Decimal> },
 }

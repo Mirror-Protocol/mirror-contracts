@@ -82,7 +82,7 @@ This contract is for mirror token distribution. It continually mints mirror toke
 
       2-4. Create terraswap pair through terraswap factory
 
-   3. Call `TerraSwapCreationHook`
+   3. Call `TerraswapCreationHook`
    
       3-1. Register asset and liquidity(LP) token to staking contract
 

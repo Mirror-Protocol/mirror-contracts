@@ -45,7 +45,7 @@ pub enum HandleMsg {
     TokenCreationHook {
         oracle_feeder: HumanAddr,
     },
-    TerraSwapCreationHook {
+    TerraswapCreationHook {
         asset_token: HumanAddr,
     },
     PassCommand {

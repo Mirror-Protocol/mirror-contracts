@@ -354,7 +354,7 @@ fn test_token_creation_hook() {
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: HumanAddr::from("terraswapfactory"),
                 send: vec![],
-                msg: to_binary(&TerraSwapHandleMsg::CreatePair {
+                msg: to_binary(&TerraswapHandleMsg::CreatePair {
                     pair_owner: env.contract.address,
                     commission_collector: HumanAddr::from("collector0000"),
                     lp_commission: Decimal::percent(1),
@@ -368,7 +368,7 @@ fn test_token_creation_hook() {
                         },
                     ],
                     init_hook: Some(InitHook {
-                        msg: to_binary(&HandleMsg::TerraSwapCreationHook {
+                        msg: to_binary(&HandleMsg::TerraswapCreationHook {
                             asset_token: HumanAddr::from("asset0000"),
                         })
                         .unwrap(),
@@ -463,7 +463,7 @@ fn test_terraswap_creation_hook() {
     let env = mock_env("asset0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
-    let msg = HandleMsg::TerraSwapCreationHook {
+    let msg = HandleMsg::TerraswapCreationHook {
         asset_token: HumanAddr::from("asset0000"),
     };
     let env = mock_env("terraswapfactory", &[]);
@@ -535,7 +535,7 @@ fn test_update_weight() {
     let env = mock_env("asset0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
-    let msg = HandleMsg::TerraSwapCreationHook {
+    let msg = HandleMsg::TerraswapCreationHook {
         asset_token: HumanAddr::from("asset0000"),
     };
     let env = mock_env("terraswapfactory", &[]);
@@ -633,7 +633,7 @@ fn test_mint() {
     let env = mock_env("asset0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
-    let msg = HandleMsg::TerraSwapCreationHook {
+    let msg = HandleMsg::TerraswapCreationHook {
         asset_token: HumanAddr::from("asset0000"),
     };
     let env = mock_env("terraswapfactory", &[]);
