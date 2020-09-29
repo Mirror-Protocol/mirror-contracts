@@ -603,14 +603,39 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
     let asset_value_in_collateral_asset: Uint128 =
         asset.amount * asset_price * reverse_decimal(discounted_collateral_price);
 
-    // Cap return collateral amount to position collateral amount
-    let return_collateral_amount: Uint128 =
-        std::cmp::min(asset_value_in_collateral_asset, position.collateral.amount);
+    let mut messages: Vec<CosmosMsg> = vec![];
 
-    let left_asset_amount = (position.asset.amount - asset.amount).unwrap();
+    // Cap return collateral amount to position collateral amount
+    // If the given asset amount exceeds the amount required to liquidate position,
+    // left asset amount will be refunds to executor.
+    let (return_collateral_amount, refund_asset_amount) =
+        if asset_value_in_collateral_asset > position.collateral.amount {
+            // refunds left asset to position liquidator
+            let refund_asset_amount =
+                (asset_value_in_collateral_asset - position.collateral.amount).unwrap()
+                    * discounted_collateral_price
+                    * reverse_decimal(asset_price);
+
+            let refund_asset: Asset = Asset {
+                info: asset.info.clone(),
+                amount: refund_asset_amount,
+            };
+
+            messages.push(refund_asset.into_msg(
+                &deps,
+                env.contract.address.clone(),
+                sender.clone(),
+            )?);
+
+            (position.collateral.amount, refund_asset_amount)
+        } else {
+            (asset_value_in_collateral_asset, Uint128::zero())
+        };
+
+    let liquidated_asset_amount = (asset.amount - refund_asset_amount).unwrap();
+    let left_asset_amount = (position.asset.amount - liquidated_asset_amount).unwrap();
     let left_collateral_amount = (position.collateral.amount - return_collateral_amount).unwrap();
 
-    let mut messages: Vec<CosmosMsg> = vec![];
     if left_collateral_amount.is_zero() {
         // all collaterals are sold out
         remove_position(&mut deps.storage, position_idx, &position.owner)?;
@@ -619,12 +644,12 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
         remove_position(&mut deps.storage, position_idx, &position.owner)?;
 
         // refunds left collaterals to position owner
-        let refund_collateral_asset: Asset = Asset {
+        let refund_collateral: Asset = Asset {
             info: collateral_info.clone(),
             amount: left_collateral_amount,
         };
 
-        messages.push(refund_collateral_asset.into_msg(
+        messages.push(refund_collateral.into_msg(
             &deps,
             env.contract.address.clone(),
             position_owner.clone(),
@@ -640,7 +665,7 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
     messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: deps.api.human_address(&asset_config.token)?,
         msg: to_binary(&Cw20HandleMsg::Burn {
-            amount: asset.amount,
+            amount: liquidated_asset_amount,
         })?,
         send: vec![],
     }));
@@ -649,6 +674,12 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
     let return_collateral_asset = Asset {
         info: collateral_info.clone(),
         amount: return_collateral_amount,
+    };
+
+    // liquidated asset
+    let liquidated_asset: Asset = Asset {
+        info: asset.info,
+        amount: liquidated_asset_amount,
     };
 
     let tax_amount = return_collateral_asset.compute_tax(&deps)?;
@@ -662,7 +693,7 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
                 "return_collateral_amount",
                 return_collateral_amount.to_string() + &collateral_info.to_string(),
             ),
-            log("liquidated_amount", asset.to_string()),
+            log("liquidated_amount", liquidated_asset.to_string()),
             log(
                 "tax_amount",
                 tax_amount.to_string() + &collateral_info.to_string(),

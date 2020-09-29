@@ -1662,13 +1662,24 @@ fn auction() {
     let env = mock_env_with_block_time("asset0000", &[], 1000u64);
     let res = handle(&mut deps, env, msg).unwrap();
     // cap to collateral amount
+    // required_asset_amount = 1000000 * 50 * 0.8 / 200 = 200000
+    // refund_asset_amount = 10000
     assert_eq!(
         res.messages,
         vec![
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: HumanAddr::from("asset0000"),
+                msg: to_binary(&Cw20HandleMsg::Transfer {
+                    recipient: HumanAddr::from("addr0001"),
+                    amount: Uint128(10000u128),
+                })
+                .unwrap(),
+                send: vec![],
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from("asset0000"),
                 msg: to_binary(&Cw20HandleMsg::Burn {
-                    amount: Uint128(210000u128),
+                    amount: Uint128(200000u128),
                 })
                 .unwrap(),
                 send: vec![],
@@ -1690,7 +1701,7 @@ fn auction() {
             log("action", "auction"),
             log("owner", "addr0000"),
             log("return_collateral_amount", "1000000asset0001"),
-            log("liquidated_amount", "210000asset0000"),
+            log("liquidated_amount", "200000asset0000"),
             log("tax_amount", "0asset0001"),
         ]
     );
