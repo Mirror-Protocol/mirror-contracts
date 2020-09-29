@@ -3,6 +3,7 @@
   "title": "InitMsg",
   "type": "object",
   "required": [
+    "effective_delay",
     "mirror_token",
     "proposal_deposit",
     "quorum",
@@ -10,6 +11,11 @@
     "voting_period"
   ],
   "properties": {
+    "effective_delay": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    },
     "mirror_token": {
       "$ref": "#/definitions/HumanAddr"
     },

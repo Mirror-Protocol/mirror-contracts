@@ -6,7 +6,7 @@ use cosmwasm_std::{
 use crate::state::Config;
 use cosmwasm_storage::to_length_prefixed;
 use serde::{Deserialize, Serialize};
-use uniswap::AssetInfoRaw;
+use terraswap::AssetInfoRaw;
 
 const PRICE_EXPIRE_TIME: u64 = 60;
 

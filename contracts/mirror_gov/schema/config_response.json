@@ -3,6 +3,7 @@
   "title": "ConfigResponse",
   "type": "object",
   "required": [
+    "effective_delay",
     "mirror_token",
     "owner",
     "proposal_deposit",
@@ -11,6 +12,11 @@
     "voting_period"
   ],
   "properties": {
+    "effective_delay": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    },
     "mirror_token": {
       "$ref": "#/definitions/HumanAddr"
     },

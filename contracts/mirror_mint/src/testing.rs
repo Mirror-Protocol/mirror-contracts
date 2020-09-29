@@ -13,7 +13,7 @@ use crate::msg::{
 use crate::mock_querier::mock_dependencies;
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
-use uniswap::{Asset, AssetInfo};
+use terraswap::{Asset, AssetInfo};
 
 static TOKEN_CODE_ID: u64 = 10u64;
 #[test]

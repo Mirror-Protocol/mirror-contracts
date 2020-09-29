@@ -6,7 +6,7 @@ use cosmwasm_std::{
 use cosmwasm_storage::to_length_prefixed;
 
 use std::collections::HashMap;
-use uniswap::{AssetInfoRaw, PairConfigRaw, PairInfoRaw};
+use terraswap::{AssetInfoRaw, PairConfigRaw, PairInfoRaw};
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
 /// this uses our CustomQuerier.
@@ -30,19 +30,19 @@ pub fn mock_dependencies(
 
 pub struct WasmMockQuerier {
     base: MockQuerier<Empty>,
-    uniswap_factory_querier: UniswapFactoryQuerier,
-    uniswap_pair_querier: UniswapPairQuerier,
+    terraswap_factory_querier: TerraswapFactoryQuerier,
+    terraswap_pair_querier: TerraswapPairQuerier,
     canonical_length: usize,
 }
 
 #[derive(Clone, Default)]
-pub struct UniswapFactoryQuerier {
+pub struct TerraswapFactoryQuerier {
     pairs: HashMap<String, HumanAddr>,
 }
 
-impl UniswapFactoryQuerier {
+impl TerraswapFactoryQuerier {
     pub fn new(pairs: &[(&String, &HumanAddr)]) -> Self {
-        UniswapFactoryQuerier {
+        TerraswapFactoryQuerier {
             pairs: pairs_to_map(pairs),
         }
     }
@@ -57,13 +57,13 @@ pub(crate) fn pairs_to_map(pairs: &[(&String, &HumanAddr)]) -> HashMap<String, H
 }
 
 #[derive(Clone, Default)]
-pub struct UniswapPairQuerier {
+pub struct TerraswapPairQuerier {
     staking_tokens: HashMap<HumanAddr, HumanAddr>,
 }
 
-impl UniswapPairQuerier {
+impl TerraswapPairQuerier {
     pub fn new(staking_tokens: &[(&HumanAddr, &HumanAddr)]) -> Self {
-        UniswapPairQuerier {
+        TerraswapPairQuerier {
             staking_tokens: staking_tokens_to_map(staking_tokens),
         }
     }
@@ -109,7 +109,7 @@ impl WasmMockQuerier {
                 if key.len() > prefix_config.len()
                     && key[..prefix_config.len()].to_vec() == prefix_config
                 {
-                    let item = match self.uniswap_pair_querier.staking_tokens.get(contract_addr) {
+                    let item = match self.terraswap_pair_querier.staking_tokens.get(contract_addr) {
                         Some(v) => v,
                         None => {
                             return Err(SystemError::InvalidRequest {
@@ -146,7 +146,7 @@ impl WasmMockQuerier {
                         }
                     };
 
-                    let pair_contract = match self.uniswap_factory_querier.pairs.get(&key_str) {
+                    let pair_contract = match self.terraswap_factory_querier.pairs.get(&key_str) {
                         Some(v) => v,
                         None => {
                             return Err(SystemError::InvalidRequest {
@@ -184,19 +184,19 @@ impl WasmMockQuerier {
     pub fn new<A: Api>(base: MockQuerier<Empty>, _api: A, canonical_length: usize) -> Self {
         WasmMockQuerier {
             base,
-            uniswap_factory_querier: UniswapFactoryQuerier::default(),
-            uniswap_pair_querier: UniswapPairQuerier::default(),
+            terraswap_factory_querier: TerraswapFactoryQuerier::default(),
+            terraswap_pair_querier: TerraswapPairQuerier::default(),
             canonical_length,
         }
     }
 
-    // configure the uniswap pair
-    pub fn with_uniswap_pairs(&mut self, pairs: &[(&String, &HumanAddr)]) {
-        self.uniswap_factory_querier = UniswapFactoryQuerier::new(pairs);
+    // configure the terraswap pair
+    pub fn with_terraswap_pairs(&mut self, pairs: &[(&String, &HumanAddr)]) {
+        self.terraswap_factory_querier = TerraswapFactoryQuerier::new(pairs);
     }
 
     // configure the staking token mock querier
-    pub fn with_uniswap_pair_staking_token(&mut self, staking_tokens: &[(&HumanAddr, &HumanAddr)]) {
-        self.uniswap_pair_querier = UniswapPairQuerier::new(staking_tokens);
+    pub fn with_terraswap_pair_staking_token(&mut self, staking_tokens: &[(&HumanAddr, &HumanAddr)]) {
+        self.terraswap_pair_querier = TerraswapPairQuerier::new(staking_tokens);
     }
 }

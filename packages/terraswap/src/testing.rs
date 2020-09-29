@@ -219,10 +219,10 @@ fn test_asset() {
 }
 
 #[test]
-fn query_uniswap_pair_contract() {
+fn query_terraswap_pair_contract() {
     let mut deps = mock_dependencies(20, &[]);
 
-    deps.querier.with_uniswap_pairs(&[(
+    deps.querier.with_terraswap_pairs(&[(
         &"asset0000\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}uusd".to_string(),
         &HumanAddr::from("pair0000"),
     )]);
@@ -245,10 +245,10 @@ fn query_uniswap_pair_contract() {
 }
 
 #[test]
-fn query_uniswap_lp_token() {
+fn query_terraswap_lp_token() {
     let mut deps = mock_dependencies(20, &[]);
     deps.querier
-        .with_uniswap_pair_lp_token(&[(&HumanAddr::from("pair0000"), &HumanAddr::from("LP0000"))]);
+        .with_terraswap_pair_lp_token(&[(&HumanAddr::from("pair0000"), &HumanAddr::from("LP0000"))]);
 
     let liquidity_token = load_liquidity_token(&deps, &HumanAddr::from("pair0000")).unwrap();
     assert_eq!(liquidity_token, HumanAddr::from("LP0000"));

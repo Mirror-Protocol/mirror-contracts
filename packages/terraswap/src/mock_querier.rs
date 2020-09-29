@@ -35,8 +35,8 @@ pub struct WasmMockQuerier {
     base: MockQuerier<TerraQueryWrapper>,
     token_querier: TokenQuerier,
     tax_querier: TaxQuerier,
-    uniswap_factory_querier: UniswapFactoryQuerier,
-    uniswap_pair_querier: UniswapPairQuerier,
+    terraswap_factory_querier: TerraswapFactoryQuerier,
+    terraswap_pair_querier: TerraswapPairQuerier,
     canonical_length: usize,
 }
 
@@ -94,13 +94,13 @@ pub(crate) fn caps_to_map(caps: &[(&String, &Uint128)]) -> HashMap<String, Uint1
 }
 
 #[derive(Clone, Default)]
-pub struct UniswapFactoryQuerier {
+pub struct TerraswapFactoryQuerier {
     pairs: HashMap<String, HumanAddr>,
 }
 
-impl UniswapFactoryQuerier {
+impl TerraswapFactoryQuerier {
     pub fn new(pairs: &[(&String, &HumanAddr)]) -> Self {
-        UniswapFactoryQuerier {
+        TerraswapFactoryQuerier {
             pairs: pairs_to_map(pairs),
         }
     }
@@ -115,13 +115,13 @@ pub(crate) fn pairs_to_map(pairs: &[(&String, &HumanAddr)]) -> HashMap<String, H
 }
 
 #[derive(Clone, Default)]
-pub struct UniswapPairQuerier {
+pub struct TerraswapPairQuerier {
     liquidity_tokens: HashMap<HumanAddr, HumanAddr>,
 }
 
-impl UniswapPairQuerier {
+impl TerraswapPairQuerier {
     pub fn new(liquidity_tokens: &[(&HumanAddr, &HumanAddr)]) -> Self {
-        UniswapPairQuerier {
+        TerraswapPairQuerier {
             liquidity_tokens: liquidity_tokens_to_map(liquidity_tokens),
         }
     }
@@ -193,7 +193,7 @@ impl WasmMockQuerier {
                     && key[..prefix_config.len()].to_vec() == prefix_config
                 {
                     let item = match self
-                        .uniswap_pair_querier
+                        .terraswap_pair_querier
                         .liquidity_tokens
                         .get(contract_addr)
                     {
@@ -233,7 +233,7 @@ impl WasmMockQuerier {
                         }
                     };
 
-                    let pair_contract = match self.uniswap_factory_querier.pairs.get(&key_str) {
+                    let pair_contract = match self.terraswap_factory_querier.pairs.get(&key_str) {
                         Some(v) => v,
                         None => {
                             return Err(SystemError::InvalidRequest {
@@ -332,8 +332,8 @@ impl WasmMockQuerier {
             base,
             token_querier: TokenQuerier::default(),
             tax_querier: TaxQuerier::default(),
-            uniswap_pair_querier: UniswapPairQuerier::default(),
-            uniswap_factory_querier: UniswapFactoryQuerier::default(),
+            terraswap_pair_querier: TerraswapPairQuerier::default(),
+            terraswap_factory_querier: TerraswapFactoryQuerier::default(),
             canonical_length,
         }
     }
@@ -348,14 +348,14 @@ impl WasmMockQuerier {
         self.tax_querier = TaxQuerier::new(rate, caps);
     }
 
-    // configure the uniswap pair
-    pub fn with_uniswap_pairs(&mut self, pairs: &[(&String, &HumanAddr)]) {
-        self.uniswap_factory_querier = UniswapFactoryQuerier::new(pairs);
+    // configure the terraswap pair
+    pub fn with_terraswap_pairs(&mut self, pairs: &[(&String, &HumanAddr)]) {
+        self.terraswap_factory_querier = TerraswapFactoryQuerier::new(pairs);
     }
 
     // configure the lp token mock querier
-    pub fn with_uniswap_pair_lp_token(&mut self, liquidity_tokens: &[(&HumanAddr, &HumanAddr)]) {
-        self.uniswap_pair_querier = UniswapPairQuerier::new(liquidity_tokens);
+    pub fn with_terraswap_pair_lp_token(&mut self, liquidity_tokens: &[(&HumanAddr, &HumanAddr)]) {
+        self.terraswap_pair_querier = TerraswapPairQuerier::new(liquidity_tokens);
     }
 
     // pub fn with_balance(&mut self, balances: &[(&HumanAddr, &[Coin])]) {
