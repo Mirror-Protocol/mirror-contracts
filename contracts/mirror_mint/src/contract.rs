@@ -18,7 +18,7 @@ use crate::state::{
 use crate::math::{decimal_multiplication, decimal_subtraction, reverse_decimal};
 use crate::querier::load_prices;
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
-use uniswap::{Asset, AssetInfo, AssetInfoRaw, AssetRaw};
+use terraswap::{Asset, AssetInfo, AssetInfoRaw, AssetRaw};
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,

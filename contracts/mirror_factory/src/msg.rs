@@ -16,7 +16,7 @@ pub struct InitMsg {
 pub enum HandleMsg {
     PostInitialize {
         owner: HumanAddr,
-        uniswap_factory: HumanAddr,
+        terraswap_factory: HumanAddr,
         mirror_token: HumanAddr,
         staking_contract: HumanAddr,
         oracle_contract: HumanAddr,
@@ -45,7 +45,7 @@ pub enum HandleMsg {
     TokenCreationHook {
         oracle_feeder: HumanAddr,
     },
-    UniswapCreationHook {
+    TerraswapCreationHook {
         asset_token: HumanAddr,
     },
     PassCommand {
@@ -73,7 +73,7 @@ pub struct ConfigResponse {
     pub staking_contract: HumanAddr,
     pub commission_collector: HumanAddr,
     pub oracle_contract: HumanAddr,
-    pub uniswap_factory: HumanAddr,
+    pub terraswap_factory: HumanAddr,
     pub mint_per_block: Uint128,
     pub token_code_id: u64,
     pub base_denom: String,

@@ -8,7 +8,7 @@ use cosmwasm_storage::to_length_prefixed;
 use std::collections::HashMap;
 
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
-use uniswap::{AssetInfoRaw, PairInfoRaw};
+use terraswap::{AssetInfoRaw, PairInfoRaw};
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
 /// this uses our CustomQuerier.
@@ -34,7 +34,7 @@ pub struct WasmMockQuerier {
     base: MockQuerier<TerraQueryWrapper>,
     token_querier: TokenQuerier,
     tax_querier: TaxQuerier,
-    uniswap_factory_querier: UniswapFactoryQuerier,
+    terraswap_factory_querier: TerraswapFactoryQuerier,
     canonical_length: usize,
 }
 
@@ -92,13 +92,13 @@ pub(crate) fn caps_to_map(caps: &[(&String, &Uint128)]) -> HashMap<String, Uint1
 }
 
 #[derive(Clone, Default)]
-pub struct UniswapFactoryQuerier {
+pub struct TerraswapFactoryQuerier {
     pairs: HashMap<String, HumanAddr>,
 }
 
-impl UniswapFactoryQuerier {
+impl TerraswapFactoryQuerier {
     pub fn new(pairs: &[(&String, &HumanAddr)]) -> Self {
-        UniswapFactoryQuerier {
+        TerraswapFactoryQuerier {
             pairs: pairs_to_map(pairs),
         }
     }
@@ -174,7 +174,7 @@ impl WasmMockQuerier {
                         }
                     };
 
-                    let pair_contract = match self.uniswap_factory_querier.pairs.get(&key_str) {
+                    let pair_contract = match self.terraswap_factory_querier.pairs.get(&key_str) {
                         Some(v) => v,
                         None => {
                             return Err(SystemError::InvalidRequest {
@@ -260,7 +260,7 @@ impl WasmMockQuerier {
             base,
             token_querier: TokenQuerier::default(),
             tax_querier: TaxQuerier::default(),
-            uniswap_factory_querier: UniswapFactoryQuerier::default(),
+            terraswap_factory_querier: TerraswapFactoryQuerier::default(),
             canonical_length,
         }
     }
@@ -275,8 +275,8 @@ impl WasmMockQuerier {
         self.tax_querier = TaxQuerier::new(rate, caps);
     }
 
-    // configure the uniswap pair
-    pub fn with_uniswap_pairs(&mut self, pairs: &[(&String, &HumanAddr)]) {
-        self.uniswap_factory_querier = UniswapFactoryQuerier::new(pairs);
+    // configure the terraswap pair
+    pub fn with_terraswap_pairs(&mut self, pairs: &[(&String, &HumanAddr)]) {
+        self.terraswap_factory_querier = TerraswapFactoryQuerier::new(pairs);
     }
 }

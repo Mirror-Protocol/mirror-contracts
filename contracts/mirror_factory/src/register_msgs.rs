@@ -2,7 +2,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{Decimal, HumanAddr};
-use uniswap::{AssetInfo, InitHook};
+use terraswap::{AssetInfo, InitHook};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -16,7 +16,7 @@ pub enum MintHandleMsg {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum UniswapHandleMsg {
+pub enum TerraswapHandleMsg {
     CreatePair {
         /// Pair contract owner
         pair_owner: HumanAddr,
