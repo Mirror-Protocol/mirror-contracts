@@ -82,7 +82,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::TokenCreationHook { oracle_feeder } => {
             token_creation_hook(deps, env, oracle_feeder)
         }
-        HandleMsg::TerraSwapCreationHook { asset_token } => {
+        HandleMsg::TerraswapCreationHook { asset_token } => {
             terraswap_creation_hook(deps, env, asset_token)
         }
         HandleMsg::Mint { asset_token } => try_mint(deps, env, asset_token),
@@ -223,7 +223,7 @@ pub fn try_pass_command<S: Storage, A: Api, Q: Querier>(
 ///    2-2. Register asset to mint contract
 ///    2-3. Register asset and oracle feeder to oracle contract
 ///    2-4. Create terraswap pair through terraswap factory
-/// 3. Call `TerraSwapCreationHook`
+/// 3. Call `TerraswapCreationHook`
 ///    3-1. Register asset to staking contract
 pub fn try_whitelist<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -277,7 +277,7 @@ pub fn try_whitelist<S: Storage, A: Api, Q: Querier>(
 /// 1. Initialize distribution info
 /// 2. Register asset to mint contract
 /// 3. Register asset and oracle feeder to oracle contract
-/// 4. Create terraswap pair through terraswap factory with `TerraSwapCreationHook`
+/// 4. Create terraswap pair through terraswap factory with `TerraswapCreationHook`
 pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
@@ -334,7 +334,7 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: deps.api.human_address(&config.terraswap_factory)?,
                 send: vec![],
-                msg: to_binary(&TerraSwapHandleMsg::CreatePair {
+                msg: to_binary(&TerraswapHandleMsg::CreatePair {
                     pair_owner: env.contract.address.clone(),
                     commission_collector: deps.api.human_address(&config.commission_collector)?,
                     lp_commission: params.lp_commission,
@@ -348,7 +348,7 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
                         },
                     ],
                     init_hook: Some(InitHook {
-                        msg: to_binary(&HandleMsg::TerraSwapCreationHook {
+                        msg: to_binary(&HandleMsg::TerraswapCreationHook {
                             asset_token: asset_token.clone(),
                         })?,
                         contract_addr: env.contract.address,
@@ -361,7 +361,7 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-/// TerraSwapCreationHook
+/// TerraswapCreationHook
 /// 1. Register asset and liquidity(LP) token to staking contract
 pub fn terraswap_creation_hook<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,

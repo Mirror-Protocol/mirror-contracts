@@ -34,7 +34,7 @@ pub struct WasmMockQuerier {
     base: MockQuerier<TerraQueryWrapper>,
     token_querier: TokenQuerier,
     tax_querier: TaxQuerier,
-    terraswap_factory_querier: TerraSwapFactoryQuerier,
+    terraswap_factory_querier: TerraswapFactoryQuerier,
     canonical_length: usize,
 }
 
@@ -92,13 +92,13 @@ pub(crate) fn caps_to_map(caps: &[(&String, &Uint128)]) -> HashMap<String, Uint1
 }
 
 #[derive(Clone, Default)]
-pub struct TerraSwapFactoryQuerier {
+pub struct TerraswapFactoryQuerier {
     pairs: HashMap<String, HumanAddr>,
 }
 
-impl TerraSwapFactoryQuerier {
+impl TerraswapFactoryQuerier {
     pub fn new(pairs: &[(&String, &HumanAddr)]) -> Self {
-        TerraSwapFactoryQuerier {
+        TerraswapFactoryQuerier {
             pairs: pairs_to_map(pairs),
         }
     }
@@ -260,7 +260,7 @@ impl WasmMockQuerier {
             base,
             token_querier: TokenQuerier::default(),
             tax_querier: TaxQuerier::default(),
-            terraswap_factory_querier: TerraSwapFactoryQuerier::default(),
+            terraswap_factory_querier: TerraswapFactoryQuerier::default(),
             canonical_length,
         }
     }
@@ -277,6 +277,6 @@ impl WasmMockQuerier {
 
     // configure the terraswap pair
     pub fn with_terraswap_pairs(&mut self, pairs: &[(&String, &HumanAddr)]) {
-        self.terraswap_factory_querier = TerraSwapFactoryQuerier::new(pairs);
+        self.terraswap_factory_querier = TerraswapFactoryQuerier::new(pairs);
     }
 }
