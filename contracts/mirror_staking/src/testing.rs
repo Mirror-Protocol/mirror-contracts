@@ -269,6 +269,26 @@ fn test_deposit_reward() {
     let env = mock_env("owner0000", &[]);
     let _res = handle(&mut deps, env, msg.clone()).unwrap();
 
+    let deposit_msg = HandleMsg::Receive(Cw20ReceiveMsg {
+        sender: HumanAddr::from("owner0000"),
+        amount: Uint128(100u128),
+        msg: Some(
+            to_binary(&Cw20HookMsg::DepositReward {
+                asset_token: HumanAddr::from("asset0000"),
+            })
+            .unwrap(),
+        ),
+    });
+
+    let env = mock_env("reward0000", &[]);
+    let res = handle(&mut deps, env, deposit_msg.clone());
+    match res {
+        Err(StdError::GenericErr { msg, .. }) => {
+            assert_eq!(msg, "Cannot deposit rewards to zero bond pool")
+        }
+        _ => panic!("Must return unauthorized error"),
+    }
+
     // bond 100 tokens
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         sender: HumanAddr::from("addr0000"),
@@ -284,19 +304,8 @@ fn test_deposit_reward() {
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // unauthoirzed
-    let msg = HandleMsg::Receive(Cw20ReceiveMsg {
-        sender: HumanAddr::from("owner0000"),
-        amount: Uint128(100u128),
-        msg: Some(
-            to_binary(&Cw20HookMsg::DepositReward {
-                asset_token: HumanAddr::from("asset0000"),
-            })
-            .unwrap(),
-        ),
-    });
-
     let env = mock_env("wrongtoken", &[]);
-    let res = handle(&mut deps, env, msg.clone());
+    let res = handle(&mut deps, env, deposit_msg.clone());
     match res {
         Err(StdError::Unauthorized { .. }) => {}
         _ => panic!("Must return unauthorized error"),
@@ -304,7 +313,7 @@ fn test_deposit_reward() {
 
     // factory deposit 100 reward tokens
     let env = mock_env("reward0000", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
+    let _res = handle(&mut deps, env, deposit_msg).unwrap();
 
     let data = query(
         &deps,
