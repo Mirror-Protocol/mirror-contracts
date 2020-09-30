@@ -69,7 +69,7 @@ pub enum Cw20HookMsg {
     Deposit { position_idx: Uint128 },
     /// convert specified asset amount and send back to user
     Burn { position_idx: Uint128 },
-    /// Auction a user can sell their asset tokens in discounted prices
+    /// a user can buy discounted collateral from the contract with their asset tokens
     Auction { position_idx: Uint128 },
 }
 
