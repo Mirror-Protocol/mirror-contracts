@@ -14,13 +14,12 @@ use cosmwasm_std::{
     StdResult, Storage, Uint128, WasmMsg,
 };
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
-use regex::Regex;
 
 const MIN_TITLE_LENGTH: usize = 4;
 const MAX_TITLE_LENGTH: usize = 64;
 const MIN_DESC_LENGTH: usize = 4;
 const MAX_DESC_LENGTH: usize = 256;
-const MIN_LINK_LENGTH: usize = 16;
+const MIN_LINK_LENGTH: usize = 12;
 const MAX_LINK_LENGTH: usize = 128;
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
@@ -304,10 +303,7 @@ fn validate_description(description: &str) -> StdResult<()> {
 /// validate_link returns an error if the link is invalid
 fn validate_link(link: &Option<String>) -> StdResult<()> {
     if let Some(link) = link {
-        let re = Regex::new(r"^(http://www.|https://www.|http://|https://)?[a-z0-9]+([-.]{1}[a-z0-9]+)*.[a-z]{2,5}(:[0-9]{1,5})?(/.*)?$").unwrap();
-        if !re.is_match(link) {
-            Err(StdError::generic_err("Link invalid format"))
-        } else if link.len() < MIN_LINK_LENGTH {
+        if link.len() < MIN_LINK_LENGTH {
             Err(StdError::generic_err("Link too short"))
         } else if link.len() > MAX_LINK_LENGTH {
             Err(StdError::generic_err("Link too long"))

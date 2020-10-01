@@ -220,52 +220,26 @@ mod tests {
         let msg = create_poll_msg(
             "test".to_string(),
             "test".to_string(),
-            Some("htt://hihi.com".to_string()),
+            Some("http://hih".to_string()),
             None,
         );
         let env = mock_env(VOTING_TOKEN, &vec![]);
         match handle(&mut deps, env.clone(), msg) {
             Ok(_) => panic!("Must return error"),
-            Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Link invalid format"),
+            Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Link too short"),
             Err(_) => panic!("Unknown error"),
         }
 
         let msg = create_poll_msg(
             "test".to_string(),
             "test".to_string(),
-            Some("://google.com".to_string()),
+            Some("0123456789012345678901234567890123456789012345678901234567890123401234567890123456789012345678901234567890123456789012345678901234012345678901234567890123456789012345678901234567890123456789012340123456789012345678901234567890123456789012345678901234567890123401234567890123456789012345678901234567890123456789012345678901234".to_string()),
             None,
         );
 
         match handle(&mut deps, env.clone(), msg) {
             Ok(_) => panic!("Must return error"),
-            Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Link invalid format"),
-            Err(_) => panic!("Unknown error"),
-        }
-
-        let msg = create_poll_msg(
-            "test".to_string(),
-            "test".to_string(),
-            Some("://google.com".to_string()),
-            None,
-        );
-
-        match handle(&mut deps, env.clone(), msg) {
-            Ok(_) => panic!("Must return error"),
-            Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Link invalid format"),
-            Err(_) => panic!("Unknown error"),
-        }
-
-        let msg = create_poll_msg(
-            "test".to_string(),
-            "test".to_string(),
-            Some("http://.com".to_string()),
-            None,
-        );
-
-        match handle(&mut deps, env.clone(), msg) {
-            Ok(_) => panic!("Must return error"),
-            Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Link invalid format"),
+            Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Link too long"),
             Err(_) => panic!("Unknown error"),
         }
     }
