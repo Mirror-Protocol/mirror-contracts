@@ -24,7 +24,8 @@
         "create_poll": {
           "type": "object",
           "required": [
-            "description"
+            "description",
+            "title"
           ],
           "properties": {
             "description": {
@@ -39,6 +40,9 @@
                   "type": "null"
                 }
               ]
+            },
+            "title": {
+              "type": "string"
             }
           }
         }

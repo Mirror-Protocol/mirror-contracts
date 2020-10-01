@@ -50,6 +50,7 @@ pub enum Cw20HookMsg {
     StakeVotingTokens {},
     /// CreatePoll need to receive deposit from a proposer
     CreatePoll {
+        title: String,
         description: String,
         execute_msg: Option<ExecuteMsg>,
     },
@@ -93,6 +94,7 @@ pub struct PollResponse {
     pub creator: HumanAddr,
     pub status: PollStatus,
     pub end_height: u64,
+    pub title: String,
     pub description: String,
     pub deposit_amount: Uint128,
 }

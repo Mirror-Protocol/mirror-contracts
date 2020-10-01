@@ -159,11 +159,37 @@ mod tests {
     }
 
     #[test]
+    fn fails_create_poll_invalid_title() {
+        let mut deps = mock_dependencies(20, &[]);
+        mock_init(&mut deps);
+
+        let msg = create_poll_msg("a".to_string(), "test".to_string(), None);
+        let env = mock_env(VOTING_TOKEN, &vec![]);
+        match handle(&mut deps, env.clone(), msg) {
+            Ok(_) => panic!("Must return error"),
+            Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Title too short"),
+            Err(_) => panic!("Unknown error"),
+        }
+
+        let msg = create_poll_msg(
+            "0123456789012345678901234567890123456789012345678901234567890123401234567890123456789012345678901234567890123456789012345678901234012345678901234567890123456789012345678901234567890123456789012340123456789012345678901234567890123456789012345678901234567890123401234567890123456789012345678901234567890123456789012345678901234".to_string(),
+            "test".to_string(),
+            None,
+        );
+
+        match handle(&mut deps, env.clone(), msg) {
+            Ok(_) => panic!("Must return error"),
+            Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Title too long"),
+            Err(_) => panic!("Unknown error"),
+        }
+    }
+
+    #[test]
     fn fails_create_poll_invalid_description() {
         let mut deps = mock_dependencies(20, &[]);
         mock_init(&mut deps);
 
-        let msg = create_poll_msg("a".to_string(), None);
+        let msg = create_poll_msg("test".to_string(), "a".to_string(), None);
         let env = mock_env(VOTING_TOKEN, &vec![]);
         match handle(&mut deps, env.clone(), msg) {
             Ok(_) => panic!("Must return error"),
@@ -172,6 +198,7 @@ mod tests {
         }
 
         let msg = create_poll_msg(
+            "test".to_string(),
             "0123456789012345678901234567890123456789012345678901234567890123401234567890123456789012345678901234567890123456789012345678901234012345678901234567890123456789012345678901234567890123456789012340123456789012345678901234567890123456789012345678901234567890123401234567890123456789012345678901234567890123456789012345678901234".to_string(),
             None,
         );
@@ -193,6 +220,7 @@ mod tests {
             amount: Uint128(DEFAULT_PROPOSAL_DEPOSIT - 1),
             msg: Some(
                 to_binary(&Cw20HookMsg::CreatePoll {
+                    title: "TESTTEST".to_string(),
                     description: "TESTTEST".to_string(),
                     execute_msg: None,
                 })
@@ -210,12 +238,17 @@ mod tests {
         }
     }
 
-    fn create_poll_msg(description: String, execute_msg: Option<ExecuteMsg>) -> HandleMsg {
+    fn create_poll_msg(
+        title: String,
+        description: String,
+        execute_msg: Option<ExecuteMsg>,
+    ) -> HandleMsg {
         let msg = HandleMsg::Receive(Cw20ReceiveMsg {
             sender: HumanAddr::from(TEST_CREATOR),
             amount: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
             msg: Some(
                 to_binary(&Cw20HookMsg::CreatePoll {
+                    title,
                     description,
                     execute_msg,
                 })
@@ -231,7 +264,7 @@ mod tests {
         mock_init(&mut deps);
         let env = mock_env_height(VOTING_TOKEN, &vec![], 0, 10000);
 
-        let msg = create_poll_msg("test".to_string(), None);
+        let msg = create_poll_msg("test".to_string(), "test".to_string(), None);
 
         let handle_res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
         assert_create_poll_result(
@@ -249,7 +282,7 @@ mod tests {
         mock_init(&mut deps);
         let env = mock_env_height(VOTING_TOKEN, &vec![], 0, 10000);
 
-        let msg = create_poll_msg("test".to_string(), None);
+        let msg = create_poll_msg("test".to_string(), "test".to_string(), None);
 
         let handle_res = handle(&mut deps, env, msg.clone()).unwrap();
         assert_create_poll_result(
@@ -267,7 +300,7 @@ mod tests {
         mock_init(&mut deps);
         let env = mock_env_height(VOTING_TOKEN, &vec![], 0, 10000);
 
-        let msg = create_poll_msg("test".to_string(), None);
+        let msg = create_poll_msg("test".to_string(), "test".to_string(), None);
 
         let handle_res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
         assert_create_poll_result(
@@ -315,6 +348,7 @@ mod tests {
         })
         .unwrap();
         let msg = create_poll_msg(
+            "test".to_string(),
             "test".to_string(),
             Some(ExecuteMsg {
                 contract: HumanAddr::from(VOTING_TOKEN),
@@ -379,7 +413,7 @@ mod tests {
         let msg = HandleMsg::ExecutePoll { poll_id: 1 };
         let handle_res = handle(&mut deps, creator_env.clone(), msg).unwrap_err();
         match handle_res {
-            StdError::GenericErr{ msg, ..} => assert_eq!(msg, "Poll is not in passed status"),
+            StdError::GenericErr { msg, .. } => assert_eq!(msg, "Poll is not in passed status"),
             _ => panic!("DO NOT ENTER HERE"),
         }
 
@@ -415,10 +449,9 @@ mod tests {
         let msg = HandleMsg::ExecutePoll { poll_id: 1 };
         let handle_res = handle(&mut deps, creator_env.clone(), msg).unwrap_err();
         match handle_res {
-            StdError::GenericErr{ msg, ..} => assert_eq!(msg, "Effective delay has not expired"),
+            StdError::GenericErr { msg, .. } => assert_eq!(msg, "Effective delay has not expired"),
             _ => panic!("DO NOT ENTER HERE"),
         }
-
 
         creator_env.block.height = &creator_env.block.height + DEFAULT_EFFECTIVE_DELAY;
         let msg = HandleMsg::ExecutePoll { poll_id: 1 };
@@ -444,6 +477,7 @@ mod tests {
         let mut creator_env = mock_env_height(VOTING_TOKEN, &vec![], 1000, 10000);
 
         let msg = create_poll_msg(
+            "test".to_string(),
             "test".to_string(),
             Some(ExecuteMsg {
                 contract: HumanAddr::from(VOTING_TOKEN),
@@ -501,7 +535,7 @@ mod tests {
         let mut deps = mock_dependencies(20, &coins(100, VOTING_TOKEN));
         mock_init(&mut deps);
 
-        let msg = create_poll_msg("test".to_string(), None);
+        let msg = create_poll_msg("test".to_string(), "test".to_string(), None);
         let mut creator_env = mock_env(VOTING_TOKEN, &vec![]);
         let handle_res = handle(&mut deps, creator_env.clone(), msg.clone()).unwrap();
         assert_eq!(
@@ -580,7 +614,7 @@ mod tests {
         mock_init(&mut deps);
         let mut creator_env = mock_env(VOTING_TOKEN, &coins(2, VOTING_TOKEN));
 
-        let msg = create_poll_msg("test".to_string(), None);
+        let msg = create_poll_msg("test".to_string(), "test".to_string(), None);
 
         let handle_res = handle(&mut deps, creator_env.clone(), msg.clone()).unwrap();
         assert_eq!(
@@ -674,7 +708,7 @@ mod tests {
         mock_init(&mut deps);
         let env = mock_env_height(VOTING_TOKEN, &vec![], 0, 10000);
 
-        let msg = create_poll_msg("test".to_string(), None);
+        let msg = create_poll_msg("test".to_string(), "test".to_string(), None);
 
         let handle_res = handle(&mut deps, env, msg.clone()).unwrap();
         assert_create_poll_result(
@@ -709,7 +743,7 @@ mod tests {
         mock_init(&mut deps);
 
         let env = mock_env_height(VOTING_TOKEN, &vec![], 0, 10000);
-        let msg = create_poll_msg("test".to_string(), None);
+        let msg = create_poll_msg("test".to_string(), "test".to_string(), None);
 
         let handle_res = handle(&mut deps, env, msg.clone()).unwrap();
         assert_create_poll_result(
@@ -879,7 +913,7 @@ mod tests {
 
         let env = mock_env_height(VOTING_TOKEN, &coins(2, VOTING_TOKEN), 0, 10000);
 
-        let msg = create_poll_msg("test".to_string(), None);
+        let msg = create_poll_msg("test".to_string(), "test".to_string(), None);
         let handle_res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
 
         assert_create_poll_result(

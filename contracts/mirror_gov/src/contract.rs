@@ -14,6 +14,8 @@ use cosmwasm_std::{
 };
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
 
+const MIN_TITLE_LENGTH: usize = 3;
+const MAX_TITLE_LENGTH: usize = 64;
 const MIN_DESC_LENGTH: usize = 3;
 const MAX_DESC_LENGTH: usize = 256;
 
@@ -100,6 +102,7 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
                 stake_voting_tokens(deps, env, cw20_msg.sender, cw20_msg.amount)
             }
             Cw20HookMsg::CreatePoll {
+                title,
                 description,
                 execute_msg,
             } => create_poll(
@@ -107,6 +110,7 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
                 env,
                 cw20_msg.sender,
                 cw20_msg.amount,
+                title,
                 description,
                 execute_msg,
             ),
@@ -269,6 +273,17 @@ pub fn withdraw_voting_tokens<S: Storage, A: Api, Q: Querier>(
     }
 }
 
+/// validate_title returns an error if the title is invalid
+fn validate_title(title: &str) -> StdResult<()> {
+    if title.len() < MIN_TITLE_LENGTH {
+        Err(StdError::generic_err("Title too short"))
+    } else if title.len() > MAX_TITLE_LENGTH {
+        Err(StdError::generic_err("Title too long"))
+    } else {
+        Ok(())
+    }
+}
+
 /// validate_description returns an error if the description is invalid
 fn validate_description(description: &str) -> StdResult<()> {
     if description.len() < MIN_DESC_LENGTH {
@@ -306,9 +321,11 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
     env: Env,
     proposer: HumanAddr,
     deposit_amount: Uint128,
+    title: String,
     description: String,
     execute_msg: Option<ExecuteMsg>,
 ) -> StdResult<HandleResponse> {
+    validate_title(&title)?;
     validate_description(&description)?;
 
     let config: Config = config_store(&mut deps.storage).load()?;
@@ -345,6 +362,7 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
         voters: vec![],
         voter_info: vec![],
         end_height: env.block.height + config.voting_period,
+        title,
         description,
         execute_data,
         deposit_amount,
@@ -684,6 +702,7 @@ fn query_poll<S: Storage, A: Api, Q: Querier>(
         creator: deps.api.human_address(&poll.creator).unwrap(),
         status: poll.status,
         end_height: poll.end_height,
+        title: poll.title,
         description: poll.description,
         deposit_amount: poll.deposit_amount,
     })

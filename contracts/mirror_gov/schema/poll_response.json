@@ -7,7 +7,8 @@
     "deposit_amount",
     "description",
     "end_height",
-    "status"
+    "status",
+    "title"
   ],
   "properties": {
     "creator": {
@@ -26,6 +27,9 @@
     },
     "status": {
       "$ref": "#/definitions/PollStatus"
+    },
+    "title": {
+      "type": "string"
     }
   },
   "definitions": {

@@ -23,6 +23,7 @@ A user need to send `Cw20HandleMsg::Send{Cw20HookMsg::CreatePoll}` to mirror tok
 pub enum Cw20HookMsg {
     /// CreatePoll need to receive deposit from a proposer
     CreatePoll {
+        title: String,
         description: String,
         execute_msg: Option<ExecuteMsg>,
     },

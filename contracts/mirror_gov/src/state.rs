@@ -69,6 +69,7 @@ pub struct Poll {
     pub voters: Vec<CanonicalAddr>,
     pub voter_info: Vec<Voter>,
     pub end_height: u64,
+    pub title: String,
     pub description: String,
     pub execute_data: Option<ExecuteData>,
     pub deposit_amount: Uint128,
