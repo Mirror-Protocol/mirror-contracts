@@ -1,6 +1,7 @@
 use crate::msg::{
-    ConfigResponse, CreatePollResponse, Cw20HookMsg, ExecuteMsg, HandleMsg, InitMsg, PollResponse,
-    PollsResponse, QueryMsg, StakerResponse, StateResponse, VotersResponse, VotersResponseItem,
+    ConfigResponse, CreatePollResponse, Cw20HookMsg, ExecuteMsg, HandleMsg, InitMsg, MigrateMsg,
+    PollResponse, PollsResponse, QueryMsg, StakerResponse, StateResponse, VotersResponse,
+    VotersResponseItem,
 };
 use crate::querier::load_token_balance;
 use crate::state::{
@@ -10,8 +11,8 @@ use crate::state::{
 };
 use cosmwasm_std::{
     from_binary, log, to_binary, Api, Binary, CanonicalAddr, CosmosMsg, Decimal, Env, Extern,
-    HandleResponse, HandleResult, HumanAddr, InitResponse, InitResult, Querier, StdError,
-    StdResult, Storage, Uint128, WasmMsg,
+    HandleResponse, HandleResult, HumanAddr, InitResponse, InitResult, MigrateResponse,
+    MigrateResult, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
 
@@ -752,6 +753,14 @@ fn query_poll<S: Storage, A: Api, Q: Querier>(
         description: poll.description,
         link: poll.link,
         deposit_amount: poll.deposit_amount,
+        execute_data: if let Some(execute_data) = poll.execute_data {
+            Some(ExecuteMsg {
+                contract: deps.api.human_address(&execute_data.contract)?,
+                msg: execute_data.msg,
+            })
+        } else {
+            None
+        },
     })
 }
 
@@ -762,22 +771,32 @@ fn query_polls<S: Storage, A: Api, Q: Querier>(
     limit: Option<u32>,
 ) -> StdResult<PollsResponse> {
     let polls = read_polls(&deps.storage, filter, start_after, limit)?;
-    let poll_responses: Vec<PollResponse> = polls
+    let poll_responses: StdResult<Vec<PollResponse>> = polls
         .iter()
-        .map(|poll| PollResponse {
-            id: poll.id,
-            creator: deps.api.human_address(&poll.creator).unwrap(),
-            status: poll.status.clone(),
-            end_height: poll.end_height,
-            title: poll.title.to_string(),
-            description: poll.description.to_string(),
-            link: poll.link.clone(),
-            deposit_amount: poll.deposit_amount,
+        .map(|poll| {
+            Ok(PollResponse {
+                id: poll.id,
+                creator: deps.api.human_address(&poll.creator).unwrap(),
+                status: poll.status.clone(),
+                end_height: poll.end_height,
+                title: poll.title.to_string(),
+                description: poll.description.to_string(),
+                link: poll.link.clone(),
+                deposit_amount: poll.deposit_amount,
+                execute_data: if let Some(execute_data) = poll.execute_data.clone() {
+                    Some(ExecuteMsg {
+                        contract: deps.api.human_address(&execute_data.contract)?,
+                        msg: execute_data.msg,
+                    })
+                } else {
+                    None
+                },
+            })
         })
         .collect();
 
     Ok(PollsResponse {
-        polls: poll_responses,
+        polls: poll_responses?,
     })
 }
 
@@ -838,4 +857,12 @@ fn query_stake<S: Storage, A: Api, Q: Querier>(
         share: token_manager.share,
         locked_share: token_manager.locked_share,
     })
+}
+
+pub fn migrate<S: Storage, A: Api, Q: Querier>(
+    _deps: &mut Extern<S, A, Q>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> MigrateResult {
+    Ok(MigrateResponse::default())
 }

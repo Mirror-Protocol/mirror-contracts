@@ -351,6 +351,7 @@ mod tests {
                     description: "test".to_string(),
                     link: Some("http://google.com".to_string()),
                     deposit_amount: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+                    execute_data: None,
                 },
                 PollResponse {
                     id: 2u64,
@@ -361,6 +362,7 @@ mod tests {
                     description: "test2".to_string(),
                     link: None,
                     deposit_amount: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+                    execute_data: None,
                 },
             ]
         );
@@ -386,6 +388,7 @@ mod tests {
                 description: "test2".to_string(),
                 link: None,
                 deposit_amount: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+                execute_data: None,
             },]
         );
 
@@ -410,6 +413,7 @@ mod tests {
                 description: "test2".to_string(),
                 link: None,
                 deposit_amount: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+                execute_data: None,
             },]
         );
 

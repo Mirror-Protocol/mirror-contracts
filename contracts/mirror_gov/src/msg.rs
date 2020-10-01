@@ -114,6 +114,7 @@ pub struct PollResponse {
     pub description: String,
     pub link: Option<String>,
     pub deposit_amount: Uint128,
+    pub execute_data: Option<ExecuteMsg>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema)]
@@ -149,3 +150,7 @@ pub struct VotersResponseItem {
 pub struct VotersResponse {
     pub voters: Vec<VotersResponseItem>,
 }
+
+/// We currently take no arguments for migrations
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct MigrateMsg {}
