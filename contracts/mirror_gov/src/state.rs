@@ -45,8 +45,8 @@ pub struct TokenManager {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum VoteOption {
-    YES,
-    NO,
+    Yes,
+    No,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -80,6 +80,7 @@ pub struct Poll {
     pub end_height: u64,
     pub title: String,
     pub description: String,
+    pub link: Option<String>,
     pub execute_data: Option<ExecuteData>,
     pub deposit_amount: Uint128,
 }

@@ -221,8 +221,8 @@
     "VoteOption": {
       "type": "string",
       "enum": [
-        "y_e_s",
-        "n_o"
+        "yes",
+        "no"
       ]
     }
   }

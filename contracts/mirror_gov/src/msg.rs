@@ -52,6 +52,7 @@ pub enum Cw20HookMsg {
     CreatePoll {
         title: String,
         description: String,
+        link: Option<String>,
         execute_msg: Option<ExecuteMsg>,
     },
 }
@@ -111,6 +112,7 @@ pub struct PollResponse {
     pub end_height: u64,
     pub title: String,
     pub description: String,
+    pub link: Option<String>,
     pub deposit_amount: Uint128,
 }
 

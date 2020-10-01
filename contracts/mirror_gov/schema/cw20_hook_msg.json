@@ -41,6 +41,12 @@
                 }
               ]
             },
+            "link": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "title": {
               "type": "string"
             }

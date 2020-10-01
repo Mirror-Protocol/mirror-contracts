@@ -14,11 +14,14 @@ use cosmwasm_std::{
     StdResult, Storage, Uint128, WasmMsg,
 };
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
+use regex::Regex;
 
-const MIN_TITLE_LENGTH: usize = 3;
+const MIN_TITLE_LENGTH: usize = 4;
 const MAX_TITLE_LENGTH: usize = 64;
-const MIN_DESC_LENGTH: usize = 3;
+const MIN_DESC_LENGTH: usize = 4;
 const MAX_DESC_LENGTH: usize = 256;
+const MIN_LINK_LENGTH: usize = 16;
+const MAX_LINK_LENGTH: usize = 128;
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -105,6 +108,7 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
             Cw20HookMsg::CreatePoll {
                 title,
                 description,
+                link,
                 execute_msg,
             } => create_poll(
                 deps,
@@ -113,6 +117,7 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
                 cw20_msg.amount,
                 title,
                 description,
+                link,
                 execute_msg,
             ),
         }
@@ -296,6 +301,24 @@ fn validate_description(description: &str) -> StdResult<()> {
     }
 }
 
+/// validate_link returns an error if the link is invalid
+fn validate_link(link: &Option<String>) -> StdResult<()> {
+    if let Some(link) = link {
+        let re = Regex::new(r"^(http://www.|https://www.|http://|https://)?[a-z0-9]+([-.]{1}[a-z0-9]+)*.[a-z]{2,5}(:[0-9]{1,5})?(/.*)?$").unwrap();
+        if !re.is_match(link) {
+            Err(StdError::generic_err("Link invalid format"))
+        } else if link.len() < MIN_LINK_LENGTH {
+            Err(StdError::generic_err("Link too short"))
+        } else if link.len() > MAX_LINK_LENGTH {
+            Err(StdError::generic_err("Link too long"))
+        } else {
+            Ok(())
+        }
+    } else {
+        Ok(())
+    }
+}
+
 /// validate_quorum returns an error if the quorum is invalid
 /// (we require 0-1)
 fn validate_quorum(quorum: Decimal) -> StdResult<()> {
@@ -324,10 +347,12 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
     deposit_amount: Uint128,
     title: String,
     description: String,
+    link: Option<String>,
     execute_msg: Option<ExecuteMsg>,
 ) -> StdResult<HandleResponse> {
     validate_title(&title)?;
     validate_description(&description)?;
+    validate_link(&link)?;
 
     let config: Config = config_store(&mut deps.storage).load()?;
     if deposit_amount < config.proposal_deposit {
@@ -364,6 +389,7 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
         end_height: env.block.height + config.voting_period,
         title,
         description,
+        link,
         execute_data,
         deposit_amount,
     };
@@ -603,7 +629,7 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
     }
 
     // update tally info
-    if VoteOption::YES == vote {
+    if VoteOption::Yes == vote {
         a_poll.yes_votes += share;
     } else {
         a_poll.no_votes += share;
@@ -611,7 +637,9 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
 
     let vote_info = VoterInfo { vote, share };
     token_manager.participated_polls.push(poll_id);
-    token_manager.locked_share.push((poll_id, vote_info.clone()));
+    token_manager
+        .locked_share
+        .push((poll_id, vote_info.clone()));
     bank_store(&mut deps.storage).save(key, &token_manager)?;
 
     // store poll voter && and update poll data
@@ -726,6 +754,7 @@ fn query_poll<S: Storage, A: Api, Q: Querier>(
         end_height: poll.end_height,
         title: poll.title,
         description: poll.description,
+        link: poll.link,
         deposit_amount: poll.deposit_amount,
     })
 }
@@ -746,6 +775,7 @@ fn query_polls<S: Storage, A: Api, Q: Querier>(
             end_height: poll.end_height,
             title: poll.title.to_string(),
             description: poll.description.to_string(),
+            link: poll.link.clone(),
             deposit_amount: poll.deposit_amount,
         })
         .collect();
