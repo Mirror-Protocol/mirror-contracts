@@ -1,11 +1,12 @@
 use crate::msg::{
     ConfigResponse, CreatePollResponse, Cw20HookMsg, ExecuteMsg, HandleMsg, InitMsg, PollResponse,
-    QueryMsg, StakeResponse, StateResponse,
+    PollsResponse, QueryMsg, StakerResponse, StateResponse, VotersResponse, VotersResponseItem,
 };
 use crate::querier::load_token_balance;
 use crate::state::{
-    bank_read, bank_store, config_read, config_store, poll_read, poll_store, state_read,
-    state_store, Config, ExecuteData, Poll, PollStatus, State, VoteOption, Voter,
+    bank_read, bank_store, config_read, config_store, poll_all_voters, poll_indexer_store,
+    poll_read, poll_store, poll_voter_read, poll_voter_store, read_poll_voters, read_polls,
+    state_read, state_store, Config, ExecuteData, Poll, PollStatus, State, VoteOption, VoterInfo,
 };
 use cosmwasm_std::{
     from_binary, log, to_binary, Api, Binary, CanonicalAddr, CosmosMsg, Decimal, Env, Extern,
@@ -355,12 +356,11 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
 
     let sender_address_raw = deps.api.canonical_address(&proposer)?;
     let new_poll = Poll {
+        id: poll_id,
         creator: sender_address_raw,
         status: PollStatus::InProgress,
         yes_votes: Uint128::zero(),
         no_votes: Uint128::zero(),
-        voters: vec![],
-        voter_info: vec![],
         end_height: env.block.height + config.voting_period,
         title,
         description,
@@ -368,8 +368,10 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
         deposit_amount,
     };
 
-    let key = state.poll_count.to_string();
-    poll_store(&mut deps.storage).save(key.as_bytes(), &new_poll)?;
+    poll_store(&mut deps.storage).save(&state.poll_count.to_be_bytes(), &new_poll)?;
+    poll_indexer_store(&mut deps.storage, &PollStatus::InProgress)
+        .save(&state.poll_count.to_be_bytes(), &true)?;
+
     state_store(&mut deps.storage).save(&state)?;
 
     let r = HandleResponse {
@@ -396,8 +398,7 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
     env: Env,
     poll_id: u64,
 ) -> HandleResult {
-    let key = &poll_id.to_string();
-    let mut a_poll: Poll = poll_store(&mut deps.storage).load(key.as_bytes())?;
+    let mut a_poll: Poll = poll_store(&mut deps.storage).load(&poll_id.to_be_bytes())?;
 
     if a_poll.status != PollStatus::InProgress {
         return Err(StdError::generic_err("Poll is not in progress"));
@@ -415,16 +416,8 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
     let config: Config = config_read(&deps.storage).load()?;
     let mut state: State = state_read(&deps.storage).load()?;
 
-    let mut no = 0u128;
-    let mut yes = 0u128;
-
-    for voter in &a_poll.voter_info {
-        if voter.vote == VoteOption::YES {
-            yes += voter.share.u128();
-        } else {
-            no += voter.share.u128();
-        }
-    }
+    let no = a_poll.no_votes.u128();
+    let yes = a_poll.yes_votes.u128();
 
     let tallied_weight = yes + no;
     let staked_weight = state.total_share.u128();
@@ -464,12 +457,26 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
     state.total_deposit = (state.total_deposit - a_poll.deposit_amount)?;
     state_store(&mut deps.storage).save(&state)?;
 
+    // Update poll indexer
+    poll_indexer_store(&mut deps.storage, &PollStatus::InProgress)
+        .remove(&state.poll_count.to_be_bytes());
+    poll_indexer_store(&mut deps.storage, &poll_status)
+        .save(&state.poll_count.to_be_bytes(), &true)?;
+
     // Update poll status
     a_poll.status = poll_status;
-    poll_store(&mut deps.storage).save(key.as_bytes(), &a_poll)?;
+    poll_store(&mut deps.storage).save(&poll_id.to_be_bytes(), &a_poll)?;
 
-    for voter in &a_poll.voters {
+    // Unlock all voter tokens
+    let voters = poll_all_voters(&deps.storage, poll_id)?;
+    for voter in &voters {
         unlock_tokens(deps, voter, poll_id)?;
+    }
+
+    // remove all voters info
+    let mut voter_store = poll_voter_store(&mut deps.storage, poll_id);
+    for voter in &voters {
+        voter_store.remove(&voter.as_slice());
     }
 
     Ok(HandleResponse {
@@ -492,9 +499,8 @@ pub fn execute_poll<S: Storage, A: Api, Q: Querier>(
     env: Env,
     poll_id: u64,
 ) -> HandleResult {
-    let key = &poll_id.to_string();
     let config: Config = config_read(&deps.storage).load()?;
-    let mut a_poll: Poll = poll_store(&mut deps.storage).load(key.as_bytes())?;
+    let mut a_poll: Poll = poll_store(&mut deps.storage).load(&poll_id.to_be_bytes())?;
 
     if a_poll.status != PollStatus::Passed {
         return Err(StdError::generic_err("Poll is not in passed status"));
@@ -504,8 +510,12 @@ pub fn execute_poll<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::generic_err("Effective delay has not expired"));
     }
 
+    poll_indexer_store(&mut deps.storage, &PollStatus::Passed).remove(&poll_id.to_be_bytes());
+    poll_indexer_store(&mut deps.storage, &PollStatus::Executed)
+        .save(&poll_id.to_be_bytes(), &true)?;
+
     a_poll.status = PollStatus::Executed;
-    poll_store(&mut deps.storage).save(key.as_bytes(), &a_poll)?;
+    poll_store(&mut deps.storage).save(&poll_id.to_be_bytes(), &a_poll)?;
 
     let mut messages: Vec<CosmosMsg> = vec![];
     if let Some(execute_data) = a_poll.execute_data {
@@ -553,13 +563,9 @@ fn locked_share<S: Storage, A: Api, Q: Querier>(
     token_manager
         .locked_share
         .iter()
-        .map(|(_, v)| v.u128())
+        .map(|(_, v)| v.share.u128())
         .max()
         .unwrap_or_default()
-}
-
-fn has_voted(voter: &CanonicalAddr, a_poll: &Poll) -> bool {
-    a_poll.voters.iter().any(|i| i == voter)
 }
 
 pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
@@ -570,41 +576,48 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
     share: Uint128,
 ) -> HandleResult {
     let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
-    let poll_key = &poll_id.to_string();
     let state = state_read(&deps.storage).load()?;
     if poll_id == 0 || state.poll_count > poll_id {
         return Err(StdError::generic_err("Poll does not exist"));
     }
 
-    let mut a_poll = poll_store(&mut deps.storage).load(poll_key.as_bytes())?;
-
-    if a_poll.status != PollStatus::InProgress {
+    let mut a_poll: Poll = poll_store(&mut deps.storage).load(&poll_id.to_be_bytes())?;
+    if a_poll.status != PollStatus::InProgress || env.block.height > a_poll.end_height {
         return Err(StdError::generic_err("Poll is not in progress"));
     }
 
-    if has_voted(&sender_address_raw, &a_poll) {
+    // Check the voter arleady has a vote on the poll
+    if poll_voter_read(&deps.storage, poll_id)
+        .load(&sender_address_raw.as_slice())
+        .is_ok()
+    {
         return Err(StdError::generic_err("User has already voted."));
     }
 
     let key = &sender_address_raw.as_slice();
     let mut token_manager = bank_read(&deps.storage).may_load(key)?.unwrap_or_default();
-
     if token_manager.share < share {
         return Err(StdError::generic_err(
             "User does not have enough staked tokens.",
         ));
     }
 
+    // update tally info
+    if VoteOption::YES == vote {
+        a_poll.yes_votes += share;
+    } else {
+        a_poll.no_votes += share;
+    }
+
+    let vote_info = VoterInfo { vote, share };
     token_manager.participated_polls.push(poll_id);
-    token_manager.locked_share.push((poll_id, share));
+    token_manager.locked_share.push((poll_id, vote_info.clone()));
     bank_store(&mut deps.storage).save(key, &token_manager)?;
 
-    a_poll.voters.push(sender_address_raw.clone());
-
-    let voter_info = Voter { vote, share };
-
-    a_poll.voter_info.push(voter_info);
-    poll_store(&mut deps.storage).save(poll_key.as_bytes(), &a_poll)?;
+    // store poll voter && and update poll data
+    poll_voter_store(&mut deps.storage, poll_id)
+        .save(&sender_address_raw.as_slice(), &vote_info)?;
+    poll_store(&mut deps.storage).save(&poll_id.to_be_bytes(), &a_poll)?;
 
     let log = vec![
         log("action", "vote_casted"),
@@ -658,8 +671,18 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(&deps)?),
         QueryMsg::State {} => to_binary(&query_state(&deps)?),
-        QueryMsg::Stake { address } => to_binary(&query_stake(deps, address)?),
+        QueryMsg::Staker { address } => to_binary(&query_stake(deps, address)?),
         QueryMsg::Poll { poll_id } => to_binary(&query_poll(deps, poll_id)?),
+        QueryMsg::Polls {
+            filter,
+            start_after,
+            limit,
+        } => to_binary(&query_polls(deps, filter, start_after, limit)?),
+        QueryMsg::Voters {
+            poll_id,
+            start_after,
+            limit,
+        } => to_binary(&query_voters(deps, poll_id, start_after, limit)?),
     }
 }
 
@@ -690,15 +713,14 @@ fn query_poll<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     poll_id: u64,
 ) -> StdResult<PollResponse> {
-    let key = &poll_id.to_string();
-
-    let poll = match poll_read(&deps.storage).may_load(key.as_bytes())? {
+    let poll = match poll_read(&deps.storage).may_load(&poll_id.to_be_bytes())? {
         Some(poll) => Some(poll),
         None => return Err(StdError::generic_err("Poll does not exist")),
     }
     .unwrap();
 
     Ok(PollResponse {
+        id: poll.id,
         creator: deps.api.human_address(&poll.creator).unwrap(),
         status: poll.status,
         end_height: poll.end_height,
@@ -708,10 +730,68 @@ fn query_poll<S: Storage, A: Api, Q: Querier>(
     })
 }
 
+fn query_polls<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    filter: Option<PollStatus>,
+    start_after: Option<u64>,
+    limit: Option<u32>,
+) -> StdResult<PollsResponse> {
+    let polls = read_polls(&deps.storage, filter, start_after, limit)?;
+    let poll_responses: Vec<PollResponse> = polls
+        .iter()
+        .map(|poll| PollResponse {
+            id: poll.id,
+            creator: deps.api.human_address(&poll.creator).unwrap(),
+            status: poll.status.clone(),
+            end_height: poll.end_height,
+            title: poll.title.to_string(),
+            description: poll.description.to_string(),
+            deposit_amount: poll.deposit_amount,
+        })
+        .collect();
+
+    Ok(PollsResponse {
+        polls: poll_responses,
+    })
+}
+
+fn query_voters<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    poll_id: u64,
+    start_after: Option<HumanAddr>,
+    limit: Option<u32>,
+) -> StdResult<VotersResponse> {
+    let voters = if let Some(start_after) = start_after {
+        read_poll_voters(
+            &deps.storage,
+            poll_id,
+            Some(deps.api.canonical_address(&start_after)?),
+            limit,
+        )?
+    } else {
+        read_poll_voters(&deps.storage, poll_id, None, limit)?
+    };
+
+    let voters_response: StdResult<Vec<VotersResponseItem>> = voters
+        .iter()
+        .map(|voter_info| {
+            Ok(VotersResponseItem {
+                voter: deps.api.human_address(&voter_info.0)?,
+                vote: voter_info.1.vote.clone(),
+                share: voter_info.1.share,
+            })
+        })
+        .collect();
+
+    Ok(VotersResponse {
+        voters: voters_response?,
+    })
+}
+
 fn query_stake<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     address: HumanAddr,
-) -> StdResult<StakeResponse> {
+) -> StdResult<StakerResponse> {
     let addr_raw = deps.api.canonical_address(&address).unwrap();
     let config: Config = config_read(&deps.storage).load()?;
     let state: State = state_read(&deps.storage).load()?;
@@ -725,10 +805,11 @@ fn query_stake<S: Storage, A: Api, Q: Querier>(
         &state.contract_addr,
     )?;
 
-    Ok(StakeResponse {
+    Ok(StakerResponse {
         balance: token_manager
             .share
             .multiply_ratio(total_balance, state.total_share),
         share: token_manager.share,
+        locked_share: token_manager.locked_share,
     })
 }

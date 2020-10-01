@@ -7,6 +7,7 @@
     "deposit_amount",
     "description",
     "end_height",
+    "id",
     "status",
     "title"
   ],
@@ -21,6 +22,11 @@
       "type": "string"
     },
     "end_height": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    },
+    "id": {
       "type": "integer",
       "format": "uint64",
       "minimum": 0.0
@@ -40,7 +46,6 @@
       "type": "string",
       "enum": [
         "in_progress",
-        "tally",
         "passed",
         "rejected",
         "executed"

@@ -3,10 +3,10 @@ mod tests {
     use crate::contract::{handle, init, query};
     use crate::mock_querier::{mock_dependencies, WasmMockQuerier};
     use crate::msg::{
-        ConfigResponse, Cw20HookMsg, ExecuteMsg, HandleMsg, InitMsg, PollResponse, QueryMsg,
-        StakeResponse,
+        ConfigResponse, Cw20HookMsg, ExecuteMsg, HandleMsg, InitMsg, PollResponse, PollsResponse,
+        QueryMsg, StakerResponse, VotersResponse, VotersResponseItem,
     };
-    use crate::state::{config_read, state_read, Config, State, VoteOption};
+    use crate::state::{config_read, state_read, Config, PollStatus, State, VoteOption, VoterInfo};
     use cosmwasm_std::testing::{mock_env, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
     use cosmwasm_std::{
         coins, from_binary, log, to_binary, Api, Coin, CosmosMsg, Decimal, Env, Extern,
@@ -277,6 +277,110 @@ mod tests {
     }
 
     #[test]
+    fn query_polls() {
+        let mut deps = mock_dependencies(20, &[]);
+        mock_init(&mut deps);
+        let env = mock_env_height(VOTING_TOKEN, &vec![], 0, 10000);
+
+        let msg = create_poll_msg("test".to_string(), "test".to_string(), None);
+        let _handle_res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
+        let msg = create_poll_msg("test2".to_string(), "test2".to_string(), None);
+        let _handle_res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
+
+        let res = query(
+            &deps,
+            QueryMsg::Polls {
+                filter: None,
+                start_after: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+        let response: PollsResponse = from_binary(&res).unwrap();
+        assert_eq!(
+            response.polls,
+            vec![
+                PollResponse {
+                    id: 1u64,
+                    creator: HumanAddr::from(TEST_CREATOR),
+                    status: PollStatus::InProgress,
+                    end_height: 10000u64,
+                    title: "test".to_string(),
+                    description: "test".to_string(),
+                    deposit_amount: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+                },
+                PollResponse {
+                    id: 2u64,
+                    creator: HumanAddr::from(TEST_CREATOR),
+                    status: PollStatus::InProgress,
+                    end_height: 10000u64,
+                    title: "test2".to_string(),
+                    description: "test2".to_string(),
+                    deposit_amount: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+                },
+            ]
+        );
+
+        let res = query(
+            &deps,
+            QueryMsg::Polls {
+                filter: None,
+                start_after: Some(1u64),
+                limit: None,
+            },
+        )
+        .unwrap();
+        let response: PollsResponse = from_binary(&res).unwrap();
+        assert_eq!(
+            response.polls,
+            vec![PollResponse {
+                id: 2u64,
+                creator: HumanAddr::from(TEST_CREATOR),
+                status: PollStatus::InProgress,
+                end_height: 10000u64,
+                title: "test2".to_string(),
+                description: "test2".to_string(),
+                deposit_amount: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+            },]
+        );
+
+        let res = query(
+            &deps,
+            QueryMsg::Polls {
+                filter: Some(PollStatus::InProgress),
+                start_after: Some(1u64),
+                limit: None,
+            },
+        )
+        .unwrap();
+        let response: PollsResponse = from_binary(&res).unwrap();
+        assert_eq!(
+            response.polls,
+            vec![PollResponse {
+                id: 2u64,
+                creator: HumanAddr::from(TEST_CREATOR),
+                status: PollStatus::InProgress,
+                end_height: 10000u64,
+                title: "test2".to_string(),
+                description: "test2".to_string(),
+                deposit_amount: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+            },]
+        );
+
+        let res = query(
+            &deps,
+            QueryMsg::Polls {
+                filter: Some(PollStatus::Passed),
+                start_after: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+        let response: PollsResponse = from_binary(&res).unwrap();
+        assert_eq!(response.polls, vec![]);
+    }
+
+    #[test]
     fn create_poll_no_quorum() {
         let mut deps = mock_dependencies(20, &[]);
         mock_init(&mut deps);
@@ -396,7 +500,7 @@ mod tests {
             vote: VoteOption::YES,
             share: Uint128::from(stake_amount),
         };
-        let env = mock_env(TEST_VOTER, &[]);
+        let env = mock_env_height(TEST_VOTER, &[], POLL_START_HEIGHT, 10000);
         let handle_res = handle(&mut deps, env, msg).unwrap();
 
         assert_eq!(
@@ -468,6 +572,74 @@ mod tests {
             handle_res.log,
             vec![log("action", "execute_poll"), log("poll_id", "1"),]
         );
+
+        // Query executed polls
+        let res = query(
+            &deps,
+            QueryMsg::Polls {
+                filter: Some(PollStatus::Passed),
+                start_after: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+        let response: PollsResponse = from_binary(&res).unwrap();
+        assert_eq!(response.polls.len(), 0);
+
+        let res = query(
+            &deps,
+            QueryMsg::Polls {
+                filter: Some(PollStatus::InProgress),
+                start_after: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+        let response: PollsResponse = from_binary(&res).unwrap();
+        assert_eq!(response.polls.len(), 0);
+
+        let res = query(
+            &deps,
+            QueryMsg::Polls {
+                filter: Some(PollStatus::Executed),
+                start_after: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+        let response: PollsResponse = from_binary(&res).unwrap();
+        assert_eq!(response.polls.len(), 1);
+
+        // voter info must be deleted
+        let res = query(
+            &deps,
+            QueryMsg::Voters {
+                poll_id: 1u64,
+                start_after: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+        let response: VotersResponse = from_binary(&res).unwrap();
+        assert_eq!(response.voters.len(), 0);
+
+        // staker locked token must disappeared
+        let res = query(
+            &deps,
+            QueryMsg::Staker {
+                address: HumanAddr::from(TEST_VOTER),
+            },
+        )
+        .unwrap();
+        let response: StakerResponse = from_binary(&res).unwrap();
+        assert_eq!(
+            response,
+            StakerResponse {
+                balance: Uint128(stake_amount),
+                share: Uint128(stake_amount),
+                locked_share: vec![]
+            }
+        );
     }
 
     #[test]
@@ -527,7 +699,44 @@ mod tests {
             ]
         );
 
-        assert_eq!(handle_res.messages.len(), 0usize)
+        assert_eq!(handle_res.messages.len(), 0usize);
+
+        // Query rejected polls
+        let res = query(
+            &deps,
+            QueryMsg::Polls {
+                filter: Some(PollStatus::Rejected),
+                start_after: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+        let response: PollsResponse = from_binary(&res).unwrap();
+        assert_eq!(response.polls.len(), 1);
+
+        let res = query(
+            &deps,
+            QueryMsg::Polls {
+                filter: Some(PollStatus::InProgress),
+                start_after: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+        let response: PollsResponse = from_binary(&res).unwrap();
+        assert_eq!(response.polls.len(), 0);
+
+        let res = query(
+            &deps,
+            QueryMsg::Polls {
+                filter: Some(PollStatus::Passed),
+                start_after: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+        let response: PollsResponse = from_binary(&res).unwrap();
+        assert_eq!(response.polls.len(), 0);
     }
 
     #[test]
@@ -719,7 +928,7 @@ mod tests {
             &mut deps,
         );
 
-        let env = mock_env(TEST_VOTER, &coins(11, VOTING_TOKEN));
+        let env = mock_env_height(TEST_VOTER, &coins(11, VOTING_TOKEN), 0, 10000);
         let msg = HandleMsg::CastVote {
             poll_id: 1,
             vote: VoteOption::YES,
@@ -769,7 +978,7 @@ mod tests {
         let handle_res = handle(&mut deps, env, msg.clone()).unwrap();
         assert_stake_tokens_result(11, DEFAULT_PROPOSAL_DEPOSIT, 11, 1, handle_res, &mut deps);
 
-        let env = mock_env(TEST_VOTER, &coins(11, VOTING_TOKEN));
+        let env = mock_env_height(TEST_VOTER, &coins(11, VOTING_TOKEN), 0, 10000);
         let share = 10u128;
         let msg = HandleMsg::CastVote {
             poll_id: 1,
@@ -779,6 +988,62 @@ mod tests {
 
         let handle_res = handle(&mut deps, env, msg.clone()).unwrap();
         assert_cast_vote_success(TEST_VOTER, share, 1, handle_res);
+
+        // Query staker
+        let res = query(
+            &deps,
+            QueryMsg::Staker {
+                address: HumanAddr::from(TEST_VOTER),
+            },
+        )
+        .unwrap();
+        let response: StakerResponse = from_binary(&res).unwrap();
+        assert_eq!(
+            response,
+            StakerResponse {
+                balance: Uint128(11u128),
+                share: Uint128(11u128),
+                locked_share: vec![(
+                    1u64,
+                    VoterInfo {
+                        vote: VoteOption::YES,
+                        share: Uint128::from(share),
+                    }
+                )]
+            }
+        );
+
+        // Query voters
+        let res = query(
+            &deps,
+            QueryMsg::Voters {
+                poll_id: 1u64,
+                start_after: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+        let response: VotersResponse = from_binary(&res).unwrap();
+        assert_eq!(
+            response.voters,
+            vec![VotersResponseItem {
+                voter: HumanAddr::from(TEST_VOTER),
+                vote: VoteOption::YES,
+                share: Uint128::from(share),
+            }]
+        );
+
+        let res = query(
+            &deps,
+            QueryMsg::Voters {
+                poll_id: 1u64,
+                start_after: Some(HumanAddr::from(TEST_VOTER)),
+                limit: None,
+            },
+        )
+        .unwrap();
+        let response: VotersResponse = from_binary(&res).unwrap();
+        assert_eq!(response.voters.len(), 0);
     }
 
     #[test]
@@ -945,7 +1210,7 @@ mod tests {
             vote: VoteOption::YES,
             share: Uint128::from(share),
         };
-        let env = mock_env(TEST_VOTER, &[]);
+        let env = mock_env_height(TEST_VOTER, &[], 0, 10000);
         let handle_res = handle(&mut deps, env.clone(), msg).unwrap();
         assert_cast_vote_success(TEST_VOTER, share, 1, handle_res);
 
@@ -1138,14 +1403,15 @@ mod tests {
 
         let res = query(
             &mut deps,
-            QueryMsg::Stake {
+            QueryMsg::Staker {
                 address: HumanAddr::from(TEST_VOTER),
             },
         )
         .unwrap();
-        let stake_info: StakeResponse = from_binary(&res).unwrap();
+        let stake_info: StakerResponse = from_binary(&res).unwrap();
         assert_eq!(stake_info.share, Uint128(100));
         assert_eq!(stake_info.balance, Uint128(200));
+        assert_eq!(stake_info.locked_share, vec![]);
     }
 
     // helper to confirm the expected create_poll response

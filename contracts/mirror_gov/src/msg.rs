@@ -1,4 +1,4 @@
-use crate::state::{PollStatus, VoteOption};
+use crate::state::{PollStatus, VoteOption, VoterInfo};
 use cosmwasm_std::{Binary, Decimal, HumanAddr, Uint128};
 use cw20::Cw20ReceiveMsg;
 use schemars::JsonSchema;
@@ -68,8 +68,22 @@ pub struct ExecuteMsg {
 pub enum QueryMsg {
     Config {},
     State {},
-    Stake { address: HumanAddr },
-    Poll { poll_id: u64 },
+    Staker {
+        address: HumanAddr,
+    },
+    Poll {
+        poll_id: u64,
+    },
+    Polls {
+        filter: Option<PollStatus>,
+        start_after: Option<u64>,
+        limit: Option<u32>,
+    },
+    Voters {
+        poll_id: u64,
+        start_after: Option<HumanAddr>,
+        limit: Option<u32>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
@@ -89,14 +103,20 @@ pub struct StateResponse {
     pub total_share: Uint128,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema)]
 pub struct PollResponse {
+    pub id: u64,
     pub creator: HumanAddr,
     pub status: PollStatus,
     pub end_height: u64,
     pub title: String,
     pub description: String,
     pub deposit_amount: Uint128,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema)]
+pub struct PollsResponse {
+    pub polls: Vec<PollResponse>,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
@@ -109,8 +129,21 @@ pub struct PollCountResponse {
     pub poll_count: u64,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
-pub struct StakeResponse {
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema)]
+pub struct StakerResponse {
     pub balance: Uint128,
     pub share: Uint128,
+    pub locked_share: Vec<(u64, VoterInfo)>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema)]
+pub struct VotersResponseItem {
+    pub voter: HumanAddr,
+    pub vote: VoteOption,
+    pub share: Uint128,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema)]
+pub struct VotersResponse {
+    pub voters: Vec<VotersResponseItem>,
 }

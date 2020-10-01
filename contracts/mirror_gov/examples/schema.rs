@@ -3,7 +3,7 @@ use std::env::current_dir;
 use std::fs::create_dir_all;
 
 use mirror_gov::msg::{
-    ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, PollResponse, QueryMsg, StakeResponse,
+    ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, PollResponse, QueryMsg, StakerResponse,
 };
 
 fn main() {
@@ -16,7 +16,7 @@ fn main() {
     export_schema(&schema_for!(HandleMsg), &out_dir);
     export_schema(&schema_for!(Cw20HookMsg), &out_dir);
     export_schema(&schema_for!(QueryMsg), &out_dir);
-    export_schema(&schema_for!(StakeResponse), &out_dir);
+    export_schema(&schema_for!(StakerResponse), &out_dir);
     export_schema(&schema_for!(ConfigResponse), &out_dir);
     export_schema(&schema_for!(PollResponse), &out_dir);
 }
