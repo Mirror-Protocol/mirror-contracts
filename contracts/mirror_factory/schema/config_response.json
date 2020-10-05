@@ -11,8 +11,8 @@
     "oracle_contract",
     "owner",
     "staking_contract",
-    "token_code_id",
-    "uniswap_factory"
+    "terraswap_factory",
+    "token_code_id"
   ],
   "properties": {
     "base_denom": {
@@ -39,13 +39,13 @@
     "staking_contract": {
       "$ref": "#/definitions/HumanAddr"
     },
+    "terraswap_factory": {
+      "$ref": "#/definitions/HumanAddr"
+    },
     "token_code_id": {
       "type": "integer",
       "format": "uint64",
       "minimum": 0.0
-    },
-    "uniswap_factory": {
-      "$ref": "#/definitions/HumanAddr"
     }
   },
   "definitions": {

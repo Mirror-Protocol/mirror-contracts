@@ -91,18 +91,18 @@
         "cast_vote": {
           "type": "object",
           "required": [
+            "amount",
             "poll_id",
-            "share",
             "vote"
           ],
           "properties": {
+            "amount": {
+              "$ref": "#/definitions/Uint128"
+            },
             "poll_id": {
               "type": "integer",
               "format": "uint64",
               "minimum": 0.0
-            },
-            "share": {
-              "$ref": "#/definitions/Uint128"
             },
             "vote": {
               "$ref": "#/definitions/VoteOption"
