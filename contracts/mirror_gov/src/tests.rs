@@ -525,7 +525,7 @@ mod tests {
             &HumanAddr::from(VOTING_TOKEN),
             &[(
                 &HumanAddr::from(MOCK_CONTRACT_ADDR),
-                &Uint128(stake_amount as u128),
+                &Uint128((stake_amount + DEFAULT_PROPOSAL_DEPOSIT) as u128),
             )],
         )]);
 
@@ -549,7 +549,7 @@ mod tests {
         let msg = HandleMsg::CastVote {
             poll_id: 1,
             vote: VoteOption::Yes,
-            share: Uint128::from(stake_amount),
+            amount: Uint128::from(stake_amount),
         };
         let env = mock_env_height(TEST_VOTER, &[], POLL_START_HEIGHT, 10000);
         let handle_res = handle(&mut deps, env, msg).unwrap();
@@ -599,6 +599,15 @@ mod tests {
                 send: vec![],
             })]
         );
+
+        // End poll will withdraw deposit balance
+        deps.querier.with_token_balances(&[(
+            &HumanAddr::from(VOTING_TOKEN),
+            &[(
+                &HumanAddr::from(MOCK_CONTRACT_ADDR),
+                &Uint128(stake_amount as u128),
+            )],
+        )]);
 
         // effective delay has not expired
         let msg = HandleMsg::ExecutePoll { poll_id: 1 };
@@ -723,7 +732,10 @@ mod tests {
         let stake_amount = 100;
         deps.querier.with_token_balances(&[(
             &HumanAddr::from(VOTING_TOKEN),
-            &[(&HumanAddr::from(MOCK_CONTRACT_ADDR), &Uint128(100))],
+            &[(
+                &HumanAddr::from(MOCK_CONTRACT_ADDR),
+                &Uint128(100u128 + DEFAULT_PROPOSAL_DEPOSIT),
+            )],
         )]);
 
         let msg = HandleMsg::Receive(Cw20ReceiveMsg {
@@ -812,7 +824,10 @@ mod tests {
         let stake_amount = 100;
         deps.querier.with_token_balances(&[(
             &HumanAddr::from(VOTING_TOKEN),
-            &[(&HumanAddr::from(MOCK_CONTRACT_ADDR), &Uint128(100))],
+            &[(
+                &HumanAddr::from(MOCK_CONTRACT_ADDR),
+                &Uint128(100u128 + DEFAULT_PROPOSAL_DEPOSIT),
+            )],
         )]);
 
         let msg = HandleMsg::Receive(Cw20ReceiveMsg {
@@ -835,7 +850,7 @@ mod tests {
         let msg = HandleMsg::CastVote {
             poll_id: 1,
             vote: VoteOption::Yes,
-            share: Uint128::from(10u128),
+            amount: Uint128::from(10u128),
         };
         let env = mock_env(TEST_VOTER, &[]);
         let handle_res = handle(&mut deps, env, msg).unwrap();
@@ -892,7 +907,7 @@ mod tests {
             &HumanAddr::from(VOTING_TOKEN),
             &[(
                 &HumanAddr::from(MOCK_CONTRACT_ADDR),
-                &Uint128(voter1_stake as u128),
+                &Uint128((voter1_stake + DEFAULT_PROPOSAL_DEPOSIT) as u128),
             )],
         )]);
 
@@ -917,7 +932,7 @@ mod tests {
             &HumanAddr::from(VOTING_TOKEN),
             &[(
                 &HumanAddr::from(MOCK_CONTRACT_ADDR),
-                &Uint128(voter2_stake as u128),
+                &Uint128((voter1_stake + voter2_stake + DEFAULT_PROPOSAL_DEPOSIT) as u128),
             )],
         )]);
 
@@ -942,7 +957,7 @@ mod tests {
         let msg = HandleMsg::CastVote {
             poll_id: 1,
             vote: VoteOption::No,
-            share: Uint128::from(voter2_stake),
+            amount: Uint128::from(voter2_stake),
         };
         let handle_res = handle(&mut deps, env, msg).unwrap();
         assert_cast_vote_success(TEST_VOTER_2, voter2_stake, 1, handle_res);
@@ -980,11 +995,29 @@ mod tests {
             &mut deps,
         );
 
+        deps.querier.with_token_balances(&[(
+            &HumanAddr::from(VOTING_TOKEN),
+            &[(
+                &HumanAddr::from(MOCK_CONTRACT_ADDR),
+                &Uint128(10u128 + DEFAULT_PROPOSAL_DEPOSIT),
+            )],
+        )]);
+
+        let msg = HandleMsg::Receive(Cw20ReceiveMsg {
+            sender: HumanAddr::from(TEST_VOTER),
+            amount: Uint128::from(10u128),
+            msg: Some(to_binary(&Cw20HookMsg::StakeVotingTokens {}).unwrap()),
+        });
+
+        let env = mock_env(VOTING_TOKEN, &[]);
+        let handle_res = handle(&mut deps, env, msg.clone()).unwrap();
+        assert_stake_tokens_result(10, DEFAULT_PROPOSAL_DEPOSIT, 10, 1, handle_res, &mut deps);
+
         let env = mock_env_height(TEST_VOTER, &coins(11, VOTING_TOKEN), 0, 10000);
         let msg = HandleMsg::CastVote {
             poll_id: 1,
             vote: VoteOption::Yes,
-            share: Uint128::from(1u128),
+            amount: Uint128::from(11u128),
         };
 
         let res = handle(&mut deps, env, msg);
@@ -1017,7 +1050,10 @@ mod tests {
 
         deps.querier.with_token_balances(&[(
             &HumanAddr::from(VOTING_TOKEN),
-            &[(&HumanAddr::from(MOCK_CONTRACT_ADDR), &Uint128(11u128))],
+            &[(
+                &HumanAddr::from(MOCK_CONTRACT_ADDR),
+                &Uint128(11u128 + DEFAULT_PROPOSAL_DEPOSIT),
+            )],
         )]);
 
         let msg = HandleMsg::Receive(Cw20ReceiveMsg {
@@ -1031,15 +1067,15 @@ mod tests {
         assert_stake_tokens_result(11, DEFAULT_PROPOSAL_DEPOSIT, 11, 1, handle_res, &mut deps);
 
         let env = mock_env_height(TEST_VOTER, &coins(11, VOTING_TOKEN), 0, 10000);
-        let share = 10u128;
+        let amount = 10u128;
         let msg = HandleMsg::CastVote {
             poll_id: 1,
             vote: VoteOption::Yes,
-            share: Uint128::from(share),
+            amount: Uint128::from(amount),
         };
 
         let handle_res = handle(&mut deps, env, msg.clone()).unwrap();
-        assert_cast_vote_success(TEST_VOTER, share, 1, handle_res);
+        assert_cast_vote_success(TEST_VOTER, amount, 1, handle_res);
 
         // Query staker
         let res = query(
@@ -1059,7 +1095,7 @@ mod tests {
                     1u64,
                     VoterInfo {
                         vote: VoteOption::Yes,
-                        share: Uint128::from(share),
+                        share: Uint128::from(amount),
                     }
                 )]
             }
@@ -1081,7 +1117,7 @@ mod tests {
             vec![VotersResponseItem {
                 voter: HumanAddr::from(TEST_VOTER),
                 vote: VoteOption::Yes,
-                share: Uint128::from(share),
+                share: Uint128::from(amount),
             }]
         );
 
@@ -1243,7 +1279,10 @@ mod tests {
 
         deps.querier.with_token_balances(&[(
             &HumanAddr::from(VOTING_TOKEN),
-            &[(&HumanAddr::from(MOCK_CONTRACT_ADDR), &Uint128(11u128))],
+            &[(
+                &HumanAddr::from(MOCK_CONTRACT_ADDR),
+                &Uint128(11u128 + DEFAULT_PROPOSAL_DEPOSIT),
+            )],
         )]);
 
         let msg = HandleMsg::Receive(Cw20ReceiveMsg {
@@ -1256,20 +1295,20 @@ mod tests {
         let handle_res = handle(&mut deps, env, msg.clone()).unwrap();
         assert_stake_tokens_result(11, DEFAULT_PROPOSAL_DEPOSIT, 11, 1, handle_res, &mut deps);
 
-        let share = 1u128;
+        let amount = 1u128;
         let msg = HandleMsg::CastVote {
             poll_id: 1,
             vote: VoteOption::Yes,
-            share: Uint128::from(share),
+            amount: Uint128::from(amount),
         };
         let env = mock_env_height(TEST_VOTER, &[], 0, 10000);
         let handle_res = handle(&mut deps, env.clone(), msg).unwrap();
-        assert_cast_vote_success(TEST_VOTER, share, 1, handle_res);
+        assert_cast_vote_success(TEST_VOTER, amount, 1, handle_res);
 
         let msg = HandleMsg::CastVote {
             poll_id: 1,
             vote: VoteOption::Yes,
-            share: Uint128::from(share),
+            amount: Uint128::from(amount),
         };
         let res = handle(&mut deps, env, msg);
 
@@ -1288,7 +1327,7 @@ mod tests {
         let msg = HandleMsg::CastVote {
             poll_id: 0,
             vote: VoteOption::Yes,
-            share: Uint128::from(1u128),
+            amount: Uint128::from(1u128),
         };
         let env = mock_env(TEST_VOTER, &coins(11, VOTING_TOKEN));
 

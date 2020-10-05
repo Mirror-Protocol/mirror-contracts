@@ -82,8 +82,8 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::CastVote {
             poll_id,
             vote,
-            share,
-        } => cast_vote(deps, env, poll_id, vote, share),
+            amount,
+        } => cast_vote(deps, env, poll_id, vote, amount),
         HandleMsg::EndPoll { poll_id } => end_poll(deps, env, poll_id),
         HandleMsg::ExecutePoll { poll_id } => execute_poll(deps, env, poll_id),
     }
@@ -148,7 +148,7 @@ pub fn stake_voting_tokens<S: Storage, A: Api, Q: Querier>(
         &deps,
         &deps.api.human_address(&config.mirror_token)?,
         &state.contract_addr,
-    )? - amount)?;
+    )? - (state.total_deposit + amount))?;
 
     let share = if total_balance.is_zero() || state.total_share.is_zero() {
         amount
@@ -596,14 +596,24 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
     env: Env,
     poll_id: u64,
     vote: VoteOption,
-    share: Uint128,
+    amount: Uint128,
 ) -> HandleResult {
     let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
+    let config = config_read(&deps.storage).load()?;
     let state = state_read(&deps.storage).load()?;
     if poll_id == 0 || state.poll_count > poll_id {
         return Err(StdError::generic_err("Poll does not exist"));
     }
 
+    // convert amount to share
+    let total_share = state.total_share;
+    let total_balance = (load_token_balance(
+        &deps,
+        &deps.api.human_address(&config.mirror_token)?,
+        &state.contract_addr,
+    )? - state.total_deposit)?;
+
+    let share = amount.multiply_ratio(total_share, total_balance);
     let mut a_poll: Poll = poll_store(&mut deps.storage).load(&poll_id.to_be_bytes())?;
     if a_poll.status != PollStatus::InProgress || env.block.height > a_poll.end_height {
         return Err(StdError::generic_err("Poll is not in progress"));
@@ -844,11 +854,11 @@ fn query_stake<S: Storage, A: Api, Q: Querier>(
         .may_load(addr_raw.as_slice())?
         .unwrap_or_default();
 
-    let total_balance = load_token_balance(
+    let total_balance = (load_token_balance(
         &deps,
         &deps.api.human_address(&config.mirror_token)?,
         &state.contract_addr,
-    )?;
+    )? - state.total_deposit)?;
 
     Ok(StakerResponse {
         balance: token_manager

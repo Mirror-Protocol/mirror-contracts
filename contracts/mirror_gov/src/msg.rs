@@ -29,7 +29,7 @@ pub enum HandleMsg {
     CastVote {
         poll_id: u64,
         vote: VoteOption,
-        share: Uint128,
+        amount: Uint128,
     },
     WithdrawVotingTokens {
         amount: Option<Uint128>,
