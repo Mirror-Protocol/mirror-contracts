@@ -657,7 +657,7 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
     let log = vec![
         log("action", "vote_casted"),
         log("poll_id", &poll_id.to_string()),
-        log("share", &share.to_string()),
+        log("amount", &amount.to_string()),
         log("voter", &env.message.sender.as_str()),
     ];
 

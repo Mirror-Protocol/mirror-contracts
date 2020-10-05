@@ -559,7 +559,7 @@ mod tests {
             vec![
                 log("action", "vote_casted"),
                 log("poll_id", POLL_ID),
-                log("share", "1000"),
+                log("amount", "1000"),
                 log("voter", TEST_VOTER),
             ]
         );
@@ -860,7 +860,7 @@ mod tests {
             vec![
                 log("action", "vote_casted"),
                 log("poll_id", "1"),
-                log("share", "10"),
+                log("amount", "10"),
                 log("voter", TEST_VOTER),
             ]
         );
@@ -1569,7 +1569,7 @@ mod tests {
 
     fn assert_cast_vote_success(
         voter: &str,
-        share: u128,
+        amount: u128,
         poll_id: u64,
         handle_res: HandleResponse,
     ) {
@@ -1578,7 +1578,7 @@ mod tests {
             vec![
                 log("action", "vote_casted"),
                 log("poll_id", poll_id.to_string()),
-                log("share", share.to_string()),
+                log("amount", amount.to_string()),
                 log("voter", voter),
             ]
         );
