@@ -706,7 +706,7 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(&deps)?),
         QueryMsg::State {} => to_binary(&query_state(&deps)?),
-        QueryMsg::Staker { address } => to_binary(&query_stake(deps, address)?),
+        QueryMsg::Staker { address } => to_binary(&query_staker(deps, address)?),
         QueryMsg::Poll { poll_id } => to_binary(&query_poll(deps, poll_id)?),
         QueryMsg::Polls {
             filter,
@@ -843,7 +843,7 @@ fn query_voters<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-fn query_stake<S: Storage, A: Api, Q: Querier>(
+fn query_staker<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     address: HumanAddr,
 ) -> StdResult<StakerResponse> {
@@ -861,9 +861,13 @@ fn query_stake<S: Storage, A: Api, Q: Querier>(
     )? - state.total_deposit)?;
 
     Ok(StakerResponse {
-        balance: token_manager
-            .share
-            .multiply_ratio(total_balance, state.total_share),
+        balance: if !state.total_share.is_zero() {
+            token_manager
+                .share
+                .multiply_ratio(total_balance, state.total_share)
+        } else {
+            Uint128::zero()
+        },
         share: token_manager.share,
         locked_share: token_manager.locked_share,
     })
