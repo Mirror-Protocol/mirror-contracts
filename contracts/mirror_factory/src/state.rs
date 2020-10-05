@@ -11,6 +11,7 @@ use cosmwasm_storage::{
 
 static KEY_CONFIG: &[u8] = b"config";
 static KEY_PARAMS: &[u8] = b"params";
+static KEY_TOTAL_WEIGHT: &[u8] = b"total_weight";
 
 static PREFIX_DISTRIBUTION: &[u8] = b"distribution";
 
@@ -62,6 +63,22 @@ pub fn remove_params<S: Storage>(storage: &mut S) {
 
 pub fn read_params<S: Storage>(storage: &S) -> StdResult<Params> {
     singleton_read(storage, KEY_PARAMS).load()
+}
+
+pub fn store_total_weight<S: Storage>(storage: &mut S, total_weight: Decimal) -> StdResult<()> {
+    singleton(storage, KEY_TOTAL_WEIGHT).save(&total_weight)
+}
+
+pub fn increase_total_weight<S: Storage>(
+    storage: &mut S,
+    weight_increase: Decimal,
+) -> StdResult<Decimal> {
+    let mut store: Singleton<S, Decimal> = singleton(storage, KEY_TOTAL_WEIGHT);
+    store.update(|total_weight| Ok(total_weight + weight_increase))
+}
+
+pub fn read_total_weight<S: Storage>(storage: &S) -> StdResult<Decimal> {
+    singleton_read(storage, KEY_TOTAL_WEIGHT).load()
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

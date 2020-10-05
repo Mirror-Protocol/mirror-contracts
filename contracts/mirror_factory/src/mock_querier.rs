@@ -109,7 +109,11 @@ impl WasmMockQuerier {
                 if key.len() > prefix_config.len()
                     && key[..prefix_config.len()].to_vec() == prefix_config
                 {
-                    let item = match self.terraswap_pair_querier.staking_tokens.get(contract_addr) {
+                    let item = match self
+                        .terraswap_pair_querier
+                        .staking_tokens
+                        .get(contract_addr)
+                    {
                         Some(v) => v,
                         None => {
                             return Err(SystemError::InvalidRequest {
@@ -196,7 +200,10 @@ impl WasmMockQuerier {
     }
 
     // configure the staking token mock querier
-    pub fn with_terraswap_pair_staking_token(&mut self, staking_tokens: &[(&HumanAddr, &HumanAddr)]) {
+    pub fn with_terraswap_pair_staking_token(
+        &mut self,
+        staking_tokens: &[(&HumanAddr, &HumanAddr)],
+    ) {
         self.terraswap_pair_querier = TerraswapPairQuerier::new(staking_tokens);
     }
 }

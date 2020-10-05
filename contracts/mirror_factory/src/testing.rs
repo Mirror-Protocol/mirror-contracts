@@ -583,14 +583,20 @@ fn test_update_weight() {
 #[test]
 fn test_mint() {
     let mut deps = mock_dependencies(20, &[]);
-    deps.querier.with_terraswap_pairs(&[(
-        &"asset0000\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}uusd".to_string(),
-        &HumanAddr::from("pair0000"),
-    )]);
-    deps.querier.with_terraswap_pair_staking_token(&[(
-        &HumanAddr::from("pair0000"),
-        &HumanAddr::from("LP0000"),
-    )]);
+    deps.querier.with_terraswap_pairs(&[
+        (
+            &"asset0000\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}uusd".to_string(),
+            &HumanAddr::from("pair0000"),
+        ),
+        (
+            &"asset0001\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}uusd".to_string(),
+            &HumanAddr::from("pair0001"),
+        ),
+    ]);
+    deps.querier.with_terraswap_pair_staking_token(&[
+        (&HumanAddr::from("pair0000"), &HumanAddr::from("LP0000")),
+        (&HumanAddr::from("pair0001"), &HumanAddr::from("LP0001")),
+    ]);
 
     let msg = InitMsg {
         mint_per_block: Uint128(100u128),
@@ -612,6 +618,7 @@ fn test_mint() {
     };
     let _res = handle(&mut deps, env, msg).unwrap();
 
+    // whitelist first item with weight 1.5
     let msg = HandleMsg::Whitelist {
         name: "apple derivative".to_string(),
         symbol: "mAPPL".to_string(),
@@ -635,6 +642,34 @@ fn test_mint() {
 
     let msg = HandleMsg::TerraswapCreationHook {
         asset_token: HumanAddr::from("asset0000"),
+    };
+    let env = mock_env("terraswapfactory", &[]);
+    let _res = handle(&mut deps, env, msg).unwrap();
+
+    // Whitelist second item with weight 1
+    let msg = HandleMsg::Whitelist {
+        name: "google derivative".to_string(),
+        symbol: "mGOGL".to_string(),
+        oracle_feeder: HumanAddr::from("feeder0000"),
+        params: Params {
+            weight: Decimal::one(),
+            lp_commission: Decimal::percent(1),
+            owner_commission: Decimal::percent(1),
+            auction_discount: Decimal::percent(5),
+            min_collateral_ratio: Decimal::percent(150),
+        },
+    };
+    let env = mock_env("owner0000", &[]);
+    let _res = handle(&mut deps, env, msg).unwrap();
+
+    let msg = HandleMsg::TokenCreationHook {
+        oracle_feeder: HumanAddr::from("feeder0000"),
+    };
+    let env = mock_env("asset0001", &[]);
+    let _res = handle(&mut deps, env, msg).unwrap();
+
+    let msg = HandleMsg::TerraswapCreationHook {
+        asset_token: HumanAddr::from("asset0001"),
     };
     let env = mock_env("terraswapfactory", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
@@ -695,7 +730,7 @@ fn test_mint() {
         vec![
             log("action", "mint"),
             log("asset_token", "asset0000"),
-            log("mint_amount", "150"),
+            log("mint_amount", "60"),
         ]
     );
 
@@ -706,7 +741,7 @@ fn test_mint() {
                 contract_addr: HumanAddr::from("mirror0000"),
                 msg: to_binary(&Cw20HandleMsg::Mint {
                     recipient: HumanAddr::from(MOCK_CONTRACT_ADDR),
-                    amount: Uint128(150u128),
+                    amount: Uint128(60u128),
                 })
                 .unwrap(),
                 send: vec![],
@@ -715,7 +750,7 @@ fn test_mint() {
                 contract_addr: HumanAddr::from("mirror0000"),
                 msg: to_binary(&Cw20HandleMsg::Send {
                     contract: HumanAddr::from("staking0000"),
-                    amount: Uint128(150u128),
+                    amount: Uint128(60u128),
                     msg: Some(
                         to_binary(&StakingCw20HookMsg::DepositReward {
                             asset_token: HumanAddr::from("asset0000"),

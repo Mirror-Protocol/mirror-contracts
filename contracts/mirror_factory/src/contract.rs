@@ -3,17 +3,21 @@ use cosmwasm_std::{
     HandleResult, HumanAddr, InitResponse, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 
+use crate::math::{decimal_multiplication, decimal_subtraction, reverse_decimal};
 use crate::msg::{
     ConfigResponse, DistributionInfoResponse, HandleMsg, InitMsg, QueryMsg, StakingCw20HookMsg,
 };
 use crate::register_msgs::*;
 use crate::state::{
-    read_config, read_distribution_info, read_params, remove_params, store_config,
-    store_distribution_info, store_params, Config, DistributionInfo, Params,
+    increase_total_weight, read_config, read_distribution_info, read_params, read_total_weight,
+    remove_params, store_config, store_distribution_info, store_params, store_total_weight, Config,
+    DistributionInfo, Params,
 };
 
 use cw20::{Cw20HandleMsg, MinterResponse};
 use terraswap::{load_liquidity_token, load_pair_contract, AssetInfo, InitHook, TokenInitMsg};
+
+const MIRROR_TOKEN_WEIGHT: u64 = 200u64;
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -36,6 +40,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         },
     )?;
 
+    store_total_weight(&mut deps.storage, Decimal::zero())?;
     Ok(InitResponse::default())
 }
 
@@ -178,9 +183,13 @@ pub fn try_update_weight<S: Storage, A: Api, Q: Querier>(
     }
 
     let asset_token_raw = deps.api.canonical_address(&asset_token)?;
+    let mut total_weight = read_total_weight(&deps.storage)?;
     let mut distribution_info = read_distribution_info(&deps.storage, &asset_token_raw)?;
+
+    total_weight = decimal_subtraction(total_weight + weight, distribution_info.weight);
     distribution_info.weight = weight;
 
+    store_total_weight(&mut deps.storage, total_weight)?;
     store_distribution_info(&mut deps.storage, &asset_token_raw, &distribution_info)?;
     Ok(HandleResponse {
         messages: vec![],
@@ -284,6 +293,7 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
     oracle_feeder: HumanAddr,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
+
     // If the param is not exists, it means there is no whitelist process in progress
     let params: Params = match read_params(&deps.storage) {
         Ok(v) => v,
@@ -305,6 +315,9 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
             last_height: env.block.height,
         },
     )?;
+
+    // Increase total weight
+    increase_total_weight(&mut deps.storage, params.weight)?;
 
     // Remove params == clear flag
     remove_params(&mut deps.storage);
@@ -374,7 +387,21 @@ pub fn terraswap_creation_hook<S: Storage, A: Api, Q: Querier>(
     let asset_token_raw = deps.api.canonical_address(&asset_token)?;
     let sender_raw = deps.api.canonical_address(&env.message.sender)?;
 
-    if config.mirror_token != asset_token_raw && config.terraswap_factory != sender_raw {
+    if config.mirror_token == asset_token_raw {
+        // store distribution info for mirror token
+        let mirror_token_weight = Decimal::percent(MIRROR_TOKEN_WEIGHT);
+        store_distribution_info(
+            &mut deps.storage,
+            &asset_token_raw,
+            &DistributionInfo {
+                weight: mirror_token_weight,
+                last_height: env.block.height,
+            },
+        )?;
+
+        // update total weight
+        increase_total_weight(&mut deps.storage, mirror_token_weight)?;
+    } else if config.terraswap_factory != sender_raw {
         return Err(StdError::unauthorized());
     }
 
@@ -423,12 +450,14 @@ pub fn try_mint<S: Storage, A: Api, Q: Querier>(
     let asset_token_raw = deps.api.canonical_address(&asset_token)?;
 
     let config: Config = read_config(&deps.storage)?;
+    let total_weight = read_total_weight(&deps.storage)?;
     let distribution_info: DistributionInfo =
         read_distribution_info(&deps.storage, &asset_token_raw)?;
 
     // mint_amount = weight * mint_per_block * (height - last_height)
-    let mint_amount = (config.mint_per_block * distribution_info.weight)
-        .multiply_ratio(env.block.height - distribution_info.last_height, 1u64);
+    let mint_amount = (config.mint_per_block
+        * decimal_multiplication(distribution_info.weight, reverse_decimal(total_weight)))
+    .multiply_ratio(env.block.height - distribution_info.last_height, 1u64);
 
     store_distribution_info(
         &mut deps.storage,

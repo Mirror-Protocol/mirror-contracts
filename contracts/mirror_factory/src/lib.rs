@@ -1,4 +1,5 @@
 pub mod contract;
+pub mod math;
 pub mod msg;
 pub mod register_msgs;
 pub mod state;
