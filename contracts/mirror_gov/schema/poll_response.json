@@ -8,8 +8,10 @@
     "description",
     "end_height",
     "id",
+    "no_votes",
     "status",
-    "title"
+    "title",
+    "yes_votes"
   ],
   "properties": {
     "creator": {
@@ -47,11 +49,17 @@
         "null"
       ]
     },
+    "no_votes": {
+      "$ref": "#/definitions/Uint128"
+    },
     "status": {
       "$ref": "#/definitions/PollStatus"
     },
     "title": {
       "type": "string"
+    },
+    "yes_votes": {
+      "$ref": "#/definitions/Uint128"
     }
   },
   "definitions": {

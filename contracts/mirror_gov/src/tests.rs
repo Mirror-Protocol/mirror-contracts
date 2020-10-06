@@ -352,6 +352,8 @@ mod tests {
                     link: Some("http://google.com".to_string()),
                     deposit_amount: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
                     execute_data: None,
+                    yes_votes: Uint128::zero(),
+                    no_votes: Uint128::zero(),
                 },
                 PollResponse {
                     id: 2u64,
@@ -363,6 +365,8 @@ mod tests {
                     link: None,
                     deposit_amount: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
                     execute_data: None,
+                    yes_votes: Uint128::zero(),
+                    no_votes: Uint128::zero(),
                 },
             ]
         );
@@ -389,6 +393,8 @@ mod tests {
                 link: None,
                 deposit_amount: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
                 execute_data: None,
+                yes_votes: Uint128::zero(),
+                no_votes: Uint128::zero(),
             },]
         );
 
@@ -414,6 +420,8 @@ mod tests {
                 link: None,
                 deposit_amount: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
                 execute_data: None,
+                yes_votes: Uint128::zero(),
+                no_votes: Uint128::zero(),
             },]
         );
 

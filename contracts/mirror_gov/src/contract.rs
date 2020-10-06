@@ -771,6 +771,8 @@ fn query_poll<S: Storage, A: Api, Q: Querier>(
         } else {
             None
         },
+        yes_votes: poll.yes_votes,
+        no_votes: poll.no_votes,
     })
 }
 
@@ -801,6 +803,8 @@ fn query_polls<S: Storage, A: Api, Q: Querier>(
                 } else {
                     None
                 },
+                yes_votes: poll.yes_votes,
+                no_votes: poll.no_votes,
             })
         })
         .collect();

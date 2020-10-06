@@ -115,6 +115,8 @@ pub struct PollResponse {
     pub link: Option<String>,
     pub deposit_amount: Uint128,
     pub execute_data: Option<ExecuteMsg>,
+    pub yes_votes: Uint128,
+    pub no_votes: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema)]
