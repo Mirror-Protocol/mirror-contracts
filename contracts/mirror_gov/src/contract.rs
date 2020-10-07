@@ -360,11 +360,10 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
     }
 
     let mut state: State = state_store(&mut deps.storage).load()?;
-    let poll_count = state.poll_count;
-    let poll_id = poll_count + 1;
+    let poll_id = state.poll_count + 1;
 
     // Increase poll count & total deposit amount
-    state.poll_count = poll_id;
+    state.poll_count += 1;
     state.total_deposit += deposit_amount;
 
     let execute_data = if let Some(execute_msg) = execute_msg {
@@ -391,9 +390,9 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
         deposit_amount,
     };
 
-    poll_store(&mut deps.storage).save(&state.poll_count.to_be_bytes(), &new_poll)?;
+    poll_store(&mut deps.storage).save(&poll_id.to_be_bytes(), &new_poll)?;
     poll_indexer_store(&mut deps.storage, &PollStatus::InProgress)
-        .save(&state.poll_count.to_be_bytes(), &true)?;
+        .save(&poll_id.to_be_bytes(), &true)?;
 
     state_store(&mut deps.storage).save(&state)?;
 
@@ -481,10 +480,8 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
     state_store(&mut deps.storage).save(&state)?;
 
     // Update poll indexer
-    poll_indexer_store(&mut deps.storage, &PollStatus::InProgress)
-        .remove(&state.poll_count.to_be_bytes());
-    poll_indexer_store(&mut deps.storage, &poll_status)
-        .save(&state.poll_count.to_be_bytes(), &true)?;
+    poll_indexer_store(&mut deps.storage, &PollStatus::InProgress).remove(&a_poll.id.to_be_bytes());
+    poll_indexer_store(&mut deps.storage, &poll_status).save(&a_poll.id.to_be_bytes(), &true)?;
 
     // Update poll status
     a_poll.status = poll_status;
@@ -601,7 +598,7 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
     let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
     let config = config_read(&deps.storage).load()?;
     let state = state_read(&deps.storage).load()?;
-    if poll_id == 0 || state.poll_count > poll_id {
+    if poll_id == 0 || state.poll_count < poll_id {
         return Err(StdError::generic_err("Poll does not exist"));
     }
 
