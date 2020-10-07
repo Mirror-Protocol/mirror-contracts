@@ -1126,6 +1126,7 @@ mod tests {
                 voter: HumanAddr::from(TEST_VOTER),
                 vote: VoteOption::Yes,
                 share: Uint128::from(amount),
+                balance: Uint128::from(amount),
             }]
         );
 

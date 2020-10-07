@@ -146,6 +146,7 @@ pub struct VotersResponseItem {
     pub voter: HumanAddr,
     pub vote: VoteOption,
     pub share: Uint128,
+    pub balance: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema)]

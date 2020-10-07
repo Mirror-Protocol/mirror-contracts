@@ -828,6 +828,14 @@ fn query_voters<S: Storage, A: Api, Q: Querier>(
         read_poll_voters(&deps.storage, poll_id, None, limit)?
     };
 
+    let config: Config = config_read(&deps.storage).load()?;
+    let state: State = state_read(&deps.storage).load()?;
+    let total_balance = (load_token_balance(
+        &deps,
+        &deps.api.human_address(&config.mirror_token)?,
+        &state.contract_addr,
+    )? - state.total_deposit)?;
+
     let voters_response: StdResult<Vec<VotersResponseItem>> = voters
         .iter()
         .map(|voter_info| {
@@ -835,6 +843,10 @@ fn query_voters<S: Storage, A: Api, Q: Querier>(
                 voter: deps.api.human_address(&voter_info.0)?,
                 vote: voter_info.1.vote.clone(),
                 share: voter_info.1.share,
+                balance: voter_info
+                    .1
+                    .share
+                    .multiply_ratio(total_balance, state.total_share),
             })
         })
         .collect();
