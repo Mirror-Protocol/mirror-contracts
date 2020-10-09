@@ -9,6 +9,7 @@ use cosmwasm_std::{
 use cosmwasm_storage::{
     singleton, singleton_read, Bucket, PrefixedStorage, ReadonlyBucket, ReadonlyPrefixedStorage,
 };
+use std::convert::TryInto;
 use terraswap::{AssetInfoRaw, AssetRaw};
 
 static PREFIX_ASSET: &[u8] = b"asset";
@@ -83,11 +84,12 @@ pub fn create_position<'a, S: Storage>(
     idx: Uint128,
     position: &Position,
 ) -> StdResult<()> {
-    PrefixedStorage::new(PREFIX_POSITION, storage).set(&to_vec(&idx)?, &to_vec(&position)?);
+    PrefixedStorage::new(PREFIX_POSITION, storage)
+        .set(&idx.u128().to_be_bytes(), &to_vec(&position)?);
 
     let mut position_indexer: Bucket<'a, S, bool> =
         Bucket::multilevel(&[PREFIX_USER, position.owner.as_slice()], storage);
-    position_indexer.save(&to_vec(&idx)?, &true)?;
+    position_indexer.save(&idx.u128().to_be_bytes(), &true)?;
 
     Ok(())
 }
@@ -98,7 +100,8 @@ pub fn store_position<'a, S: Storage>(
     idx: Uint128,
     position: &Position,
 ) -> StdResult<()> {
-    PrefixedStorage::new(PREFIX_POSITION, storage).set(&to_vec(&idx)?, &to_vec(&position)?);
+    PrefixedStorage::new(PREFIX_POSITION, storage)
+        .set(&idx.u128().to_be_bytes(), &to_vec(&position)?);
     Ok(())
 }
 
@@ -108,7 +111,7 @@ pub fn remove_position<'a, S: Storage>(
     idx: Uint128,
     position_owner: &CanonicalAddr,
 ) -> StdResult<()> {
-    PrefixedStorage::new(PREFIX_POSITION, storage).remove(&to_vec(&idx)?);
+    PrefixedStorage::new(PREFIX_POSITION, storage).remove(&idx.u128().to_be_bytes());
 
     let mut position_indexer: Bucket<'a, S, bool> =
         Bucket::multilevel(&[PREFIX_USER, position_owner.as_slice()], storage);
@@ -119,7 +122,7 @@ pub fn remove_position<'a, S: Storage>(
 
 /// read position from store with position idx
 pub fn read_position<'a, S: ReadonlyStorage>(storage: &'a S, idx: Uint128) -> StdResult<Position> {
-    let res = ReadonlyPrefixedStorage::new(PREFIX_POSITION, storage).get(&to_vec(&idx)?);
+    let res = ReadonlyPrefixedStorage::new(PREFIX_POSITION, storage).get(&idx.u128().to_be_bytes());
     match res {
         Some(v) => from_slice(&v),
         None => Err(StdError::generic_err(
@@ -148,15 +151,24 @@ pub fn read_positions<'a, S: ReadonlyStorage>(
         .take(limit)
         .map(|item| {
             let (k, _) = item?;
-            read_position(storage, from_slice(&k)?)
+            read_position(storage, Uint128(bytes_to_u128(&k)?))
         })
         .collect()
+}
+
+fn bytes_to_u128(data: &[u8]) -> StdResult<u128> {
+    match data[0..16].try_into() {
+        Ok(bytes) => Ok(u128::from_be_bytes(bytes)),
+        Err(_) => Err(StdError::generic_err(
+            "Corrupted data found. 16 byte expected.",
+        )),
+    }
 }
 
 // this will set the first key after the provided key, by appending a 1 byte
 fn calc_range_start(start_after: Option<Uint128>) -> Option<Vec<u8>> {
     start_after.map(|idx| {
-        let mut v = to_vec(&idx).unwrap();
+        let mut v = idx.u128().to_be_bytes().to_vec();
         v.push(1);
         v
     })
