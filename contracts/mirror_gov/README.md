@@ -5,22 +5,23 @@ where voters deposit predefined gov cw20 tokens in order to vote.
 
 ## Table of Contents <!-- omit in toc -->
 
-- [Configs](#configs)
+- [Config](#config)
 - [InitMsg](#initmsg)
 - [HandleMsg](#handlemsg)
-  - [`update_config`](#update_config)
-  - [`cast_vote`](#cast_vote)
-  - [`withdraw_voting_tokens`](#withdraw_voting_tokens)
-  - [`end_poll`](#end_poll)
+  - [`UpdateConfig`](#updateconfig)
+  - [`CastVote`](#castvote)
+  - [`WithdrawVotingTokens`](#withdrawvotingtokens)
+  - [`EndPoll`](#endpoll)
 - [QueryMsg](#querymsg)
-  - [`config`](#config)
-  - [`state`](#state)
-  - [`stake`](#stake)
-  - [`poll`](#poll)
+  - [`Config`](#config-1)
+  - [`State`](#state)
+  - [`Stake`](#stake)
+  - [`Poll`](#poll)
+- [Features](#features)
   - [Create Poll & End Poll](#create-poll--end-poll)
   - [Staking](#staking)
 
-## Configs
+## Config
 
 | Name             | Description                                                      |
 | ---------------- | ---------------------------------------------------------------- |
@@ -32,13 +33,14 @@ where voters deposit predefined gov cw20 tokens in order to vote.
 
 ## InitMsg
 
-```json
-{
-  "mirror_token": "terra...",
-  "quorum": "123.123",
-  "threshold": "0.33",
-  "voting_period": "1234",
-  "proposal_deposit": "1000000"
+```rust
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct InitMsg {
+    pub mirror_token: HumanAddr,
+    pub quorum: Decimal,
+    pub threshold: Decimal,
+    pub voting_period: u64,
+    pub proposal_deposit: Uint128,
 }
 ```
 
@@ -52,17 +54,46 @@ where voters deposit predefined gov cw20 tokens in order to vote.
 
 ## HandleMsg
 
-### `update_config`
-
-```json
-{
-  "owner": "terra...",
-  "quorum": "123.123",
-  "threshold": "0.33",
-  "voting_period": "1234",
-  "proposal_deposit": "1000000"
+```rust
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum HandleMsg {
+    Receive(Cw20ReceiveMsg),
+    UpdateConfig {
+        owner: Option<HumanAddr>,
+        quorum: Option<Decimal>,
+        threshold: Option<Decimal>,
+        voting_period: Option<u64>,
+        proposal_deposit: Option<Uint128>,
+    },
+    CastVote {
+        poll_id: u64,
+        vote: VoteOption,
+        share: Uint128,
+    },
+    WithdrawVotingTokens {
+        amount: Option<Uint128>,
+    },
+    EndPoll {
+        poll_id: u64,
+    },
 }
 ```
+
+**Cw20ReceiveMsg** definition:
+
+```rust
+/// Cw20ReceiveMsg should be de/serialized under `Receive()` variant in a HandleMsg
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
+pub struct Cw20ReceiveMsg {
+    pub sender: HumanAddr,
+    pub amount: Uint128,
+    pub msg: Option<Binary>,
+}
+```
+
+### `UpdateConfig`
 
 | Key                  | Type       | Description |
 | -------------------- | ---------- | ----------- |
@@ -74,19 +105,9 @@ where voters deposit predefined gov cw20 tokens in order to vote.
 
 \* = optional
 
-### `cast_vote`
+### `CastVote`
 
 Voters can use their voting power redundantly in multiple polls, and when voting, they can designate as much voting power as they want to vote.
-
-```json
-{
-  "cast_vote": {
-    "poll_id": "4",
-    "vote": "YES",
-    "share": "1000000"
-  }
-}
-```
 
 | Key       | Type              | Description                 |
 | --------- | ----------------- | --------------------------- |
@@ -94,17 +115,9 @@ Voters can use their voting power redundantly in multiple polls, and when voting
 | `vote`    | `"YES"` or `"NO"` | Vote option                 |
 | `share`   | Uint128           |                             |
 
-### `withdraw_voting_tokens`
+### `WithdrawVotingTokens`
 
 Users can withdraw their stake, but not while a poll they've participated in is still in progress.
-
-```json
-{
-  "withdraw_voting_tokens": {
-    "amount": "1000000"
-  }
-}
-```
 
 | Key        | Type    | Description |
 | ---------- | ------- | ----------- |
@@ -112,17 +125,9 @@ Users can withdraw their stake, but not while a poll they've participated in is 
 
 \* = optional
 
-### `end_poll`
+### `EndPoll`
 
 If the polls is ended with `pass`, it will execute registered `WasmExecute` msg.
-
-```json
-{
-  "end_poll": {
-    "poll_id": "42"
-  }
-}
-```
 
 | Key       | Type | Description    |
 | --------- | ---- | -------------- |
@@ -130,7 +135,7 @@ If the polls is ended with `pass`, it will execute registered `WasmExecute` msg.
 
 ## QueryMsg
 
-### `config`
+### `Config`
 
 #### Request
 
@@ -162,7 +167,7 @@ If the polls is ended with `pass`, it will execute registered `WasmExecute` msg.
 | `voting_period`    | u64        |             |
 | `proposal_deposit` | Uint128    |             |
 
-### `state`
+### `State`
 
 #### Request
 
@@ -186,7 +191,7 @@ If the polls is ended with `pass`, it will execute registered `WasmExecute` msg.
 | `poll_count`  | u64     |             |
 | `total_share` | Uint128 |             |
 
-### `stake`
+### `Stake`
 
 #### Request
 
@@ -216,7 +221,7 @@ If the polls is ended with `pass`, it will execute registered `WasmExecute` msg.
 | `balance` | Uint128 |             |
 | `share`   | Uint128 |             |
 
-### `poll`
+### `Poll`
 
 #### Request
 
@@ -252,7 +257,9 @@ If the polls is ended with `pass`, it will execute registered `WasmExecute` msg.
 | `description`    | string     | Poll description                                     |
 | `deposit_amount` | Uint128    | Total deposit amount                                 |
 
-# Create Poll & End Poll
+## Features
+
+### Create Poll & End Poll
 
 Anyone can create a poll with predefined `config.deposit` amount of tokens. After the voting period is over, anyone can close the poll. If the quorum is satisfied, the deposit will be returned to the creator, and if not, the deposit will not be returned. The non-refundable deposit is distributed on the staking pool so that all users can divide and withdraw.
 
@@ -268,7 +275,7 @@ pub enum Cw20HookMsg {
 }
 ```
 
-# Staking
+### Staking
 
 Users can stake their mirror token to receive staking incomes, which are collected from the uniswap, or to cast vote on the polls.
 

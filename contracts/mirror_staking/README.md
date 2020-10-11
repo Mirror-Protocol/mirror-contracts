@@ -16,31 +16,129 @@ It keeps a reward index, which represent the cumulated rewards per 1 staking tok
 
 - [InitMsg](#initmsg)
 - [HandleMsg](#handlemsg)
-  - [`update_config`](#update_config)
-  - [`register_asset`](#register_asset)
-  - [`unbond`](#unbond)
-  - [`withdraw`](#withdraw)
+  - [`Receive`](#receive)
+  - [`UpdateConfig`](#updateconfig)
+  - [`RegisterAsset`](#registerasset)
+  - [`Unbond`](#unbond)
+  - [`Withdraw`](#withdraw)
 - [QueryMsg](#querymsg)
-  - [`config`](#config)
-  - [`pool_info`](#pool_info)
-  - [`reward_info`](#reward_info)
+  - [`Config`](#config)
+  - [`PoolInfo`](#poolinfo)
+  - [`RewardInfo`](#rewardinfo)
 
 ## InitMsg
 
+```rust
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct InitMsg {
+    pub owner: HumanAddr,
+    pub mirror_token: HumanAddr,
+}
+```
+
+| Key            | Type       | Description |
+| -------------- | ---------- | ----------- |
+| `owner`        | AccAddress |             |
+| `mirror_token` | AccAddress |             |
+
 ## HandleMsg
 
-### `update_config`
+```rust
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum HandleMsg {
+    Receive(Cw20ReceiveMsg),
+    UpdateConfig {
+        owner: Option<HumanAddr>,
+    },
+    RegisterAsset {
+        asset_token: HumanAddr,
+        staking_token: HumanAddr,
+    },
+    Unbond {
+        asset_token: HumanAddr,
+        amount: Uint128,
+    },
+    /// withdraw pending rewards
+    Withdraw {
+        // If the asset token is not given, then all rewards are withdrawn
+        asset_token: Option<HumanAddr>,
+    },
+}
+```
 
-### `register_asset`
+**Cw20ReceiveMsg** definition:
 
-### `unbond`
+```rust
+/// Cw20ReceiveMsg should be de/serialized under `Receive()` variant in a HandleMsg
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
+pub struct Cw20ReceiveMsg {
+    pub sender: HumanAddr,
+    pub amount: Uint128,
+    pub msg: Option<Binary>,
+}
+```
 
-### `withdraw`
+### `Receive`
+
+| Key      | Type       | Description |
+| -------- | ---------- | ----------- |
+| `sender` | AccAddress |             |
+| `amount` | AssetInfo  |             |
+| `msg`\*  | Binary     |             |
+
+\* = optional
+
+### `UpdateConfig`
+
+| Key       | Type       | Description |
+| --------- | ---------- | ----------- |
+| `owner`\* | AccAddress |             |
+
+\* = optional
+
+### `RegisterAsset`
+
+| Key             | Type       | Description |
+| --------------- | ---------- | ----------- |
+| `asset_token`   | AccAddress |             |
+| `staking_token` | AccAddress |             |
+
+### `Unbond`
+
+| Key           | Type       | Description |
+| ------------- | ---------- | ----------- |
+| `asset_token` | AccAddress |             |
+| `amount`      | Uint128    |             |
+
+### `Withdraw`
+
+| Key             | Type       | Description |
+| --------------- | ---------- | ----------- |
+| `asset_token`\* | AccAddress |             |
+
+\* = optional
 
 ## QueryMsg
 
-### `config`
+```rust
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum QueryMsg {
+    Config {},
+    PoolInfo {
+        asset_token: HumanAddr,
+    },
+    RewardInfo {
+        asset_token: Option<HumanAddr>,
+        staker: HumanAddr,
+    },
+}
+```
 
-### `pool_info`
+### `Config`
 
-### `reward_info`
+### `PoolInfo`
+
+### `RewardInfo`
