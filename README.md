@@ -1,27 +1,43 @@
 # Mirror Protocol Contracts
 
-This repository contains the smart contracts that implement Mirror Protocol on Terra.
+This repository contains the smart contracts that implement Mirror Protocol on [Terra](https://terra.money). For more information about Mirror Protocol, please visit the official documentation site [here](https://docs.mirror.finance).
+
+Mirror depends on [Terraswap](https://terraswap.org) and uses its [implementation](https://github.com/terraswap/terraswap) of the CW20 token specification.
 
 ## Contracts
 
-| Name                                                         | Description |
-| ------------------------------------------------------------ | ----------- |
-| [`mirror_collector`](./contracts/mirror_collector/README.md) |             |
-| [`mirror_factory`](./contracts/mirror_factory/README.md)     |             |
-| [`mirror_gov`](./contracts/mirror_gov/README.md)             |             |
-| [`mirror_mint`](./contracts/mirror_mint/README.md)           |             |
-| [`mirror_oracle`](./contracts/mirror_oracle/README.md)       |             |
-| [`mirror_staking`](./contracts/mirror_staking/README.md)     |             |
+| Name                                                         | Description                      |
+| ------------------------------------------------------------ | -------------------------------- |
+| [`mirror_collector`](./contracts/mirror_collector/README.md) | reward collector                 |
+| [`mirror_factory`](./contracts/mirror_factory/README.md)     | controls whitelisting of mAssets |
+| [`mirror_gov`](./contracts/mirror_gov/README.md)             | controls governance              |
+| [`mirror_mint`](./contracts/mirror_mint/README.md)           | mAsset minting and burning logic |
+| [`mirror_oracle`](./contracts/mirror_oracle/README.md)       | controls the oracle feeder       |
+| [`mirror_staking`](./contracts/mirror_staking/README.md)     | controls staking functions       |
 
-## Organization
+## Initialization
 
-- `artifacts/`:
-  - `checksums.txt`: hashes to check for tampering
-  - `mirror_<contract>.wasm`: compiled contract WASM binary
-- `contracts/`:
-  - `mirror_<contract>/`: contract source code directory
-- `packages/`:
-  - `uniswap/`: bundled Uniswap-clone dependency
+**NOTE:** mAPPL will be used as an example.
+
+- Mirror contracts should be instantiated in the following order:
+
+  1. `mirror.factory`
+  2. `terraswap.token` (MIR token)
+  3. `mirror.gov`
+  4. `mirror.oracle`
+  5. `mirror.mint`
+  6. `mirror.staking`
+  7. `terraswap.factory`
+  8. `mirror.collector`
+  9. `terraswap.token` (mAPPL token)
+
+- The pair for (MIR/UST) is created:
+
+  - `Terraswap_factory.create_pair` (MIR/UST)
+  - `mirror.factory.post_initialize`
+  - `mirror.factory.terraswap_creation_hook(MIR)`: whitelist MIR
+  - `mirror.factory.whitelist(APPL)`: whitelist mAPPL
+  - `mirror.factory.update_owner(gov)`: gov contract now owns the factory
 
 ## Development
 
@@ -77,6 +93,6 @@ This performs several optimizations which can significantly reduce the final siz
 
 ## License
 
-This software is licensed under the Apache 2.0 license. Read more about it [here].
+This software is licensed under the Apache 2.0 license. Read more about it [here](LICENSE.md).
 
 © 2020 Terraform Labs, PTE.

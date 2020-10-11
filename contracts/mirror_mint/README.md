@@ -4,56 +4,197 @@
 
 - [InitMsg](#initmsg)
 - [HandleMsg](#handlemsg)
-  - [`update_config`](#update_config)
-  - [`update_asset`](#update_asset)
-  - [`register_asset`](#register_asset)
-  - [`open_position`](#open_position)
-  - [`deposit`](#deposit)
-  - [`withdraw`](#withdraw)
-  - [`mint`](#mint)
+  - [`Receive`](#receive)
+  - [`UpdateConfig`](#updateconfig)
+  - [`UpdateAsset`](#updateasset)
+  - [`RegisterAsset`](#registerasset)
+  - [`OpenPosition`](#openposition)
+  - [`Deposit`](#deposit)
+  - [`Withdraw`](#withdraw)
+  - [`Mint`](#mint)
 - [QueryMsg](#querymsg)
-  - [`config`](#config)
-  - [`asset_config`](#asset_config)
-  - [`position`](#position)
-  - [`positions`](#positions)
+  - [`Config`](#config)
+  - [`AssetConfig`](#assetconfig)
+  - [`Position`](#position)
+  - [`Positions`](#positions)
 - [Features](#features)
 
 ## InitMsg
 
-```json
-{
-  "owner": "terra...",
-  "oracle": "terra...",
-  "base_asset_info": {},
-  "token_code_id": "42"
+```rust
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct InitMsg {
+    pub owner: HumanAddr,
+    pub oracle: HumanAddr,
+    pub base_asset_info: AssetInfo,
+    pub token_code_id: u64,
 }
 ```
 
+| Key              | Type       | Description |
+| ---------------- | ---------- | ----------- |
+| `owner`          | AccAddress |             |
+| `oracle`         | AccAddress |             |
+| `base_aset_info` | AssetInfo  |             |
+| `token_code_id`  | u64        |             |
+
 ## HandleMsg
 
-### `update_config`
+```rust
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum HandleMsg {
+    Receive(Cw20ReceiveMsg),
+    /// Update config; only owner is allowed to execute it
+    UpdateConfig {
+        owner: Option<HumanAddr>,
+        token_code_id: Option<u64>,
+    },
+    /// Update asset related parameters
+    UpdateAsset {
+        asset_info: AssetInfo,
+        auction_discount: Option<Decimal>,
+        min_collateral_ratio: Option<Decimal>,
+    },
+    /// Generate asset token initialize msg and register required infos except token address
+    RegisterAsset {
+        asset_token: HumanAddr,
+        auction_discount: Decimal,
+        min_collateral_ratio: Decimal,
+    },
+    // create position to meet collateral ratio
+    OpenPosition {
+        collateral: Asset,
+        asset_info: AssetInfo,
+        collateral_ratio: Decimal,
+    },
+    /// deposit more collateral
+    Deposit {
+        position_idx: Uint128,
+        collateral: Asset,
+    },
+    /// withdraw collateral
+    Withdraw {
+        position_idx: Uint128,
+        collateral: Asset,
+    },
+    /// convert all deposit collateral to asset
+    Mint {
+        position_idx: Uint128,
+        asset: Asset,
+    },
+}
+```
 
-### `update_asset`
+**Cw20ReceiveMsg** definition:
 
-### `register_asset`
+```rust
+/// Cw20ReceiveMsg should be de/serialized under `Receive()` variant in a HandleMsg
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
+pub struct Cw20ReceiveMsg {
+    pub sender: HumanAddr,
+    pub amount: Uint128,
+    pub msg: Option<Binary>,
+}
+```
 
-### `open_position`
+### `Receive`
 
-### `deposit`
+Hook for when the mint contract is the recipient of a CW20 transfer, allows CW20 contract to execute a message defined in mint contract.
 
-### `withdraw`
+| Key      | Type       | Description |
+| -------- | ---------- | ----------- |
+| `sender` | AccAddress |             |
+| `amount` | Uint128    |             |
+| `msg`\*  | Binary     |             |
 
-### `mint`
+\* = optional
+
+### `UpdateConfig`
+
+| Key               | Type       | Description |
+| ----------------- | ---------- | ----------- |
+| `owner`\*         | AccAddress |             |
+| `token_code_id`\* | u64        |             |
+
+\* = optional
+
+### `UpdateAsset`
+
+| Key                      | Type      | Description |
+| ------------------------ | --------- | ----------- |
+| `asset_info`             | AssetInfo |             |
+| `auction_discount`\*     | Decimal   |             |
+| `min_collateral_ratio`\* | Decimal   |             |
+
+\* = optional
+
+### `RegisterAsset`
+
+| Key                    | Type      | Description |
+| ---------------------- | --------- | ----------- |
+| `asset_token`          | HumanInfo |             |
+| `auction_discount`     | Decimal   |             |
+| `min_collateral_ratio` | Decimal   |             |
+
+### `OpenPosition`
+
+| Key                | Type      | Description |
+| ------------------ | --------- | ----------- |
+| `collateral`       | Asset     |             |
+| `asset_info`       | AssetInfo |             |
+| `collateral_ratio` | Decimal   |             |
+
+### `Deposit`
+
+| Key            | Type    | Description |
+| -------------- | ------- | ----------- |
+| `position_idx` | Uint128 |             |
+| `collateral`   | Asset   |             |
+
+### `Withdraw`
+
+| Key            | Type    | Description |
+| -------------- | ------- | ----------- |
+| `position_idx` | Uint128 |             |
+| `collateral`   | Asset   |             |
+
+### `Mint`
+
+| Key            | Type    | Description |
+| -------------- | ------- | ----------- |
+| `position_idx` | Uint128 |             |
+| `collateral`   | Asset   |             |
 
 ## QueryMsg
 
-### `config`
+```rust
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum QueryMsg {
+    Config {},
+    AssetConfig {
+        asset_info: AssetInfo,
+    },
+    Position {
+        position_idx: Uint128,
+    },
+    Positions {
+        owner_addr: HumanAddr,
+        start_after: Option<Uint128>,
+        limit: Option<u32>,
+    },
+}
+```
 
-### `asset_config`
+### `Config`
 
-### `position`
+### `AssetConfig`
 
-### `positions`
+### `Position`
+
+### `Positions`
 
 ## Features
 
@@ -71,35 +212,35 @@ Mirrror Protocol mint contract provides following features
   let mint_amount = (asset_amount - position.asset_amount).unwrap_or(Uint128::zero());
   ```
 
-  The contract recognizes the sent coins with `mint` msg as collateral amount.
+The contract recognizes the sent coins with `mint` msg as collateral amount.
 
-  ```json
-  { "mint": {} }
-  ```
+```json
+{ "mint": {} }
+```
 
-  Any minter can burn the minted asset by sending `burn` msg. When liquidating a position, the some part of collateral is returned excluding the collateral required for the remaining position.
+Any minter can burn the minted asset by sending `burn` msg. When liquidating a position, the some part of collateral is returned excluding the collateral required for the remaining position.
 
-  ```rust
-  let left_asset_amount = position.asset_amount - burn_amount;
-  let collateral_amount = left_asset_amount * price / config.mint_capacity;
+```rust
+let left_asset_amount = position.asset_amount - burn_amount;
+let collateral_amount = left_asset_amount * price / config.mint_capacity;
 
-  if position.asset_amount == burn amount {
-      // return all collateral
-      return
-  }
+if position.asset_amount == burn amount {
+    // return all collateral
+    return
+}
 
-  if collateral_amount > position.collateral_amount {
-      // no refund, just decrease position.asset_amount
-      return
-  }
+if collateral_amount > position.collateral_amount {
+    // no refund, just decrease position.asset_amount
+    return
+}
 
-  // refund collateral
-  let refund_collateral_amount = position.collateral_amount - collateral_amount;
-  ```
+// refund collateral
+let refund_collateral_amount = position.collateral_amount - collateral_amount;
+```
 
-  ```json
-  { "burn": { "symbol": "APPL", "amount": "1000000" }
-  ```
+```json
+{ "burn": { "symbol": "APPL", "amount": "1000000" }
+```
 
 - Auction
 

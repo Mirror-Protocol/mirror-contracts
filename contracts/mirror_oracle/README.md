@@ -6,33 +6,89 @@ This contract is a OCS conformant smart contract. It provides simple interfcae t
 
 - [InitMsg](#initmsg)
 - [HandleMsg](#handlemsg)
+  - [`UpdateConfig`](#updateconfig)
+  - [`RegisterAsset`](#registerasset)
+  - [`FeedPrice`](#feedprice)
 - [QueryMsg](#querymsg)
-- [Features](#features)
+  - [`Config`](#config)
+  - [`Asset`](#asset)
+  - [`Price`](#price)
 
 ## InitMsg
 
+```rust
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct InitMsg {
+    pub owner: HumanAddr,
+    pub base_asset_info: AssetInfo,
+}
+```
+
+| Key               | Type       | Description |
+| ----------------- | ---------- | ----------- |
+| `owner`           | AccAddress |             |
+| `base_asset_info` | AssetInfo  |             |
+
 ## HandleMsg
+
+```rust
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum HandleMsg {
+    UpdateConfig {
+        owner: Option<HumanAddr>,
+    },
+    RegisterAsset {
+        asset_info: AssetInfo,
+        feeder: HumanAddr,
+    },
+    FeedPrice {
+        asset_info: AssetInfo,
+        price: Decimal,
+        price_multiplier: Option<Decimal>,
+    },
+}
+```
+
+### `UpdateConfig`
+
+| Key       | Type       | Description |
+| --------- | ---------- | ----------- |
+| `owner`\* | AccAddress |             |
+
+\* = optional
+
+### `RegisterAsset`
+
+| Key          | Type       | Description |
+| ------------ | ---------- | ----------- |
+| `asset_info` | AssetInfo  |             |
+| `feeder`     | AccAddress |             |
+
+### `FeedPrice`
+
+| Key                  | Type      | Description |
+| -------------------- | --------- | ----------- |
+| `asset_info`         | AssetInfo |             |
+| `price`              | Decimal   |             |
+| `price_multiplier`\* | Decimal   |             |
+
+\* = optional
 
 ## QueryMsg
 
-## Features
+```rust
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum QueryMsg {
+    Config {},
+    Asset { asset_info: AssetInfo },
+    Price { asset_info: AssetInfo },
+}
+```
 
-- Feed Price
+### `Config`
 
-  The owner of oracle contract can feed the price with `feed_price` msg.
+### `Asset`
 
-  ```json
-  { "feed_price": { "price": "1300.0" } }
-  ```
-
-- Update Config
-
-  The owner also can do update `price_multiplier` and `owner` by sending `update_config` msg.
-
-  ```json
-  { "update_config": { "price_multiplier":  "1.2" } }
-
-  { "update_config": { "owner": "terra~~" } }
-
-  { "update_config": { "owner": "terra~~", "price_multiplier":  "1.2" } }
-  ```
+### `Price`

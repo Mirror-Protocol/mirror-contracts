@@ -7,17 +7,17 @@ This contract is for mirror token distribution. It continually mints mirror toke
 - [Config](#config)
 - [InitMsg](#initmsg)
 - [HandleMsg](#handlemsg)
-  - [`post_initialize`](#post_initialize)
-  - [`update_config`](#update_config)
-  - [`update_weight`](#update_weight)
-  - [`whitelist`](#whitelist)
-  - [`token_creation_hook`](#token_creation_hook)
-  - [`uniswap_creation_hook`](#uniswap_creation_hook)
-  - [`pass_command`](#pass_command)
-  - [`mint`](#mint)
+  - [`PostInitialize`](#postinitialize)
+  - [`UpdateConfig`](#updateconfig)
+  - [`UpdateWeight`](#updateweight)
+  - [`Whitelist`](#whitelist)
+  - [`TokenCreationHook`](#tokencreationhook)
+  - [`UniswapCreationHook`](#uniswapcreationhook)
+  - [`PassCommand`](#passcommand)
+  - [`Mint`](#mint)
 - [QueryMsg](#querymsg)
-  - [`config`](#config-1)
-  - [`distribution_info`](#distribution_info)
+  - [`Config`](#config-1)
+  - [`DistributionInfo`](#distributioninfo)
 
 ## Config
 
@@ -35,11 +35,12 @@ This contract is for mirror token distribution. It continually mints mirror toke
 
 ## InitMsg
 
-```json
-{
-  "mint_per_block": "1000000",
-  "token_code_id": 42,
-  "base_denom": "uusd"
+```rust
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct InitMsg {
+    pub mint_per_block: Uint128,
+    pub token_code_id: u64,
+    pub base_denom: String,
 }
 ```
 
@@ -51,23 +52,57 @@ This contract is for mirror token distribution. It continually mints mirror toke
 
 ## HandleMsg
 
-### `post_initialize`
-
-This operation is used to register all relevant contracts `uniswap_factory`, `mirror_token`, `staking_contract`, `oracle_contract`, `mint_contract`, `commission_collector`. Only owner is allowed to execute it.
-
-```json
-{
-  "post_initialize": {
-    "owner": "terra...",
-    "uniswap_factory": "terra...",
-    "mirror_token": "terra...",
-    "staking_contract": "terra...",
-    "oracle_contract": "terra...",
-    "mint_contract": "terra...",
-    "commission_collector": "terra..."
-  }
+```rust
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum HandleMsg {
+    PostInitialize {
+        owner: HumanAddr,
+        uniswap_factory: HumanAddr,
+        mirror_token: HumanAddr,
+        staking_contract: HumanAddr,
+        oracle_contract: HumanAddr,
+        mint_contract: HumanAddr,
+        commission_collector: HumanAddr,
+    },
+    UpdateConfig {
+        owner: Option<HumanAddr>,
+        mint_per_block: Option<Uint128>,
+        token_code_id: Option<u64>,
+    },
+    UpdateWeight {
+        asset_token: HumanAddr,
+        weight: Decimal,
+    },
+    Whitelist {
+        /// asset name used to create token contract
+        name: String,
+        /// asset symbol used to create token contract
+        symbol: String,
+        /// authorized asset oracle feeder
+        oracle_feeder: HumanAddr,
+        /// used to create all necessary contract or register asset
+        params: Params,
+    },
+    TokenCreationHook {
+        oracle_feeder: HumanAddr,
+    },
+    UniswapCreationHook {
+        asset_token: HumanAddr,
+    },
+    PassCommand {
+        contract_addr: HumanAddr,
+        msg: Binary,
+    },
+    Mint {
+        asset_token: HumanAddr,
+    },
 }
 ```
+
+### `PostInitialize`
+
+This operation is used to register all relevant contracts `uniswap_factory`, `mirror_token`, `staking_contract`, `oracle_contract`, `mint_contract`, `commission_collector`. Only owner is allowed to execute it.
 
 | Key                    | Type       | Description                          |
 | ---------------------- | ---------- | ------------------------------------ |
@@ -79,19 +114,9 @@ This operation is used to register all relevant contracts `uniswap_factory`, `mi
 | `mint_contract`        | AccAddress | Mirror Mint contract address         |
 | `commission_collector` | AccAddress | Mirror Collector contract address    |
 
-### `update_config`
+### `UpdateConfig`
 
 A owner can update `mint_per_block` or `token_code_id`.
-
-```json
-{
-  "update_config": {
-    "owner": "terra...",
-    "mint_per_block": "1000000",
-    "token_code_id": 25
-  }
-}
-```
 
 | Key                 | Type       | Description                                                |
 | ------------------- | ---------- | ---------------------------------------------------------- |
@@ -101,25 +126,16 @@ A owner can update `mint_per_block` or `token_code_id`.
 
 \* = optional
 
-### `update_weight`
+### `UpdateWeight`
 
 A owner can update mint weight of a specific symbol asset.
-
-```json
-{
-  "update_weight": {
-    "asset_token": "terra...",
-    "weight": "123.456"
-  }
-}
-```
 
 | Key           | Type       | Description |
 | ------------- | ---------- | ----------- |
 | `asset_token` | AccAddress |             |
 | `weight`      | Decimal    |             |
 
-### `whitelist`
+### `Whitelist`
 
 <details><summary>Whitelist Procedure</summary>
 <p>
@@ -146,23 +162,6 @@ Whitelisting is processed in following order:
 </p>
 </details>
 
-```json
-{
-  "whitelist": {
-    "name": "terra...",
-    "symbol": "1000000",
-    "oracle_feeder": 25,
-    "params": {
-      "weight": "123.1231",
-      "lp_commission": "123.1231",
-      "owner_commission": "123.1231",
-      "auction_discount": "123.1231",
-      "min_collateral_ratio": "123.1231"
-    }
-  }
-}
-```
-
 | Key             | Type       | Description                                                |
 | --------------- | ---------- | ---------------------------------------------------------- |
 | `name`          | AccAddress | Amount of mirror token to mint per block for each 1 weight |
@@ -170,53 +169,28 @@ Whitelisting is processed in following order:
 | `oracle_feeder` | AccAddress | Native token denom used to create uniswap pair             |
 | `params`        | Params     |                                                            |
 
-### `token_creation_hook`
-
-```json
-{
-  "token_creation_hook": {
-    "oracle_feeder": "terra..."
-  }
-}
-```
+### `TokenCreationHook`
 
 | Key             | Type       | Description |
 | --------------- | ---------- | ----------- |
 | `oracle_feeder` | AccAddress |             |
 
-### `uniswap_creation_hook`
-
-```json
-{
-  "uniswap_creation_hook": {
-    "asset_token": "terra..."
-  }
-}
-```
+### `UniswapCreationHook`
 
 | Key           | Type       | Description |
 | ------------- | ---------- | ----------- |
 | `asset_token` | AccAddress |             |
 
-### `pass_command`
+### `PassCommand`
 
 Owner can pass any message to any contract with this message. The factory has many ownership privilege, so this interface is for allowing a owner to exert ownership over the child contracts.
-
-```json
-{
-  "pass_command": {
-    "contract_addr": "terra...",
-    "msg": "..."
-  }
-}
-```
 
 | Key             | Type       | Description |
 | --------------- | ---------- | ----------- |
 | `contract_addr` | AccAddress |             |
 | `msg`           | Binary     |             |
 
-### `mint`
+### `Mint`
 
 Anyone can execute mint function with a specify asset token argument. The mint amount is calculated with following equation and send it to `staking_contract`'s asset token pool:
 
@@ -226,21 +200,23 @@ Anyone can execute mint function with a specify asset token argument. The mint a
       .multiply_ratio(env.block.height - distribution_info.last_height, 1u64);
 ```
 
-```json
-{
-  "mint": {
-    "asset_token": "terra..."
-  }
-}
-```
-
 | Key           | Type       | Description |
 | ------------- | ---------- | ----------- |
 | `asset_token` | AccAddress |             |
 
 ## QueryMsg
 
-### `config`
+```rust
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum QueryMsg {
+    Config {},
+    DistributionInfo { asset_token: HumanAddr },
+}
+
+```
+
+### `Config`
 
 #### Request
 
@@ -280,7 +256,7 @@ Anyone can execute mint function with a specify asset token argument. The mint a
 | `token_code_id`        | u64        |             |
 | `base_denom`           | string     |             |
 
-### `distribution_info`
+### `DistributionInfo`
 
 #### Request
 
