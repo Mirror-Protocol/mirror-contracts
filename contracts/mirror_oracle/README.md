@@ -1,168 +1,94 @@
-# Oracle Contract
+# Mirror Oracle <!-- omit in toc -->
 
 This contract is a OCS conformant smart contract. It provides simple interfcae to feed the price from the authorized feeder key. It also provides the variable `price_multiplier` to cope with events like stock split or merge. The oracle users can calculate the active price by multipling `price` and `price_multiplier`.
 
-## Handlers
+## Table of Contents <!-- omit in toc -->
 
-### Feed Price
+- [InitMsg](#initmsg)
+- [HandleMsg](#handlemsg)
+  - [`UpdateConfig`](#updateconfig)
+  - [`RegisterAsset`](#registerasset)
+  - [`FeedPrice`](#feedprice)
+- [QueryMsg](#querymsg)
+  - [`Config`](#config)
+  - [`Asset`](#asset)
+  - [`Price`](#price)
 
-Only authorized feeder addresses are allowed to report prices. It provides an interface to update multiple prices at once from a feeder address.
+## InitMsg
 
-Request Format
-* Feed Price
-
-   ```json
-   { 
-       "feed_price": {
-           "price_infos": [
-                { 
-                    "asset_token": "terra~~~", 
-                    "price": "1300.0" 
-                },
-                { 
-                    "asset_token": "terra~~~", 
-                    "price": "1.3" 
-                },
-                ...
-            ]
-        },
-    }
-   ```
-
-* Feed Price with Price Multiplier
-    
-   A feeder also can do update price multiplier, when there is some event on asset. The updated price multiplier replaces origin one so the feeder do not need to feed it more than once.
-
-   ```json
-      { 
-       "feed_price": {
-           "price_infos": [
-                { 
-                    "asset_token": "terra~~~", 
-                    "price": "1300.0",
-                    "price_multiplier": "1.2",
-                },
-                { 
-                    "asset_token": "terra~~~", 
-                    "price": "1.3" 
-                },
-                ...
-            ]
-        },
-    }
-   ```
-
-### Update Config
-
-The owner also can do update and `owner` by sending `update_config` msg.
-
-```json
-{ "update_config": { "owner": "terra~~" } }
-```
-
-### RegisterAsset
-
-The owner can register new asset and also can update the feeder for a specific asset.
-
-Request Format
-
-```json
-{ 
-    "register_assset": {
-        "asset_token": "terra~~~",
-        "feeder": "terra~~",
-    }
+```rust
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct InitMsg {
+    pub owner: HumanAddr,
+    pub base_asset_info: AssetInfo,
 }
 ```
 
-## Queriers
-### Config
-Query interface for config data.
+| Key               | Type       | Description |
+| ----------------- | ---------- | ----------- |
+| `owner`           | AccAddress |             |
+| `base_asset_info` | AssetInfo  |             |
 
-Request
+## HandleMsg
 
-```json
-{"config": "{}}
-```
-
-Response
-
-```json
-{
-    "owner": "terra~~",
-    "base_asset_info": {
-        "native_token": {
-            "denom": "uusd"
-        }
-    }
+```rust
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum HandleMsg {
+    UpdateConfig {
+        owner: Option<HumanAddr>,
+    },
+    RegisterAsset {
+        asset_info: AssetInfo,
+        feeder: HumanAddr,
+    },
+    FeedPrice {
+        asset_info: AssetInfo,
+        price: Decimal,
+        price_multiplier: Option<Decimal>,
+    },
 }
 ```
 
-### Asset
-Query interface for asset info
+### `UpdateConfig`
 
-Request
+| Key       | Type       | Description |
+| --------- | ---------- | ----------- |
+| `owner`\* | AccAddress |             |
 
-```json
-{
-    "asset": {
-        "asset_token": "terra~~",
-    }
+\* = optional
+
+### `RegisterAsset`
+
+| Key          | Type       | Description |
+| ------------ | ---------- | ----------- |
+| `asset_info` | AssetInfo  |             |
+| `feeder`     | AccAddress |             |
+
+### `FeedPrice`
+
+| Key                  | Type      | Description |
+| -------------------- | --------- | ----------- |
+| `asset_info`         | AssetInfo |             |
+| `price`              | Decimal   |             |
+| `price_multiplier`\* | Decimal   |             |
+
+\* = optional
+
+## QueryMsg
+
+```rust
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum QueryMsg {
+    Config {},
+    Asset { asset_info: AssetInfo },
+    Price { asset_info: AssetInfo },
 }
 ```
 
-Response
+### `Config`
 
-```json
-{
-    "asset_token": "terra~~",
-    "feeder": "terra~~"
-}
-```
+### `Asset`
 
-### Price
-Query interface for oracle price of an asset
-
-Request
-
-```json
-{
-    "price": {
-        "asset_token": "terra~~",
-    }
-}
-```
-
-Response
-
-```json
-{
-    "price": "1300.0",
-    "price_multiplier": "1.2",
-    "last_update_time": 1023832823,
-    "asset_token": "terra~~",
-}
-```
-
-### Prices
-Query interface for all price
-
-```json
-{ "prices": {} }
-```
-
-Response
-
-```json
-{
-    "prices": [
-        {
-            "price": "1300.0",
-            "price_multiplier": "1.2",
-            "last_update_time": 1023832823,
-            "asset_token": "terra~~",
-        }
-        ...
-    ]    
-}
-```
+### `Price`
