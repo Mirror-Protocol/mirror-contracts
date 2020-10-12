@@ -1,198 +1,261 @@
-# Mint Contract
-The Mint Contract provides a permissionless Collateralized Debt Position (CDP) over mirror assets. Anyone can open or close CDP with dedicated mirror asssets or pre-defined native token as collateral.
+# Mirror Mint <!-- omit in toc -->
 
-## Configs
+## Table of Contents <!-- omit in toc -->
 
-### General Config
-| Name            | Description                                     |
-| --------------- | ----------------------------------------------- |
-| owner           | The owner address who can update the configs    |
-| oracle          | The oracle contract address is for price lookup |
-| base_asset_info | The asset info the oracle price is based on     |
-| token_code_id   | The token contract id for asset token contract  |
+- [InitMsg](#initmsg)
+- [HandleMsg](#handlemsg)
+  - [`Receive`](#receive)
+  - [`UpdateConfig`](#updateconfig)
+  - [`UpdateAsset`](#updateasset)
+  - [`RegisterAsset`](#registerasset)
+  - [`OpenPosition`](#openposition)
+  - [`Deposit`](#deposit)
+  - [`Withdraw`](#withdraw)
+  - [`Mint`](#mint)
+- [QueryMsg](#querymsg)
+  - [`Config`](#config)
+  - [`AssetConfig`](#assetconfig)
+  - [`Position`](#position)
+  - [`Positions`](#positions)
+- [Features](#features)
 
-### Asset Config
-| Name                 | Description                                                                               |
-| -------------------- | ----------------------------------------------------------------------------------------- |
-| token                | The token contract addres                                                                 |
-| auction_discount     | When the auction took place, the system sell the collateral asset with this discount rate |
-| min_collateral_ratio | All CDP have collateral ratio bigger than this config. If not, the auction takes place.   |
-
-
-## Handlers
-
-### Open Position
-Anyone can register a position without permission, and the registered position will receive a global uniquip id. When opening a position, the user can specify the collateral and the target asset to mint and set the desired collateral ratio. According to the given input, the quantity of assets that satisfy the collateral ratio is minted.
+## InitMsg
 
 ```rust
-let mint_amount = collateral.amount
-    * collateral_price
-    * reverse_decimal(asset_price)
-    * reverse_decimal(collateral_ratio);
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct InitMsg {
+    pub owner: HumanAddr,
+    pub oracle: HumanAddr,
+    pub base_asset_info: AssetInfo,
+    pub token_code_id: u64,
+}
 ```
 
-Request Format
+| Key              | Type       | Description |
+| ---------------- | ---------- | ----------- |
+| `owner`          | AccAddress |             |
+| `oracle`         | AccAddress |             |
+| `base_aset_info` | AssetInfo  |             |
+| `token_code_id`  | u64        |             |
+
+## HandleMsg
+
 ```rust
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum HandleMsg {
+    Receive(Cw20ReceiveMsg),
+    /// Update config; only owner is allowed to execute it
+    UpdateConfig {
+        owner: Option<HumanAddr>,
+        token_code_id: Option<u64>,
+    },
+    /// Update asset related parameters
+    UpdateAsset {
+        asset_info: AssetInfo,
+        auction_discount: Option<Decimal>,
+        min_collateral_ratio: Option<Decimal>,
+    },
+    /// Generate asset token initialize msg and register required infos except token address
+    RegisterAsset {
+        asset_token: HumanAddr,
+        auction_discount: Decimal,
+        min_collateral_ratio: Decimal,
+    },
+    // create position to meet collateral ratio
     OpenPosition {
         collateral: Asset,
         asset_info: AssetInfo,
         collateral_ratio: Decimal,
-    }
-}
-
-pub struct Asset {
-    pub info: AssetInfo,
-    pub amount: Uint128,
-}
-
-#[serde(rename_all = "snake_case")]
-pub enum AssetInfo {
-    Token { contract_addr: HumanAddr },
-    NativeToken { denom: String },
-}
-```
-
-### Deposit Collateral
-Users must keep their positions safe to prevent margin calls. In order to do that, the user must be able to increase the collateral on the position. This operation is only for increase the collateral amount of a position. 
-
-The collateral can be both native token and cw20 token, so it provide two interfaces.
-
-* Native Token Deposit
-    ```rust
-    #[serde(rename_all = "snake_case")]
-    pub enum HandleMsg {
-        Deposit {
-            position_idx: Uint128,
-            collateral: Asset,
-        }
-    }
-    ```
-
-* CW20 Token Deposit
-   ```rust
-   #[serde(rename_all = "snake_case")]
-   pub enum Cw20HookMsg {
-      Deposit { position_idx: Uint128 },
-   }
-   ```
-
-### Withdraw Collateral
-Users can always withdraw the CDP collateral. However, they are forced to always keep the minimum amount of collateral asset to cover their CDP as follow.
-
-```rust
-// Compute new collateral amount
-let collateral_amount: Uint128 = (position.collateral.amount - collateral.amount)?;
-
-// Convert asset to collateral unit
-let asset_value_in_collateral_asset: Uint128 =
-    position.asset.amount * asset_price * reverse_decimal(collateral_price);
-
-// Check minimum collateral ratio is statified
-if asset_value_in_collateral_asset * asset_config.min_collateral_ratio > collateral_amount {
-    return Err(StdError::generic_err(
-        "Cannot withdraw collateral over than minimum collateral ratio",
-    ));
-}
-```
-
-Request Format
-```rust
-#[serde(rename_all = "snake_case")]
-pub enum HandleMsg {
+    },
+    /// deposit more collateral
+    Deposit {
+        position_idx: Uint128,
+        collateral: Asset,
+    },
+    /// withdraw collateral
     Withdraw {
         position_idx: Uint128,
         collateral: Asset,
-    }
-}
-```
-
-### Mint Asset
-
-Users can mint any mirror asset with mirror assets or pre-defined native token as collateral. The contract enforces following logics at mint process to keep minimum collateral ratio.
-
-```rust
-// Compute new asset amount
-let asset_amount: Uint128 = asset.amount + position.asset.amount;
-
-// Convert asset to collateral unit
-let asset_value_in_collateral_asset: Uint128 =
-    asset_amount * asset_price * reverse_decimal(collateral_price);
-
-// Check minimum collateral ratio is statified
-if asset_value_in_collateral_asset * asset_config.min_collateral_ratio
-    > position.collateral.amount
-{
-    return Err(StdError::generic_err(
-        "Cannot mint asset over than min collateral ratio",
-    ));
-}
-```
-
-Request Format
-
-```rust
-pub enum HandleMsg {
+    },
+    /// convert all deposit collateral to asset
     Mint {
         position_idx: Uint128,
         asset: Asset,
     },
 }
+```
 
-pub struct Asset {
-    pub info: AssetInfo,
-    pub amount: Uint128,
-}
+**Cw20ReceiveMsg** definition:
 
+```rust
+/// Cw20ReceiveMsg should be de/serialized under `Receive()` variant in a HandleMsg
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]
-pub enum AssetInfo {
-    Token { contract_addr: HumanAddr },
-    NativeToken { denom: String },
+pub struct Cw20ReceiveMsg {
+    pub sender: HumanAddr,
+    pub amount: Uint128,
+    pub msg: Option<Binary>,
 }
 ```
 
-### Burn Asset
-Users can burn the minted asset without restriction to increase the collateral ratio or to close the position. 
+### `Receive`
 
-Burn request always passed thorugh CW20 token contract.
+Hook for when the mint contract is the recipient of a CW20 transfer, allows CW20 contract to execute a message defined in mint contract.
+
+| Key      | Type       | Description |
+| -------- | ---------- | ----------- |
+| `sender` | AccAddress |             |
+| `amount` | Uint128    |             |
+| `msg`\*  | Binary     |             |
+
+\* = optional
+
+### `UpdateConfig`
+
+| Key               | Type       | Description |
+| ----------------- | ---------- | ----------- |
+| `owner`\*         | AccAddress |             |
+| `token_code_id`\* | u64        |             |
+
+\* = optional
+
+### `UpdateAsset`
+
+| Key                      | Type      | Description |
+| ------------------------ | --------- | ----------- |
+| `asset_info`             | AssetInfo |             |
+| `auction_discount`\*     | Decimal   |             |
+| `min_collateral_ratio`\* | Decimal   |             |
+
+\* = optional
+
+### `RegisterAsset`
+
+| Key                    | Type      | Description |
+| ---------------------- | --------- | ----------- |
+| `asset_token`          | HumanInfo |             |
+| `auction_discount`     | Decimal   |             |
+| `min_collateral_ratio` | Decimal   |             |
+
+### `OpenPosition`
+
+| Key                | Type      | Description |
+| ------------------ | --------- | ----------- |
+| `collateral`       | Asset     |             |
+| `asset_info`       | AssetInfo |             |
+| `collateral_ratio` | Decimal   |             |
+
+### `Deposit`
+
+| Key            | Type    | Description |
+| -------------- | ------- | ----------- |
+| `position_idx` | Uint128 |             |
+| `collateral`   | Asset   |             |
+
+### `Withdraw`
+
+| Key            | Type    | Description |
+| -------------- | ------- | ----------- |
+| `position_idx` | Uint128 |             |
+| `collateral`   | Asset   |             |
+
+### `Mint`
+
+| Key            | Type    | Description |
+| -------------- | ------- | ----------- |
+| `position_idx` | Uint128 |             |
+| `collateral`   | Asset   |             |
+
+## QueryMsg
 
 ```rust
-pub enum Cw20HookMsg {
-    Burn { position_idx: Uint128 },
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum QueryMsg {
+    Config {},
+    AssetConfig {
+        asset_info: AssetInfo,
+    },
+    Position {
+        position_idx: Uint128,
+    },
+    Positions {
+        owner_addr: HumanAddr,
+        start_after: Option<Uint128>,
+        limit: Option<u32>,
+    },
 }
 ```
-    
-### Auction
-The CDPs are always in liquidation danger, so position owners need to keep the collateral ratio bigger than minimum.
-If the collateral ratio becomes smaller than minimum, the liquidation auction is held to let anyone liquidate the position.
 
-Auction Held Condition
+### `Config`
+
+### `AssetConfig`
+
+### `Position`
+
+### `Positions`
+
+## Features
+
+Mirrror Protocol mint contract provides following features
+
+- Mint & Burn
+
+  The asset can be minted with some colalteral of `config.collateral_denom`. The contract uses asset oracle to get `price` and `config.mint_capacity` to calculate `mint_amount`.
+
+  It also allows a user to add more collateral to protect the mint poisition from the margin call.
+
+  ```rust
+  let total_collateral_amount = position.collateral_amount + new_collateral_amount;
+  let asset_amount = total_collateral_amount * price * config.mint_capacity;
+  let mint_amount = (asset_amount - position.asset_amount).unwrap_or(Uint128::zero());
+  ```
+
+The contract recognizes the sent coins with `mint` msg as collateral amount.
+
+```json
+{ "mint": {} }
+```
+
+Any minter can burn the minted asset by sending `burn` msg. When liquidating a position, the some part of collateral is returned excluding the collateral required for the remaining position.
+
 ```rust
-let asset_value_in_collateral_asset: Uint128 =
-        position.asset.amount * asset_price * reverse_decimal(collateral_price);
-if asset_value_in_collateral_asset * asset_config.min_collateral_ratio
-    < position.collateral.amount
-{
-    return Err(StdError::generic_err(
-        "Cannot liquidate a safely collateralized position",
-    ));
+let left_asset_amount = position.asset_amount - burn_amount;
+let collateral_amount = left_asset_amount * price / config.mint_capacity;
+
+if position.asset_amount == burn amount {
+    // return all collateral
+    return
 }
-```
 
-Discounted Collateral Price
-```rust
-let discounted_collateral_price = collateral_price  * (1 - auction_discount)
-asset_amount * asset_price / collateral_price  * (1 + auction_discount)
-```
-
-The provided asset cannot be bigger than the position's asset amount and also the returned collateral amount cannot be bigger than the position's collateral amount.
-
-The left collateral amount after liqudate all asset is transferred to the position owner.
-
-Auction request always passed thorugh CW20 token contract.
-```rust
-pub enum Cw20HookMsg {
-    Auction { position_idx: Uint128 },
+if collateral_amount > position.collateral_amount {
+    // no refund, just decrease position.asset_amount
+    return
 }
+
+// refund collateral
+let refund_collateral_amount = position.collateral_amount - collateral_amount;
 ```
+
+```json
+{ "burn": { "symbol": "APPL", "amount": "1000000" }
+```
+
+- Auction
+
+  To prevent the position value from becoming larger than the amount of the collateral, an auction is held. The auction provides collateral as discounted price. Any user can buy as much as they want, capped `position.collateral_amount`.
+
+  The auction is held when,
+
+  ```rust
+  if position.asset_amount * price >= position.collateral_amount * config.auction_threshold_rate {
+
+  }
+  ```
+
+  The provided asset cannot be bigger than the position's asset amount and also the returned collateral amount cannot be bigger than the position's collateral amount. The discounted colalteral price is calculated as follows:
+
+  ```rust
+  let discounted_price = price * (1 + config.auction_discount);
+  ```
