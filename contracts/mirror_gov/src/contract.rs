@@ -738,6 +738,7 @@ fn query_state<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>) -> StdRes
     Ok(StateResponse {
         poll_count: state.poll_count,
         total_share: state.total_share,
+        total_deposit: state.total_deposit,
     })
 }
 

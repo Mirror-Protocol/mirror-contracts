@@ -102,6 +102,7 @@ pub struct ConfigResponse {
 pub struct StateResponse {
     pub poll_count: u64,
     pub total_share: Uint128,
+    pub total_deposit: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema)]
