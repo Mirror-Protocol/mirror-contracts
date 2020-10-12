@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2020 Monday Garfield.
+Copyright (c) 2020 Terraform Labs, PTE.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
