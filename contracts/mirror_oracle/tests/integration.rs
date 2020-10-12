@@ -26,7 +26,7 @@ use cosmwasm_vm::testing::{
 };
 use cosmwasm_vm::Instance;
 use mirror_oracle::msg::{ConfigResponse, HandleMsg, InitMsg, PriceInfo, PriceResponse, QueryMsg};
-use uniswap::AssetInfo;
+use terraswap::AssetInfo;
 
 // This line will test the output of cargo wasm
 static WASM: &[u8] =

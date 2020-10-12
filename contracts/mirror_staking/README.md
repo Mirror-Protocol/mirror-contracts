@@ -50,7 +50,7 @@ pub enum Cw20HookMsg {
 
 ### Bond
 
-Users can bond their liquidity token, which is issued from uniswap pair contract as a proof token of pool contribution. The stakers can receive the Mirror inflation rewards in proportion to their staking amount.
+Users can bond their liquidity token, which is issued from terraswap pair contract as a proof token of pool contribution. The stakers can receive the Mirror inflation rewards in proportion to their staking amount.
 
 Bond request always passed thorugh CW20 token contract.
 

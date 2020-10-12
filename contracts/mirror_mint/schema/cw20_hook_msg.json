@@ -66,7 +66,7 @@
       }
     },
     {
-      "description": "Auction a user can sell their asset tokens in discounted prices",
+      "description": "a user can buy discounted collateral from the contract with their asset tokens",
       "type": "object",
       "required": [
         "auction"

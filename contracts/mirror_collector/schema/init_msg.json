@@ -3,13 +3,13 @@
   "title": "InitMsg",
   "type": "object",
   "required": [
-    "collateral_denom",
+    "base_denom",
     "distribution_contract",
     "mirror_token",
-    "uniswap_factory"
+    "terraswap_factory"
   ],
   "properties": {
-    "collateral_denom": {
+    "base_denom": {
       "type": "string"
     },
     "distribution_contract": {
@@ -18,7 +18,7 @@
     "mirror_token": {
       "$ref": "#/definitions/HumanAddr"
     },
-    "uniswap_factory": {
+    "terraswap_factory": {
       "$ref": "#/definitions/HumanAddr"
     }
   },

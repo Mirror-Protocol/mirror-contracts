@@ -10,7 +10,7 @@ use std::collections::HashMap;
 
 use crate::querier::PriceInfo;
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
-use uniswap::AssetInfoRaw;
+use terraswap::AssetInfoRaw;
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
 /// this uses our CustomQuerier.

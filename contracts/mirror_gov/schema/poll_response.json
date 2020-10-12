@@ -7,7 +7,11 @@
     "deposit_amount",
     "description",
     "end_height",
-    "status"
+    "id",
+    "no_votes",
+    "status",
+    "title",
+    "yes_votes"
   ],
   "properties": {
     "creator": {
@@ -24,11 +28,60 @@
       "format": "uint64",
       "minimum": 0.0
     },
+    "execute_data": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/ExecuteMsg"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "id": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    },
+    "link": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "no_votes": {
+      "$ref": "#/definitions/Uint128"
+    },
     "status": {
       "$ref": "#/definitions/PollStatus"
+    },
+    "title": {
+      "type": "string"
+    },
+    "yes_votes": {
+      "$ref": "#/definitions/Uint128"
     }
   },
   "definitions": {
+    "Binary": {
+      "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>",
+      "type": "string"
+    },
+    "ExecuteMsg": {
+      "type": "object",
+      "required": [
+        "contract",
+        "msg"
+      ],
+      "properties": {
+        "contract": {
+          "$ref": "#/definitions/HumanAddr"
+        },
+        "msg": {
+          "$ref": "#/definitions/Binary"
+        }
+      }
+    },
     "HumanAddr": {
       "type": "string"
     },
@@ -36,9 +89,9 @@
       "type": "string",
       "enum": [
         "in_progress",
-        "tally",
         "passed",
-        "rejected"
+        "rejected",
+        "executed"
       ]
     },
     "Uint128": {

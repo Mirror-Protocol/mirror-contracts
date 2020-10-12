@@ -4,12 +4,12 @@ use cosmwasm_std::{
 };
 
 use crate::msg::{
-    ConfigResponse, HandleMsg, InitMsg, QueryMsg, UniswapCw20HookMsg, UniswapHandleMsg,
+    ConfigResponse, HandleMsg, InitMsg, QueryMsg, TerraswapCw20HookMsg, TerraswapHandleMsg,
 };
 use crate::state::{read_config, store_config, Config};
 
 use cw20::Cw20HandleMsg;
-use uniswap::{load_balance, load_pair_contract, load_token_balance, Asset, AssetInfo};
+use terraswap::{load_balance, load_pair_contract, load_token_balance, Asset, AssetInfo};
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -20,7 +20,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         &mut deps.storage,
         &Config {
             distribution_contract: deps.api.canonical_address(&msg.distribution_contract)?,
-            uniswap_factory: deps.api.canonical_address(&msg.uniswap_factory)?,
+            terraswap_factory: deps.api.canonical_address(&msg.terraswap_factory)?,
             mirror_token: deps.api.canonical_address(&msg.mirror_token)?,
             base_denom: msg.base_denom,
         },
@@ -51,11 +51,11 @@ pub fn try_convert<S: Storage, A: Api, Q: Querier>(
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
     let asset_token_raw = deps.api.canonical_address(&asset_token)?;
-    let uniswap_factory_raw = deps.api.human_address(&config.uniswap_factory)?;
+    let terraswap_factory_raw = deps.api.human_address(&config.terraswap_factory)?;
 
     let pair_contract = load_pair_contract(
         &deps,
-        &uniswap_factory_raw,
+        &terraswap_factory_raw,
         &[
             AssetInfo::NativeToken {
                 denom: "uusd".to_string(),
@@ -81,7 +81,7 @@ pub fn try_convert<S: Storage, A: Api, Q: Querier>(
         let amount = (swap_asset.deduct_tax(&deps)?).amount;
         messages = vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: pair_contract,
-            msg: to_binary(&UniswapHandleMsg::Swap {
+            msg: to_binary(&TerraswapHandleMsg::Swap {
                 offer_asset: Asset {
                     amount,
                     ..swap_asset
@@ -102,7 +102,7 @@ pub fn try_convert<S: Storage, A: Api, Q: Querier>(
             msg: to_binary(&Cw20HandleMsg::Send {
                 contract: pair_contract.clone(),
                 amount,
-                msg: Some(to_binary(&UniswapCw20HookMsg::Swap { max_spread: None })?),
+                msg: Some(to_binary(&TerraswapCw20HookMsg::Swap { max_spread: None })?),
             })?,
             send: vec![],
         })];
@@ -159,7 +159,7 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
     let state = read_config(&deps.storage)?;
     let resp = ConfigResponse {
         distribution_contract: deps.api.human_address(&state.distribution_contract)?,
-        uniswap_factory: deps.api.human_address(&state.uniswap_factory)?,
+        terraswap_factory: deps.api.human_address(&state.terraswap_factory)?,
         mirror_token: deps.api.human_address(&state.mirror_token)?,
         base_denom: state.base_denom,
     };

@@ -558,7 +558,7 @@ dependencies = [
  "schemars",
  "serde",
  "terra-cosmwasm",
- "uniswap",
+ "terraswap",
 ]
 
 [[package]]
@@ -572,7 +572,7 @@ dependencies = [
  "cw20",
  "schemars",
  "serde",
- "uniswap",
+ "terraswap",
 ]
 
 [[package]]
@@ -601,7 +601,7 @@ dependencies = [
  "schemars",
  "serde",
  "terra-cosmwasm",
- "uniswap",
+ "terraswap",
 ]
 
 [[package]]
@@ -614,7 +614,7 @@ dependencies = [
  "cosmwasm-vm",
  "schemars",
  "serde",
- "uniswap",
+ "terraswap",
 ]
 
 [[package]]
@@ -991,6 +991,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "terraswap"
+version = "0.1.0"
+dependencies = [
+ "cosmwasm-std",
+ "cosmwasm-storage",
+ "cosmwasm-vm",
+ "cw20",
+ "schemars",
+ "serde",
+ "terra-cosmwasm",
+]
+
+[[package]]
 name = "thiserror"
 version = "1.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1021,19 +1034,6 @@ name = "unicode-xid"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7fe0bb3479651439c9112f72b6c505038574c9fbb575ed1bf3b797fa39dd564"
-
-[[package]]
-name = "uniswap"
-version = "0.1.0"
-dependencies = [
- "cosmwasm-std",
- "cosmwasm-storage",
- "cosmwasm-vm",
- "cw20",
- "schemars",
- "serde",
- "terra-cosmwasm",
-]
 
 [[package]]
 name = "version_check"

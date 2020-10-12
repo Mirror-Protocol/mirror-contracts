@@ -9,7 +9,7 @@ This contract is a rewards collector contract, which converts all collected rewa
   - [`convert`](#convert)
   - [`send`](#send)
 - [QueryMsg](#querymsg)
-  - [`config`](#config)
+  - [`Config`](#config)
 
 ## InitMsg
 
@@ -68,7 +68,7 @@ pub enum QueryMsg {
 }
 ```
 
-### `config`
+### `Config`
 
 #### Request
 

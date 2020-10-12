@@ -21,17 +21,17 @@ This contract is for mirror token distribution. It continually mints mirror toke
 
 ## Config
 
-| Name                 | Description                                                                             |
-| -------------------- | --------------------------------------------------------------------------------------- |
-| mirror_token         | Mirror token contract address                                                           |
-| mint_contract        | The contract address which has minter permission of the created asset token             |
-| oracle_contract      | The contract address which is used to feed asset price                                  |
-| uniswap_factory      | The contract address which creates uniswap pair contract when a new asset is registered |
-| staking_contract     | The contract address which provides staking pools for liqudity(LP) token                |
-| commission_collector | The contract address which collects all uniswap owner commission                        |
-| mint_per_block       | The amount of mirror token to mint per block for each 1 weight                          |
-| token_code_id        | The code ID for asset token                                                             |
-| base_denom           | The native token denom used to create uniswap pair                                      |
+| Name                 | Description                                                                               |
+| -------------------- | ----------------------------------------------------------------------------------------- |
+| mirror_token         | Mirror token contract address                                                             |
+| mint_contract        | The contract address which has minter permission of the created asset token               |
+| oracle_contract      | The contract address which is used to feed asset price                                    |
+| terraswap_factory    | The contract address which creates terraswap pair contract when a new asset is registered |
+| staking_contract     | The contract address which provides staking pools for liqudity(LP) token                  |
+| commission_collector | The contract address which collects all terraswap owner commission                        |
+| mint_per_block       | The amount of mirror token to mint per block for each 1 weight                            |
+| token_code_id        | The code ID for asset token                                                               |
+| base_denom           | The native token denom used to create terraswap pair                                      |
 
 ## InitMsg
 

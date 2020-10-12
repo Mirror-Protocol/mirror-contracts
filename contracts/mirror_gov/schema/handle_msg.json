@@ -22,6 +22,14 @@
         "update_config": {
           "type": "object",
           "properties": {
+            "effective_delay": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            },
             "owner": {
               "anyOf": [
                 {
@@ -83,18 +91,18 @@
         "cast_vote": {
           "type": "object",
           "required": [
+            "amount",
             "poll_id",
-            "share",
             "vote"
           ],
           "properties": {
+            "amount": {
+              "$ref": "#/definitions/Uint128"
+            },
             "poll_id": {
               "type": "integer",
               "format": "uint64",
               "minimum": 0.0
-            },
-            "share": {
-              "$ref": "#/definitions/Uint128"
             },
             "vote": {
               "$ref": "#/definitions/VoteOption"
@@ -133,6 +141,27 @@
       ],
       "properties": {
         "end_poll": {
+          "type": "object",
+          "required": [
+            "poll_id"
+          ],
+          "properties": {
+            "poll_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "execute_poll"
+      ],
+      "properties": {
+        "execute_poll": {
           "type": "object",
           "required": [
             "poll_id"
@@ -192,8 +221,8 @@
     "VoteOption": {
       "type": "string",
       "enum": [
-        "y_e_s",
-        "n_o"
+        "yes",
+        "no"
       ]
     }
   }

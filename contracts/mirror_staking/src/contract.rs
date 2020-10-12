@@ -246,6 +246,12 @@ pub fn try_deposit_reward<S: Storage, A: Api, Q: Querier>(
 ) -> HandleResult {
     let asset_token_raw: CanonicalAddr = deps.api.canonical_address(&asset_token)?;
     let mut pool_info: PoolInfo = read_pool_info(&deps.storage, &asset_token_raw)?;
+    if pool_info.total_bond_amount.is_zero() {
+        return Err(StdError::generic_err(
+            "Cannot deposit rewards to zero bond pool",
+        ));
+    }
+
     let reward_per_bond = Decimal::from_ratio(amount, pool_info.total_bond_amount);
     pool_info.reward_index = pool_info.reward_index + reward_per_bond;
     store_pool_info(&mut deps.storage, &asset_token_raw, &pool_info)?;
@@ -317,10 +323,7 @@ pub fn try_withdraw<S: Storage, A: Api, Q: Querier>(
             })?,
             send: vec![],
         })],
-        log: vec![
-            log("action", "withdraw"),
-            log("amount", amount.to_string()),
-        ],
+        log: vec![log("action", "withdraw"), log("amount", amount.to_string())],
         data: None,
     })
 }
