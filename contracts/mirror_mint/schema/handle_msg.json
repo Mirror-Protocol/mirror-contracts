@@ -55,11 +55,11 @@
         "update_asset": {
           "type": "object",
           "required": [
-            "asset_info"
+            "asset_token"
           ],
           "properties": {
-            "asset_info": {
-              "$ref": "#/definitions/AssetInfo"
+            "asset_token": {
+              "$ref": "#/definitions/HumanAddr"
             },
             "auction_discount": {
               "anyOf": [
@@ -116,6 +116,33 @@
     {
       "type": "object",
       "required": [
+        "register_migration"
+      ],
+      "properties": {
+        "register_migration": {
+          "type": "object",
+          "required": [
+            "conversion_rate",
+            "from_token",
+            "to_token"
+          ],
+          "properties": {
+            "conversion_rate": {
+              "$ref": "#/definitions/Decimal"
+            },
+            "from_token": {
+              "$ref": "#/definitions/HumanAddr"
+            },
+            "to_token": {
+              "$ref": "#/definitions/HumanAddr"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
         "open_position"
       ],
       "properties": {
@@ -141,7 +168,7 @@
       }
     },
     {
-      "description": "deposit more collateral",
+      "description": "Deposit more collateral",
       "type": "object",
       "required": [
         "deposit"
@@ -165,7 +192,7 @@
       }
     },
     {
-      "description": "withdraw collateral",
+      "description": "Withdraw collateral",
       "type": "object",
       "required": [
         "withdraw"
@@ -189,7 +216,7 @@
       }
     },
     {
-      "description": "convert all deposit collateral to asset",
+      "description": "Convert all deposit collateral to asset",
       "type": "object",
       "required": [
         "mint"
@@ -205,6 +232,26 @@
             "asset": {
               "$ref": "#/definitions/Asset"
             },
+            "position_idx": {
+              "$ref": "#/definitions/Uint128"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "Migrate position asset to new asset Try migrate asset and collateral both",
+      "type": "object",
+      "required": [
+        "migrate_position"
+      ],
+      "properties": {
+        "migrate_position": {
+          "type": "object",
+          "required": [
+            "position_idx"
+          ],
+          "properties": {
             "position_idx": {
               "$ref": "#/definitions/Uint128"
             }

@@ -55,6 +55,13 @@ pub enum HandleMsg {
     Mint {
         asset_token: HumanAddr,
     },
+    MigrateAsset {
+        name: String,
+        symbol: String,
+        from_token: HumanAddr,
+        conversion_rate: Decimal,
+    },
+    MigrationTokenCreationHook {},
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

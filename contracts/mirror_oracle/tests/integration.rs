@@ -166,7 +166,6 @@ fn update_price() {
         price_infos: vec![PriceInfo {
             asset_token: HumanAddr::from("mAPPL"),
             price: Decimal::from_str("1.2").unwrap(),
-            price_multiplier: None,
         }],
     };
 
@@ -183,7 +182,6 @@ fn update_price() {
     .unwrap();
     let value: PriceResponse = from_binary(&query_result).unwrap();
     assert_eq!("1.2", format!("{}", value.price));
-    assert_eq!(Decimal::one(), value.price_multiplier);
 
     // Unauthorzied err
     let env = mock_env("addr0001", &[]);
@@ -191,7 +189,6 @@ fn update_price() {
         price_infos: vec![PriceInfo {
             asset_token: HumanAddr::from("mAPPL"),
             price: Decimal::from_str("1.2").unwrap(),
-            price_multiplier: None,
         }],
     };
 

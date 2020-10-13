@@ -15,6 +15,7 @@ use terraswap::{AssetInfoRaw, AssetRaw};
 static PREFIX_ASSET: &[u8] = b"asset";
 static PREFIX_POSITION: &[u8] = b"position";
 static PREFIX_USER: &[u8] = b"user";
+static PREFIX_MIGRATION: &[u8] = b"migration";
 
 static KEY_CONFIG: &[u8] = b"config";
 static KEY_POSITION_IDX: &[u8] = b"position_idx";
@@ -52,22 +53,52 @@ pub struct AssetConfig {
 
 pub fn store_asset_config<S: Storage>(
     storage: &mut S,
-    asset_info: &AssetInfoRaw,
+    asset_token: &CanonicalAddr,
     asset: &AssetConfig,
 ) -> StdResult<()> {
-    PrefixedStorage::new(PREFIX_ASSET, storage).set(asset_info.as_bytes(), &to_vec(&asset)?);
+    PrefixedStorage::new(PREFIX_ASSET, storage).set(asset_token.as_slice(), &to_vec(&asset)?);
     Ok(())
 }
 
 pub fn read_asset_config<S: Storage>(
     storage: &S,
-    asset_info: &AssetInfoRaw,
+    asset_token: &CanonicalAddr,
 ) -> StdResult<AssetConfig> {
-    let res = ReadonlyPrefixedStorage::new(PREFIX_ASSET, storage).get(asset_info.as_bytes());
+    let res = ReadonlyPrefixedStorage::new(PREFIX_ASSET, storage).get(asset_token.as_slice());
     match res {
         Some(data) => from_slice(&data),
         None => Err(StdError::generic_err("no asset data stored")),
     }
+}
+
+pub fn remove_asset_config<S: Storage>(storage: &mut S, asset_token: &CanonicalAddr) {
+    PrefixedStorage::new(PREFIX_ASSET, storage).remove(asset_token.as_slice());
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+pub struct MigrationData {
+    pub token: CanonicalAddr,
+    pub conversion_rate: Decimal,
+}
+
+pub fn read_migration<S: Storage>(
+    storage: &S,
+    asset_token: &CanonicalAddr,
+) -> StdResult<MigrationData> {
+    let res = ReadonlyPrefixedStorage::new(PREFIX_MIGRATION, storage).get(asset_token.as_slice());
+    match res {
+        Some(data) => from_slice(&data),
+        None => Err(StdError::generic_err("no migration data stored")),
+    }
+}
+
+pub fn store_migration<S: Storage>(
+    storage: &mut S,
+    asset_token: &CanonicalAddr,
+    migration: &MigrationData,
+) -> StdResult<()> {
+    PrefixedStorage::new(PREFIX_MIGRATION, storage).set(asset_token.as_slice(), &to_vec(&migration)?);
+    Ok(())
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

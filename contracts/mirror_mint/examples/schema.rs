@@ -5,8 +5,8 @@ use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 use cosmwasm_std::HandleResponse;
 
 use mirror_mint::msg::{
-    AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, PositionResponse,
-    QueryMsg, PositionsResponse,
+    AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrationResponse,
+    PositionResponse, PositionsResponse, QueryMsg,
 };
 
 fn main() {
@@ -21,6 +21,7 @@ fn main() {
     export_schema(&schema_for!(HandleResponse), &out_dir);
     export_schema(&schema_for!(QueryMsg), &out_dir);
     export_schema(&schema_for!(ConfigResponse), &out_dir);
+    export_schema(&schema_for!(MigrationResponse), &out_dir);
     export_schema(&schema_for!(AssetConfigResponse), &out_dir);
     export_schema(&schema_for!(PositionResponse), &out_dir);
     export_schema(&schema_for!(PositionsResponse), &out_dir);

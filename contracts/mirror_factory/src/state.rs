@@ -11,6 +11,7 @@ use cosmwasm_storage::{
 
 static KEY_CONFIG: &[u8] = b"config";
 static KEY_PARAMS: &[u8] = b"params";
+static KEY_MIGRATION: &[u8] = b"migration";
 static KEY_TOTAL_WEIGHT: &[u8] = b"total_weight";
 
 static PREFIX_DISTRIBUTION: &[u8] = b"distribution";
@@ -65,6 +66,29 @@ pub fn read_params<S: Storage>(storage: &S) -> StdResult<Params> {
     singleton_read(storage, KEY_PARAMS).load()
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct MigrationData {
+    pub from_token: CanonicalAddr,
+    pub conversion_rate: Decimal,
+}
+
+pub fn store_migration<S: Storage>(
+    storage: &mut S,
+    migration_data: &MigrationData,
+) -> StdResult<()> {
+    singleton(storage, KEY_MIGRATION).save(migration_data)
+}
+
+pub fn remove_migration<S: Storage>(storage: &mut S) {
+    let mut store: Singleton<S, MigrationData> = singleton(storage, KEY_MIGRATION);
+    store.remove()
+}
+
+pub fn read_migration<S: Storage>(storage: &S) -> StdResult<MigrationData> {
+    singleton_read(storage, KEY_MIGRATION).load()
+}
+
 pub fn store_total_weight<S: Storage>(storage: &mut S, total_weight: Decimal) -> StdResult<()> {
     singleton(storage, KEY_TOTAL_WEIGHT).save(&total_weight)
 }
@@ -106,4 +130,8 @@ pub fn read_distribution_info<S: Storage>(
         Some(v) => from_slice(&v),
         None => Err(StdError::generic_err("No distribution info stored")),
     }
+}
+
+pub fn remove_distribution_info<S: Storage>(storage: &mut S, asset_token: &CanonicalAddr) {
+    PrefixedStorage::new(PREFIX_DISTRIBUTION, storage).remove(asset_token.as_slice());
 }

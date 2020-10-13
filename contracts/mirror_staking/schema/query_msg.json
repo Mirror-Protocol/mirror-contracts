@@ -60,6 +60,25 @@
           }
         }
       }
+    },
+    {
+      "type": "object",
+      "required": [
+        "migration"
+      ],
+      "properties": {
+        "migration": {
+          "type": "object",
+          "required": [
+            "asset_token"
+          ],
+          "properties": {
+            "asset_token": {
+              "$ref": "#/definitions/HumanAddr"
+            }
+          }
+        }
+      }
     }
   ],
   "definitions": {

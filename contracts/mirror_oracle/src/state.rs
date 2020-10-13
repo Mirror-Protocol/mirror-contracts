@@ -53,10 +53,17 @@ pub fn read_asset_config<S: Storage>(
     }
 }
 
+pub fn remove_asset_config<S: Storage>(
+    storage: &mut S,
+    asset_token: &CanonicalAddr,
+) -> StdResult<()> {
+    PrefixedStorage::new(PREFIX_ASSET, storage).remove(asset_token.as_slice());
+    Ok(())
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct PriceInfoRaw {
     pub price: Decimal,
-    pub price_multiplier: Decimal,
     pub last_update_time: u64,
     pub asset_token: CanonicalAddr,
 }
@@ -76,6 +83,10 @@ pub fn read_price<S: Storage>(storage: &S, asset_token: &CanonicalAddr) -> StdRe
         Some(data) => from_slice(&data),
         None => Err(StdError::generic_err("no asset data stored")),
     }
+}
+
+pub fn remove_price<S: Storage>(storage: &mut S, asset_token: &CanonicalAddr) {
+    PrefixedStorage::new(PREFIX_PRICE, storage).remove(asset_token.as_slice());
 }
 
 pub fn read_prices<S: Storage>(storage: &S) -> StdResult<Vec<PriceInfoRaw>> {

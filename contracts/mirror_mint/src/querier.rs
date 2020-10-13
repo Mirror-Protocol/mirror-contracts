@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     from_binary, Api, Binary, CanonicalAddr, Decimal, Extern, HumanAddr, Querier, QueryRequest,
-    StdError, StdResult, Storage, Uint128, WasmQuery,
+    StdError, StdResult, Storage, WasmQuery,
 };
 
 use crate::state::Config;
@@ -14,7 +14,6 @@ const PRICE_EXPIRE_TIME: u64 = 60;
 #[derive(Serialize, Deserialize)]
 pub struct PriceInfo {
     pub price: Decimal,
-    pub price_multiplier: Decimal,
     pub last_update_time: u64,
     pub asset_token: CanonicalAddr,
 }
@@ -82,16 +81,7 @@ pub fn load_price<S: Storage, A: Api, Q: Querier>(
         }
     }
 
-    Ok(decimal_multiplication(
-        price_info.price,
-        price_info.price_multiplier,
-    ))
-}
-
-const DECIMAL_FRACTIONAL: Uint128 = Uint128(1_000_000_000u128);
-
-pub fn decimal_multiplication(a: Decimal, b: Decimal) -> Decimal {
-    Decimal::from_ratio(a * DECIMAL_FRACTIONAL * b, DECIMAL_FRACTIONAL)
+    Ok(price_info.price)
 }
 
 #[inline]

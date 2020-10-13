@@ -9,13 +9,17 @@ use crate::msg::{
 };
 use crate::register_msgs::*;
 use crate::state::{
-    increase_total_weight, read_config, read_distribution_info, read_params, read_total_weight,
-    remove_params, store_config, store_distribution_info, store_params, store_total_weight, Config,
-    DistributionInfo, Params,
+    increase_total_weight, read_config, read_distribution_info, read_migration, read_params,
+    read_total_weight, remove_distribution_info, remove_migration, remove_params, store_config,
+    store_distribution_info, store_migration, store_params, store_total_weight, Config,
+    DistributionInfo, MigrationData, Params,
 };
 
 use cw20::{Cw20HandleMsg, MinterResponse};
-use terraswap::{load_liquidity_token, load_pair_contract, AssetInfo, InitHook, TokenInitMsg};
+use terraswap::{
+    load_liquidity_token, load_pair_contract, AssetInfo, InitHook, TokenInitMsg,
+    TokenMigrationResponse,
+};
 
 const MIRROR_TOKEN_WEIGHT: u64 = 200u64;
 
@@ -94,6 +98,13 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::PassCommand { contract_addr, msg } => {
             try_pass_command(deps, env, contract_addr, msg)
         }
+        HandleMsg::MigrateAsset {
+            name,
+            symbol,
+            from_token,
+            conversion_rate,
+        } => try_migrate_asset(deps, env, name, symbol, from_token, conversion_rate),
+        HandleMsg::MigrationTokenCreationHook {} => migration_token_creation_hook(deps, env),
     }
 }
 
@@ -271,6 +282,7 @@ pub fn try_whitelist<S: Storage, A: Api, Q: Querier>(
                     contract_addr: env.contract.address,
                     msg: to_binary(&HandleMsg::TokenCreationHook { oracle_feeder })?,
                 }),
+                migration: None,
             })?,
         })],
         log: vec![
@@ -297,11 +309,7 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
     // If the param is not exists, it means there is no whitelist process in progress
     let params: Params = match read_params(&deps.storage) {
         Ok(v) => v,
-        Err(_) => {
-            return Err(StdError::generic_err(
-                "There is no whitelist process in progress",
-            ))
-        }
+        Err(_) => return Err(StdError::generic_err("No whitelist process in progress")),
     };
 
     let asset_token = env.message.sender;
@@ -347,7 +355,7 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: deps.api.human_address(&config.terraswap_factory)?,
                 send: vec![],
-                msg: to_binary(&TerraswapHandleMsg::CreatePair {
+                msg: to_binary(&TerraswapFactoryHandleMsg::CreatePair {
                     pair_owner: env.contract.address.clone(),
                     commission_collector: deps.api.human_address(&config.commission_collector)?,
                     lp_commission: params.lp_commission,
@@ -495,6 +503,162 @@ pub fn try_mint<S: Storage, A: Api, Q: Querier>(
             log("action", "mint"),
             log("asset_token", asset_token.as_str()),
             log("mint_amount", mint_amount.to_string()),
+        ],
+        data: None,
+    })
+}
+
+pub fn try_migrate_asset<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    name: String,
+    symbol: String,
+    from_token: HumanAddr,
+    conversion_rate: Decimal,
+) -> HandleResult {
+    let config: Config = read_config(&deps.storage)?;
+    if config.owner != deps.api.canonical_address(&env.message.sender)? {
+        return Err(StdError::unauthorized());
+    }
+
+    store_migration(
+        &mut deps.storage,
+        &MigrationData {
+            from_token: deps.api.canonical_address(&from_token)?,
+            conversion_rate,
+        },
+    )?;
+
+    Ok(HandleResponse {
+        messages: vec![CosmosMsg::Wasm(WasmMsg::Instantiate {
+            code_id: config.token_code_id,
+            msg: to_binary(&TokenInitMsg {
+                name,
+                symbol,
+                decimals: 6u8,
+                initial_balances: vec![],
+                mint: Some(MinterResponse {
+                    minter: deps.api.human_address(&config.mint_contract)?,
+                    cap: None,
+                }),
+                init_hook: Some(InitHook {
+                    contract_addr: env.contract.address,
+                    msg: to_binary(&HandleMsg::MigrationTokenCreationHook {})?,
+                }),
+                migration: Some(TokenMigrationResponse {
+                    token: from_token,
+                    conversion_rate: conversion_rate,
+                }),
+            })?,
+            send: vec![],
+            label: None,
+        })],
+        log: vec![],
+        data: None,
+    })
+}
+
+pub fn migration_token_creation_hook<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+) -> HandleResult {
+    let migration: MigrationData = match read_migration(&deps.storage) {
+        Ok(v) => v,
+        Err(_) => return Err(StdError::generic_err("No migration process in progress")),
+    };
+
+    let from_token = deps.api.human_address(&migration.from_token)?;
+    let to_token = env.message.sender;
+    let conversion_rate = migration.conversion_rate;
+
+    let config: Config = read_config(&deps.storage)?;
+    let from_token_raw = migration.from_token;
+    let to_token_raw = deps.api.canonical_address(&to_token)?;
+    let distribution_info = read_distribution_info(&deps.storage, &from_token_raw)?;
+
+    // move distribution info
+    remove_distribution_info(&mut deps.storage, &from_token_raw);
+    store_distribution_info(&mut deps.storage, &to_token_raw, &distribution_info)?;
+
+    // remove migration data
+    remove_migration(&mut deps.storage);
+
+    let from_asset_infos = [
+        AssetInfo::NativeToken {
+            denom: config.base_denom.to_string(),
+        },
+        AssetInfo::Token {
+            contract_addr: from_token.clone(),
+        },
+    ];
+    let to_asset_infos = [
+        AssetInfo::NativeToken {
+            denom: config.base_denom,
+        },
+        AssetInfo::Token {
+            contract_addr: to_token.clone(),
+        },
+    ];
+
+    let oracle_contract = deps.api.human_address(&config.oracle_contract)?;
+    let mint_contract = deps.api.human_address(&config.mint_contract)?;
+    let staking_contract = deps.api.human_address(&config.staking_contract)?;
+    let terraswap_factory = deps.api.human_address(&config.terraswap_factory)?;
+    let pair_contract_addr = load_pair_contract(&deps, &terraswap_factory, &from_asset_infos)?;
+
+    Ok(HandleResponse {
+        messages: vec![
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: terraswap_factory,
+                msg: to_binary(&TerraswapFactoryHandleMsg::MigrateAsset {
+                    from_asset_infos,
+                    to_asset_infos,
+                })?,
+                send: vec![],
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: pair_contract_addr,
+                msg: to_binary(&TerraswapPairHandleMsg::MigrateAsset {
+                    from_asset: AssetInfo::Token {
+                        contract_addr: from_token.clone(),
+                    },
+                    to_asset: AssetInfo::Token {
+                        contract_addr: to_token.clone(),
+                    },
+                })?,
+                send: vec![],
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: oracle_contract,
+                msg: to_binary(&OracleHandleMsg::MigrateAsset {
+                    from_token: from_token.clone(),
+                    to_token: to_token.clone(),
+                })?,
+                send: vec![],
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: mint_contract,
+                msg: to_binary(&MintHandleMsg::RegisterMigration {
+                    from_token: from_token.clone(),
+                    to_token: to_token.clone(),
+                    conversion_rate,
+                })?,
+                send: vec![],
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: staking_contract,
+                msg: to_binary(&StakingHandleMsg::RegisterMigration {
+                    from_token: from_token.clone(),
+                    to_token: to_token.clone(),
+                })?,
+                send: vec![],
+            }),
+        ],
+        log: vec![
+            log("action", "migrate"),
+            log("from_token", from_token.as_str()),
+            log("to_tokem", to_token.as_str()),
+            log("conversion_rate", conversion_rate.to_string()),
         ],
         data: None,
     })

@@ -12,11 +12,16 @@ pub enum MintHandleMsg {
         auction_discount: Decimal,
         min_collateral_ratio: Decimal,
     },
+    RegisterMigration {
+        from_token: HumanAddr,
+        to_token: HumanAddr,
+        conversion_rate: Decimal,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum TerraswapHandleMsg {
+pub enum TerraswapFactoryHandleMsg {
     CreatePair {
         /// Pair contract owner
         pair_owner: HumanAddr,
@@ -31,6 +36,19 @@ pub enum TerraswapHandleMsg {
         /// Init hook
         init_hook: Option<InitHook>,
     },
+    MigrateAsset {
+        from_asset_infos: [AssetInfo; 2],
+        to_asset_infos: [AssetInfo; 2],
+    },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum TerraswapPairHandleMsg {
+    MigrateAsset {
+        from_asset: AssetInfo,
+        to_asset: AssetInfo,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -40,6 +58,10 @@ pub enum StakingHandleMsg {
         asset_token: HumanAddr,
         staking_token: HumanAddr,
     },
+    RegisterMigration {
+        from_token: HumanAddr,
+        to_token: HumanAddr,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -48,5 +70,9 @@ pub enum OracleHandleMsg {
     RegisterAsset {
         asset_token: HumanAddr,
         feeder: HumanAddr,
+    },
+    MigrateAsset {
+        from_token: HumanAddr,
+        to_token: HumanAddr,
     },
 }

@@ -22,11 +22,11 @@
         "asset_config": {
           "type": "object",
           "required": [
-            "asset_info"
+            "asset_token"
           ],
           "properties": {
-            "asset_info": {
-              "$ref": "#/definitions/AssetInfo"
+            "asset_token": {
+              "$ref": "#/definitions/HumanAddr"
             }
           }
         }
@@ -87,51 +87,28 @@
           }
         }
       }
-    }
-  ],
-  "definitions": {
-    "AssetInfo": {
-      "anyOf": [
-        {
+    },
+    {
+      "type": "object",
+      "required": [
+        "migration"
+      ],
+      "properties": {
+        "migration": {
           "type": "object",
           "required": [
-            "token"
+            "asset_token"
           ],
           "properties": {
-            "token": {
-              "type": "object",
-              "required": [
-                "contract_addr"
-              ],
-              "properties": {
-                "contract_addr": {
-                  "$ref": "#/definitions/HumanAddr"
-                }
-              }
-            }
-          }
-        },
-        {
-          "type": "object",
-          "required": [
-            "native_token"
-          ],
-          "properties": {
-            "native_token": {
-              "type": "object",
-              "required": [
-                "denom"
-              ],
-              "properties": {
-                "denom": {
-                  "type": "string"
-                }
-              }
+            "asset_token": {
+              "$ref": "#/definitions/HumanAddr"
             }
           }
         }
-      ]
-    },
+      }
+    }
+  ],
+  "definitions": {
     "HumanAddr": {
       "type": "string"
     },
