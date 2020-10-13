@@ -2,8 +2,10 @@ use std::env::current_dir;
 use std::fs::create_dir_all;
 
 use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
-use mirror_staking::msg::{ConfigResponse, HandleMsg, InitMsg, QueryMsg, Cw20HookMsg};
-use mirror_staking::state::{Config, PoolInfo, RewardInfo};
+use mirror_staking::msg::{
+    ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrationResponse, PoolInfoResponse, QueryMsg,
+    RewardInfoResponse,
+};
 
 fn main() {
     let mut out_dir = current_dir().unwrap();
@@ -15,8 +17,8 @@ fn main() {
     export_schema(&schema_for!(HandleMsg), &out_dir);
     export_schema(&schema_for!(Cw20HookMsg), &out_dir);
     export_schema(&schema_for!(QueryMsg), &out_dir);
-    export_schema(&schema_for!(Config), &out_dir);
-    export_schema(&schema_for!(PoolInfo), &out_dir);
     export_schema(&schema_for!(ConfigResponse), &out_dir);
-    export_schema(&schema_for!(RewardInfo), &out_dir);
+    export_schema(&schema_for!(RewardInfoResponse), &out_dir);
+    export_schema(&schema_for!(PoolInfoResponse), &out_dir);
+    export_schema(&schema_for!(MigrationResponse), &out_dir);
 }

@@ -26,7 +26,7 @@
       }
     },
     {
-      "description": "deposit more collateral",
+      "description": "Deposit more collateral",
       "type": "object",
       "required": [
         "deposit"
@@ -46,7 +46,7 @@
       }
     },
     {
-      "description": "convert specified asset amount and send back to user",
+      "description": "Convert specified asset amount and send back to user",
       "type": "object",
       "required": [
         "burn"
@@ -66,7 +66,7 @@
       }
     },
     {
-      "description": "a user can buy discounted collateral from the contract with their asset tokens",
+      "description": "Buy discounted collateral from the contract with their asset tokens",
       "type": "object",
       "required": [
         "auction"

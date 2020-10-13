@@ -231,6 +231,33 @@
           }
         }
       }
+    },
+    {
+      "type": "object",
+      "required": [
+        "migrate_asset"
+      ],
+      "properties": {
+        "migrate_asset": {
+          "type": "object",
+          "required": [
+            "conversion_rate",
+            "from_token",
+            "to_token"
+          ],
+          "properties": {
+            "conversion_rate": {
+              "$ref": "#/definitions/Decimal"
+            },
+            "from_token": {
+              "$ref": "#/definitions/HumanAddr"
+            },
+            "to_token": {
+              "$ref": "#/definitions/HumanAddr"
+            }
+          }
+        }
+      }
     }
   ],
   "definitions": {

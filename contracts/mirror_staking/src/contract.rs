@@ -5,13 +5,13 @@ use cosmwasm_std::{
 };
 
 use crate::msg::{
-    ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, PoolInfoResponse, QueryMsg,
+    ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrationResponse, PoolInfoResponse, QueryMsg,
     RewardInfoResponse, RewardInfoResponseItem,
 };
 
 use crate::state::{
-    read_config, read_pool_info, rewards_read, rewards_store, store_config, store_pool_info,
-    Config, PoolInfo, RewardInfo,
+    read_config, read_migration, read_pool_info, remove_pool_info, rewards_read, rewards_store,
+    store_config, store_migration, store_pool_info, Config, PoolInfo, RewardInfo,
 };
 
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
@@ -44,11 +44,16 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             asset_token,
             staking_token,
         } => try_register_asset(deps, env, asset_token, staking_token),
+        HandleMsg::RegisterMigration {
+            from_token,
+            to_token,
+        } => try_register_migration(deps, env, from_token, to_token),
         HandleMsg::Unbond {
             asset_token,
             amount,
         } => try_unbond(deps, env, asset_token, amount),
         HandleMsg::Withdraw { asset_token } => try_withdraw(deps, env, asset_token),
+        HandleMsg::MigrateBonding { asset_token } => try_migrate_bonding(deps, env, asset_token),
     }
 }
 
@@ -144,6 +149,28 @@ pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
         ],
         data: None,
     })
+}
+
+pub fn try_register_migration<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    from_token: HumanAddr,
+    to_token: HumanAddr,
+) -> HandleResult {
+    let config: Config = read_config(&deps.storage)?;
+    let from_token_raw = deps.api.canonical_address(&from_token)?;
+    let to_token_raw = deps.api.canonical_address(&to_token)?;
+
+    if config.owner != deps.api.canonical_address(&env.message.sender)? {
+        return Err(StdError::unauthorized());
+    }
+
+    let pool_info = read_pool_info(&deps.storage, &from_token_raw)?;
+    remove_pool_info(&mut deps.storage, &from_token_raw);
+    store_pool_info(&mut deps.storage, &to_token_raw, &pool_info)?;
+    store_migration(&mut deps.storage, &from_token_raw, &to_token_raw)?;
+
+    Ok(HandleResponse::default())
 }
 
 pub fn try_bond<S: Storage, A: Api, Q: Querier>(
@@ -328,6 +355,26 @@ pub fn try_withdraw<S: Storage, A: Api, Q: Querier>(
     })
 }
 
+pub fn try_migrate_bonding<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    asset_token: HumanAddr,
+) -> HandleResult {
+    let sender_raw = deps.api.canonical_address(&env.message.sender)?;
+    let asset_token_raw = deps.api.canonical_address(&asset_token)?;
+    let target_token_raw = read_migration(&deps.storage, &asset_token_raw)?;
+
+    let mut rewards_bucket = rewards_store(&mut deps.storage, &sender_raw);
+    let reward_info = rewards_bucket.load(asset_token_raw.as_slice())?;
+
+    // move reward info to new asset token
+    rewards_bucket.remove(asset_token_raw.as_slice());
+    rewards_bucket.save(target_token_raw.as_slice(), &reward_info)?;
+
+    // not print useless logs
+    Ok(HandleResponse::default())
+}
+
 fn increase_bond_amount(pool_info: &mut PoolInfo, reward_info: &mut RewardInfo, amount: Uint128) {
     pool_info.total_bond_amount += amount;
     reward_info.bond_amount += amount;
@@ -364,6 +411,7 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
             asset_token,
             staker,
         } => to_binary(&query_reward_info(deps, asset_token, staker)?),
+        QueryMsg::Migration { asset_token } => to_binary(&query_migration(deps, asset_token)?),
     }
 }
 
@@ -430,5 +478,17 @@ pub fn query_reward_info<S: Storage, A: Api, Q: Querier>(
     Ok(RewardInfoResponse {
         staker,
         reward_infos,
+    })
+}
+
+pub fn query_migration<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    asset_token: HumanAddr,
+) -> StdResult<MigrationResponse> {
+    let target_token = read_migration(&deps.storage, &deps.api.canonical_address(&asset_token)?)?;
+
+    Ok(MigrationResponse {
+        from_token: asset_token,
+        to_token: deps.api.human_address(&target_token)?,
     })
 }

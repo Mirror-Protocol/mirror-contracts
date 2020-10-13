@@ -21,6 +21,10 @@ pub enum HandleMsg {
         asset_token: HumanAddr,
         feeder: HumanAddr,
     },
+    MigrateAsset {
+        from_token: HumanAddr,
+        to_token: HumanAddr,
+    },
     FeedPrice {
         price_infos: Vec<PriceInfo>,
     },
@@ -30,7 +34,6 @@ pub enum HandleMsg {
 pub struct PriceInfo {
     pub asset_token: HumanAddr,
     pub price: Decimal,
-    pub price_multiplier: Option<Decimal>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -60,7 +63,6 @@ pub struct AssetResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct PriceResponse {
     pub price: Decimal,
-    pub price_multiplier: Decimal,
     pub last_update_time: u64,
     pub asset_token: HumanAddr,
 }

@@ -24,7 +24,7 @@ pub enum HandleMsg {
     },
     /// Update asset related parameters
     UpdateAsset {
-        asset_info: AssetInfo,
+        asset_token: HumanAddr,
         auction_discount: Option<Decimal>,
         min_collateral_ratio: Option<Decimal>,
     },
@@ -34,42 +34,52 @@ pub enum HandleMsg {
         auction_discount: Decimal,
         min_collateral_ratio: Decimal,
     },
-    // create position to meet collateral ratio
+    RegisterMigration {
+        from_token: HumanAddr,
+        to_token: HumanAddr,
+        conversion_rate: Decimal,
+    },
+    // Create position to meet collateral ratio
     OpenPosition {
         collateral: Asset,
         asset_info: AssetInfo,
         collateral_ratio: Decimal,
     },
-    /// deposit more collateral
+    /// Deposit more collateral
     Deposit {
         position_idx: Uint128,
         collateral: Asset,
     },
-    /// withdraw collateral
+    /// Withdraw collateral
     Withdraw {
         position_idx: Uint128,
         collateral: Asset,
     },
-    /// convert all deposit collateral to asset
+    /// Convert all deposit collateral to asset
     Mint {
         position_idx: Uint128,
         asset: Asset,
+    },
+    /// Migrate position asset to new asset
+    /// Try migrate asset and collateral both
+    MigratePosition {
+        position_idx: Uint128,
     },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Cw20HookMsg {
-    // create position to meet collateral ratio
+    // Create position to meet collateral ratio
     OpenPosition {
         asset_info: AssetInfo,
         collateral_ratio: Decimal,
     },
-    /// deposit more collateral
+    /// Deposit more collateral
     Deposit { position_idx: Uint128 },
-    /// convert specified asset amount and send back to user
+    /// Convert specified asset amount and send back to user
     Burn { position_idx: Uint128 },
-    /// a user can buy discounted collateral from the contract with their asset tokens
+    /// Buy discounted collateral from the contract with their asset tokens
     Auction { position_idx: Uint128 },
 }
 
@@ -78,7 +88,7 @@ pub enum Cw20HookMsg {
 pub enum QueryMsg {
     Config {},
     AssetConfig {
-        asset_info: AssetInfo,
+        asset_token: HumanAddr,
     },
     Position {
         position_idx: Uint128,
@@ -87,6 +97,9 @@ pub enum QueryMsg {
         owner_addr: HumanAddr,
         start_after: Option<Uint128>,
         limit: Option<u32>,
+    },
+    Migration {
+        asset_token: HumanAddr,
     },
 }
 
@@ -105,6 +118,13 @@ pub struct AssetConfigResponse {
     pub token: HumanAddr,
     pub auction_discount: Decimal,
     pub min_collateral_ratio: Decimal,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct MigrationResponse {
+    pub from_token: HumanAddr,
+    pub to_token: HumanAddr,
+    pub conversion_rate: Decimal,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
