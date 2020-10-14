@@ -657,7 +657,7 @@ pub fn migration_token_creation_hook<S: Storage, A: Api, Q: Querier>(
         log: vec![
             log("action", "migrate"),
             log("from_token", from_token.as_str()),
-            log("to_tokem", to_token.as_str()),
+            log("to_token", to_token.as_str()),
             log("conversion_rate", conversion_rate.to_string()),
         ],
         data: None,
