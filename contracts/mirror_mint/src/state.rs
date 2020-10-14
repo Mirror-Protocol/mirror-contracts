@@ -146,7 +146,7 @@ pub fn remove_position<'a, S: Storage>(
 
     let mut position_indexer: Bucket<'a, S, bool> =
         Bucket::multilevel(&[PREFIX_USER, position_owner.as_slice()], storage);
-    position_indexer.remove(&to_vec(&idx)?);
+    position_indexer.remove(&idx.u128().to_be_bytes());
 
     Ok(())
 }
