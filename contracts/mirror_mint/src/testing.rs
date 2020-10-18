@@ -1887,6 +1887,7 @@ fn auction() {
         res.log,
         vec![
             log("action", "auction"),
+            log("position_idx", "1"),
             log("owner", "addr0000"),
             log("return_collateral_amount", "966570uusd"),
             log("liquidated_amount", "6666asset0000"),
@@ -1966,6 +1967,7 @@ fn auction() {
         res.log,
         vec![
             log("action", "auction"),
+            log("position_idx", "2"),
             log("owner", "addr0000"),
             log("return_collateral_amount", "1000000asset0001"),
             log("liquidated_amount", "200000asset0000"),

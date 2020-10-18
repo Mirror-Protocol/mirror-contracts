@@ -827,6 +827,7 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
     Ok(HandleResponse {
         log: vec![
             log("action", "auction"),
+            log("position_idx", position_idx.to_string()),
             log("owner", position_owner.as_str()),
             log(
                 "return_collateral_amount",
