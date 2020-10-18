@@ -135,6 +135,7 @@ pub fn poll_voter_read<'a, S: ReadonlyStorage>(
 ) -> ReadonlyBucket<'a, S, VoterInfo> {
     ReadonlyBucket::multilevel(&[PREFIX_POLL_VOTER, &poll_id.to_be_bytes()], storage)
 }
+
 pub fn poll_all_voters<'a, S: ReadonlyStorage>(
     storage: &'a S,
     poll_id: u64,

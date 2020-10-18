@@ -468,7 +468,7 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
                 contract_addr: deps.api.human_address(&config.mirror_token)?,
                 send: vec![],
                 msg: to_binary(&Cw20HandleMsg::Transfer {
-                    recipient: env.message.sender,
+                    recipient: deps.api.human_address(&a_poll.creator)?,
                     amount: a_poll.deposit_amount,
                 })?,
             }))
