@@ -354,6 +354,7 @@ mod tests {
                     execute_data: None,
                     yes_votes: Uint128::zero(),
                     no_votes: Uint128::zero(),
+                    total_share_at_end_poll: None,
                 },
                 PollResponse {
                     id: 2u64,
@@ -367,6 +368,7 @@ mod tests {
                     execute_data: None,
                     yes_votes: Uint128::zero(),
                     no_votes: Uint128::zero(),
+                    total_share_at_end_poll: None,
                 },
             ]
         );
@@ -395,6 +397,7 @@ mod tests {
                 execute_data: None,
                 yes_votes: Uint128::zero(),
                 no_votes: Uint128::zero(),
+                total_share_at_end_poll: None,
             },]
         );
 
@@ -422,6 +425,7 @@ mod tests {
                 execute_data: None,
                 yes_votes: Uint128::zero(),
                 no_votes: Uint128::zero(),
+                total_share_at_end_poll: None,
             },]
         );
 

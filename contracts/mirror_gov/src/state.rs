@@ -83,6 +83,8 @@ pub struct Poll {
     pub link: Option<String>,
     pub execute_data: Option<ExecuteData>,
     pub deposit_amount: Uint128,
+    /// Total share at the end poll
+    pub total_share_at_end_poll: Option<Uint128>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

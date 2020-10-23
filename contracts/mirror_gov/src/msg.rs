@@ -118,6 +118,7 @@ pub struct PollResponse {
     pub execute_data: Option<ExecuteMsg>,
     pub yes_votes: Uint128,
     pub no_votes: Uint128,
+    pub total_share_at_end_poll: Option<Uint128>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema)]

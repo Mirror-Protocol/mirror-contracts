@@ -1,7 +1,6 @@
 use crate::msg::{
-    ConfigResponse, Cw20HookMsg, ExecuteMsg, HandleMsg, InitMsg, MigrateMsg,
-    PollResponse, PollsResponse, QueryMsg, StakerResponse, StateResponse, VotersResponse,
-    VotersResponseItem,
+    ConfigResponse, Cw20HookMsg, ExecuteMsg, HandleMsg, InitMsg, MigrateMsg, PollResponse,
+    PollsResponse, QueryMsg, StakerResponse, StateResponse, VotersResponse, VotersResponseItem,
 };
 use crate::querier::load_token_balance;
 use crate::state::{
@@ -388,6 +387,7 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
         link,
         execute_data,
         deposit_amount,
+        total_share_at_end_poll: None,
     };
 
     poll_store(&mut deps.storage).save(&poll_id.to_be_bytes(), &new_poll)?;
@@ -485,6 +485,7 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
 
     // Update poll status
     a_poll.status = poll_status;
+    a_poll.total_share_at_end_poll = Some(state.total_share);
     poll_store(&mut deps.storage).save(&poll_id.to_be_bytes(), &a_poll)?;
 
     // Unlock all voter tokens
@@ -771,6 +772,7 @@ fn query_poll<S: Storage, A: Api, Q: Querier>(
         },
         yes_votes: poll.yes_votes,
         no_votes: poll.no_votes,
+        total_share_at_end_poll: poll.total_share_at_end_poll,
     })
 }
 
@@ -803,6 +805,7 @@ fn query_polls<S: Storage, A: Api, Q: Querier>(
                 },
                 yes_votes: poll.yes_votes,
                 no_votes: poll.no_votes,
+                total_share_at_end_poll: poll.total_share_at_end_poll,
             })
         })
         .collect();
