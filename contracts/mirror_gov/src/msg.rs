@@ -126,11 +126,6 @@ pub struct PollsResponse {
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
-pub struct CreatePollResponse {
-    pub poll_id: u64,
-}
-
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
 pub struct PollCountResponse {
     pub poll_count: u64,
 }

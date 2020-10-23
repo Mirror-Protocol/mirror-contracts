@@ -1,5 +1,5 @@
 use crate::msg::{
-    ConfigResponse, CreatePollResponse, Cw20HookMsg, ExecuteMsg, HandleMsg, InitMsg, MigrateMsg,
+    ConfigResponse, Cw20HookMsg, ExecuteMsg, HandleMsg, InitMsg, MigrateMsg,
     PollResponse, PollsResponse, QueryMsg, StakerResponse, StateResponse, VotersResponse,
     VotersResponseItem,
 };
@@ -407,7 +407,7 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
             log("poll_id", &poll_id.to_string()),
             log("end_height", new_poll.end_height),
         ],
-        data: Some(to_binary(&CreatePollResponse { poll_id })?),
+        data: None,
     };
     Ok(r)
 }
