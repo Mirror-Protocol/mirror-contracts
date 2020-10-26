@@ -59,9 +59,8 @@ pub enum HandleMsg {
         name: String,
         symbol: String,
         from_token: HumanAddr,
-        conversion_rate: Decimal,
+        end_price: Decimal,
     },
-    MigrationTokenCreationHook {},
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

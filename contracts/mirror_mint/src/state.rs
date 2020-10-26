@@ -14,8 +14,8 @@ use terraswap::{AssetInfoRaw, AssetRaw};
 
 static PREFIX_ASSET: &[u8] = b"asset";
 static PREFIX_POSITION: &[u8] = b"position";
-static PREFIX_USER: &[u8] = b"user";
-static PREFIX_MIGRATION: &[u8] = b"migration";
+static PREFIX_INDEX_BY_USER: &[u8] = b"by_user";
+static PREFIX_INDEX_BY_ASSET: &[u8] = b"by_asset";
 
 static KEY_CONFIG: &[u8] = b"config";
 static KEY_POSITION_IDX: &[u8] = b"position_idx";
@@ -49,6 +49,7 @@ pub struct AssetConfig {
     pub token: CanonicalAddr,
     pub auction_discount: Decimal,
     pub min_collateral_ratio: Decimal,
+    pub end_price: Option<Decimal>,
 }
 
 pub fn store_asset_config<S: Storage>(
@@ -71,36 +72,6 @@ pub fn read_asset_config<S: Storage>(
     }
 }
 
-pub fn remove_asset_config<S: Storage>(storage: &mut S, asset_token: &CanonicalAddr) {
-    PrefixedStorage::new(PREFIX_ASSET, storage).remove(asset_token.as_slice());
-}
-
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
-pub struct MigrationData {
-    pub token: CanonicalAddr,
-    pub conversion_rate: Decimal,
-}
-
-pub fn read_migration<S: Storage>(
-    storage: &S,
-    asset_token: &CanonicalAddr,
-) -> StdResult<MigrationData> {
-    let res = ReadonlyPrefixedStorage::new(PREFIX_MIGRATION, storage).get(asset_token.as_slice());
-    match res {
-        Some(data) => from_slice(&data),
-        None => Err(StdError::generic_err("no migration data stored")),
-    }
-}
-
-pub fn store_migration<S: Storage>(
-    storage: &mut S,
-    asset_token: &CanonicalAddr,
-    migration: &MigrationData,
-) -> StdResult<()> {
-    PrefixedStorage::new(PREFIX_MIGRATION, storage).set(asset_token.as_slice(), &to_vec(&migration)?);
-    Ok(())
-}
-
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Position {
     pub idx: Uint128,
@@ -110,69 +81,118 @@ pub struct Position {
 }
 
 /// create position with index
-pub fn create_position<'a, S: Storage>(
-    storage: &'a mut S,
+pub fn create_position<S: Storage>(
+    storage: &mut S,
     idx: Uint128,
     position: &Position,
 ) -> StdResult<()> {
-    PrefixedStorage::new(PREFIX_POSITION, storage)
-        .set(&idx.u128().to_be_bytes(), &to_vec(&position)?);
+    let mut position_bucket: Bucket<S, Position> = Bucket::new(PREFIX_POSITION, storage);
+    position_bucket.save(&idx.u128().to_be_bytes(), &position)?;
 
-    let mut position_indexer: Bucket<'a, S, bool> =
-        Bucket::multilevel(&[PREFIX_USER, position.owner.as_slice()], storage);
-    position_indexer.save(&idx.u128().to_be_bytes(), &true)?;
+    let mut position_indexer_by_user: Bucket<S, bool> =
+        Bucket::multilevel(&[PREFIX_INDEX_BY_USER, position.owner.as_slice()], storage);
+    position_indexer_by_user.save(&idx.u128().to_be_bytes(), &true)?;
+
+    let mut position_indexer_by_asset: Bucket<S, bool> = Bucket::multilevel(
+        &[PREFIX_INDEX_BY_ASSET, position.asset.info.as_bytes()],
+        storage,
+    );
+    position_indexer_by_asset.save(&idx.u128().to_be_bytes(), &true)?;
 
     Ok(())
 }
 
 /// store position with idx
-pub fn store_position<'a, S: Storage>(
-    storage: &'a mut S,
+pub fn store_position<S: Storage>(
+    storage: &mut S,
     idx: Uint128,
     position: &Position,
 ) -> StdResult<()> {
-    PrefixedStorage::new(PREFIX_POSITION, storage)
-        .set(&idx.u128().to_be_bytes(), &to_vec(&position)?);
+    let mut position_bucket: Bucket<S, Position> = Bucket::new(PREFIX_POSITION, storage);
+    position_bucket.save(&idx.u128().to_be_bytes(), &position)?;
     Ok(())
 }
 
 /// remove position with idx
-pub fn remove_position<'a, S: Storage>(
-    storage: &'a mut S,
-    idx: Uint128,
-    position_owner: &CanonicalAddr,
-) -> StdResult<()> {
-    PrefixedStorage::new(PREFIX_POSITION, storage).remove(&idx.u128().to_be_bytes());
+pub fn remove_position<S: Storage>(storage: &mut S, idx: Uint128) -> StdResult<()> {
+    let position: Position = read_position(storage, idx)?;
+    let mut position_bucket: Bucket<S, Position> = Bucket::new(PREFIX_POSITION, storage);
+    position_bucket.remove(&idx.u128().to_be_bytes());
 
-    let mut position_indexer: Bucket<'a, S, bool> =
-        Bucket::multilevel(&[PREFIX_USER, position_owner.as_slice()], storage);
-    position_indexer.remove(&idx.u128().to_be_bytes());
+    let mut position_indexer_by_user: Bucket<S, bool> =
+        Bucket::multilevel(&[PREFIX_INDEX_BY_USER, position.owner.as_slice()], storage);
+    position_indexer_by_user.remove(&idx.u128().to_be_bytes());
+
+    let mut position_indexer_by_asset: Bucket<S, bool> = Bucket::multilevel(
+        &[PREFIX_INDEX_BY_ASSET, position.asset.info.as_bytes()],
+        storage,
+    );
+    position_indexer_by_asset.remove(&idx.u128().to_be_bytes());
 
     Ok(())
 }
 
 /// read position from store with position idx
-pub fn read_position<'a, S: ReadonlyStorage>(storage: &'a S, idx: Uint128) -> StdResult<Position> {
-    let res = ReadonlyPrefixedStorage::new(PREFIX_POSITION, storage).get(&idx.u128().to_be_bytes());
-    match res {
-        Some(v) => from_slice(&v),
-        None => Err(StdError::generic_err(
-            "No position info exists for the given idx",
-        )),
-    }
+pub fn read_position<S: ReadonlyStorage>(storage: &S, idx: Uint128) -> StdResult<Position> {
+    let position_bucket: ReadonlyBucket<S, Position> =
+        ReadonlyBucket::new(PREFIX_POSITION, storage);
+    position_bucket.load(&idx.u128().to_be_bytes())
 }
 
 // settings for pagination
 const MAX_LIMIT: u32 = 30;
 const DEFAULT_LIMIT: u32 = 10;
-pub fn read_positions<'a, S: ReadonlyStorage>(
-    storage: &'a S,
+pub fn read_positions<S: ReadonlyStorage>(
+    storage: &S,
+    start_after: Option<Uint128>,
+    limit: Option<u32>,
+) -> StdResult<Vec<Position>> {
+    let position_bucket: ReadonlyBucket<S, Position> =
+        ReadonlyBucket::new(PREFIX_POSITION, storage);
+
+    let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
+    let start = calc_range_start(start_after);
+
+    position_bucket
+        .range(start.as_deref(), None, Order::Ascending)
+        .take(limit)
+        .map(|item| {
+            let (_, v) = item?;
+            Ok(v)
+        })
+        .collect()
+}
+
+pub fn read_positions_with_user_indexer<S: ReadonlyStorage>(
+    storage: &S,
     position_owner: &CanonicalAddr,
     start_after: Option<Uint128>,
     limit: Option<u32>,
 ) -> StdResult<Vec<Position>> {
-    let position_indexer: ReadonlyBucket<'a, S, bool> =
-        ReadonlyBucket::multilevel(&[PREFIX_USER, position_owner.as_slice()], storage);
+    let position_indexer: ReadonlyBucket<S, bool> =
+        ReadonlyBucket::multilevel(&[PREFIX_INDEX_BY_USER, position_owner.as_slice()], storage);
+
+    let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
+    let start = calc_range_start(start_after);
+
+    position_indexer
+        .range(start.as_deref(), None, Order::Ascending)
+        .take(limit)
+        .map(|item| {
+            let (k, _) = item?;
+            read_position(storage, Uint128(bytes_to_u128(&k)?))
+        })
+        .collect()
+}
+
+pub fn read_positions_with_asset_indexer<S: ReadonlyStorage>(
+    storage: &S,
+    asset_token: &CanonicalAddr,
+    start_after: Option<Uint128>,
+    limit: Option<u32>,
+) -> StdResult<Vec<Position>> {
+    let position_indexer: ReadonlyBucket<S, bool> =
+        ReadonlyBucket::multilevel(&[PREFIX_INDEX_BY_ASSET, asset_token.as_slice()], storage);
 
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
     let start = calc_range_start(start_after);

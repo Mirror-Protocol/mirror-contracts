@@ -92,16 +92,6 @@
         },
         "price": {
           "$ref": "#/definitions/Decimal"
-        },
-        "price_multiplier": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/Decimal"
-            },
-            {
-              "type": "null"
-            }
-          ]
         }
       }
     }

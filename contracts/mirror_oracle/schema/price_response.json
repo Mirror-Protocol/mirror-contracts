@@ -5,8 +5,7 @@
   "required": [
     "asset_token",
     "last_update_time",
-    "price",
-    "price_multiplier"
+    "price"
   ],
   "properties": {
     "asset_token": {
@@ -18,9 +17,6 @@
       "minimum": 0.0
     },
     "price": {
-      "$ref": "#/definitions/Decimal"
-    },
-    "price_multiplier": {
       "$ref": "#/definitions/Decimal"
     }
   },

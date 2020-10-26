@@ -10,7 +10,7 @@ use cosmwasm_std::{
     from_binary, log, to_binary, CosmosMsg, Decimal, Env, HumanAddr, StdError, Uint128, WasmMsg,
 };
 use cw20::{Cw20HandleMsg, MinterResponse};
-use terraswap::{AssetInfo, InitHook, TokenInitMsg, TokenMigrationResponse};
+use terraswap::{AssetInfo, InitHook, TokenInitMsg};
 
 fn mock_env_height(signer: &HumanAddr, height: u64) -> Env {
     let mut env = mock_env(signer, &[]);
@@ -241,7 +241,6 @@ fn test_whitelist() {
                     })
                     .unwrap(),
                 }),
-                migration: None,
             })
             .unwrap(),
         })]
@@ -826,129 +825,72 @@ fn test_migration() {
     let env = mock_env("terraswapfactory", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
-    // migration not in progress
-    let msg = HandleMsg::MigrationTokenCreationHook {};
-    let env = mock_env("asset0001", &[]);
-    let res = handle(&mut deps, env, msg).unwrap_err();
-    match res {
-        StdError::GenericErr { msg, .. } => assert_eq!(msg, "No migration process in progress"),
-        _ => panic!("DO NOT ENTER HERE"),
-    }
+    // register queriers
+    deps.querier.with_mint_configs(&[(
+        &HumanAddr::from("asset0000"),
+        &(Decimal::percent(1), Decimal::percent(1)),
+    )]);
+    deps.querier.with_oracle_feeders(&[(
+        &HumanAddr::from("asset0000"),
+        &HumanAddr::from("feeder0000"),
+    )]);
+    deps.querier.with_terraswap_pair_configs(&[(
+        &HumanAddr::from("pair0000"),
+        &(Decimal::percent(5), Decimal::percent(150)),
+    )]);
 
     // unauthorized migrate attempt
     let msg = HandleMsg::MigrateAsset {
         name: "apple migration".to_string(),
         symbol: "mAPPL2".to_string(),
         from_token: HumanAddr::from("asset0000"),
-        conversion_rate: Decimal::from_ratio(2u128, 1u128),
+        end_price: Decimal::from_ratio(2u128, 1u128),
     };
-    let env = mock_env("addr0000", &[]);
+    let env = mock_env("owner0000", &[]);
     let res = handle(&mut deps, env, msg.clone()).unwrap_err();
+
     match res {
         StdError::Unauthorized { .. } => {}
         _ => panic!("DO NOT ENTER HERE"),
     }
 
-    let env = mock_env("owner0000", &[]);
-    let res = handle(&mut deps, env, msg).unwrap();
-    assert_eq!(
-        res.messages,
-        vec![CosmosMsg::Wasm(WasmMsg::Instantiate {
-            code_id: TOKEN_CODE_ID,
-            send: vec![],
-            label: None,
-            msg: to_binary(&TokenInitMsg {
-                name: "apple migration".to_string(),
-                symbol: "mAPPL2".to_string(),
-                decimals: 6u8,
-                initial_balances: vec![],
-                mint: Some(MinterResponse {
-                    minter: HumanAddr::from("mint0000"),
-                    cap: None,
-                }),
-                init_hook: Some(InitHook {
-                    contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
-                    msg: to_binary(&HandleMsg::MigrationTokenCreationHook {}).unwrap(),
-                }),
-                migration: Some(TokenMigrationResponse {
-                    token: HumanAddr::from("asset0000"),
-                    conversion_rate: Decimal::from_ratio(2u128, 1u128)
-                }),
-            })
-            .unwrap(),
-        })]
-    );
-
-    let msg = HandleMsg::MigrationTokenCreationHook {};
-    let env = mock_env("asset0001", &[]);
+    let env = mock_env("feeder0000", &[]);
     let res = handle(&mut deps, env, msg).unwrap();
     assert_eq!(
         res.messages,
         vec![
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("terraswapfactory"),
-                msg: to_binary(&TerraswapFactoryHandleMsg::MigrateAsset {
-                    from_asset_infos: [
-                        AssetInfo::NativeToken {
-                            denom: "uusd".to_string()
-                        },
-                        AssetInfo::Token {
-                            contract_addr: HumanAddr::from("asset0000")
-                        }
-                    ],
-                    to_asset_infos: [
-                        AssetInfo::NativeToken {
-                            denom: "uusd".to_string()
-                        },
-                        AssetInfo::Token {
-                            contract_addr: HumanAddr::from("asset0001")
-                        }
-                    ],
-                })
-                .unwrap(),
-                send: vec![],
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("pair0000"),
-                msg: to_binary(&TerraswapPairHandleMsg::MigrateAsset {
-                    from_asset: AssetInfo::Token {
-                        contract_addr: HumanAddr::from("asset0000"),
-                    },
-                    to_asset: AssetInfo::Token {
-                        contract_addr: HumanAddr::from("asset0001"),
-                    },
-                })
-                .unwrap(),
-                send: vec![],
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("oracle0000"),
-                msg: to_binary(&OracleHandleMsg::MigrateAsset {
-                    from_token: HumanAddr::from("asset0000"),
-                    to_token: HumanAddr::from("asset0001"),
-                })
-                .unwrap(),
-                send: vec![],
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: HumanAddr::from("mint0000"),
+                send: vec![],
                 msg: to_binary(&MintHandleMsg::RegisterMigration {
-                    from_token: HumanAddr::from("asset0000"),
-                    to_token: HumanAddr::from("asset0001"),
-                    conversion_rate: Decimal::from_ratio(2u128, 1u128),
+                    asset_token: HumanAddr::from("asset0000"),
+                    end_price: Decimal::from_ratio(2u128, 1u128),
                 })
                 .unwrap(),
-                send: vec![],
             }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("staking0000"),
-                msg: to_binary(&StakingHandleMsg::RegisterMigration {
-                    from_token: HumanAddr::from("asset0000"),
-                    to_token: HumanAddr::from("asset0001"),
+            CosmosMsg::Wasm(WasmMsg::Instantiate {
+                code_id: TOKEN_CODE_ID,
+                send: vec![],
+                label: None,
+                msg: to_binary(&TokenInitMsg {
+                    name: "apple migration".to_string(),
+                    symbol: "mAPPL2".to_string(),
+                    decimals: 6u8,
+                    initial_balances: vec![],
+                    mint: Some(MinterResponse {
+                        minter: HumanAddr::from("mint0000"),
+                        cap: None,
+                    }),
+                    init_hook: Some(InitHook {
+                        contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
+                        msg: to_binary(&HandleMsg::TokenCreationHook {
+                            oracle_feeder: HumanAddr::from("feeder0000")
+                        })
+                        .unwrap(),
+                    }),
                 })
                 .unwrap(),
-                send: vec![],
-            }),
+            })
         ]
     );
 }

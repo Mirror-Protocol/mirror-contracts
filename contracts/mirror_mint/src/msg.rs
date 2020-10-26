@@ -35,9 +35,8 @@ pub enum HandleMsg {
         min_collateral_ratio: Decimal,
     },
     RegisterMigration {
-        from_token: HumanAddr,
-        to_token: HumanAddr,
-        conversion_rate: Decimal,
+        asset_token: HumanAddr,
+        end_price: Decimal,
     },
     // Create position to meet collateral ratio
     OpenPosition {
@@ -59,11 +58,6 @@ pub enum HandleMsg {
     Mint {
         position_idx: Uint128,
         asset: Asset,
-    },
-    /// Migrate position asset to new asset
-    /// Try migrate asset and collateral both
-    MigratePosition {
-        position_idx: Uint128,
     },
 }
 
@@ -94,12 +88,10 @@ pub enum QueryMsg {
         position_idx: Uint128,
     },
     Positions {
-        owner_addr: HumanAddr,
+        owner_addr: Option<HumanAddr>,
+        asset_token: Option<HumanAddr>,
         start_after: Option<Uint128>,
         limit: Option<u32>,
-    },
-    Migration {
-        asset_token: HumanAddr,
     },
 }
 
@@ -118,13 +110,7 @@ pub struct AssetConfigResponse {
     pub token: HumanAddr,
     pub auction_discount: Decimal,
     pub min_collateral_ratio: Decimal,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct MigrationResponse {
-    pub from_token: HumanAddr,
-    pub to_token: HumanAddr,
-    pub conversion_rate: Decimal,
+    pub end_price: Option<Decimal>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

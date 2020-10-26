@@ -241,19 +241,23 @@
         "migrate_asset": {
           "type": "object",
           "required": [
-            "conversion_rate",
+            "end_price",
             "from_token",
-            "to_token"
+            "name",
+            "symbol"
           ],
           "properties": {
-            "conversion_rate": {
+            "end_price": {
               "$ref": "#/definitions/Decimal"
             },
             "from_token": {
               "$ref": "#/definitions/HumanAddr"
             },
-            "to_token": {
-              "$ref": "#/definitions/HumanAddr"
+            "name": {
+              "type": "string"
+            },
+            "symbol": {
+              "type": "string"
             }
           }
         }

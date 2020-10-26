@@ -1,25 +1,25 @@
 use cosmwasm_std::{
     from_binary, log, to_binary, Api, Binary, CanonicalAddr, CosmosMsg, Decimal, Env, Extern,
-    HandleResponse, HandleResult, HumanAddr, InitResponse, Querier, StdError, StdResult, Storage,
-    Uint128, WasmMsg,
+    HandleResponse, HandleResult, HumanAddr, InitResponse, LogAttribute, Querier, StdError,
+    StdResult, Storage, Uint128, WasmMsg,
 };
 
 use crate::msg::{
-    AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrationResponse,
-    PositionResponse, PositionsResponse, QueryMsg,
+    AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, PositionResponse,
+    PositionsResponse, QueryMsg,
 };
 
 use crate::state::{
-    create_position, read_asset_config, read_config, read_migration, read_position,
-    read_position_idx, read_positions, remove_asset_config, remove_position, store_asset_config,
-    store_config, store_migration, store_position, store_position_idx, AssetConfig, Config,
-    MigrationData, Position,
+    create_position, read_asset_config, read_config, read_position, read_position_idx,
+    read_positions, read_positions_with_asset_indexer, read_positions_with_user_indexer,
+    remove_position, store_asset_config, store_config, store_position, store_position_idx,
+    AssetConfig, Config, Position,
 };
 
 use crate::math::{decimal_multiplication, decimal_subtraction, reverse_decimal};
 use crate::querier::load_prices;
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
-use terraswap::{load_token_balance, Asset, AssetInfo, AssetInfoRaw, AssetRaw, TokenCw20HookMsg};
+use terraswap::{Asset, AssetInfo, AssetInfoRaw, AssetRaw};
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -72,13 +72,9 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             min_collateral_ratio,
         ),
         HandleMsg::RegisterMigration {
-            from_token,
-            to_token,
-            conversion_rate,
-        } => try_register_migration(deps, env, from_token, to_token, conversion_rate),
-        HandleMsg::MigratePosition { position_idx } => {
-            try_migrate_position(deps, env, position_idx)
-        }
+            asset_token,
+            end_price,
+        } => try_register_migration(deps, env, asset_token, end_price),
         HandleMsg::OpenPosition {
             collateral,
             asset_info,
@@ -155,7 +151,7 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
                 try_deposit(deps, cw20_msg.sender, position_idx, passed_asset)
             }
             Cw20HookMsg::Burn { position_idx } => {
-                try_burn(deps, cw20_msg.sender, position_idx, passed_asset)
+                try_burn(deps, env, cw20_msg.sender, position_idx, passed_asset)
             }
             Cw20HookMsg::Auction { position_idx } => {
                 try_auction(deps, env, cw20_msg.sender, position_idx, passed_asset)
@@ -252,6 +248,7 @@ pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
             token: asset_token_raw,
             auction_discount,
             min_collateral_ratio,
+            end_price: None,
         },
     )?;
 
@@ -265,52 +262,35 @@ pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
 pub fn try_register_migration<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    from_token: HumanAddr,
-    to_token: HumanAddr,
-    conversion_rate: Decimal,
+    asset_token: HumanAddr,
+    end_price: Decimal,
 ) -> StdResult<HandleResponse> {
     let config = read_config(&deps.storage)?;
     if config.owner != deps.api.canonical_address(&env.message.sender)? {
         return Err(StdError::unauthorized());
     }
 
-    let from_token_raw = deps.api.canonical_address(&from_token)?;
-    let to_token_raw = deps.api.canonical_address(&to_token)?;
-    let asset_config: AssetConfig = read_asset_config(&deps.storage, &from_token_raw)?;
+    let asset_token_raw = deps.api.canonical_address(&asset_token)?;
+    let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
 
     // update asset config
-    remove_asset_config(&mut deps.storage, &from_token_raw);
     store_asset_config(
         &mut deps.storage,
-        &to_token_raw,
+        &asset_token_raw,
         &AssetConfig {
-            token: to_token_raw.clone(),
+            end_price: Some(end_price),
+            min_collateral_ratio: Decimal::percent(100),
             ..asset_config
         },
     )?;
 
-    // store migration info
-    store_migration(
-        &mut deps.storage,
-        &from_token_raw,
-        &MigrationData {
-            token: deps.api.canonical_address(&to_token)?,
-            conversion_rate,
-        },
-    )?;
-
-    let token_balance = load_token_balance(&deps, &from_token, &env.contract.address)?;
     Ok(HandleResponse {
-        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: from_token,
-            msg: to_binary(&Cw20HandleMsg::Send {
-                amount: token_balance,
-                contract: to_token,
-                msg: Some(to_binary(&TokenCw20HookMsg::Migrate {})?),
-            })?,
-            send: vec![],
-        })],
-        log: vec![],
+        messages: vec![],
+        log: vec![
+            log("action", "migrate_asset"),
+            log("asset_token", asset_token.as_str()),
+            log("end_price", end_price.to_string()),
+        ],
         data: None,
     })
 }
@@ -335,6 +315,12 @@ pub fn try_open_position<S: Storage, A: Api, Q: Querier>(
     };
 
     let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
+    if let Some(_) = asset_config.end_price {
+        return Err(StdError::generic_err(
+            "Can not open a deprecated asset position",
+        ));
+    }
+
     if collateral_ratio < asset_config.min_collateral_ratio {
         return Err(StdError::generic_err(
             "Can not open a position with low collateral ratio than minimum",
@@ -399,64 +385,6 @@ pub fn try_open_position<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-// permissionless migrate function to protect contract funds
-pub fn try_migrate_position<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    _env: Env,
-    position_idx: Uint128,
-) -> HandleResult {
-    let mut position: Position = read_position(&deps.storage, position_idx)?;
-    let asset_token_raw = match &position.asset.info {
-        AssetInfoRaw::Token { contract_addr } => contract_addr,
-        _ => panic!("DO NOT ENTER HERE"),
-    };
-
-    // Check asset migration
-    let res = read_migration(&deps.storage, &asset_token_raw);
-    if res.is_ok() {
-        let migration_data = res.unwrap();
-        position.asset.amount = position.asset.amount * migration_data.conversion_rate;
-        position.asset.info = AssetInfoRaw::Token {
-            contract_addr: migration_data.token,
-        };
-    }
-    // Check collateral migration
-    match &position.collateral.info {
-        AssetInfoRaw::Token { contract_addr } => {
-            let res = read_migration(&deps.storage, &contract_addr);
-            if res.is_ok() {
-                let migration_data = res.unwrap();
-                position.collateral.amount =
-                    position.collateral.amount * migration_data.conversion_rate;
-                position.collateral.info = AssetInfoRaw::Token {
-                    contract_addr: migration_data.token,
-                };
-            }
-        }
-        _ => {} // collateral can be native token
-    }
-
-    // store updated position
-    store_position(&mut deps.storage, position_idx, &position)?;
-
-    // not print useless logs
-    Ok(HandleResponse {
-        messages: vec![],
-        log: vec![
-            log("action", "migrate_position"),
-            log(
-                "collateral_amount",
-                (position.collateral.to_normal(&deps)?).to_string(),
-            ),
-            log(
-                "asset_amount",
-                (position.asset.to_normal(&deps)?).to_string(),
-            ),
-        ],
-        data: None,
-    })
-}
-
 pub fn try_deposit<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     sender: HumanAddr,
@@ -472,6 +400,17 @@ pub fn try_deposit<S: Storage, A: Api, Q: Querier>(
     // with position's collateral token
     // also Check the collateral amount is non-zero
     assert_collateral(deps, &position, &collateral)?;
+    let asset_token_raw = match &position.asset.info {
+        AssetInfoRaw::Token { contract_addr } => contract_addr,
+        _ => panic!("DO NOT ENTER HERE"),
+    };
+
+    let asset_config = read_asset_config(&deps.storage, &asset_token_raw)?;
+    if let Some(_) = asset_config.end_price {
+        return Err(StdError::generic_err(
+            "Cannot deposit more collateral to the deprecated asset position",
+        ));
+    }
 
     // Increase collateral amount
     position.collateral.amount += collateral.amount;
@@ -532,6 +471,7 @@ pub fn try_withdraw<S: Storage, A: Api, Q: Querier>(
     // Convert asset to collateral unit
     let asset_value_in_collateral_asset: Uint128 =
         position.asset.amount * asset_price * reverse_decimal(collateral_price);
+
     // Check minimum collateral ratio is statified
     if asset_value_in_collateral_asset * asset_config.min_collateral_ratio > collateral_amount {
         return Err(StdError::generic_err(
@@ -541,7 +481,7 @@ pub fn try_withdraw<S: Storage, A: Api, Q: Querier>(
 
     position.collateral.amount = collateral_amount;
     if position.collateral.amount == Uint128::zero() && position.asset.amount == Uint128::zero() {
-        remove_position(&mut deps.storage, position_idx, &position.owner)?;
+        remove_position(&mut deps.storage, position_idx)?;
     } else {
         store_position(&mut deps.storage, position_idx, &position)?;
     }
@@ -586,6 +526,9 @@ pub fn try_mint<S: Storage, A: Api, Q: Querier>(
 
     let config: Config = read_config(&deps.storage)?;
     let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
+    if let Some(_) = asset_config.end_price {
+        return Err(StdError::generic_err("Cannot mint deprecated asset"));
+    }
 
     let (collateral_price, asset_price) = load_prices(
         &deps,
@@ -634,14 +577,12 @@ pub fn try_mint<S: Storage, A: Api, Q: Querier>(
 
 pub fn try_burn<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
+    env: Env,
     sender: HumanAddr,
     position_idx: Uint128,
     asset: Asset,
 ) -> StdResult<HandleResponse> {
     let mut position: Position = read_position(&deps.storage, position_idx)?;
-    if position.owner != deps.api.canonical_address(&sender)? {
-        return Err(StdError::unauthorized());
-    }
 
     // Check the asset has same token with position asset
     // also Check burn amount is non-zero
@@ -660,27 +601,67 @@ pub fn try_burn<S: Storage, A: Api, Q: Querier>(
         ));
     }
 
-    // Update asset amount
-    position.asset.amount = (position.asset.amount - asset.amount)?;
-    if position.collateral.amount == Uint128::zero() && position.asset.amount == Uint128::zero() {
-        remove_position(&mut deps.storage, position_idx, &position.owner)?;
+    // If the asset is in deprecated state, anyone can exeucte burn
+    let mut messages: Vec<CosmosMsg> = vec![];
+    let mut logs: Vec<LogAttribute> = vec![];
+    if let Some(end_price) = asset_config.end_price {
+        // Burn deprecated asset occurs refund collateral msg
+        let refund_collateral = Asset {
+            info: position.collateral.info.to_normal(&deps)?,
+            amount: asset.amount * end_price,
+        };
+
+        position.asset.amount = (position.asset.amount - asset.amount).unwrap();
+        position.collateral.amount =
+            (position.collateral.amount - refund_collateral.amount).unwrap();
+        if position.collateral.amount == Uint128::zero() && position.asset.amount == Uint128::zero()
+        {
+            remove_position(&mut deps.storage, position_idx)?;
+        } else {
+            store_position(&mut deps.storage, position_idx, &position)?;
+        }
+
+        // Refund collateral msg
+        messages.push(
+            refund_collateral
+                .clone()
+                .into_msg(&deps, env.contract.address, sender)?,
+        );
+        logs.push(log(
+            "refund_collateral_amount",
+            refund_collateral.to_string(),
+        ));
     } else {
+        if position.owner != deps.api.canonical_address(&sender)? {
+            return Err(StdError::unauthorized());
+        }
+
+        // Update asset amount
+        position.asset.amount = (position.asset.amount - asset.amount).unwrap();
         store_position(&mut deps.storage, position_idx, &position)?;
     }
 
     Ok(HandleResponse {
-        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: deps.api.human_address(&asset_config.token)?,
-            msg: to_binary(&Cw20HandleMsg::Burn {
-                amount: asset.amount,
-            })?,
-            send: vec![],
-        })],
+        messages: vec![
+            vec![CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: deps.api.human_address(&asset_config.token)?,
+                msg: to_binary(&Cw20HandleMsg::Burn {
+                    amount: asset.amount,
+                })?,
+                send: vec![],
+            })],
+            messages,
+        ]
+        .concat(),
         log: vec![
-            log("action", "burn"),
-            log("position_idx", position_idx.to_string()),
-            log("burn_amount", asset.to_string()),
-        ],
+            vec![
+                log("action", "burn"),
+                log("position_idx", position_idx.to_string()),
+                log("burn_amount", asset.to_string()),
+            ],
+            logs,
+        ]
+        .concat(),
         data: None,
     })
 }
@@ -702,6 +683,11 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
 
     let config: Config = read_config(&deps.storage)?;
     let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
+    if let Some(_) = asset_config.end_price {
+        return Err(StdError::generic_err(
+            "Cannot liquidate a deprecated asset position",
+        ));
+    }
 
     let collateral_info = position.collateral.info.to_normal(&deps)?;
     let position_owner = deps.api.human_address(&position.owner)?;
@@ -777,10 +763,10 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
 
     if left_collateral_amount.is_zero() {
         // all collaterals are sold out
-        remove_position(&mut deps.storage, position_idx, &position.owner)?;
+        remove_position(&mut deps.storage, position_idx)?;
     } else if left_asset_amount.is_zero() {
         // all assets are paid
-        remove_position(&mut deps.storage, position_idx, &position.owner)?;
+        remove_position(&mut deps.storage, position_idx)?;
 
         // refunds left collaterals to position owner
         let refund_collateral: Asset = Asset {
@@ -854,10 +840,16 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
         QueryMsg::Position { position_idx } => to_binary(&query_position(deps, position_idx)?),
         QueryMsg::Positions {
             owner_addr,
+            asset_token,
             start_after,
             limit,
-        } => to_binary(&query_positions(deps, owner_addr, start_after, limit)?),
-        QueryMsg::Migration { asset_token } => to_binary(&query_migration(deps, asset_token)?),
+        } => to_binary(&query_positions(
+            deps,
+            owner_addr,
+            asset_token,
+            start_after,
+            limit,
+        )?),
     }
 }
 
@@ -886,21 +878,7 @@ pub fn query_asset_config<S: Storage, A: Api, Q: Querier>(
         token: deps.api.human_address(&asset_config.token).unwrap(),
         auction_discount: asset_config.auction_discount,
         min_collateral_ratio: asset_config.min_collateral_ratio,
-    };
-
-    Ok(resp)
-}
-
-pub fn query_migration<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    asset_token: HumanAddr,
-) -> StdResult<MigrationResponse> {
-    let migration: MigrationData =
-        read_migration(&deps.storage, &deps.api.canonical_address(&asset_token)?)?;
-    let resp = MigrationResponse {
-        from_token: asset_token,
-        to_token: deps.api.human_address(&migration.token)?,
-        conversion_rate: migration.conversion_rate,
+        end_price: asset_config.end_price,
     };
 
     Ok(resp)
@@ -923,16 +901,28 @@ pub fn query_position<S: Storage, A: Api, Q: Querier>(
 
 pub fn query_positions<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
-    owner_addr: HumanAddr,
+    owner_addr: Option<HumanAddr>,
+    asset_token: Option<HumanAddr>,
     start_after: Option<Uint128>,
     limit: Option<u32>,
 ) -> StdResult<PositionsResponse> {
-    let positions: Vec<Position> = read_positions(
-        &deps.storage,
-        &deps.api.canonical_address(&owner_addr)?,
-        start_after,
-        limit,
-    )?;
+    let positions: Vec<Position> = if let Some(owner_addr) = owner_addr {
+        read_positions_with_user_indexer(
+            &deps.storage,
+            &deps.api.canonical_address(&owner_addr)?,
+            start_after,
+            limit,
+        )?
+    } else if let Some(asset_token) = asset_token {
+        read_positions_with_asset_indexer(
+            &deps.storage,
+            &deps.api.canonical_address(&asset_token)?,
+            start_after,
+            limit,
+        )?
+    } else {
+        read_positions(&deps.storage, start_after, limit)?
+    };
 
     let position_responses: StdResult<Vec<PositionResponse>> = positions
         .iter()
