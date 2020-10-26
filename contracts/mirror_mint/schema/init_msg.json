@@ -3,20 +3,16 @@
   "title": "InitMsg",
   "type": "object",
   "required": [
-    "base_asset_info",
-    "oracle",
-    "owner",
+    "base_denom",
+    "mint_per_block",
     "token_code_id"
   ],
   "properties": {
-    "base_asset_info": {
-      "$ref": "#/definitions/AssetInfo"
+    "base_denom": {
+      "type": "string"
     },
-    "oracle": {
-      "$ref": "#/definitions/HumanAddr"
-    },
-    "owner": {
-      "$ref": "#/definitions/HumanAddr"
+    "mint_per_block": {
+      "$ref": "#/definitions/Uint128"
     },
     "token_code_id": {
       "type": "integer",
@@ -25,49 +21,7 @@
     }
   },
   "definitions": {
-    "AssetInfo": {
-      "anyOf": [
-        {
-          "type": "object",
-          "required": [
-            "token"
-          ],
-          "properties": {
-            "token": {
-              "type": "object",
-              "required": [
-                "contract_addr"
-              ],
-              "properties": {
-                "contract_addr": {
-                  "$ref": "#/definitions/HumanAddr"
-                }
-              }
-            }
-          }
-        },
-        {
-          "type": "object",
-          "required": [
-            "native_token"
-          ],
-          "properties": {
-            "native_token": {
-              "type": "object",
-              "required": [
-                "denom"
-              ],
-              "properties": {
-                "denom": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        }
-      ]
-    },
-    "HumanAddr": {
+    "Uint128": {
       "type": "string"
     }
   }

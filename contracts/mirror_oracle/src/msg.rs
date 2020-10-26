@@ -21,10 +21,6 @@ pub enum HandleMsg {
         asset_token: HumanAddr,
         feeder: HumanAddr,
     },
-    MigrateAsset {
-        from_token: HumanAddr,
-        to_token: HumanAddr,
-    },
     FeedPrice {
         price_infos: Vec<PriceInfo>,
     },

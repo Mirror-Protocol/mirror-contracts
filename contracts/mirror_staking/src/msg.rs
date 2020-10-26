@@ -21,11 +21,6 @@ pub enum HandleMsg {
         asset_token: HumanAddr,
         staking_token: HumanAddr,
     },
-    /// Register migration info to allow users to migrate their bonding
-    RegisterMigration {
-        from_token: HumanAddr,
-        to_token: HumanAddr,
-    },
     Unbond {
         asset_token: HumanAddr,
         amount: Uint128,
@@ -34,10 +29,6 @@ pub enum HandleMsg {
     Withdraw {
         // If the asset token is not given, then all rewards are withdrawn
         asset_token: Option<HumanAddr>,
-    },
-    /// Migrate bonding to new asset
-    MigrateBonding {
-        asset_token: HumanAddr,
     },
 }
 
@@ -58,9 +49,6 @@ pub enum QueryMsg {
     RewardInfo {
         asset_token: Option<HumanAddr>,
         staker: HumanAddr,
-    },
-    Migration {
-        asset_token: HumanAddr,
     },
 }
 
@@ -93,10 +81,4 @@ pub struct RewardInfoResponseItem {
     pub index: Decimal,
     pub bond_amount: Uint128,
     pub pending_reward: Uint128,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct MigrationResponse {
-    pub from_token: HumanAddr,
-    pub to_token: HumanAddr,
 }

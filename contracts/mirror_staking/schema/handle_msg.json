@@ -60,30 +60,6 @@
       }
     },
     {
-      "description": "Register migration info to allow users to migrate their bonding",
-      "type": "object",
-      "required": [
-        "register_migration"
-      ],
-      "properties": {
-        "register_migration": {
-          "type": "object",
-          "required": [
-            "from_token",
-            "to_token"
-          ],
-          "properties": {
-            "from_token": {
-              "$ref": "#/definitions/HumanAddr"
-            },
-            "to_token": {
-              "$ref": "#/definitions/HumanAddr"
-            }
-          }
-        }
-      }
-    },
-    {
       "type": "object",
       "required": [
         "unbond"
@@ -125,26 +101,6 @@
                   "type": "null"
                 }
               ]
-            }
-          }
-        }
-      }
-    },
-    {
-      "description": "Migrate bonding to new asset",
-      "type": "object",
-      "required": [
-        "migrate_asset"
-      ],
-      "properties": {
-        "migrate_asset": {
-          "type": "object",
-          "required": [
-            "asset_token"
-          ],
-          "properties": {
-            "asset_token": {
-              "$ref": "#/definitions/HumanAddr"
             }
           }
         }

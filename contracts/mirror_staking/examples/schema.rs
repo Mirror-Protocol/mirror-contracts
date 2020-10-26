@@ -3,7 +3,7 @@ use std::fs::create_dir_all;
 
 use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 use mirror_staking::msg::{
-    ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrationResponse, PoolInfoResponse, QueryMsg,
+    ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, PoolInfoResponse, QueryMsg,
     RewardInfoResponse,
 };
 
@@ -20,5 +20,4 @@ fn main() {
     export_schema(&schema_for!(ConfigResponse), &out_dir);
     export_schema(&schema_for!(RewardInfoResponse), &out_dir);
     export_schema(&schema_for!(PoolInfoResponse), &out_dir);
-    export_schema(&schema_for!(MigrationResponse), &out_dir);
 }

@@ -3,7 +3,7 @@ use cosmwasm_std::{
     StdError, StdResult, Storage, WasmQuery,
 };
 
-use crate::state::Config;
+use crate::state::{read_asset_config, Config};
 use cosmwasm_storage::to_length_prefixed;
 use serde::{Deserialize, Serialize};
 use terraswap::AssetInfoRaw;
@@ -54,6 +54,17 @@ pub fn load_price<S: Storage, A: Api, Q: Querier>(
     asset_info: &AssetInfoRaw,
     block_time: Option<u64>,
 ) -> StdResult<Decimal> {
+    let asset_token_raw = match &asset_info {
+        AssetInfoRaw::Token { contract_addr } => contract_addr,
+        _ => panic!("DO NOT ENTER HERE"),
+    };
+
+    // return static price for the deprecated asset
+    let asset_config = read_asset_config(&deps.storage, &asset_token_raw)?;
+    if let Some(end_price) = asset_config.end_price {
+        return Ok(end_price);
+    }
+
     // load price form the oracle
     let res: StdResult<Binary> = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
         contract_addr: HumanAddr::from(contract_addr),
