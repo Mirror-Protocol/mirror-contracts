@@ -1,30 +1,43 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "InitMsg",
+  "title": "PositionResponse",
   "type": "object",
   "required": [
-    "base_asset_info",
-    "oracle",
-    "owner",
-    "token_code_id"
+    "asset",
+    "collateral",
+    "idx",
+    "owner"
   ],
   "properties": {
-    "base_asset_info": {
-      "$ref": "#/definitions/AssetInfo"
+    "asset": {
+      "$ref": "#/definitions/Asset"
     },
-    "oracle": {
-      "$ref": "#/definitions/HumanAddr"
+    "collateral": {
+      "$ref": "#/definitions/Asset"
+    },
+    "idx": {
+      "$ref": "#/definitions/Uint128"
     },
     "owner": {
       "$ref": "#/definitions/HumanAddr"
-    },
-    "token_code_id": {
-      "type": "integer",
-      "format": "uint64",
-      "minimum": 0.0
     }
   },
   "definitions": {
+    "Asset": {
+      "type": "object",
+      "required": [
+        "amount",
+        "info"
+      ],
+      "properties": {
+        "amount": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "info": {
+          "$ref": "#/definitions/AssetInfo"
+        }
+      }
+    },
     "AssetInfo": {
       "anyOf": [
         {
@@ -68,6 +81,9 @@
       ]
     },
     "HumanAddr": {
+      "type": "string"
+    },
+    "Uint128": {
       "type": "string"
     }
   }

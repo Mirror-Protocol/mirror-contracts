@@ -16,10 +16,10 @@
     {
       "type": "object",
       "required": [
-        "distribution_info"
+        "asset_config"
       ],
       "properties": {
-        "distribution_info": {
+        "asset_config": {
           "type": "object",
           "required": [
             "asset_token"
@@ -31,10 +31,83 @@
           }
         }
       }
+    },
+    {
+      "type": "object",
+      "required": [
+        "position"
+      ],
+      "properties": {
+        "position": {
+          "type": "object",
+          "required": [
+            "position_idx"
+          ],
+          "properties": {
+            "position_idx": {
+              "$ref": "#/definitions/Uint128"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "positions"
+      ],
+      "properties": {
+        "positions": {
+          "type": "object",
+          "properties": {
+            "asset_token": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "limit": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint32",
+              "minimum": 0.0
+            },
+            "owner_addr": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "start_after": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Uint128"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      }
     }
   ],
   "definitions": {
     "HumanAddr": {
+      "type": "string"
+    },
+    "Uint128": {
       "type": "string"
     }
   }

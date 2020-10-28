@@ -5,47 +5,16 @@
     {
       "type": "object",
       "required": [
-        "post_initialize"
+        "receive"
       ],
       "properties": {
-        "post_initialize": {
-          "type": "object",
-          "required": [
-            "commission_collector",
-            "mint_contract",
-            "mirror_token",
-            "oracle_contract",
-            "owner",
-            "staking_contract",
-            "terraswap_factory"
-          ],
-          "properties": {
-            "commission_collector": {
-              "$ref": "#/definitions/HumanAddr"
-            },
-            "mint_contract": {
-              "$ref": "#/definitions/HumanAddr"
-            },
-            "mirror_token": {
-              "$ref": "#/definitions/HumanAddr"
-            },
-            "oracle_contract": {
-              "$ref": "#/definitions/HumanAddr"
-            },
-            "owner": {
-              "$ref": "#/definitions/HumanAddr"
-            },
-            "staking_contract": {
-              "$ref": "#/definitions/HumanAddr"
-            },
-            "terraswap_factory": {
-              "$ref": "#/definitions/HumanAddr"
-            }
-          }
+        "receive": {
+          "$ref": "#/definitions/Cw20ReceiveMsg"
         }
       }
     },
     {
+      "description": "Update config; only owner is allowed to execute it",
       "type": "object",
       "required": [
         "update_config"
@@ -54,16 +23,6 @@
         "update_config": {
           "type": "object",
           "properties": {
-            "mint_per_block": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/Uint128"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
             "owner": {
               "anyOf": [
                 {
@@ -87,22 +46,67 @@
       }
     },
     {
+      "description": "Update asset related parameters",
       "type": "object",
       "required": [
-        "update_weight"
+        "update_asset"
       ],
       "properties": {
-        "update_weight": {
+        "update_asset": {
           "type": "object",
           "required": [
-            "asset_token",
-            "weight"
+            "asset_token"
           ],
           "properties": {
             "asset_token": {
               "$ref": "#/definitions/HumanAddr"
             },
-            "weight": {
+            "auction_discount": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Decimal"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "min_collateral_ratio": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Decimal"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "Generate asset token initialize msg and register required infos except token address",
+      "type": "object",
+      "required": [
+        "register_asset"
+      ],
+      "properties": {
+        "register_asset": {
+          "type": "object",
+          "required": [
+            "asset_token",
+            "auction_discount",
+            "min_collateral_ratio"
+          ],
+          "properties": {
+            "asset_token": {
+              "$ref": "#/definitions/HumanAddr"
+            },
+            "auction_discount": {
+              "$ref": "#/definitions/Decimal"
+            },
+            "min_collateral_ratio": {
               "$ref": "#/definitions/Decimal"
             }
           }
@@ -112,79 +116,21 @@
     {
       "type": "object",
       "required": [
-        "whitelist"
+        "register_migration"
       ],
       "properties": {
-        "whitelist": {
+        "register_migration": {
           "type": "object",
           "required": [
-            "name",
-            "oracle_feeder",
-            "params",
-            "symbol"
-          ],
-          "properties": {
-            "name": {
-              "description": "asset name used to create token contract",
-              "type": "string"
-            },
-            "oracle_feeder": {
-              "description": "authorized asset oracle feeder",
-              "allOf": [
-                {
-                  "$ref": "#/definitions/HumanAddr"
-                }
-              ]
-            },
-            "params": {
-              "description": "used to create all necessary contract or register asset",
-              "allOf": [
-                {
-                  "$ref": "#/definitions/Params"
-                }
-              ]
-            },
-            "symbol": {
-              "description": "asset symbol used to create token contract",
-              "type": "string"
-            }
-          }
-        }
-      }
-    },
-    {
-      "type": "object",
-      "required": [
-        "token_creation_hook"
-      ],
-      "properties": {
-        "token_creation_hook": {
-          "type": "object",
-          "required": [
-            "oracle_feeder"
-          ],
-          "properties": {
-            "oracle_feeder": {
-              "$ref": "#/definitions/HumanAddr"
-            }
-          }
-        }
-      }
-    },
-    {
-      "type": "object",
-      "required": [
-        "terraswap_creation_hook"
-      ],
-      "properties": {
-        "terraswap_creation_hook": {
-          "type": "object",
-          "required": [
-            "asset_token"
+            "asset_token",
+            "end_price"
           ],
           "properties": {
             "asset_token": {
               "$ref": "#/definitions/HumanAddr"
+            },
+            "end_price": {
+              "$ref": "#/definitions/Decimal"
             }
           }
         }
@@ -193,27 +139,80 @@
     {
       "type": "object",
       "required": [
-        "pass_command"
+        "open_position"
       ],
       "properties": {
-        "pass_command": {
+        "open_position": {
           "type": "object",
           "required": [
-            "contract_addr",
-            "msg"
+            "asset_info",
+            "collateral",
+            "collateral_ratio"
           ],
           "properties": {
-            "contract_addr": {
-              "$ref": "#/definitions/HumanAddr"
+            "asset_info": {
+              "$ref": "#/definitions/AssetInfo"
             },
-            "msg": {
-              "$ref": "#/definitions/Binary"
+            "collateral": {
+              "$ref": "#/definitions/Asset"
+            },
+            "collateral_ratio": {
+              "$ref": "#/definitions/Decimal"
             }
           }
         }
       }
     },
     {
+      "description": "Deposit more collateral",
+      "type": "object",
+      "required": [
+        "deposit"
+      ],
+      "properties": {
+        "deposit": {
+          "type": "object",
+          "required": [
+            "collateral",
+            "position_idx"
+          ],
+          "properties": {
+            "collateral": {
+              "$ref": "#/definitions/Asset"
+            },
+            "position_idx": {
+              "$ref": "#/definitions/Uint128"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "Withdraw collateral",
+      "type": "object",
+      "required": [
+        "withdraw"
+      ],
+      "properties": {
+        "withdraw": {
+          "type": "object",
+          "required": [
+            "collateral",
+            "position_idx"
+          ],
+          "properties": {
+            "collateral": {
+              "$ref": "#/definitions/Asset"
+            },
+            "position_idx": {
+              "$ref": "#/definitions/Uint128"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "Convert all deposit collateral to asset",
       "type": "object",
       "required": [
         "mint"
@@ -222,42 +221,15 @@
         "mint": {
           "type": "object",
           "required": [
-            "asset_token"
+            "asset",
+            "position_idx"
           ],
           "properties": {
-            "asset_token": {
-              "$ref": "#/definitions/HumanAddr"
-            }
-          }
-        }
-      }
-    },
-    {
-      "type": "object",
-      "required": [
-        "migrate_asset"
-      ],
-      "properties": {
-        "migrate_asset": {
-          "type": "object",
-          "required": [
-            "end_price",
-            "from_token",
-            "name",
-            "symbol"
-          ],
-          "properties": {
-            "end_price": {
-              "$ref": "#/definitions/Decimal"
+            "asset": {
+              "$ref": "#/definitions/Asset"
             },
-            "from_token": {
-              "$ref": "#/definitions/HumanAddr"
-            },
-            "name": {
-              "type": "string"
-            },
-            "symbol": {
-              "type": "string"
+            "position_idx": {
+              "$ref": "#/definitions/Uint128"
             }
           }
         }
@@ -265,9 +237,92 @@
     }
   ],
   "definitions": {
+    "Asset": {
+      "type": "object",
+      "required": [
+        "amount",
+        "info"
+      ],
+      "properties": {
+        "amount": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "info": {
+          "$ref": "#/definitions/AssetInfo"
+        }
+      }
+    },
+    "AssetInfo": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "token"
+          ],
+          "properties": {
+            "token": {
+              "type": "object",
+              "required": [
+                "contract_addr"
+              ],
+              "properties": {
+                "contract_addr": {
+                  "$ref": "#/definitions/HumanAddr"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "native_token"
+          ],
+          "properties": {
+            "native_token": {
+              "type": "object",
+              "required": [
+                "denom"
+              ],
+              "properties": {
+                "denom": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
     "Binary": {
       "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>",
       "type": "string"
+    },
+    "Cw20ReceiveMsg": {
+      "description": "Cw20ReceiveMsg should be de/serialized under `Receive()` variant in a HandleMsg",
+      "type": "object",
+      "required": [
+        "amount",
+        "sender"
+      ],
+      "properties": {
+        "amount": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "msg": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Binary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sender": {
+          "$ref": "#/definitions/HumanAddr"
+        }
+      }
     },
     "Decimal": {
       "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0\n\nThe greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
@@ -275,58 +330,6 @@
     },
     "HumanAddr": {
       "type": "string"
-    },
-    "Params": {
-      "type": "object",
-      "required": [
-        "auction_discount",
-        "lp_commission",
-        "min_collateral_ratio",
-        "owner_commission",
-        "weight"
-      ],
-      "properties": {
-        "auction_discount": {
-          "description": "Auction discount rate applied to asset mint",
-          "allOf": [
-            {
-              "$ref": "#/definitions/Decimal"
-            }
-          ]
-        },
-        "lp_commission": {
-          "description": "Commission rate for active liquidity provider",
-          "allOf": [
-            {
-              "$ref": "#/definitions/Decimal"
-            }
-          ]
-        },
-        "min_collateral_ratio": {
-          "description": "Minium collateral ratio applied to asset mint",
-          "allOf": [
-            {
-              "$ref": "#/definitions/Decimal"
-            }
-          ]
-        },
-        "owner_commission": {
-          "description": "Commission rate for owner controlled commission",
-          "allOf": [
-            {
-              "$ref": "#/definitions/Decimal"
-            }
-          ]
-        },
-        "weight": {
-          "description": "inflation weight",
-          "allOf": [
-            {
-              "$ref": "#/definitions/Decimal"
-            }
-          ]
-        }
-      }
     },
     "Uint128": {
       "type": "string"

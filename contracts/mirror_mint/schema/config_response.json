@@ -3,43 +3,19 @@
   "title": "ConfigResponse",
   "type": "object",
   "required": [
-    "base_denom",
-    "commission_collector",
-    "mint_contract",
-    "mint_per_block",
-    "mirror_token",
-    "oracle_contract",
+    "base_asset_info",
+    "oracle",
     "owner",
-    "staking_contract",
-    "terraswap_factory",
     "token_code_id"
   ],
   "properties": {
-    "base_denom": {
-      "type": "string"
+    "base_asset_info": {
+      "$ref": "#/definitions/AssetInfo"
     },
-    "commission_collector": {
-      "$ref": "#/definitions/HumanAddr"
-    },
-    "mint_contract": {
-      "$ref": "#/definitions/HumanAddr"
-    },
-    "mint_per_block": {
-      "$ref": "#/definitions/Uint128"
-    },
-    "mirror_token": {
-      "$ref": "#/definitions/HumanAddr"
-    },
-    "oracle_contract": {
+    "oracle": {
       "$ref": "#/definitions/HumanAddr"
     },
     "owner": {
-      "$ref": "#/definitions/HumanAddr"
-    },
-    "staking_contract": {
-      "$ref": "#/definitions/HumanAddr"
-    },
-    "terraswap_factory": {
       "$ref": "#/definitions/HumanAddr"
     },
     "token_code_id": {
@@ -49,10 +25,49 @@
     }
   },
   "definitions": {
-    "HumanAddr": {
-      "type": "string"
+    "AssetInfo": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "token"
+          ],
+          "properties": {
+            "token": {
+              "type": "object",
+              "required": [
+                "contract_addr"
+              ],
+              "properties": {
+                "contract_addr": {
+                  "$ref": "#/definitions/HumanAddr"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "native_token"
+          ],
+          "properties": {
+            "native_token": {
+              "type": "object",
+              "required": [
+                "denom"
+              ],
+              "properties": {
+                "denom": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      ]
     },
-    "Uint128": {
+    "HumanAddr": {
       "type": "string"
     }
   }
