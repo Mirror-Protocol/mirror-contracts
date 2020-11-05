@@ -653,10 +653,11 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
     poll_store(&mut deps.storage).save(&poll_id.to_be_bytes(), &a_poll)?;
 
     let log = vec![
-        log("action", "vote_casted"),
+        log("action", "cast_vote"),
         log("poll_id", &poll_id.to_string()),
         log("amount", &amount.to_string()),
         log("voter", &env.message.sender.as_str()),
+        log("vote_option", vote_info.vote),
     ];
 
     let r = HandleResponse {

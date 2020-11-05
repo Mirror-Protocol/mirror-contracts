@@ -569,10 +569,11 @@ mod tests {
         assert_eq!(
             handle_res.log,
             vec![
-                log("action", "vote_casted"),
+                log("action", "cast_vote"),
                 log("poll_id", POLL_ID),
                 log("amount", "1000"),
                 log("voter", TEST_VOTER),
+                log("vote_option", "yes"),
             ]
         );
 
@@ -870,10 +871,11 @@ mod tests {
         assert_eq!(
             handle_res.log,
             vec![
-                log("action", "vote_casted"),
+                log("action", "cast_vote"),
                 log("poll_id", "1"),
                 log("amount", "10"),
                 log("voter", TEST_VOTER),
+                log("vote_option", "yes"),
             ]
         );
 
@@ -972,7 +974,7 @@ mod tests {
             amount: Uint128::from(voter2_stake),
         };
         let handle_res = handle(&mut deps, env, msg).unwrap();
-        assert_cast_vote_success(TEST_VOTER_2, voter2_stake, 1, handle_res);
+        assert_cast_vote_success(TEST_VOTER_2, voter2_stake, 1, VoteOption::No, handle_res);
 
         let msg = HandleMsg::EndPoll { poll_id: 1 };
 
@@ -1087,7 +1089,7 @@ mod tests {
         };
 
         let handle_res = handle(&mut deps, env, msg.clone()).unwrap();
-        assert_cast_vote_success(TEST_VOTER, amount, 1, handle_res);
+        assert_cast_vote_success(TEST_VOTER, amount, 1, VoteOption::Yes, handle_res);
 
         // Query staker
         let res = query(
@@ -1316,7 +1318,7 @@ mod tests {
         };
         let env = mock_env_height(TEST_VOTER, &[], 0, 10000);
         let handle_res = handle(&mut deps, env.clone(), msg).unwrap();
-        assert_cast_vote_success(TEST_VOTER, amount, 1, handle_res);
+        assert_cast_vote_success(TEST_VOTER, amount, 1, VoteOption::Yes, handle_res);
 
         let msg = HandleMsg::CastVote {
             poll_id: 1,
@@ -1584,15 +1586,17 @@ mod tests {
         voter: &str,
         amount: u128,
         poll_id: u64,
+        vote_option: VoteOption,
         handle_res: HandleResponse,
     ) {
         assert_eq!(
             handle_res.log,
             vec![
-                log("action", "vote_casted"),
+                log("action", "cast_vote"),
                 log("poll_id", poll_id.to_string()),
                 log("amount", amount.to_string()),
                 log("voter", voter),
+                log("vote_option", vote_option.to_string()),
             ]
         );
     }

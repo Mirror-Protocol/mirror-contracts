@@ -49,6 +49,16 @@ pub enum VoteOption {
     No,
 }
 
+impl fmt::Display for VoteOption {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if *self == VoteOption::Yes {
+            write!(f, "yes")
+        } else {
+            write!(f, "no")
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct VoterInfo {
     pub vote: VoteOption,
