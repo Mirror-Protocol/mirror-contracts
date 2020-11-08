@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    log, to_binary, Api, Binary, Coin, CosmosMsg, Env, Extern, HandleResponse,
-    HandleResult, HumanAddr, InitResponse, Querier, StdResult, Storage, WasmMsg,
+    log, to_binary, Api, Binary, Coin, CosmosMsg, Env, Extern, HandleResponse, HandleResult,
+    HumanAddr, InitResponse, Querier, StdResult, Storage, WasmMsg,
 };
 
 use crate::msg::{
@@ -9,7 +9,7 @@ use crate::msg::{
 use crate::state::{read_config, store_config, Config};
 
 use cw20::Cw20HandleMsg;
-use terraswap::{load_balance, load_pair_contract, load_token_balance, Asset, AssetInfo};
+use terraswap::{load_balance, load_pair_info, load_token_balance, Asset, AssetInfo, PairInfo};
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -53,7 +53,7 @@ pub fn try_convert<S: Storage, A: Api, Q: Querier>(
     let asset_token_raw = deps.api.canonical_address(&asset_token)?;
     let terraswap_factory_raw = deps.api.human_address(&config.terraswap_factory)?;
 
-    let pair_contract = load_pair_contract(
+    let pair_info: PairInfo = load_pair_info(
         &deps,
         &terraswap_factory_raw,
         &[
@@ -80,7 +80,7 @@ pub fn try_convert<S: Storage, A: Api, Q: Querier>(
         // deduct tax first
         let amount = (swap_asset.deduct_tax(&deps)?).amount;
         messages = vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: pair_contract,
+            contract_addr: pair_info.contract_addr,
             msg: to_binary(&TerraswapHandleMsg::Swap {
                 offer_asset: Asset {
                     amount,
@@ -100,7 +100,7 @@ pub fn try_convert<S: Storage, A: Api, Q: Querier>(
         messages = vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: asset_token.clone(),
             msg: to_binary(&Cw20HandleMsg::Send {
-                contract: pair_contract.clone(),
+                contract: pair_info.contract_addr,
                 amount,
                 msg: Some(to_binary(&TerraswapCw20HookMsg::Swap { max_spread: None })?),
             })?,

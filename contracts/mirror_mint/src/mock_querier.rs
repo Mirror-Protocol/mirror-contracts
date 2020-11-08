@@ -1,16 +1,15 @@
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_slice, to_binary, Api, CanonicalAddr, Coin, Decimal, Extern, HumanAddr, Querier, QuerierResult,
-    QueryRequest, StdError, SystemError, Uint128, WasmQuery,
+    from_binary, from_slice, to_binary, Api, CanonicalAddr, Coin, Decimal, Extern, HumanAddr,
+    Querier, QuerierResult, QueryRequest, SystemError, Uint128, WasmQuery,
 };
 use cosmwasm_storage::to_length_prefixed;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::querier::PriceInfo;
+use crate::{math::decimal_division, querier::OracleQueryMsg, querier::PriceResponse};
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
-use terraswap::AssetInfoRaw;
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
 /// this uses our CustomQuerier.
@@ -36,7 +35,7 @@ pub struct WasmMockQuerier {
     base: MockQuerier<TerraQueryWrapper>,
     token_querier: TokenQuerier,
     tax_querier: TaxQuerier,
-    oracle_querier: OracleQuerier,
+    oracle_price_querier: OraclePriceQuerier,
     canonical_length: usize,
 }
 
@@ -94,28 +93,28 @@ pub(crate) fn caps_to_map(caps: &[(&String, &Uint128)]) -> HashMap<String, Uint1
 }
 
 #[derive(Clone, Default)]
-pub struct OracleQuerier {
+pub struct OraclePriceQuerier {
     // this lets us iterate over all pairs that match the first string
-    prices: HashMap<String, Decimal>,
+    oracle_price: HashMap<String, Decimal>,
 }
 
-impl OracleQuerier {
-    pub fn new(prices: &[(&AssetInfoRaw, &Decimal)]) -> Self {
-        OracleQuerier {
-            prices: prices_to_map(prices),
+impl OraclePriceQuerier {
+    pub fn new(oracle_price: &[(&String, &Decimal)]) -> Self {
+        OraclePriceQuerier {
+            oracle_price: oracle_price_to_map(oracle_price),
         }
     }
 }
 
-pub(crate) fn prices_to_map(prices: &[(&AssetInfoRaw, &Decimal)]) -> HashMap<String, Decimal> {
-    let mut price_map: HashMap<String, Decimal> = HashMap::new();
-    for (asset_info, price) in prices.iter() {
-        price_map.insert(
-            String::from_utf8(asset_info.as_bytes().to_vec()).unwrap(),
-            **price,
-        );
+pub(crate) fn oracle_price_to_map(
+    oracle_price: &[(&String, &Decimal)],
+) -> HashMap<String, Decimal> {
+    let mut oracle_price_map: HashMap<String, Decimal> = HashMap::new();
+    for (base_quote, oracle_price) in oracle_price.iter() {
+        oracle_price_map.insert((*base_quote).clone(), **oracle_price);
     }
-    price_map
+
+    oracle_price_map
 }
 
 impl Querier for WasmMockQuerier {
@@ -168,35 +167,37 @@ impl WasmMockQuerier {
                     panic!("DO NOT ENTER HERE")
                 }
             }
+            QueryRequest::Wasm(WasmQuery::Smart {
+                contract_addr: _,
+                msg,
+            }) => match from_binary(&msg).unwrap() {
+                OracleQueryMsg::Price { base, quote } => {
+                    match self.oracle_price_querier.oracle_price.get(&base) {
+                        Some(base_price) => {
+                            match self.oracle_price_querier.oracle_price.get(&quote) {
+                                Some(quote_price) => Ok(to_binary(&PriceResponse {
+                                    rate: decimal_division(*quote_price, *base_price),
+                                    last_updated_base: 1000u64,
+                                    last_updated_quote: 1000u64,
+                                })),
+                                None => Err(SystemError::InvalidRequest {
+                                    error: "No oracle price exists".to_string(),
+                                    request: msg.as_slice().into(),
+                                }),
+                            }
+                        }
+                        None => Err(SystemError::InvalidRequest {
+                            error: "No oracle price exists".to_string(),
+                            request: msg.as_slice().into(),
+                        }),
+                    }
+                }
+            },
             QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
                 let key: &[u8] = key.as_slice();
                 let prefix_balance = to_length_prefixed(b"balance").to_vec();
-                let prefix_price = to_length_prefixed(b"price").to_vec();
-                if key[..prefix_price.len()].to_vec() == prefix_price {
-                    let key_asset_info: &[u8] = &key[prefix_price.len()..];
 
-                    let price = match self
-                        .oracle_querier
-                        .prices
-                        .get(&String::from_utf8(key_asset_info.to_vec()).unwrap())
-                    {
-                        Some(price) => price,
-                        None => {
-                            return Ok(Err(StdError::generic_err(format!(
-                                "No price registered for {}",
-                                contract_addr,
-                            ))))
-                        }
-                    };
-
-                    let price_info = PriceInfo {
-                        price: *price,
-                        last_update_time: 1000u64,
-                        asset_token: CanonicalAddr::default(),
-                    };
-
-                    Ok(to_binary(&to_binary(&price_info).unwrap()))
-                } else if key[..prefix_balance.len()].to_vec() == prefix_balance {
+                if key[..prefix_balance.len()].to_vec() == prefix_balance {
                     let balances: &HashMap<HumanAddr, Uint128> =
                         match self.token_querier.balances.get(contract_addr) {
                             Some(balances) => balances,
@@ -246,12 +247,16 @@ impl WasmMockQuerier {
 }
 
 impl WasmMockQuerier {
-    pub fn new<A: Api>(base: MockQuerier<TerraQueryWrapper>, _api: A, canonical_length: usize) -> Self {
+    pub fn new<A: Api>(
+        base: MockQuerier<TerraQueryWrapper>,
+        _api: A,
+        canonical_length: usize,
+    ) -> Self {
         WasmMockQuerier {
             base,
             token_querier: TokenQuerier::default(),
             tax_querier: TaxQuerier::default(),
-            oracle_querier: OracleQuerier::default(),
+            oracle_price_querier: OraclePriceQuerier::default(),
             canonical_length,
         }
     }
@@ -267,7 +272,7 @@ impl WasmMockQuerier {
     }
 
     // configure the oracle price mock querier
-    pub fn with_oracle_price(&mut self, prices: &[(&AssetInfoRaw, &Decimal)]) {
-        self.oracle_querier = OracleQuerier::new(prices);
+    pub fn with_oracle_price(&mut self, oracle_price: &[(&String, &Decimal)]) {
+        self.oracle_price_querier = OraclePriceQuerier::new(oracle_price);
     }
 }

@@ -10,7 +10,7 @@ use cosmwasm_storage::{
     singleton, singleton_read, Bucket, PrefixedStorage, ReadonlyBucket, ReadonlyPrefixedStorage,
 };
 use std::convert::TryInto;
-use terraswap::{AssetInfoRaw, AssetRaw};
+use terraswap::AssetRaw;
 
 static PREFIX_ASSET: &[u8] = b"asset";
 static PREFIX_POSITION: &[u8] = b"position";
@@ -32,8 +32,10 @@ pub fn read_position_idx<S: Storage>(storage: &S) -> StdResult<Uint128> {
 pub struct Config {
     pub owner: CanonicalAddr,
     pub oracle: CanonicalAddr,
-    pub base_asset_info: AssetInfoRaw,
+    pub collector: CanonicalAddr,
+    pub base_denom: String,
     pub token_code_id: u64,
+    pub protocol_fee_rate: Decimal,
 }
 
 pub fn store_config<S: Storage>(storage: &mut S, config: &Config) -> StdResult<()> {
@@ -54,18 +56,15 @@ pub struct AssetConfig {
 
 pub fn store_asset_config<S: Storage>(
     storage: &mut S,
-    asset_token: &CanonicalAddr,
+    asset_token: &String,
     asset: &AssetConfig,
 ) -> StdResult<()> {
-    PrefixedStorage::new(PREFIX_ASSET, storage).set(asset_token.as_slice(), &to_vec(&asset)?);
+    PrefixedStorage::new(PREFIX_ASSET, storage).set(asset_token.as_bytes(), &to_vec(&asset)?);
     Ok(())
 }
 
-pub fn read_asset_config<S: Storage>(
-    storage: &S,
-    asset_token: &CanonicalAddr,
-) -> StdResult<AssetConfig> {
-    let res = ReadonlyPrefixedStorage::new(PREFIX_ASSET, storage).get(asset_token.as_slice());
+pub fn read_asset_config<S: Storage>(storage: &S, asset_token: &String) -> StdResult<AssetConfig> {
+    let res = ReadonlyPrefixedStorage::new(PREFIX_ASSET, storage).get(asset_token.as_bytes());
     match res {
         Some(data) => from_slice(&data),
         None => Err(StdError::generic_err("no asset data stored")),

@@ -42,10 +42,6 @@ pub fn read_config<S: Storage>(storage: &S) -> StdResult<Config> {
 pub struct Params {
     /// inflation weight
     pub weight: Decimal,
-    /// Commission rate for active liquidity provider
-    pub lp_commission: Decimal,
-    /// Commission rate for owner controlled commission
-    pub owner_commission: Decimal,
     /// Auction discount rate applied to asset mint
     pub auction_discount: Decimal,
     /// Minium collateral ratio applied to asset mint

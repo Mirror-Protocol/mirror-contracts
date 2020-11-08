@@ -10,7 +10,7 @@ use cosmwasm_std::{
     from_binary, log, to_binary, CosmosMsg, Decimal, Env, HumanAddr, StdError, Uint128, WasmMsg,
 };
 use cw20::{Cw20HandleMsg, MinterResponse};
-use terraswap::{AssetInfo, InitHook, TokenInitMsg};
+use terraswap::{AssetInfo, FactoryHandleMsg as TerraswapFactoryHandleMsg, InitHook, TokenInitMsg};
 
 fn mock_env_height(signer: &HumanAddr, height: u64) -> Env {
     let mut env = mock_env(signer, &[]);
@@ -200,8 +200,6 @@ fn test_whitelist() {
         oracle_feeder: HumanAddr::from("feeder0000"),
         params: Params {
             weight: Decimal::from_ratio(15u64, 10u64),
-            lp_commission: Decimal::percent(1),
-            owner_commission: Decimal::percent(1),
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
         },
@@ -251,8 +249,6 @@ fn test_whitelist() {
         params,
         Params {
             weight: Decimal::from_ratio(15u64, 10u64),
-            lp_commission: Decimal::percent(1),
-            owner_commission: Decimal::percent(1),
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
         }
@@ -315,8 +311,6 @@ fn test_token_creation_hook() {
         oracle_feeder: HumanAddr::from("feeder0000"),
         params: Params {
             weight: Decimal::from_ratio(15u64, 10u64),
-            lp_commission: Decimal::percent(1),
-            owner_commission: Decimal::percent(1),
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
         },
@@ -346,7 +340,7 @@ fn test_token_creation_hook() {
                 contract_addr: HumanAddr::from("oracle0000"),
                 send: vec![],
                 msg: to_binary(&OracleHandleMsg::RegisterAsset {
-                    asset_token: HumanAddr::from("asset0000"),
+                    asset: "asset0000".to_string(),
                     feeder: HumanAddr::from("feeder0000"),
                 })
                 .unwrap(),
@@ -355,10 +349,6 @@ fn test_token_creation_hook() {
                 contract_addr: HumanAddr::from("terraswapfactory"),
                 send: vec![],
                 msg: to_binary(&TerraswapFactoryHandleMsg::CreatePair {
-                    pair_owner: env.contract.address,
-                    commission_collector: HumanAddr::from("collector0000"),
-                    lp_commission: Decimal::percent(1),
-                    owner_commission: Decimal::percent(1),
                     asset_infos: [
                         AssetInfo::NativeToken {
                             denom: BASE_DENOM.to_string(),
@@ -413,14 +403,8 @@ fn test_token_creation_hook() {
 #[test]
 fn test_terraswap_creation_hook() {
     let mut deps = mock_dependencies(20, &[]);
-    deps.querier.with_terraswap_pairs(&[(
-        &"asset0000\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}uusd".to_string(),
-        (&HumanAddr::from("owner0000"), &HumanAddr::from("pair0000")),
-    )]);
-    deps.querier.with_terraswap_pair_staking_token(&[(
-        &HumanAddr::from("pair0000"),
-        &HumanAddr::from("LP0000"),
-    )]);
+    deps.querier
+        .with_terraswap_pairs(&[(&"uusdasset0000".to_string(), &HumanAddr::from("LP0000"))]);
 
     let msg = InitMsg {
         mint_per_block: Uint128(100u128),
@@ -448,8 +432,6 @@ fn test_terraswap_creation_hook() {
         oracle_feeder: HumanAddr::from("feeder0000"),
         params: Params {
             weight: Decimal::from_ratio(15u64, 10u64),
-            lp_commission: Decimal::percent(1),
-            owner_commission: Decimal::percent(1),
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
         },
@@ -485,14 +467,8 @@ fn test_terraswap_creation_hook() {
 #[test]
 fn test_update_weight() {
     let mut deps = mock_dependencies(20, &[]);
-    deps.querier.with_terraswap_pairs(&[(
-        &"asset0000\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}uusd".to_string(),
-        (&HumanAddr::from("owner0000"), &HumanAddr::from("pair0000")),
-    )]);
-    deps.querier.with_terraswap_pair_staking_token(&[(
-        &HumanAddr::from("pair0000"),
-        &HumanAddr::from("LP0000"),
-    )]);
+    deps.querier
+        .with_terraswap_pairs(&[(&"uusdasset0000".to_string(), &HumanAddr::from("LP0000"))]);
 
     let msg = InitMsg {
         mint_per_block: Uint128(100u128),
@@ -520,8 +496,6 @@ fn test_update_weight() {
         oracle_feeder: HumanAddr::from("feeder0000"),
         params: Params {
             weight: Decimal::from_ratio(15u64, 10u64),
-            lp_commission: Decimal::percent(1),
-            owner_commission: Decimal::percent(1),
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
         },
@@ -584,18 +558,8 @@ fn test_update_weight() {
 fn test_mint() {
     let mut deps = mock_dependencies(20, &[]);
     deps.querier.with_terraswap_pairs(&[
-        (
-            &"asset0000\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}uusd".to_string(),
-            (&HumanAddr::from("owner0000"), &HumanAddr::from("pair0000")),
-        ),
-        (
-            &"asset0001\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}uusd".to_string(),
-            (&HumanAddr::from("owner0000"), &HumanAddr::from("pair0001")),
-        ),
-    ]);
-    deps.querier.with_terraswap_pair_staking_token(&[
-        (&HumanAddr::from("pair0000"), &HumanAddr::from("LP0000")),
-        (&HumanAddr::from("pair0001"), &HumanAddr::from("LP0001")),
+        (&"uusdasset0000".to_string(), &HumanAddr::from("LP0000")),
+        (&"uusdasset0001".to_string(), &HumanAddr::from("LP0001")),
     ]);
 
     let msg = InitMsg {
@@ -625,8 +589,6 @@ fn test_mint() {
         oracle_feeder: HumanAddr::from("feeder0000"),
         params: Params {
             weight: Decimal::from_ratio(15u64, 10u64),
-            lp_commission: Decimal::percent(1),
-            owner_commission: Decimal::percent(1),
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
         },
@@ -653,8 +615,6 @@ fn test_mint() {
         oracle_feeder: HumanAddr::from("feeder0000"),
         params: Params {
             weight: Decimal::one(),
-            lp_commission: Decimal::percent(1),
-            owner_commission: Decimal::percent(1),
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
         },
@@ -768,14 +728,8 @@ fn test_mint() {
 #[test]
 fn test_migration() {
     let mut deps = mock_dependencies(20, &[]);
-    deps.querier.with_terraswap_pairs(&[(
-        &"asset0000\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}uusd".to_string(),
-        (&HumanAddr::from("owner0000"), &HumanAddr::from("pair0000")),
-    )]);
-    deps.querier.with_terraswap_pair_staking_token(&[(
-        &HumanAddr::from("pair0000"),
-        &HumanAddr::from("LP0000"),
-    )]);
+    deps.querier
+        .with_terraswap_pairs(&[(&"uusdasset0000".to_string(), &HumanAddr::from("LP0000"))]);
 
     let msg = InitMsg {
         mint_per_block: Uint128(100u128),
@@ -804,8 +758,6 @@ fn test_migration() {
         oracle_feeder: HumanAddr::from("feeder0000"),
         params: Params {
             weight: Decimal::from_ratio(15u64, 10u64),
-            lp_commission: Decimal::percent(1),
-            owner_commission: Decimal::percent(1),
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
         },
@@ -833,10 +785,6 @@ fn test_migration() {
     deps.querier.with_oracle_feeders(&[(
         &HumanAddr::from("asset0000"),
         &HumanAddr::from("feeder0000"),
-    )]);
-    deps.querier.with_terraswap_pair_configs(&[(
-        &HumanAddr::from("pair0000"),
-        &(Decimal::percent(5), Decimal::percent(150)),
     )]);
 
     // unauthorized migrate attempt

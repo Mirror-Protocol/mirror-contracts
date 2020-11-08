@@ -614,7 +614,6 @@ dependencies = [
  "cosmwasm-vm",
  "schemars",
  "serde",
- "terraswap",
 ]
 
 [[package]]

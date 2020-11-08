@@ -6,23 +6,16 @@ use cosmwasm_std::{
 use cosmwasm_storage::to_length_prefixed;
 use serde::{Deserialize, Serialize};
 
-/// ReverseSimulationResponse returns reverse swap simulation response
-#[derive(Serialize, Deserialize)]
-pub struct OracleAssetConfig {
-    pub asset_token: CanonicalAddr,
-    pub feeder: CanonicalAddr,
-}
-
 pub fn load_oracle_feeder<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     contract_addr: &HumanAddr,
-    asset_token: &CanonicalAddr,
+    asset_token: &HumanAddr,
 ) -> StdResult<CanonicalAddr> {
     let res: StdResult<Binary> = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
         contract_addr: HumanAddr::from(contract_addr),
         key: Binary::from(concat(
-            &to_length_prefixed(b"asset"),
-            asset_token.as_slice(),
+            &to_length_prefixed(b"feeder"),
+            asset_token.to_string().as_bytes(),
         )),
     }));
 
@@ -33,48 +26,15 @@ pub fn load_oracle_feeder<S: Storage, A: Api, Q: Querier>(
         }
     };
 
-    let asset_config: StdResult<OracleAssetConfig> = from_binary(&res);
-    let asset_config: OracleAssetConfig = match asset_config {
+    let feeder: StdResult<CanonicalAddr> = from_binary(&res);
+    let feeder: CanonicalAddr = match feeder {
         Ok(v) => v,
         Err(_) => {
             return Err(StdError::generic_err("Falied to fetch the oracle feeder"));
         }
     };
 
-    Ok(asset_config.feeder)
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct PairConfigSwap {
-    pub lp_commission: Decimal,
-    pub owner_commission: Decimal,
-}
-
-pub fn load_commissions<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    contract_addr: &HumanAddr,
-) -> StdResult<(Decimal, Decimal)> {
-    let res: StdResult<Binary> = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
-        contract_addr: HumanAddr::from(contract_addr),
-        key: Binary::from(concat(&to_length_prefixed(b"config"), b"swap")),
-    }));
-
-    let res = match res {
-        Ok(v) => v,
-        Err(_) => {
-            return Err(StdError::generic_err("Falied to fetch the commissions"));
-        }
-    };
-
-    let asset_config: StdResult<PairConfigSwap> = from_binary(&res);
-    let asset_config: PairConfigSwap = match asset_config {
-        Ok(v) => v,
-        Err(_) => {
-            return Err(StdError::generic_err("Falied to fetch the commissions"));
-        }
-    };
-
-    Ok((asset_config.lp_commission, asset_config.owner_commission))
+    Ok(feeder)
 }
 
 #[derive(Serialize, Deserialize)]
@@ -87,20 +47,22 @@ pub struct MintAssetConfig {
 pub fn load_mint_asset_config<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     contract_addr: &HumanAddr,
-    asset_token: &CanonicalAddr,
+    asset_token: String,
 ) -> StdResult<(Decimal, Decimal)> {
     let res: StdResult<Binary> = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
         contract_addr: HumanAddr::from(contract_addr),
         key: Binary::from(concat(
             &to_length_prefixed(b"asset"),
-            asset_token.as_slice(),
+            asset_token.as_bytes(),
         )),
     }));
 
     let res = match res {
         Ok(v) => v,
         Err(_) => {
-            return Err(StdError::generic_err("Falied to fetch the mint asset config"));
+            return Err(StdError::generic_err(
+                "Falied to fetch the mint asset config",
+            ));
         }
     };
 
@@ -108,7 +70,9 @@ pub fn load_mint_asset_config<S: Storage, A: Api, Q: Querier>(
     let asset_config: MintAssetConfig = match asset_config {
         Ok(v) => v,
         Err(_) => {
-            return Err(StdError::generic_err("Falied to fetch the mint asset config"));
+            return Err(StdError::generic_err(
+                "Falied to fetch the mint asset config",
+            ));
         }
     };
 

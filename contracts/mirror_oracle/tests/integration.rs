@@ -16,7 +16,6 @@
 //!          //...
 //!      });
 //! 4. Anywhere you see query(&deps, ...) you must replace it with query(&mut deps, ...)
-use std::str::FromStr;
 
 use cosmwasm_std::{
     from_binary, Coin, Decimal, HandleResponse, HandleResult, HumanAddr, InitResponse, StdError,
@@ -25,8 +24,7 @@ use cosmwasm_vm::testing::{
     handle, init, mock_dependencies, mock_env, query, MockApi, MockQuerier, MockStorage,
 };
 use cosmwasm_vm::Instance;
-use mirror_oracle::msg::{ConfigResponse, HandleMsg, InitMsg, PriceInfo, PriceResponse, QueryMsg};
-use terraswap::AssetInfo;
+use mirror_oracle::msg::{ConfigResponse, HandleMsg, InitMsg, PriceResponse, QueryMsg};
 
 // This line will test the output of cargo wasm
 static WASM: &[u8] =
@@ -53,9 +51,7 @@ fn proper_initialization() {
 
     let msg = InitMsg {
         owner: HumanAddr::from("owner0000"),
-        base_asset_info: AssetInfo::NativeToken {
-            denom: "base0000".to_string(),
-        },
+        base_asset: "base0000".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -68,7 +64,7 @@ fn proper_initialization() {
     let res = query(&mut deps, QueryMsg::Config {}).unwrap();
     let value: ConfigResponse = from_binary(&res).unwrap();
     assert_eq!("owner0000", value.owner.as_str());
-    assert_eq!("base0000", value.base_asset_info.to_string());
+    assert_eq!("base0000", value.base_asset);
 }
 
 #[test]
@@ -76,9 +72,7 @@ fn update_owner() {
     let mut deps = mock_instance(WASM, &[]);
     let msg = InitMsg {
         owner: HumanAddr("owner0000".to_string()),
-        base_asset_info: AssetInfo::NativeToken {
-            denom: "base0000".to_string(),
-        },
+        base_asset: "base0000".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -98,7 +92,7 @@ fn update_owner() {
     let query_result = query(&mut deps, QueryMsg::Config {}).unwrap();
     let value: ConfigResponse = from_binary(&query_result).unwrap();
     assert_eq!("owner0001", value.owner.as_str());
-    assert_eq!("base0000", value.base_asset_info.to_string());
+    assert_eq!("base0000", value.base_asset);
 
     // Unauthorzied err
     let env = mock_env("addr0000", &[]);
@@ -116,9 +110,7 @@ fn update_price() {
     let mut deps = mock_instance(WASM, &[]);
     let msg = InitMsg {
         owner: HumanAddr("owner0000".to_string()),
-        base_asset_info: AssetInfo::NativeToken {
-            denom: "base0000".to_string(),
-        },
+        base_asset: "base0000".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -128,7 +120,7 @@ fn update_price() {
 
     // register asset
     let msg = HandleMsg::RegisterAsset {
-        asset_token: HumanAddr::from("mAPPL"),
+        asset: "mAAPL".to_string(),
         feeder: HumanAddr::from("addr0000"),
     };
 
@@ -140,7 +132,7 @@ fn update_price() {
     }
 
     let msg = HandleMsg::RegisterAsset {
-        asset_token: HumanAddr::from("mAPPL"),
+        asset: "mAAPL".to_string(),
         feeder: HumanAddr::from("addr0000"),
     };
 
@@ -149,7 +141,7 @@ fn update_price() {
 
     // try register the asset is already exists
     let msg = HandleMsg::RegisterAsset {
-        asset_token: HumanAddr::from("mAPPL"),
+        asset: "mAAPL".to_string(),
         feeder: HumanAddr::from("addr0000"),
     };
 
@@ -163,10 +155,7 @@ fn update_price() {
     // update price
     let env = mock_env("addr0000", &[]);
     let msg = HandleMsg::FeedPrice {
-        price_infos: vec![PriceInfo {
-            asset_token: HumanAddr::from("mAPPL"),
-            price: Decimal::from_str("1.2").unwrap(),
-        }],
+        prices: vec![("mAAPL".to_string(), Decimal::from_ratio(12u128, 10u128))],
     };
 
     let res: HandleResponse = handle(&mut deps, env, msg).unwrap();
@@ -176,20 +165,18 @@ fn update_price() {
     let query_result = query(
         &mut deps,
         QueryMsg::Price {
-            asset_token: HumanAddr::from("mAPPL"),
+            base: "base0000".to_string(),
+            quote: "mAAPL".to_string(),
         },
     )
     .unwrap();
     let value: PriceResponse = from_binary(&query_result).unwrap();
-    assert_eq!("1.2", format!("{}", value.price));
+    assert_eq!("1.2", format!("{}", value.rate));
 
     // Unauthorzied err
     let env = mock_env("addr0001", &[]);
     let msg = HandleMsg::FeedPrice {
-        price_infos: vec![PriceInfo {
-            asset_token: HumanAddr::from("mAPPL"),
-            price: Decimal::from_str("1.2").unwrap(),
-        }],
+        prices: vec![("mAAPL".to_string(), Decimal::from_ratio(12u128, 10u128))],
     };
 
     let res: HandleResult = handle(&mut deps, env, msg);

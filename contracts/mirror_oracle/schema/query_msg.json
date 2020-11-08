@@ -16,17 +16,17 @@
     {
       "type": "object",
       "required": [
-        "asset"
+        "feeder"
       ],
       "properties": {
-        "asset": {
+        "feeder": {
           "type": "object",
           "required": [
-            "asset_token"
+            "asset"
           ],
           "properties": {
-            "asset_token": {
-              "$ref": "#/definitions/HumanAddr"
+            "asset": {
+              "type": "string"
             }
           }
         }
@@ -41,11 +41,15 @@
         "price": {
           "type": "object",
           "required": [
-            "asset_token"
+            "base",
+            "quote"
           ],
           "properties": {
-            "asset_token": {
-              "$ref": "#/definitions/HumanAddr"
+            "base": {
+              "type": "string"
+            },
+            "quote": {
+              "type": "string"
             }
           }
         }
@@ -58,14 +62,25 @@
       ],
       "properties": {
         "prices": {
-          "type": "object"
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint32",
+              "minimum": 0.0
+            },
+            "start_after": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
         }
       }
     }
-  ],
-  "definitions": {
-    "HumanAddr": {
-      "type": "string"
-    }
-  }
+  ]
 }

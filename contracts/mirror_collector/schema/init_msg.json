@@ -4,26 +4,24 @@
   "type": "object",
   "required": [
     "base_denom",
-    "distribution_contract",
-    "mirror_token",
-    "terraswap_factory"
+    "mint_per_block",
+    "token_code_id"
   ],
   "properties": {
     "base_denom": {
       "type": "string"
     },
-    "distribution_contract": {
-      "$ref": "#/definitions/HumanAddr"
+    "mint_per_block": {
+      "$ref": "#/definitions/Uint128"
     },
-    "mirror_token": {
-      "$ref": "#/definitions/HumanAddr"
-    },
-    "terraswap_factory": {
-      "$ref": "#/definitions/HumanAddr"
+    "token_code_id": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
     }
   },
   "definitions": {
-    "HumanAddr": {
+    "Uint128": {
       "type": "string"
     }
   }

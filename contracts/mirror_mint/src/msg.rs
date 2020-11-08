@@ -9,18 +9,28 @@ use terraswap::{Asset, AssetInfo};
 pub struct InitMsg {
     pub owner: HumanAddr,
     pub oracle: HumanAddr,
-    pub base_asset_info: AssetInfo,
+    pub collector: HumanAddr,
+    pub base_denom: String,
     pub token_code_id: u64,
+    pub protocol_fee_rate: Decimal,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum HandleMsg {
     Receive(Cw20ReceiveMsg),
+
+    //////////////////////
+    /// Owner Operations
+    //////////////////////
+
     /// Update config; only owner is allowed to execute it
     UpdateConfig {
         owner: Option<HumanAddr>,
+        oracle: Option<HumanAddr>,
+        collector: Option<HumanAddr>,
         token_code_id: Option<u64>,
+        protocol_fee_rate: Option<Decimal>,
     },
     /// Update asset related parameters
     UpdateAsset {
@@ -38,6 +48,10 @@ pub enum HandleMsg {
         asset_token: HumanAddr,
         end_price: Decimal,
     },
+
+    //////////////////////
+    /// User Operations
+    //////////////////////
     // Create position to meet collateral ratio
     OpenPosition {
         collateral: Asset,
@@ -100,8 +114,10 @@ pub enum QueryMsg {
 pub struct ConfigResponse {
     pub owner: HumanAddr,
     pub oracle: HumanAddr,
-    pub base_asset_info: AssetInfo,
+    pub collector: HumanAddr,
+    pub base_denom: String,
     pub token_code_id: u64,
+    pub protocol_fee_rate: Decimal,
 }
 
 // We define a custom struct for each query response

@@ -2,12 +2,11 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{Decimal, HumanAddr};
-use terraswap::AssetInfo;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
     pub owner: HumanAddr,
-    pub base_asset_info: AssetInfo,
+    pub base_asset: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -18,53 +17,63 @@ pub enum HandleMsg {
     },
     /// Used to register new asset or to update feeder
     RegisterAsset {
-        asset_token: HumanAddr,
+        asset: String,
         feeder: HumanAddr,
     },
     FeedPrice {
-        price_infos: Vec<PriceInfo>,
+        prices: Vec<(String, Decimal)>,
     },
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct PriceInfo {
-    pub asset_token: HumanAddr,
-    pub price: Decimal,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     Config {},
-    Asset { asset_token: HumanAddr },
-    Price { asset_token: HumanAddr },
-    Prices {},
+    Feeder {
+        asset: String,
+    },
+    Price {
+        base: String,
+        quote: String,
+    },
+    Prices {
+        start_after: Option<String>,
+        limit: Option<u32>,
+    },
 }
 
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ConfigResponse {
     pub owner: HumanAddr,
-    pub base_asset_info: AssetInfo,
+    pub base_asset: String,
 }
 
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct AssetResponse {
-    pub asset_token: HumanAddr,
+pub struct FeederResponse {
+    pub asset: String,
     pub feeder: HumanAddr,
 }
 
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct PriceResponse {
+    pub rate: Decimal,
+    pub last_updated_base: u64,
+    pub last_updated_quote: u64,
+}
+
+// We define a custom struct for each query response
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct PricesResponseElem {
+    pub asset: String,
     pub price: Decimal,
-    pub last_update_time: u64,
-    pub asset_token: HumanAddr,
+    pub last_updated_time: u64,
 }
 
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct PricesResponse {
-    pub prices: Vec<PriceResponse>,
+    pub prices: Vec<PricesResponseElem>,
 }

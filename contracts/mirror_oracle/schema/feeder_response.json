@@ -1,14 +1,14 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "AssetResponse",
+  "title": "FeederResponse",
   "type": "object",
   "required": [
-    "asset_token",
+    "asset",
     "feeder"
   ],
   "properties": {
-    "asset_token": {
-      "$ref": "#/definitions/HumanAddr"
+    "asset": {
+      "type": "string"
     },
     "feeder": {
       "$ref": "#/definitions/HumanAddr"
