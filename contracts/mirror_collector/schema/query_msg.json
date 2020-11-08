@@ -12,30 +12,6 @@
           "type": "object"
         }
       }
-    },
-    {
-      "type": "object",
-      "required": [
-        "distribution_info"
-      ],
-      "properties": {
-        "distribution_info": {
-          "type": "object",
-          "required": [
-            "asset_token"
-          ],
-          "properties": {
-            "asset_token": {
-              "$ref": "#/definitions/HumanAddr"
-            }
-          }
-        }
-      }
     }
-  ],
-  "definitions": {
-    "HumanAddr": {
-      "type": "string"
-    }
-  }
+  ]
 }

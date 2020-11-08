@@ -4,55 +4,26 @@
   "type": "object",
   "required": [
     "base_denom",
-    "commission_collector",
-    "mint_contract",
-    "mint_per_block",
+    "distribution_contract",
     "mirror_token",
-    "oracle_contract",
-    "owner",
-    "staking_contract",
-    "terraswap_factory",
-    "token_code_id"
+    "terraswap_factory"
   ],
   "properties": {
     "base_denom": {
       "type": "string"
     },
-    "commission_collector": {
+    "distribution_contract": {
       "$ref": "#/definitions/HumanAddr"
-    },
-    "mint_contract": {
-      "$ref": "#/definitions/HumanAddr"
-    },
-    "mint_per_block": {
-      "$ref": "#/definitions/Uint128"
     },
     "mirror_token": {
       "$ref": "#/definitions/HumanAddr"
     },
-    "oracle_contract": {
-      "$ref": "#/definitions/HumanAddr"
-    },
-    "owner": {
-      "$ref": "#/definitions/HumanAddr"
-    },
-    "staking_contract": {
-      "$ref": "#/definitions/HumanAddr"
-    },
     "terraswap_factory": {
       "$ref": "#/definitions/HumanAddr"
-    },
-    "token_code_id": {
-      "type": "integer",
-      "format": "uint64",
-      "minimum": 0.0
     }
   },
   "definitions": {
     "HumanAddr": {
-      "type": "string"
-    },
-    "Uint128": {
       "type": "string"
     }
   }
