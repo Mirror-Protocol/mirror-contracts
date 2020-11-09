@@ -187,7 +187,7 @@ fn query_price<S: Storage, A: Api, Q: Querier>(
     };
 
     Ok(PriceResponse {
-        rate: decimal_division(quote_price.price, base_price.price),
+        rate: decimal_division(base_price.price, quote_price.price),
         last_updated_base: base_price.last_updated_time,
         last_updated_quote: quote_price.last_updated_time,
     })
@@ -337,13 +337,13 @@ mod tests {
         );
 
         let value: PriceResponse =
-            query_price(&deps, "base0000".to_string(), "mAAPL".to_string()).unwrap();
+            query_price(&deps, "mAAPL".to_string(), "base0000".to_string()).unwrap();
         assert_eq!(
             value,
             PriceResponse {
                 rate: Decimal::zero(),
-                last_updated_base: 9999999999u64,
-                last_updated_quote: 0u64,
+                last_updated_base: 0u64,
+                last_updated_quote: 9999999999u64,
             }
         );
 
@@ -356,13 +356,13 @@ mod tests {
         let env = mock_env("addr0000", &[]);
         let _res = handle(&mut deps, env.clone(), msg).unwrap();
         let value: PriceResponse =
-            query_price(&deps, "base0000".to_string(), "mAAPL".to_string()).unwrap();
+            query_price(&deps, "mAAPL".to_string(), "base0000".to_string()).unwrap();
         assert_eq!(
             value,
             PriceResponse {
                 rate: Decimal::from_ratio(12u128, 10u128),
-                last_updated_base: 9999999999u64,
-                last_updated_quote: env.block.time,
+                last_updated_base: env.block.time,
+                last_updated_quote: 9999999999u64,
             }
         );
 

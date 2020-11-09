@@ -176,7 +176,7 @@ impl WasmMockQuerier {
                         Some(base_price) => {
                             match self.oracle_price_querier.oracle_price.get(&quote) {
                                 Some(quote_price) => Ok(to_binary(&PriceResponse {
-                                    rate: decimal_division(*quote_price, *base_price),
+                                    rate: decimal_division(*base_price, *quote_price),
                                     last_updated_base: 1000u64,
                                     last_updated_quote: 1000u64,
                                 })),

@@ -350,11 +350,12 @@ pub fn try_open_position<S: Storage, A: Api, Q: Querier>(
     let price: Decimal = load_price(
         &deps,
         &oracle,
-        asset_info.to_string(),
         collateral.info.to_string(),
+        asset_info.to_string(),
         Some(env.block.time),
     )?;
 
+    // Convert collateral to asset unit
     let mint_amount = collateral.amount * price * reverse_decimal(collateral_ratio);
     if mint_amount.is_zero() {
         return Err(StdError::generic_err("collateral is too small"));
@@ -472,8 +473,8 @@ pub fn try_withdraw<S: Storage, A: Api, Q: Querier>(
     let price: Decimal = load_price(
         &deps,
         &oracle,
-        collateral.info.to_string(),
         asset_info.to_string(),
+        collateral.info.to_string(),
         Some(env.block.time),
     )?;
 
@@ -558,8 +559,8 @@ pub fn try_mint<S: Storage, A: Api, Q: Querier>(
     let price: Decimal = load_price(
         &deps,
         &oracle,
-        (position.collateral.info.to_normal(&deps)?).to_string(),
         asset.info.to_string(),
+        (position.collateral.info.to_normal(&deps)?).to_string(),
         Some(env.block.time),
     )?;
 
@@ -623,7 +624,7 @@ pub fn try_burn<S: Storage, A: Api, Q: Querier>(
     let mut messages: Vec<CosmosMsg> = vec![];
     let mut logs: Vec<LogAttribute> = vec![];
     if let Some(end_price) = asset_config.end_price {
-        // Burn deprecated asset occurs refund collateral msg
+        // Burn deprecated asset to receive collaterals back
         let refund_collateral = Asset {
             info: position.collateral.info.to_normal(&deps)?,
             amount: asset.amount * end_price,
@@ -645,6 +646,7 @@ pub fn try_burn<S: Storage, A: Api, Q: Querier>(
                 .clone()
                 .into_msg(&deps, env.contract.address, sender)?,
         );
+
         logs.push(log(
             "refund_collateral_amount",
             refund_collateral.to_string(),
@@ -715,8 +717,8 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
     let price: Decimal = load_price(
         &deps,
         &oracle,
-        (position.collateral.info.to_normal(&deps)?).to_string(),
         asset.info.to_string(),
+        (position.collateral.info.to_normal(&deps)?).to_string(),
         Some(env.block.time),
     )?;
 
