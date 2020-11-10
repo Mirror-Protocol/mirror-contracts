@@ -43,27 +43,28 @@ pub fn load_price<S: Storage, A: Api, Q: Querier>(
     let quote_asset = (quote_asset.to_normal(&deps)?).to_string();
 
     // load price form the oracle
-    let price: Decimal = if base_end_price.is_none() && quote_end_price.is_none() {
-        query_price(deps, oracle, base_asset, quote_asset, block_time)?
-    } else if base_end_price.is_some() {
-        let quote_price = if config.base_denom == quote_asset {
-            Decimal::one()
-        } else {
-            query_price(deps, oracle, config.base_denom, quote_asset, block_time)?
-        };
+    let price: Decimal =
+        if let (Some(base_end_price), Some(quote_end_price)) = (base_end_price, quote_end_price) {
+            decimal_division(base_end_price, quote_end_price)
+        } else if let Some(base_end_price) = base_end_price {
+            let quote_price = if config.base_denom == quote_asset {
+                Decimal::one()
+            } else {
+                query_price(deps, oracle, config.base_denom, quote_asset, block_time)?
+            };
 
-        decimal_division(base_end_price.unwrap(), quote_price)
-    } else if quote_end_price.is_some() {
-        let base_price = if config.base_denom == base_asset {
-            Decimal::one()
-        } else {
-            query_price(deps, oracle, config.base_denom, base_asset, block_time)?
-        };
+            decimal_division(base_end_price, quote_price)
+        } else if let Some(quote_end_price) = quote_end_price {
+            let base_price = if config.base_denom == base_asset {
+                Decimal::one()
+            } else {
+                query_price(deps, oracle, config.base_denom, base_asset, block_time)?
+            };
 
-        decimal_division(base_price, quote_end_price.unwrap())
-    } else {
-        decimal_division(base_end_price.unwrap(), quote_end_price.unwrap())
-    };
+            decimal_division(base_price, quote_end_price)
+        } else {
+            query_price(deps, oracle, base_asset, quote_asset, block_time)?
+        };
 
     Ok(price)
 }

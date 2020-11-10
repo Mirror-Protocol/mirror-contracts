@@ -10,10 +10,10 @@ use crate::msg::{
 };
 
 use crate::state::{
-    create_position, read_asset_config, read_config, read_position,
-    read_position_idx, read_positions, read_positions_with_asset_indexer,
-    read_positions_with_user_indexer, remove_position, store_asset_config, store_config,
-    store_position, store_position_idx, AssetConfig, Config, Position,
+    create_position, read_asset_config, read_config, read_position, read_position_idx,
+    read_positions, read_positions_with_asset_indexer, read_positions_with_user_indexer,
+    remove_position, store_asset_config, store_config, store_position, store_position_idx,
+    AssetConfig, Config, Position,
 };
 
 use crate::math::{decimal_division, decimal_subtraction, reverse_decimal};
@@ -343,11 +343,7 @@ pub fn try_open_position<S: Storage, A: Api, Q: Querier>(
     };
 
     let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
-    if let Some(_) = asset_config.end_price {
-        return Err(StdError::generic_err(
-            "Can not open a deprecated asset position",
-        ));
-    }
+    assert_migrated_asset(&asset_config)?;
 
     if collateral_ratio < asset_config.min_collateral_ratio {
         return Err(StdError::generic_err(
@@ -436,11 +432,7 @@ pub fn try_deposit<S: Storage, A: Api, Q: Querier>(
     };
 
     let asset_config = read_asset_config(&deps.storage, &asset_token_raw)?;
-    if let Some(_) = asset_config.end_price {
-        return Err(StdError::generic_err(
-            "Cannot deposit more collateral to the deprecated asset position",
-        ));
-    }
+    assert_migrated_asset(&asset_config)?;
 
     // Increase collateral amount
     position.collateral.amount += collateral.amount;
@@ -515,7 +507,7 @@ pub fn try_withdraw<S: Storage, A: Api, Q: Querier>(
         store_position(&mut deps.storage, position_idx, &position)?;
     }
 
-    let mut collateral = collateral.clone();
+    let mut collateral = collateral;
 
     // Deduct protocol fee
     let protocol_fee = Asset {
@@ -573,9 +565,7 @@ pub fn try_mint<S: Storage, A: Api, Q: Querier>(
     };
 
     let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
-    if let Some(_) = asset_config.end_price {
-        return Err(StdError::generic_err("Cannot mint deprecated asset"));
-    }
+    assert_migrated_asset(&asset_config)?;
 
     let oracle: HumanAddr = deps.api.human_address(&config.oracle)?;
     let price: Decimal = load_price(
@@ -720,7 +710,6 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
     asset: Asset,
 ) -> StdResult<HandleResponse> {
     let mut position: Position = read_position(&deps.storage, position_idx)?;
-
     assert_asset(&deps, &position, &asset)?;
 
     let config: Config = read_config(&deps.storage)?;
@@ -730,11 +719,7 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
     };
 
     let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
-    if let Some(_) = asset_config.end_price {
-        return Err(StdError::generic_err(
-            "Cannot liquidate a deprecated asset position",
-        ));
-    }
+    assert_migrated_asset(&asset_config)?;
 
     let collateral_info = position.collateral.info.to_normal(&deps)?;
     let position_owner = deps.api.human_address(&position.owner)?;
@@ -840,21 +825,34 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
         send: vec![],
     }));
 
+    // Charge protocol fee to profit
+    // profit = return_collateral - liquidate_asset * (origin)price
+    let profit = (return_collateral_amount - liquidated_asset_amount * price).unwrap();
+    let protocol_fee = profit * config.protocol_fee_rate;
+    let return_collateral_amount = (return_collateral_amount - protocol_fee).unwrap();
+
     // return collateral to liqudation initiator(sender)
     let return_collateral_asset = Asset {
         info: collateral_info.clone(),
         amount: return_collateral_amount,
     };
+    let tax_amount = return_collateral_asset.compute_tax(&deps)?;
+    messages.push(return_collateral_asset.into_msg(&deps, env.contract.address.clone(), sender)?);
 
-    // liquidated asset
-    let liquidated_asset: Asset = Asset {
-        info: asset.info,
-        amount: liquidated_asset_amount,
+    // protocol fee sent to collector
+    let protocol_fee_asset = Asset {
+        info: collateral_info.clone(),
+        amount: protocol_fee,
     };
 
-    let tax_amount = return_collateral_asset.compute_tax(&deps)?;
-    messages.push(return_collateral_asset.into_msg(&deps, env.contract.address, sender)?);
+    messages.push(protocol_fee_asset.into_msg(
+        &deps,
+        env.contract.address,
+        deps.api.human_address(&config.collector)?,
+    )?);
 
+    let collateral_info_str = collateral_info.to_string();
+    let asset_info_str = asset.info.to_string();
     Ok(HandleResponse {
         log: vec![
             log("action", "auction"),
@@ -862,12 +860,16 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
             log("owner", position_owner.as_str()),
             log(
                 "return_collateral_amount",
-                return_collateral_amount.to_string() + &collateral_info.to_string(),
+                return_collateral_amount.to_string() + &collateral_info_str,
             ),
-            log("liquidated_amount", liquidated_asset.to_string()),
             log(
-                "tax_amount",
-                tax_amount.to_string() + &collateral_info.to_string(),
+                "liquidated_amount",
+                liquidated_asset_amount.to_string() + &asset_info_str,
+            ),
+            log("tax_amount", tax_amount.to_string() + &collateral_info_str),
+            log(
+                "protocol_fee",
+                protocol_fee.to_string() + &collateral_info_str,
             ),
         ],
         messages,
@@ -1013,6 +1015,16 @@ fn assert_asset<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<()> {
     if !asset.info.equal(&position.asset.info.to_normal(&deps)?) || asset.amount.is_zero() {
         return Err(StdError::generic_err("Wrong asset"));
+    }
+
+    Ok(())
+}
+
+fn assert_migrated_asset(asset_config: &AssetConfig) -> StdResult<()> {
+    if asset_config.end_price.is_some() {
+        return Err(StdError::generic_err(
+            "Operation is not allowed for the deprecated asset",
+        ));
     }
 
     Ok(())

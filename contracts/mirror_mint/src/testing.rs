@@ -736,7 +736,7 @@ fn migrated_asset() {
     let res = handle(&mut deps, env, msg).unwrap_err();
     match res {
         StdError::GenericErr { msg, .. } => {
-            assert_eq!(msg, "Can not open a deprecated asset position")
+            assert_eq!(msg, "Operation is not allowed for the deprecated asset")
         }
         _ => panic!("DO NOT ENTER HERE"),
     }
@@ -760,10 +760,9 @@ fn migrated_asset() {
     );
     let res = handle(&mut deps, env, msg).unwrap_err();
     match res {
-        StdError::GenericErr { msg, .. } => assert_eq!(
-            msg,
-            "Cannot deposit more collateral to the deprecated asset position"
-        ),
+        StdError::GenericErr { msg, .. } => {
+            assert_eq!(msg, "Operation is not allowed for the deprecated asset")
+        }
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -779,7 +778,9 @@ fn migrated_asset() {
     let env = mock_env("addr0000", &[]);
     let res = handle(&mut deps, env, msg).unwrap_err();
     match res {
-        StdError::GenericErr { msg, .. } => assert_eq!(msg, "Cannot mint deprecated asset"),
+        StdError::GenericErr { msg, .. } => {
+            assert_eq!(msg, "Operation is not allowed for the deprecated asset")
+        }
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -1990,8 +1991,22 @@ fn auction() {
                 to_address: HumanAddr::from("addr0001"),
                 amount: vec![Coin {
                     denom: "uusd".to_string(),
-                    amount: Uint128(920542u128) // Tax (5%) 966570 * 1 / 1.05 -> 920542
+                    // Origin:          966,570
+                    // Profit:          193,314
+                    // ProtocolFee(1%): -1,933
+                    // Tax(5%):         -45,936
+                    amount: Uint128(918701u128) 
                 }],
+            }),
+            CosmosMsg::Bank(BankMsg::Send {
+                from_address: HumanAddr::from(MOCK_CONTRACT_ADDR),
+                to_address: HumanAddr::from("collector0000"),
+                amount: vec![Coin {
+                    denom: "uusd".to_string(),
+                    // Origin:  1933
+                    // Tax(5%): -93
+                    amount: Uint128(1840u128) 
+                }]
             })
         ],
     );
@@ -2001,9 +2016,10 @@ fn auction() {
             log("action", "auction"),
             log("position_idx", "1"),
             log("owner", "addr0000"),
-            log("return_collateral_amount", "966570uusd"),
+            log("return_collateral_amount", "964637uusd"),
             log("liquidated_amount", "6666asset0000"),
-            log("tax_amount", "46028uusd"),
+            log("tax_amount", "45936uusd"),
+            log("protocol_fee", "1933uusd"),
         ]
     );
 
@@ -2055,7 +2071,16 @@ fn auction() {
                 contract_addr: HumanAddr::from("asset0001"),
                 msg: to_binary(&Cw20HandleMsg::Transfer {
                     recipient: HumanAddr::from("addr0001"),
-                    amount: Uint128(1000000u128),
+                    amount: Uint128(998000u128), // protocol fee = 200000 * 0.01 = 2000
+                })
+                .unwrap(),
+                send: vec![],
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from("asset0001"),
+                msg: to_binary(&Cw20HandleMsg::Transfer {
+                    recipient: HumanAddr::from("collector0000"),
+                    amount: Uint128(2000u128), 
                 })
                 .unwrap(),
                 send: vec![],
@@ -2068,9 +2093,10 @@ fn auction() {
             log("action", "auction"),
             log("position_idx", "2"),
             log("owner", "addr0000"),
-            log("return_collateral_amount", "1000000asset0001"),
+            log("return_collateral_amount", "998000asset0001"),
             log("liquidated_amount", "200000asset0000"),
             log("tax_amount", "0asset0001"),
+            log("protocol_fee", "2000asset0001"),
         ]
     );
 }
