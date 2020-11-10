@@ -58,13 +58,23 @@
         "feed_price": {
           "type": "object",
           "required": [
-            "price_infos"
+            "prices"
           ],
           "properties": {
-            "price_infos": {
+            "prices": {
               "type": "array",
               "items": {
-                "$ref": "#/definitions/PriceInfo"
+                "type": "array",
+                "items": [
+                  {
+                    "$ref": "#/definitions/HumanAddr"
+                  },
+                  {
+                    "$ref": "#/definitions/Decimal"
+                  }
+                ],
+                "maxItems": 2,
+                "minItems": 2
               }
             }
           }
@@ -79,21 +89,6 @@
     },
     "HumanAddr": {
       "type": "string"
-    },
-    "PriceInfo": {
-      "type": "object",
-      "required": [
-        "asset_token",
-        "price"
-      ],
-      "properties": {
-        "asset_token": {
-          "$ref": "#/definitions/HumanAddr"
-        },
-        "price": {
-          "$ref": "#/definitions/Decimal"
-        }
-      }
     }
   }
 }

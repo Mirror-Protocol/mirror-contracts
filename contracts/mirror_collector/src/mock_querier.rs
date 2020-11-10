@@ -1,14 +1,17 @@
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_slice, to_binary, Api, CanonicalAddr, Coin, Decimal, Extern, HumanAddr, Querier,
-    QuerierResult, QueryRequest, SystemError, Uint128, WasmQuery,
+    from_binary, from_slice, to_binary, Api, CanonicalAddr, Coin, Decimal, Extern, HumanAddr,
+    Querier, QuerierResult, QueryRequest, SystemError, Uint128, WasmQuery,
 };
 use cosmwasm_storage::to_length_prefixed;
 
 use std::collections::HashMap;
 
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
-use terraswap::{AssetInfoRaw, PairInfoRaw};
+use terraswap::{AssetInfo, PairInfo};
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
 /// this uses our CustomQuerier.
@@ -93,26 +96,21 @@ pub(crate) fn caps_to_map(caps: &[(&String, &Uint128)]) -> HashMap<String, Uint1
 
 #[derive(Clone, Default)]
 pub struct TerraswapFactoryQuerier {
-    pairs: HashMap<String, (HumanAddr, HumanAddr)>,
+    pairs: HashMap<String, HumanAddr>,
 }
 
 impl TerraswapFactoryQuerier {
-    pub fn new(pairs: &[(&String, (&HumanAddr, &HumanAddr))]) -> Self {
+    pub fn new(pairs: &[(&String, &HumanAddr)]) -> Self {
         TerraswapFactoryQuerier {
             pairs: pairs_to_map(pairs),
         }
     }
 }
 
-pub(crate) fn pairs_to_map(
-    pairs: &[(&String, (&HumanAddr, &HumanAddr))],
-) -> HashMap<String, (HumanAddr, HumanAddr)> {
-    let mut pairs_map: HashMap<String, (HumanAddr, HumanAddr)> = HashMap::new();
+pub(crate) fn pairs_to_map(pairs: &[(&String, &HumanAddr)]) -> HashMap<String, HumanAddr> {
+    let mut pairs_map: HashMap<String, HumanAddr> = HashMap::new();
     for (key, pair) in pairs.iter() {
-        pairs_map.insert(
-            key.to_string(),
-            (HumanAddr::from(pair.0), HumanAddr::from(pair.1)),
-        );
+        pairs_map.insert(key.to_string(), HumanAddr::from(pair));
     }
     pairs_map
 }
@@ -131,6 +129,12 @@ impl Querier for WasmMockQuerier {
         };
         self.handle_query(&request)
     }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum QueryMsg {
+    Pair { asset_infos: [AssetInfo; 2] },
 }
 
 impl WasmMockQuerier {
@@ -161,15 +165,56 @@ impl WasmMockQuerier {
                     panic!("DO NOT ENTER HERE")
                 }
             }
+            QueryRequest::Wasm(WasmQuery::Smart {
+                contract_addr: _,
+                msg,
+            }) => match from_binary(&msg).unwrap() {
+                QueryMsg::Pair { asset_infos } => {
+                    let key = asset_infos[0].to_string() + asset_infos[1].to_string().as_str();
+                    match self.terraswap_factory_querier.pairs.get(&key) {
+                        Some(v) => Ok(to_binary(&PairInfo {
+                            contract_addr: v.clone(),
+                            liquidity_token: HumanAddr::from("liquidity"),
+                            asset_infos: [
+                                AssetInfo::NativeToken {
+                                    denom: "uusd".to_string(),
+                                },
+                                AssetInfo::NativeToken {
+                                    denom: "uusd".to_string(),
+                                },
+                            ],
+                        })),
+                        None => Err(SystemError::InvalidRequest {
+                            error: "No pair info exists".to_string(),
+                            request: msg.as_slice().into(),
+                        }),
+                    }
+                }
+            },
             QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
                 let key: &[u8] = key.as_slice();
                 let prefix_balance = to_length_prefixed(b"balance").to_vec();
-                let prefix_pair = to_length_prefixed(b"pair").to_vec();
 
-                if key.len() > prefix_pair.len() && key[..prefix_pair.len()].to_vec() == prefix_pair
-                {
-                    let rest_key: &[u8] = &key[prefix_pair.len()..];
-                    let key_str: String = match String::from_utf8(rest_key.to_vec()) {
+                let balances: &HashMap<HumanAddr, Uint128> =
+                    match self.token_querier.balances.get(contract_addr) {
+                        Some(balances) => balances,
+                        None => {
+                            return Err(SystemError::InvalidRequest {
+                                error: format!(
+                                    "No balance info exists for the contract {}",
+                                    contract_addr
+                                ),
+                                request: key.into(),
+                            })
+                        }
+                    };
+
+                if key[..prefix_balance.len()].to_vec() == prefix_balance {
+                    let key_address: &[u8] = &key[prefix_balance.len()..];
+                    let address_raw: CanonicalAddr = CanonicalAddr::from(key_address);
+
+                    let api: MockApi = MockApi::new(self.canonical_length);
+                    let address: HumanAddr = match api.human_address(&address_raw) {
                         Ok(v) => v,
                         Err(e) => {
                             return Err(SystemError::InvalidRequest {
@@ -179,76 +224,19 @@ impl WasmMockQuerier {
                         }
                     };
 
-                    let pair_info = match self.terraswap_factory_querier.pairs.get(&key_str) {
+                    let balance = match balances.get(&address) {
                         Some(v) => v,
                         None => {
                             return Err(SystemError::InvalidRequest {
-                                error: format!("PairInfo is not found for {}", key_str),
+                                error: "Balance not found".to_string(),
                                 request: key.into(),
                             })
                         }
                     };
 
-                    let api: MockApi = MockApi::new(self.canonical_length);
-                    Ok(to_binary(
-                        &to_binary(&PairInfoRaw {
-                            owner: api.canonical_address(&pair_info.0).unwrap(),
-                            contract_addr: api.canonical_address(&pair_info.1).unwrap(),
-                            asset_infos: [
-                                AssetInfoRaw::NativeToken {
-                                    denom: "uusd".to_string(),
-                                },
-                                AssetInfoRaw::NativeToken {
-                                    denom: "uusd".to_string(),
-                                },
-                            ],
-                        })
-                        .unwrap(),
-                    ))
+                    Ok(to_binary(&to_binary(&balance).unwrap()))
                 } else {
-                    let balances: &HashMap<HumanAddr, Uint128> =
-                        match self.token_querier.balances.get(contract_addr) {
-                            Some(balances) => balances,
-                            None => {
-                                return Err(SystemError::InvalidRequest {
-                                    error: format!(
-                                        "No balance info exists for the contract {}",
-                                        contract_addr
-                                    ),
-                                    request: key.into(),
-                                })
-                            }
-                        };
-
-                    if key[..prefix_balance.len()].to_vec() == prefix_balance {
-                        let key_address: &[u8] = &key[prefix_balance.len()..];
-                        let address_raw: CanonicalAddr = CanonicalAddr::from(key_address);
-
-                        let api: MockApi = MockApi::new(self.canonical_length);
-                        let address: HumanAddr = match api.human_address(&address_raw) {
-                            Ok(v) => v,
-                            Err(e) => {
-                                return Err(SystemError::InvalidRequest {
-                                    error: format!("Parsing query request: {}", e),
-                                    request: key.into(),
-                                })
-                            }
-                        };
-
-                        let balance = match balances.get(&address) {
-                            Some(v) => v,
-                            None => {
-                                return Err(SystemError::InvalidRequest {
-                                    error: "Balance not found".to_string(),
-                                    request: key.into(),
-                                })
-                            }
-                        };
-
-                        Ok(to_binary(&to_binary(&balance).unwrap()))
-                    } else {
-                        panic!("DO NOT ENTER HERE")
-                    }
+                    panic!("DO NOT ENTER HERE")
                 }
             }
             _ => self.base.handle_query(request),
@@ -282,7 +270,7 @@ impl WasmMockQuerier {
     }
 
     // configure the terraswap pair
-    pub fn with_terraswap_pairs(&mut self, pairs: &[(&String, (&HumanAddr, &HumanAddr))]) {
+    pub fn with_terraswap_pairs(&mut self, pairs: &[(&String, &HumanAddr)]) {
         self.terraswap_factory_querier = TerraswapFactoryQuerier::new(pairs);
     }
 }

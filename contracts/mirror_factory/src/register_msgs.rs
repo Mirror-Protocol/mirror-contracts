@@ -2,7 +2,6 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{Decimal, HumanAddr};
-use terraswap::{AssetInfo, InitHook};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -15,25 +14,6 @@ pub enum MintHandleMsg {
     RegisterMigration {
         asset_token: HumanAddr,
         end_price: Decimal,
-    },
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum TerraswapFactoryHandleMsg {
-    CreatePair {
-        /// Pair contract owner
-        pair_owner: HumanAddr,
-        /// Inactive commission collector
-        commission_collector: HumanAddr,
-        /// Commission rate for active liquidity provider
-        lp_commission: Decimal,
-        /// Commission rate for owner controlled commission
-        owner_commission: Decimal,
-        /// Asset infos
-        asset_infos: [AssetInfo; 2],
-        /// Init hook
-        init_hook: Option<InitHook>,
     },
 }
 

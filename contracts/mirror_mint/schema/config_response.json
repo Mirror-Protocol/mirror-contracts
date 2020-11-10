@@ -3,20 +3,28 @@
   "title": "ConfigResponse",
   "type": "object",
   "required": [
-    "base_asset_info",
+    "base_denom",
+    "collector",
     "oracle",
     "owner",
+    "protocol_fee_rate",
     "token_code_id"
   ],
   "properties": {
-    "base_asset_info": {
-      "$ref": "#/definitions/AssetInfo"
+    "base_denom": {
+      "type": "string"
+    },
+    "collector": {
+      "$ref": "#/definitions/HumanAddr"
     },
     "oracle": {
       "$ref": "#/definitions/HumanAddr"
     },
     "owner": {
       "$ref": "#/definitions/HumanAddr"
+    },
+    "protocol_fee_rate": {
+      "$ref": "#/definitions/Decimal"
     },
     "token_code_id": {
       "type": "integer",
@@ -25,47 +33,9 @@
     }
   },
   "definitions": {
-    "AssetInfo": {
-      "anyOf": [
-        {
-          "type": "object",
-          "required": [
-            "token"
-          ],
-          "properties": {
-            "token": {
-              "type": "object",
-              "required": [
-                "contract_addr"
-              ],
-              "properties": {
-                "contract_addr": {
-                  "$ref": "#/definitions/HumanAddr"
-                }
-              }
-            }
-          }
-        },
-        {
-          "type": "object",
-          "required": [
-            "native_token"
-          ],
-          "properties": {
-            "native_token": {
-              "type": "object",
-              "required": [
-                "denom"
-              ],
-              "properties": {
-                "denom": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        }
-      ]
+    "Decimal": {
+      "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0\n\nThe greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
+      "type": "string"
     },
     "HumanAddr": {
       "type": "string"

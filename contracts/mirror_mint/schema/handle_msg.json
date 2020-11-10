@@ -14,7 +14,7 @@
       }
     },
     {
-      "description": "Update config; only owner is allowed to execute it",
+      "description": "Owner Operations Update config; only owner is allowed to execute it",
       "type": "object",
       "required": [
         "update_config"
@@ -23,10 +23,40 @@
         "update_config": {
           "type": "object",
           "properties": {
+            "collector": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "oracle": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "owner": {
               "anyOf": [
                 {
                   "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "protocol_fee_rate": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Decimal"
                 },
                 {
                   "type": "null"
@@ -137,6 +167,7 @@
       }
     },
     {
+      "description": "User Operations",
       "type": "object",
       "required": [
         "open_position"

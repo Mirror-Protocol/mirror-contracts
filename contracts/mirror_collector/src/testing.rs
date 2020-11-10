@@ -48,16 +48,10 @@ fn test_convert() {
     );
 
     deps.querier.with_terraswap_pairs(&[
+        (&"uusdtokenAPPL".to_string(), &HumanAddr::from("pairAPPL")),
         (
-            &"tokenAPPL\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}uusd".to_string(),
-            (&HumanAddr::from("owner0000"), &HumanAddr::from("pairAPPL")),
-        ),
-        (
-            &"tokenMIRROR\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}uusd".to_string(),
-            (
-                &HumanAddr::from("owner0000"),
-                &HumanAddr::from("pairMIRROR"),
-            ),
+            &"uusdtokenMIRROR".to_string(),
+            &HumanAddr::from("pairMIRROR"),
         ),
     ]);
 

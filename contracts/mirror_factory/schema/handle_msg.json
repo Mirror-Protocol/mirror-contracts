@@ -280,9 +280,7 @@
       "type": "object",
       "required": [
         "auction_discount",
-        "lp_commission",
         "min_collateral_ratio",
-        "owner_commission",
         "weight"
       ],
       "properties": {
@@ -294,24 +292,8 @@
             }
           ]
         },
-        "lp_commission": {
-          "description": "Commission rate for active liquidity provider",
-          "allOf": [
-            {
-              "$ref": "#/definitions/Decimal"
-            }
-          ]
-        },
         "min_collateral_ratio": {
           "description": "Minium collateral ratio applied to asset mint",
-          "allOf": [
-            {
-              "$ref": "#/definitions/Decimal"
-            }
-          ]
-        },
-        "owner_commission": {
-          "description": "Commission rate for owner controlled commission",
           "allOf": [
             {
               "$ref": "#/definitions/Decimal"

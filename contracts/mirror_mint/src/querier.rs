@@ -1,103 +1,96 @@
+use serde::{Deserialize, Serialize};
+
 use cosmwasm_std::{
-    from_binary, Api, Binary, CanonicalAddr, Decimal, Extern, HumanAddr, Querier, QueryRequest,
-    StdError, StdResult, Storage, WasmQuery,
+    to_binary, Api, Decimal, Extern, HumanAddr, Querier, QueryRequest, StdError, StdResult,
+    Storage, WasmQuery,
 };
 
-use crate::state::{read_asset_config, Config};
-use cosmwasm_storage::to_length_prefixed;
-use serde::{Deserialize, Serialize};
+use crate::math::decimal_division;
+use crate::state::{read_config, read_end_price, Config};
 use terraswap::AssetInfoRaw;
 
 const PRICE_EXPIRE_TIME: u64 = 60;
 
-/// ReverseSimulationResponse returns reverse swap simulation response
 #[derive(Serialize, Deserialize)]
-pub struct PriceInfo {
-    pub price: Decimal,
-    pub last_update_time: u64,
-    pub asset_token: CanonicalAddr,
+#[serde(rename_all = "snake_case")]
+pub enum OracleQueryMsg {
+    Price {
+        base_asset: String,
+        quote_asset: String,
+    },
 }
 
-pub fn load_prices<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    config: &Config,
-    collateral_info: &AssetInfoRaw,
-    asset_info: &AssetInfoRaw,
-    time: Option<u64>,
-) -> StdResult<(Decimal, Decimal)> {
-    let collateral_price = if collateral_info.equal(&config.base_asset_info) {
-        Decimal::one()
-    } else {
-        // load collateral price form the oracle
-        load_price(
-            &deps,
-            &deps.api.human_address(&config.oracle)?,
-            &collateral_info,
-            time,
-        )?
-    };
-
-    // load asset price from the oracle
-    let asset_price = load_price(
-        &deps,
-        &deps.api.human_address(&config.oracle)?,
-        &asset_info,
-        time,
-    )?;
-
-    Ok((collateral_price, asset_price))
+// We define a custom struct for each query response
+#[derive(Serialize, Deserialize)]
+pub struct PriceResponse {
+    pub rate: Decimal,
+    pub last_updated_base: u64,
+    pub last_updated_quote: u64,
 }
 
 pub fn load_price<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
-    contract_addr: &HumanAddr,
-    asset_info: &AssetInfoRaw,
+    oracle: &HumanAddr,
+    base_asset: &AssetInfoRaw,
+    quote_asset: &AssetInfoRaw,
     block_time: Option<u64>,
 ) -> StdResult<Decimal> {
-    let asset_token_raw = match &asset_info {
-        AssetInfoRaw::Token { contract_addr } => contract_addr,
-        _ => panic!("DO NOT ENTER HERE"),
-    };
+    let config: Config = read_config(&deps.storage)?;
 
-    // return static price for the deprecated asset
-    let asset_config = read_asset_config(&deps.storage, &asset_token_raw)?;
-    if let Some(end_price) = asset_config.end_price {
-        return Ok(end_price);
-    }
+    let base_end_price = read_end_price(&deps.storage, &base_asset);
+    let quote_end_price = read_end_price(&deps.storage, &quote_asset);
+    let base_asset = (base_asset.to_normal(&deps)?).to_string();
+    let quote_asset = (quote_asset.to_normal(&deps)?).to_string();
 
     // load price form the oracle
-    let res: StdResult<Binary> = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
-        contract_addr: HumanAddr::from(contract_addr),
-        key: Binary::from(concat(&to_length_prefixed(b"price"), asset_info.as_bytes())),
-    }));
+    let price: Decimal =
+        if let (Some(base_end_price), Some(quote_end_price)) = (base_end_price, quote_end_price) {
+            decimal_division(base_end_price, quote_end_price)
+        } else if let Some(base_end_price) = base_end_price {
+            let quote_price = if config.base_denom == quote_asset {
+                Decimal::one()
+            } else {
+                query_price(deps, oracle, config.base_denom, quote_asset, block_time)?
+            };
 
-    let res = match res {
-        Ok(v) => v,
-        Err(_) => {
-            return Err(StdError::generic_err("Falied to fetch the price"));
-        }
-    };
+            decimal_division(base_end_price, quote_price)
+        } else if let Some(quote_end_price) = quote_end_price {
+            let base_price = if config.base_denom == base_asset {
+                Decimal::one()
+            } else {
+                query_price(deps, oracle, config.base_denom, base_asset, block_time)?
+            };
 
-    let price_info: StdResult<PriceInfo> = from_binary(&res);
-    let price_info = match price_info {
-        Ok(v) => v,
-        Err(_) => {
-            return Err(StdError::generic_err("Falied to fetch the price"));
-        }
-    };
+            decimal_division(base_price, quote_end_price)
+        } else {
+            query_price(deps, oracle, base_asset, quote_asset, block_time)?
+        };
+
+    Ok(price)
+}
+
+pub fn query_price<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    oracle: &HumanAddr,
+    base_asset: String,
+    quote_asset: String,
+    block_time: Option<u64>,
+) -> StdResult<Decimal> {
+    let res: PriceResponse = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+        contract_addr: HumanAddr::from(oracle),
+        msg: to_binary(&OracleQueryMsg::Price {
+            base_asset,
+            quote_asset,
+        })?,
+    }))?;
 
     if let Some(block_time) = block_time {
-        if price_info.last_update_time < (block_time - PRICE_EXPIRE_TIME) {
-            return Err(StdError::generic_err("Price is too old".to_string()));
+        if res.last_updated_base < (block_time - PRICE_EXPIRE_TIME)
+            || res.last_updated_quote < (block_time - PRICE_EXPIRE_TIME)
+        {
+            return Err(StdError::generic_err("Price is too old"));
         }
     }
 
-    Ok(price_info.price)
-}
-
-#[inline]
-fn concat(namespace: &[u8], key: &[u8]) -> Vec<u8> {
-    let mut k = namespace.to_vec();
-    k.extend_from_slice(key);
-    k
+    Ok(res.rate)
 }

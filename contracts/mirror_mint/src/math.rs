@@ -16,3 +16,8 @@ pub fn decimal_subtraction(a: Decimal, b: Decimal) -> Decimal {
         DECIMAL_FRACTIONAL,
     )
 }
+
+/// return a / b
+pub fn decimal_division(a: Decimal, b: Decimal) -> Decimal {
+    Decimal::from_ratio(DECIMAL_FRACTIONAL * a, b * DECIMAL_FRACTIONAL)
+}

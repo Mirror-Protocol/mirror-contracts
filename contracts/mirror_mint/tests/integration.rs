@@ -18,7 +18,7 @@
 //! 4. Anywhere you see query(&deps, ...) you must replace it with query(&mut deps, ...)
 
 use cosmwasm_std::{
-    from_binary, Coin, HandleResponse, HandleResult, HumanAddr, InitResponse, StdError,
+    from_binary, Coin, Decimal, HandleResponse, HandleResult, HumanAddr, InitResponse, StdError,
 };
 use cosmwasm_vm::testing::{
     handle, init, mock_dependencies, mock_env, query, MockApi, MockQuerier, MockStorage,
@@ -26,7 +26,6 @@ use cosmwasm_vm::testing::{
 use cosmwasm_vm::Instance;
 
 use mirror_mint::msg::{ConfigResponse, HandleMsg, InitMsg, QueryMsg};
-use terraswap::AssetInfo;
 
 // This line will test the output of cargo wasm
 static WASM: &[u8] =
@@ -56,10 +55,10 @@ fn proper_initialization() {
     let msg = InitMsg {
         owner: HumanAddr::from("owner0000"),
         oracle: HumanAddr::from("oracle0000"),
-        base_asset_info: AssetInfo::NativeToken {
-            denom: "uusd".to_string(),
-        },
+        collector: HumanAddr::from("collector0000"),
+        base_denom: "uusd".to_string(),
         token_code_id: TOKEN_CODE_ID,
+        protocol_fee_rate: Decimal::percent(1),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -71,7 +70,7 @@ fn proper_initialization() {
     let res = query(&mut deps, QueryMsg::Config {}).unwrap();
     let config: ConfigResponse = from_binary(&res).unwrap();
     assert_eq!("owner0000", config.owner.as_str());
-    assert_eq!("uusd", config.base_asset_info.to_string());
+    assert_eq!("uusd", config.base_denom.to_string());
     assert_eq!("oracle0000", config.oracle.as_str());
     assert_eq!(TOKEN_CODE_ID, config.token_code_id);
 }
@@ -82,10 +81,10 @@ fn update_config() {
     let msg = InitMsg {
         owner: HumanAddr::from("owner0000"),
         oracle: HumanAddr::from("oracle0000"),
-        base_asset_info: AssetInfo::NativeToken {
-            denom: "uusd".to_string(),
-        },
+        collector: HumanAddr::from("collector0000"),
+        base_denom: "uusd".to_string(),
         token_code_id: TOKEN_CODE_ID,
+        protocol_fee_rate: Decimal::percent(1),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -97,7 +96,10 @@ fn update_config() {
     let env = mock_env("owner0000", &[]);
     let msg = HandleMsg::UpdateConfig {
         owner: Some(HumanAddr("owner0001".to_string())),
+        oracle: None,
+        collector: None,
         token_code_id: Some(100u64),
+        protocol_fee_rate: None,
     };
 
     let res: HandleResponse = handle(&mut deps, env, msg).unwrap();
@@ -113,7 +115,10 @@ fn update_config() {
     let env = mock_env("owner0000", &[]);
     let msg = HandleMsg::UpdateConfig {
         owner: None,
+        oracle: None,
+        collector: None,
         token_code_id: None,
+        protocol_fee_rate: None,
     };
 
     let res: HandleResult = handle(&mut deps, env, msg);

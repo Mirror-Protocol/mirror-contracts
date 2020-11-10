@@ -7,7 +7,7 @@ use crate::math::{decimal_multiplication, decimal_subtraction, reverse_decimal};
 use crate::msg::{
     ConfigResponse, DistributionInfoResponse, HandleMsg, InitMsg, QueryMsg, StakingCw20HookMsg,
 };
-use crate::querier::{load_commissions, load_mint_asset_config, load_oracle_feeder};
+use crate::querier::{load_mint_asset_config, load_oracle_feeder};
 use crate::register_msgs::*;
 use crate::state::{
     increase_total_weight, read_config, read_distribution_info, read_params, read_total_weight,
@@ -16,7 +16,10 @@ use crate::state::{
 };
 
 use cw20::{Cw20HandleMsg, MinterResponse};
-use terraswap::{load_liquidity_token, load_pair_contract, AssetInfo, InitHook, TokenInitMsg};
+use terraswap::{
+    load_pair_info, AssetInfo, FactoryHandleMsg as TerraswapFactoryHandleMsg, InitHook, PairInfo,
+    TokenInitMsg,
+};
 
 const MIRROR_TOKEN_WEIGHT: u64 = 200u64;
 
@@ -351,10 +354,6 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
                 contract_addr: deps.api.human_address(&config.terraswap_factory)?,
                 send: vec![],
                 msg: to_binary(&TerraswapFactoryHandleMsg::CreatePair {
-                    pair_owner: env.contract.address.clone(),
-                    commission_collector: deps.api.human_address(&config.commission_collector)?,
-                    lp_commission: params.lp_commission,
-                    owner_commission: params.owner_commission,
                     asset_infos: [
                         AssetInfo::NativeToken {
                             denom: config.base_denom,
@@ -417,15 +416,12 @@ pub fn terraswap_creation_hook<S: Storage, A: Api, Q: Querier>(
         },
     ];
 
-    // Load terraswap pair contract
-    let terraswap_contract: HumanAddr = load_pair_contract(
+    // Load terraswap pair info
+    let pair_info: PairInfo = load_pair_info(
         &deps,
         &deps.api.human_address(&config.terraswap_factory)?,
         &asset_infos,
     )?;
-
-    // Load terraswap pair LP token
-    let liquidity_token: HumanAddr = load_liquidity_token(&deps, &terraswap_contract)?;
 
     // Execute staking contract to register staking token of newly created asset
     Ok(HandleResponse {
@@ -434,7 +430,7 @@ pub fn terraswap_creation_hook<S: Storage, A: Api, Q: Querier>(
             send: vec![],
             msg: to_binary(&StakingHandleMsg::RegisterAsset {
                 asset_token,
-                staking_token: liquidity_token,
+                staking_token: pair_info.liquidity_token,
             })?,
         })],
         log: vec![],
@@ -527,21 +523,7 @@ pub fn try_migrate_asset<S: Storage, A: Api, Q: Querier>(
         read_distribution_info(&deps.storage, &asset_token_raw)?;
     remove_distribution_info(&mut deps.storage, &asset_token_raw);
 
-    let terraswap_contract: HumanAddr = load_pair_contract(
-        &deps,
-        &deps.api.human_address(&config.terraswap_factory)?,
-        &[
-            AssetInfo::NativeToken {
-                denom: "uusd".to_string(),
-            },
-            AssetInfo::Token {
-                contract_addr: asset_token.clone(),
-            },
-        ],
-    )?;
-
     let mint_contract = deps.api.human_address(&config.mint_contract)?;
-    let commissions: (Decimal, Decimal) = load_commissions(&deps, &terraswap_contract)?;
     let mint_config: (Decimal, Decimal) =
         load_mint_asset_config(&deps, &mint_contract, &asset_token_raw)?;
 
@@ -549,8 +531,6 @@ pub fn try_migrate_asset<S: Storage, A: Api, Q: Querier>(
         &mut deps.storage,
         &Params {
             weight: distributino_info.weight,
-            lp_commission: commissions.0,
-            owner_commission: commissions.1,
             auction_discount: mint_config.0,
             min_collateral_ratio: mint_config.1,
         },

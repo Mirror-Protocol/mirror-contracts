@@ -23,10 +23,10 @@ fn proper_initialization() {
     let msg = InitMsg {
         owner: HumanAddr::from("owner0000"),
         oracle: HumanAddr::from("oracle0000"),
-        base_asset_info: AssetInfo::NativeToken {
-            denom: "uusd".to_string(),
-        },
+        collector: HumanAddr::from("collector0000"),
+        base_denom: "uusd".to_string(),
         token_code_id: TOKEN_CODE_ID,
+        protocol_fee_rate: Decimal::percent(1),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -38,9 +38,11 @@ fn proper_initialization() {
     let res = query(&deps, QueryMsg::Config {}).unwrap();
     let config: ConfigResponse = from_binary(&res).unwrap();
     assert_eq!("owner0000", config.owner.as_str());
-    assert_eq!("uusd", config.base_asset_info.to_string());
+    assert_eq!("uusd", config.base_denom.to_string());
     assert_eq!("oracle0000", config.oracle.as_str());
+    assert_eq!("collector0000", config.collector.as_str());
     assert_eq!(TOKEN_CODE_ID, config.token_code_id);
+    assert_eq!(Decimal::percent(1), config.protocol_fee_rate);
 }
 
 #[test]
@@ -50,10 +52,10 @@ fn update_config() {
     let msg = InitMsg {
         owner: HumanAddr::from("owner0000"),
         oracle: HumanAddr::from("oracle0000"),
-        base_asset_info: AssetInfo::NativeToken {
-            denom: "uusd".to_string(),
-        },
+        collector: HumanAddr::from("collector0000"),
+        base_denom: "uusd".to_string(),
         token_code_id: TOKEN_CODE_ID,
+        protocol_fee_rate: Decimal::percent(1),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -63,7 +65,10 @@ fn update_config() {
     let env = mock_env("owner0000", &[]);
     let msg = HandleMsg::UpdateConfig {
         owner: Some(HumanAddr("owner0001".to_string())),
+        oracle: None,
+        collector: None,
         token_code_id: Some(100u64),
+        protocol_fee_rate: None,
     };
 
     let res = handle(&mut deps, env, msg).unwrap();
@@ -79,7 +84,10 @@ fn update_config() {
     let env = mock_env("owner0000", &[]);
     let msg = HandleMsg::UpdateConfig {
         owner: None,
+        oracle: None,
+        collector: None,
         token_code_id: None,
+        protocol_fee_rate: None,
     };
 
     let res = handle(&mut deps, env, msg);
@@ -92,16 +100,15 @@ fn update_config() {
 #[test]
 fn register_asset() {
     let mut deps = mock_dependencies(20, &[]);
-
-    let base_asset_info = AssetInfo::NativeToken {
-        denom: "uusd".to_string(),
-    };
+    let base_denom = "uusd".to_string();
 
     let msg = InitMsg {
         owner: HumanAddr::from("owner0000"),
         oracle: HumanAddr::from("oracle0000"),
-        base_asset_info: base_asset_info.clone(),
+        collector: HumanAddr::from("collector0000"),
+        base_denom: base_denom.clone(),
         token_code_id: TOKEN_CODE_ID,
+        protocol_fee_rate: Decimal::percent(1),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -166,15 +173,15 @@ fn register_asset() {
 fn update_asset() {
     let mut deps = mock_dependencies(20, &[]);
 
-    let base_asset_info = AssetInfo::NativeToken {
-        denom: "uusd".to_string(),
-    };
+    let base_denom = "uusd".to_string();
 
     let msg = InitMsg {
         owner: HumanAddr::from("owner0000"),
         oracle: HumanAddr::from("oracle0000"),
-        base_asset_info: base_asset_info.clone(),
+        collector: HumanAddr::from("collector0000"),
+        base_denom: base_denom.clone(),
         token_code_id: TOKEN_CODE_ID,
+        protocol_fee_rate: Decimal::percent(1),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -239,15 +246,15 @@ fn register_migration() {
         )],
     )]);
 
-    let base_asset_info = AssetInfo::NativeToken {
-        denom: "uusd".to_string(),
-    };
+    let base_denom = "uusd".to_string();
 
     let msg = InitMsg {
         owner: HumanAddr::from("owner0000"),
         oracle: HumanAddr::from("oracle0000"),
-        base_asset_info: base_asset_info.clone(),
+        collector: HumanAddr::from("collector0000"),
+        base_denom: base_denom.clone(),
         token_code_id: TOKEN_CODE_ID,
+        protocol_fee_rate: Decimal::percent(1),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -322,33 +329,20 @@ fn register_migration() {
 fn open_position() {
     let mut deps = mock_dependencies(20, &[]);
     deps.querier.with_oracle_price(&[
-        (
-            &AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0000"),
-            }
-            .to_raw(&deps)
-            .unwrap(),
-            &Decimal::percent(100),
-        ),
-        (
-            &AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0001"),
-            }
-            .to_raw(&deps)
-            .unwrap(),
-            &Decimal::percent(50),
-        ),
+        (&"uusd".to_string(), &Decimal::one()),
+        (&"asset0000".to_string(), &Decimal::percent(100)),
+        (&"asset0001".to_string(), &Decimal::percent(50)),
     ]);
 
-    let base_asset_info = AssetInfo::NativeToken {
-        denom: "uusd".to_string(),
-    };
+    let base_denom = "uusd".to_string();
 
     let msg = InitMsg {
         owner: HumanAddr::from("owner0000"),
         oracle: HumanAddr::from("oracle0000"),
-        base_asset_info: base_asset_info.clone(),
+        collector: HumanAddr::from("collector0000"),
+        base_denom: base_denom.clone(),
         token_code_id: TOKEN_CODE_ID,
+        protocol_fee_rate: Decimal::percent(1),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -634,33 +628,20 @@ fn migrated_asset() {
     )]);
 
     deps.querier.with_oracle_price(&[
-        (
-            &AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0000"),
-            }
-            .to_raw(&deps)
-            .unwrap(),
-            &Decimal::percent(100),
-        ),
-        (
-            &AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0001"),
-            }
-            .to_raw(&deps)
-            .unwrap(),
-            &Decimal::percent(50),
-        ),
+        (&"uusd".to_string(), &Decimal::one()),
+        (&"asset0000".to_string(), &Decimal::percent(100)),
+        (&"asset0001".to_string(), &Decimal::percent(50)),
     ]);
 
-    let base_asset_info = AssetInfo::NativeToken {
-        denom: "uusd".to_string(),
-    };
+    let base_denom = "uusd".to_string();
 
     let msg = InitMsg {
         owner: HumanAddr::from("owner0000"),
         oracle: HumanAddr::from("oracle0000"),
-        base_asset_info: base_asset_info.clone(),
+        collector: HumanAddr::from("collector0000"),
+        base_denom: base_denom.clone(),
         token_code_id: TOKEN_CODE_ID,
+        protocol_fee_rate: Decimal::percent(1),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -755,7 +736,7 @@ fn migrated_asset() {
     let res = handle(&mut deps, env, msg).unwrap_err();
     match res {
         StdError::GenericErr { msg, .. } => {
-            assert_eq!(msg, "Can not open a deprecated asset position")
+            assert_eq!(msg, "Operation is not allowed for the deprecated asset")
         }
         _ => panic!("DO NOT ENTER HERE"),
     }
@@ -779,10 +760,9 @@ fn migrated_asset() {
     );
     let res = handle(&mut deps, env, msg).unwrap_err();
     match res {
-        StdError::GenericErr { msg, .. } => assert_eq!(
-            msg,
-            "Cannot deposit more collateral to the deprecated asset position"
-        ),
+        StdError::GenericErr { msg, .. } => {
+            assert_eq!(msg, "Operation is not allowed for the deprecated asset")
+        }
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -798,7 +778,9 @@ fn migrated_asset() {
     let env = mock_env("addr0000", &[]);
     let res = handle(&mut deps, env, msg).unwrap_err();
     match res {
-        StdError::GenericErr { msg, .. } => assert_eq!(msg, "Cannot mint deprecated asset"),
+        StdError::GenericErr { msg, .. } => {
+            assert_eq!(msg, "Operation is not allowed for the deprecated asset")
+        }
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -825,14 +807,24 @@ fn migrated_asset() {
     let res = handle(&mut deps, env, msg).unwrap();
     assert_eq!(
         res.messages,
-        vec![CosmosMsg::Bank(BankMsg::Send {
-            from_address: HumanAddr::from(MOCK_CONTRACT_ADDR),
-            to_address: HumanAddr::from("addr0000"),
-            amount: vec![Coin {
-                denom: "uusd".to_string(),
-                amount: Uint128(333334u128),
-            }]
-        })]
+        vec![
+            CosmosMsg::Bank(BankMsg::Send {
+                from_address: HumanAddr::from(MOCK_CONTRACT_ADDR),
+                to_address: HumanAddr::from("addr0000"),
+                amount: vec![Coin {
+                    denom: "uusd".to_string(),
+                    amount: Uint128(330001u128),
+                }]
+            }),
+            CosmosMsg::Bank(BankMsg::Send {
+                from_address: HumanAddr::from(MOCK_CONTRACT_ADDR),
+                to_address: HumanAddr::from("collector0000"),
+                amount: vec![Coin {
+                    denom: "uusd".to_string(),
+                    amount: Uint128(3333u128),
+                }]
+            })
+        ]
     );
 
     let res = query(
@@ -927,33 +919,20 @@ fn migrated_asset() {
 fn deposit() {
     let mut deps = mock_dependencies(20, &[]);
     deps.querier.with_oracle_price(&[
-        (
-            &AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0000"),
-            }
-            .to_raw(&deps)
-            .unwrap(),
-            &Decimal::percent(100),
-        ),
-        (
-            &AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0001"),
-            }
-            .to_raw(&deps)
-            .unwrap(),
-            &Decimal::percent(50),
-        ),
+        (&"uusd".to_string(), &Decimal::one()),
+        (&"asset0000".to_string(), &Decimal::percent(100)),
+        (&"asset0001".to_string(), &Decimal::percent(50)),
     ]);
 
-    let base_asset_info = AssetInfo::NativeToken {
-        denom: "uusd".to_string(),
-    };
+    let base_denom = "uusd".to_string();
 
     let msg = InitMsg {
         owner: HumanAddr::from("owner0000"),
         oracle: HumanAddr::from("oracle0000"),
-        base_asset_info: base_asset_info.clone(),
+        collector: HumanAddr::from("collector0000"),
+        base_denom: base_denom.clone(),
         token_code_id: TOKEN_CODE_ID,
+        protocol_fee_rate: Decimal::percent(1),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -1128,33 +1107,26 @@ fn deposit() {
 fn mint() {
     let mut deps = mock_dependencies(20, &[]);
     deps.querier.with_oracle_price(&[
+        (&"uusd".to_string(), &Decimal::one()),
         (
-            &AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0000"),
-            }
-            .to_raw(&deps)
-            .unwrap(),
-            &Decimal::from_ratio(100u64, 1u64),
+            &"asset0000".to_string(),
+            &Decimal::from_ratio(100u128, 1u128),
         ),
         (
-            &AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0001"),
-            }
-            .to_raw(&deps)
-            .unwrap(),
-            &Decimal::from_ratio(50u64, 1u64),
+            &"asset0001".to_string(),
+            &Decimal::from_ratio(50u128, 1u128),
         ),
     ]);
 
-    let base_asset_info = AssetInfo::NativeToken {
-        denom: "uusd".to_string(),
-    };
+    let base_denom = "uusd".to_string();
 
     let msg = InitMsg {
         owner: HumanAddr::from("owner0000"),
         oracle: HumanAddr::from("oracle0000"),
-        base_asset_info: base_asset_info.clone(),
+        collector: HumanAddr::from("collector0000"),
+        base_denom: base_denom.clone(),
         token_code_id: TOKEN_CODE_ID,
+        protocol_fee_rate: Decimal::percent(1),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -1363,33 +1335,26 @@ fn mint() {
 fn burn() {
     let mut deps = mock_dependencies(20, &[]);
     deps.querier.with_oracle_price(&[
+        (&"uusd".to_string(), &Decimal::one()),
         (
-            &AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0000"),
-            }
-            .to_raw(&deps)
-            .unwrap(),
-            &Decimal::from_ratio(100u64, 1u64),
+            &"asset0000".to_string(),
+            &Decimal::from_ratio(100u128, 1u128),
         ),
         (
-            &AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0001"),
-            }
-            .to_raw(&deps)
-            .unwrap(),
-            &Decimal::from_ratio(50u64, 1u64),
+            &"asset0001".to_string(),
+            &Decimal::from_ratio(50u128, 1u128),
         ),
     ]);
 
-    let base_asset_info = AssetInfo::NativeToken {
-        denom: "uusd".to_string(),
-    };
+    let base_denom = "uusd".to_string();
 
     let msg = InitMsg {
         owner: HumanAddr::from("owner0000"),
         oracle: HumanAddr::from("oracle0000"),
-        base_asset_info: base_asset_info.clone(),
+        collector: HumanAddr::from("collector0000"),
+        base_denom: base_denom.clone(),
         token_code_id: TOKEN_CODE_ID,
+        protocol_fee_rate: Decimal::percent(1),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -1621,33 +1586,26 @@ fn withdraw() {
     );
 
     deps.querier.with_oracle_price(&[
+        (&"uusd".to_string(), &Decimal::one()),
         (
-            &AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0000"),
-            }
-            .to_raw(&deps)
-            .unwrap(),
-            &Decimal::from_ratio(100u64, 1u64),
+            &"asset0000".to_string(),
+            &Decimal::from_ratio(100u128, 1u128),
         ),
         (
-            &AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0001"),
-            }
-            .to_raw(&deps)
-            .unwrap(),
-            &Decimal::from_ratio(50u64, 1u64),
+            &"asset0001".to_string(),
+            &Decimal::from_ratio(50u128, 1u128),
         ),
     ]);
 
-    let base_asset_info = AssetInfo::NativeToken {
-        denom: "uusd".to_string(),
-    };
+    let base_denom = "uusd".to_string();
 
     let msg = InitMsg {
         owner: HumanAddr::from("owner0000"),
         oracle: HumanAddr::from("oracle0000"),
-        base_asset_info: base_asset_info.clone(),
+        collector: HumanAddr::from("collector0000"),
+        base_denom: base_denom.clone(),
         token_code_id: TOKEN_CODE_ID,
+        protocol_fee_rate: Decimal::percent(1),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -1748,8 +1706,9 @@ fn withdraw() {
         vec![
             log("action", "withdraw"),
             log("position_idx", "1"),
-            log("withdraw_amount", "100uusd"),
+            log("withdraw_amount", "99uusd"),
             log("tax_amount", "1uusd"),
+            log("protocol_fee", "1uusd"),
         ]
     );
 
@@ -1792,6 +1751,7 @@ fn withdraw() {
             log("position_idx", "2"),
             log("withdraw_amount", "1asset0001"),
             log("tax_amount", "0asset0001"),
+            log("protocol_fee", "0asset0001"),
         ]
     );
 }
@@ -1805,33 +1765,26 @@ fn auction() {
     );
 
     deps.querier.with_oracle_price(&[
+        (&"uusd".to_string(), &Decimal::one()),
         (
-            &AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0000"),
-            }
-            .to_raw(&deps)
-            .unwrap(),
-            &Decimal::from_ratio(100u64, 1u64),
+            &"asset0000".to_string(),
+            &Decimal::from_ratio(100u128, 1u128),
         ),
         (
-            &AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0001"),
-            }
-            .to_raw(&deps)
-            .unwrap(),
-            &Decimal::from_ratio(50u64, 1u64),
+            &"asset0001".to_string(),
+            &Decimal::from_ratio(50u128, 1u128),
         ),
     ]);
 
-    let base_asset_info = AssetInfo::NativeToken {
-        denom: "uusd".to_string(),
-    };
+    let base_denom = "uusd".to_string();
 
     let msg = InitMsg {
         owner: HumanAddr::from("owner0000"),
         oracle: HumanAddr::from("oracle0000"),
-        base_asset_info: base_asset_info.clone(),
+        collector: HumanAddr::from("collector0000"),
+        base_denom: base_denom.clone(),
         token_code_id: TOKEN_CODE_ID,
+        protocol_fee_rate: Decimal::percent(1),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -1896,21 +1849,14 @@ fn auction() {
     let _res = handle(&mut deps, env, msg).unwrap();
 
     deps.querier.with_oracle_price(&[
+        (&"uusd".to_string(), &Decimal::one()),
         (
-            &AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0000"),
-            }
-            .to_raw(&deps)
-            .unwrap(),
-            &Decimal::from_ratio(115u64, 1u64),
+            &"asset0000".to_string(),
+            &Decimal::from_ratio(115u128, 1u128),
         ),
         (
-            &AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0001"),
-            }
-            .to_raw(&deps)
-            .unwrap(),
-            &Decimal::from_ratio(50u64, 1u64),
+            &"asset0001".to_string(),
+            &Decimal::from_ratio(50u128, 1u128),
         ),
     ]);
 
@@ -1954,21 +1900,14 @@ fn auction() {
     }
 
     deps.querier.with_oracle_price(&[
+        (&"uusd".to_string(), &Decimal::one()),
         (
-            &AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0000"),
-            }
-            .to_raw(&deps)
-            .unwrap(),
-            &Decimal::from_ratio(116u64, 1u64),
+            &"asset0000".to_string(),
+            &Decimal::from_ratio(116u128, 1u128),
         ),
         (
-            &AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0001"),
-            }
-            .to_raw(&deps)
-            .unwrap(),
-            &Decimal::from_ratio(50u64, 1u64),
+            &"asset0001".to_string(),
+            &Decimal::from_ratio(50u128, 1u128),
         ),
     ]);
 
@@ -2052,8 +1991,22 @@ fn auction() {
                 to_address: HumanAddr::from("addr0001"),
                 amount: vec![Coin {
                     denom: "uusd".to_string(),
-                    amount: Uint128(920542u128) // Tax (5%) 966570 * 1 / 1.05 -> 920542
+                    // Origin:          966,570
+                    // Profit:          193,314
+                    // ProtocolFee(1%): -1,933
+                    // Tax(5%):         -45,936
+                    amount: Uint128(918701u128) 
                 }],
+            }),
+            CosmosMsg::Bank(BankMsg::Send {
+                from_address: HumanAddr::from(MOCK_CONTRACT_ADDR),
+                to_address: HumanAddr::from("collector0000"),
+                amount: vec![Coin {
+                    denom: "uusd".to_string(),
+                    // Origin:  1933
+                    // Tax(5%): -93
+                    amount: Uint128(1840u128) 
+                }]
             })
         ],
     );
@@ -2063,31 +2016,19 @@ fn auction() {
             log("action", "auction"),
             log("position_idx", "1"),
             log("owner", "addr0000"),
-            log("return_collateral_amount", "966570uusd"),
+            log("return_collateral_amount", "964637uusd"),
             log("liquidated_amount", "6666asset0000"),
-            log("tax_amount", "46028uusd"),
+            log("tax_amount", "45936uusd"),
+            log("protocol_fee", "1933uusd"),
         ]
     );
 
     // If the price goes too high, the return collateral amount
     // must be capped to positions's collateral amount
     deps.querier.with_oracle_price(&[
-        (
-            &AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0000"),
-            }
-            .to_raw(&deps)
-            .unwrap(),
-            &Decimal::from_ratio(200u64, 1u64),
-        ),
-        (
-            &AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0001"),
-            }
-            .to_raw(&deps)
-            .unwrap(),
-            &Decimal::from_ratio(50u64, 1u64),
-        ),
+        (&"uusd".to_string(), &Decimal::one()),
+        (&"asset0000".to_string(), &Decimal::percent(200)),
+        (&"asset0001".to_string(), &Decimal::percent(50)),
     ]);
 
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
@@ -2130,7 +2071,16 @@ fn auction() {
                 contract_addr: HumanAddr::from("asset0001"),
                 msg: to_binary(&Cw20HandleMsg::Transfer {
                     recipient: HumanAddr::from("addr0001"),
-                    amount: Uint128(1000000u128),
+                    amount: Uint128(998000u128), // protocol fee = 200000 * 0.01 = 2000
+                })
+                .unwrap(),
+                send: vec![],
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from("asset0001"),
+                msg: to_binary(&Cw20HandleMsg::Transfer {
+                    recipient: HumanAddr::from("collector0000"),
+                    amount: Uint128(2000u128), 
                 })
                 .unwrap(),
                 send: vec![],
@@ -2143,9 +2093,10 @@ fn auction() {
             log("action", "auction"),
             log("position_idx", "2"),
             log("owner", "addr0000"),
-            log("return_collateral_amount", "1000000asset0001"),
+            log("return_collateral_amount", "998000asset0001"),
             log("liquidated_amount", "200000asset0000"),
             log("tax_amount", "0asset0001"),
+            log("protocol_fee", "2000asset0001"),
         ]
     );
 }
