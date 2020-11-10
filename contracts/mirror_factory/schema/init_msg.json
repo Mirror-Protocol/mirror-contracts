@@ -4,12 +4,36 @@
   "type": "object",
   "required": [
     "base_denom",
+    "distribution_schedule",
     "mint_per_block",
     "token_code_id"
   ],
   "properties": {
     "base_denom": {
       "type": "string"
+    },
+    "distribution_schedule": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": [
+          {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0.0
+          },
+          {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0.0
+          },
+          {
+            "$ref": "#/definitions/Uint128"
+          }
+        ],
+        "maxItems": 3,
+        "minItems": 3
+      }
     },
     "mint_per_block": {
       "$ref": "#/definitions/Uint128"

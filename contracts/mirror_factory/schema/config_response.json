@@ -5,8 +5,9 @@
   "required": [
     "base_denom",
     "commission_collector",
+    "distribution_schedule",
+    "genesis_time",
     "mint_contract",
-    "mint_per_block",
     "mirror_token",
     "oracle_contract",
     "owner",
@@ -21,11 +22,36 @@
     "commission_collector": {
       "$ref": "#/definitions/HumanAddr"
     },
+    "distribution_schedule": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": [
+          {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0.0
+          },
+          {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0.0
+          },
+          {
+            "$ref": "#/definitions/Uint128"
+          }
+        ],
+        "maxItems": 3,
+        "minItems": 3
+      }
+    },
+    "genesis_time": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    },
     "mint_contract": {
       "$ref": "#/definitions/HumanAddr"
-    },
-    "mint_per_block": {
-      "$ref": "#/definitions/Uint128"
     },
     "mirror_token": {
       "$ref": "#/definitions/HumanAddr"

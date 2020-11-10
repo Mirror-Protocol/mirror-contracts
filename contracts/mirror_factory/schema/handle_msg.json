@@ -54,15 +54,31 @@
         "update_config": {
           "type": "object",
           "properties": {
-            "mint_per_block": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/Uint128"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+            "distribution_schedule": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "array",
+                "items": [
+                  {
+                    "type": "integer",
+                    "format": "uint64",
+                    "minimum": 0.0
+                  },
+                  {
+                    "type": "integer",
+                    "format": "uint64",
+                    "minimum": 0.0
+                  },
+                  {
+                    "$ref": "#/definitions/Uint128"
+                  }
+                ],
+                "maxItems": 3,
+                "minItems": 3
+              }
             },
             "owner": {
               "anyOf": [
@@ -81,29 +97,6 @@
               ],
               "format": "uint64",
               "minimum": 0.0
-            }
-          }
-        }
-      }
-    },
-    {
-      "type": "object",
-      "required": [
-        "update_weight"
-      ],
-      "properties": {
-        "update_weight": {
-          "type": "object",
-          "required": [
-            "asset_token",
-            "weight"
-          ],
-          "properties": {
-            "asset_token": {
-              "$ref": "#/definitions/HumanAddr"
-            },
-            "weight": {
-              "$ref": "#/definitions/Decimal"
             }
           }
         }
@@ -216,19 +209,11 @@
     {
       "type": "object",
       "required": [
-        "mint"
+        "distribute"
       ],
       "properties": {
-        "mint": {
-          "type": "object",
-          "required": [
-            "asset_token"
-          ],
-          "properties": {
-            "asset_token": {
-              "$ref": "#/definitions/HumanAddr"
-            }
-          }
+        "distribute": {
+          "type": "object"
         }
       }
     },
@@ -280,8 +265,7 @@
       "type": "object",
       "required": [
         "auction_discount",
-        "min_collateral_ratio",
-        "weight"
+        "min_collateral_ratio"
       ],
       "properties": {
         "auction_discount": {
@@ -294,14 +278,6 @@
         },
         "min_collateral_ratio": {
           "description": "Minium collateral ratio applied to asset mint",
-          "allOf": [
-            {
-              "$ref": "#/definitions/Decimal"
-            }
-          ]
-        },
-        "weight": {
-          "description": "inflation weight",
           "allOf": [
             {
               "$ref": "#/definitions/Decimal"
