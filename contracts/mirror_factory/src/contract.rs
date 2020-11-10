@@ -346,7 +346,7 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
                 contract_addr: deps.api.human_address(&config.oracle_contract)?,
                 send: vec![],
                 msg: to_binary(&OracleHandleMsg::RegisterAsset {
-                    asset: asset_token.to_string(),
+                    asset_token: asset_token.clone(),
                     feeder: oracle_feeder,
                 })?,
             }),
@@ -512,7 +512,7 @@ pub fn try_migrate_asset<S: Storage, A: Api, Q: Querier>(
     let oracle_feeder: HumanAddr = deps.api.human_address(&load_oracle_feeder(
         &deps,
         &deps.api.human_address(&config.oracle_contract)?,
-        &asset_token,
+        &asset_token_raw,
     )?)?;
 
     if oracle_feeder != env.message.sender {
@@ -525,7 +525,7 @@ pub fn try_migrate_asset<S: Storage, A: Api, Q: Querier>(
 
     let mint_contract = deps.api.human_address(&config.mint_contract)?;
     let mint_config: (Decimal, Decimal) =
-        load_mint_asset_config(&deps, &mint_contract, asset_token.to_string())?;
+        load_mint_asset_config(&deps, &mint_contract, &asset_token_raw)?;
 
     store_params(
         &mut deps.storage,

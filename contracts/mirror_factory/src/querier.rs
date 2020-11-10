@@ -9,13 +9,13 @@ use serde::{Deserialize, Serialize};
 pub fn load_oracle_feeder<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     contract_addr: &HumanAddr,
-    asset_token: &HumanAddr,
+    asset_token: &CanonicalAddr,
 ) -> StdResult<CanonicalAddr> {
     let res: StdResult<Binary> = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
         contract_addr: HumanAddr::from(contract_addr),
         key: Binary::from(concat(
             &to_length_prefixed(b"feeder"),
-            asset_token.to_string().as_bytes(),
+            asset_token.as_slice(),
         )),
     }));
 
@@ -47,13 +47,13 @@ pub struct MintAssetConfig {
 pub fn load_mint_asset_config<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     contract_addr: &HumanAddr,
-    asset_token: String,
+    asset_token: &CanonicalAddr,
 ) -> StdResult<(Decimal, Decimal)> {
     let res: StdResult<Binary> = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
         contract_addr: HumanAddr::from(contract_addr),
         key: Binary::from(concat(
             &to_length_prefixed(b"asset_config"),
-            asset_token.as_bytes(),
+            asset_token.as_slice(),
         )),
     }));
 

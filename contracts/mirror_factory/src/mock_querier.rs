@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Api, Coin, Decimal, Empty, Extern, HumanAddr, Querier,
-    QuerierResult, QueryRequest, SystemError, WasmQuery,
+    from_binary, from_slice, to_binary, Api, CanonicalAddr, Coin, Decimal, Empty, Extern,
+    HumanAddr, Querier, QuerierResult, QueryRequest, SystemError, WasmQuery,
 };
 use cosmwasm_storage::to_length_prefixed;
 
@@ -163,6 +163,7 @@ impl WasmMockQuerier {
                 let prefix_asset_config = to_length_prefixed(b"asset_config").to_vec();
                 let prefix_feeder = to_length_prefixed(b"feeder").to_vec();
 
+                let api: MockApi = MockApi::new(self.canonical_length);
                 if key.len() > prefix_feeder.len()
                     && key[..prefix_feeder.len()].to_vec() == prefix_feeder
                 {
@@ -170,8 +171,9 @@ impl WasmMockQuerier {
                     let rest_key: &[u8] = &key[prefix_feeder.len()..];
 
                     if contract_addr == &HumanAddr::from("oracle0000") {
-                        let asset_token: HumanAddr =
-                            HumanAddr::from(String::from_utf8(rest_key.to_vec()).unwrap());
+                        let asset_token: HumanAddr = api
+                            .human_address(&(CanonicalAddr::from(rest_key.to_vec())))
+                            .unwrap();
 
                         let feeder = match self.oracle_querier.feeders.get(&asset_token) {
                             Some(v) => v,
@@ -195,11 +197,11 @@ impl WasmMockQuerier {
                 } else if key.len() > prefix_asset_config.len()
                     && key[..prefix_asset_config.len()].to_vec() == prefix_asset_config
                 {
-                    let api: MockApi = MockApi::new(self.canonical_length);
                     let rest_key: &[u8] = &key[prefix_asset_config.len()..];
+                    let asset_token: HumanAddr = api
+                        .human_address(&(CanonicalAddr::from(rest_key.to_vec())))
+                        .unwrap();
 
-                    let asset_token: HumanAddr =
-                        HumanAddr::from(String::from_utf8(rest_key.to_vec()).unwrap());
                     let config = match self.mint_querier.configs.get(&asset_token) {
                         Some(v) => v,
                         None => {
