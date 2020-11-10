@@ -2,17 +2,14 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{
-    from_slice, to_vec, CanonicalAddr, Decimal, Order, ReadonlyStorage, StdError, StdResult,
-    Storage, Uint128,
+    CanonicalAddr, Decimal, Order, ReadonlyStorage, StdError, StdResult, Storage, Uint128,
 };
 
-use cosmwasm_storage::{
-    singleton, singleton_read, Bucket, PrefixedStorage, ReadonlyBucket, ReadonlyPrefixedStorage,
-};
+use cosmwasm_storage::{singleton, singleton_read, Bucket, ReadonlyBucket};
 use std::convert::TryInto;
-use terraswap::AssetRaw;
+use terraswap::{AssetInfoRaw, AssetRaw};
 
-static PREFIX_ASSET: &[u8] = b"asset";
+static PREFIX_ASSET_CONFIG: &[u8] = b"asset_config";
 static PREFIX_POSITION: &[u8] = b"position";
 static PREFIX_INDEX_BY_USER: &[u8] = b"by_user";
 static PREFIX_INDEX_BY_ASSET: &[u8] = b"by_asset";
@@ -56,18 +53,38 @@ pub struct AssetConfig {
 
 pub fn store_asset_config<S: Storage>(
     storage: &mut S,
-    asset_token: &String,
+    asset_token: &CanonicalAddr,
     asset: &AssetConfig,
 ) -> StdResult<()> {
-    PrefixedStorage::new(PREFIX_ASSET, storage).set(asset_token.as_bytes(), &to_vec(&asset)?);
-    Ok(())
+    let mut asset_bucket: Bucket<S, AssetConfig> = Bucket::new(PREFIX_ASSET_CONFIG, storage);
+    asset_bucket.save(asset_token.as_slice(), &asset)
 }
 
-pub fn read_asset_config<S: Storage>(storage: &S, asset_token: &String) -> StdResult<AssetConfig> {
-    let res = ReadonlyPrefixedStorage::new(PREFIX_ASSET, storage).get(asset_token.as_bytes());
+pub fn read_asset_config<S: Storage>(
+    storage: &S,
+    asset_token: &CanonicalAddr,
+) -> StdResult<AssetConfig> {
+    let asset_bucket: ReadonlyBucket<S, AssetConfig> =
+        ReadonlyBucket::new(PREFIX_ASSET_CONFIG, storage);
+    let res = asset_bucket.load(asset_token.as_slice());
     match res {
-        Some(data) => from_slice(&data),
-        None => Err(StdError::generic_err("no asset data stored")),
+        Ok(data) => Ok(data),
+        _ => Err(StdError::generic_err("no asset data stored")),
+    }
+}
+
+pub fn read_end_price<S: Storage>(storage: &S, asset_info: &AssetInfoRaw) -> Option<Decimal> {
+    match asset_info {
+        AssetInfoRaw::Token { contract_addr } => {
+            let asset_bucket: ReadonlyBucket<S, AssetConfig> =
+                ReadonlyBucket::new(PREFIX_ASSET_CONFIG, storage);
+            let res = asset_bucket.load(contract_addr.as_slice());
+            match res {
+                Ok(data) => data.end_price,
+                _ => None,
+            }
+        }
+        _ => None,
     }
 }
 

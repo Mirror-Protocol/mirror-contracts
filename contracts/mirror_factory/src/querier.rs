@@ -52,7 +52,7 @@ pub fn load_mint_asset_config<S: Storage, A: Api, Q: Querier>(
     let res: StdResult<Binary> = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
         contract_addr: HumanAddr::from(contract_addr),
         key: Binary::from(concat(
-            &to_length_prefixed(b"asset"),
+            &to_length_prefixed(b"asset_config"),
             asset_token.as_bytes(),
         )),
     }));

@@ -35,12 +35,12 @@
         "register_asset": {
           "type": "object",
           "required": [
-            "asset",
+            "asset_token",
             "feeder"
           ],
           "properties": {
-            "asset": {
-              "type": "string"
+            "asset_token": {
+              "$ref": "#/definitions/HumanAddr"
             },
             "feeder": {
               "$ref": "#/definitions/HumanAddr"
@@ -67,7 +67,7 @@
                 "type": "array",
                 "items": [
                   {
-                    "type": "string"
+                    "$ref": "#/definitions/HumanAddr"
                   },
                   {
                     "$ref": "#/definitions/Decimal"

@@ -120,7 +120,7 @@ fn update_price() {
 
     // register asset
     let msg = HandleMsg::RegisterAsset {
-        asset: "mAAPL".to_string(),
+        asset_token: HumanAddr::from("mAAPL"),
         feeder: HumanAddr::from("addr0000"),
     };
 
@@ -132,7 +132,7 @@ fn update_price() {
     }
 
     let msg = HandleMsg::RegisterAsset {
-        asset: "mAAPL".to_string(),
+        asset_token: HumanAddr::from("mAAPL"),
         feeder: HumanAddr::from("addr0000"),
     };
 
@@ -141,7 +141,7 @@ fn update_price() {
 
     // try register the asset is already exists
     let msg = HandleMsg::RegisterAsset {
-        asset: "mAAPL".to_string(),
+        asset_token: HumanAddr::from("mAAPL"),
         feeder: HumanAddr::from("addr0000"),
     };
 
@@ -155,7 +155,10 @@ fn update_price() {
     // update price
     let env = mock_env("addr0000", &[]);
     let msg = HandleMsg::FeedPrice {
-        prices: vec![("mAAPL".to_string(), Decimal::from_ratio(12u128, 10u128))],
+        prices: vec![(
+            HumanAddr::from("mAAPL"),
+            Decimal::from_ratio(12u128, 10u128),
+        )],
     };
 
     let res: HandleResponse = handle(&mut deps, env, msg).unwrap();
@@ -165,8 +168,8 @@ fn update_price() {
     let query_result = query(
         &mut deps,
         QueryMsg::Price {
-            base: "base0000".to_string(),
-            quote: "mAAPL".to_string(),
+            base_asset: "mAAPL".to_string(),
+            quote_asset: "base0000".to_string(),
         },
     )
     .unwrap();
@@ -176,7 +179,10 @@ fn update_price() {
     // Unauthorzied err
     let env = mock_env("addr0001", &[]);
     let msg = HandleMsg::FeedPrice {
-        prices: vec![("mAAPL".to_string(), Decimal::from_ratio(12u128, 10u128))],
+        prices: vec![(
+            HumanAddr::from("mAAPL"),
+            Decimal::from_ratio(12u128, 10u128),
+        )],
     };
 
     let res: HandleResult = handle(&mut deps, env, msg);

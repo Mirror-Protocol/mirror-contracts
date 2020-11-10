@@ -10,10 +10,10 @@ use crate::msg::{
 };
 
 use crate::state::{
-    create_position, read_asset_config, read_config, read_position, read_position_idx,
-    read_positions, read_positions_with_asset_indexer, read_positions_with_user_indexer,
-    remove_position, store_asset_config, store_config, store_position, store_position_idx,
-    AssetConfig, Config, Position,
+    create_position, read_asset_config, read_config, read_position,
+    read_position_idx, read_positions, read_positions_with_asset_indexer,
+    read_positions_with_user_indexer, remove_position, store_asset_config, store_config,
+    store_position, store_position_idx, AssetConfig, Config, Position,
 };
 
 use crate::math::{decimal_division, decimal_subtraction, reverse_decimal};
@@ -226,7 +226,8 @@ pub fn try_update_asset<S: Storage, A: Api, Q: Querier>(
     min_collateral_ratio: Option<Decimal>,
 ) -> StdResult<HandleResponse> {
     let config: Config = read_config(&deps.storage)?;
-    let mut asset: AssetConfig = read_asset_config(&deps.storage, &asset_token.to_string())?;
+    let asset_token_raw = deps.api.canonical_address(&asset_token)?;
+    let mut asset: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
 
     if deps.api.canonical_address(&env.message.sender)? != config.owner {
         return Err(StdError::unauthorized());
@@ -239,7 +240,8 @@ pub fn try_update_asset<S: Storage, A: Api, Q: Querier>(
     if let Some(min_collateral_ratio) = min_collateral_ratio {
         asset.min_collateral_ratio = min_collateral_ratio;
     }
-    store_asset_config(&mut deps.storage, &asset_token.to_string(), &asset)?;
+
+    store_asset_config(&mut deps.storage, &asset_token_raw, &asset)?;
     Ok(HandleResponse {
         messages: vec![],
         log: vec![log("action", "update_asset")],
@@ -261,14 +263,15 @@ pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::unauthorized());
     }
 
-    if read_asset_config(&deps.storage, &asset_token.to_string()).is_ok() {
+    let asset_token_raw = deps.api.canonical_address(&asset_token)?;
+    if read_asset_config(&deps.storage, &asset_token_raw).is_ok() {
         return Err(StdError::generic_err("Asset was already registered"));
     }
 
     // Store temp info into base asset store
     store_asset_config(
         &mut deps.storage,
-        &asset_token.to_string(),
+        &asset_token_raw,
         &AssetConfig {
             token: deps.api.canonical_address(&asset_token)?,
             auction_discount,
@@ -295,12 +298,13 @@ pub fn try_register_migration<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::unauthorized());
     }
 
-    let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token.to_string())?;
+    let asset_token_raw = deps.api.canonical_address(&asset_token)?;
+    let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
 
     // update asset config
     store_asset_config(
         &mut deps.storage,
-        &asset_token.to_string(),
+        &asset_token_raw,
         &AssetConfig {
             end_price: Some(end_price),
             min_collateral_ratio: Decimal::percent(100),
@@ -332,7 +336,13 @@ pub fn try_open_position<S: Storage, A: Api, Q: Querier>(
     }
 
     let collateral_info_raw: AssetInfoRaw = collateral.info.to_raw(&deps)?;
-    let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_info.to_string())?;
+    let asset_info_raw: AssetInfoRaw = asset_info.to_raw(&deps)?;
+    let asset_token_raw = match asset_info_raw.clone() {
+        AssetInfoRaw::Token { contract_addr } => contract_addr,
+        _ => panic!("DO NOT ENTER HERE"),
+    };
+
+    let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
     if let Some(_) = asset_config.end_price {
         return Err(StdError::generic_err(
             "Can not open a deprecated asset position",
@@ -350,8 +360,8 @@ pub fn try_open_position<S: Storage, A: Api, Q: Querier>(
     let price: Decimal = load_price(
         &deps,
         &oracle,
-        collateral.info.to_string(),
-        asset_info.to_string(),
+        &collateral_info_raw,
+        &asset_info_raw,
         Some(env.block.time),
     )?;
 
@@ -420,8 +430,12 @@ pub fn try_deposit<S: Storage, A: Api, Q: Querier>(
     // also Check the collateral amount is non-zero
     assert_collateral(deps, &position, &collateral)?;
 
-    let asset_info: AssetInfo = position.asset.info.to_normal(&deps)?;
-    let asset_config = read_asset_config(&deps.storage, &asset_info.to_string())?;
+    let asset_token_raw = match position.asset.info.clone() {
+        AssetInfoRaw::Token { contract_addr } => contract_addr,
+        _ => panic!("DO NOT ENTER HERE"),
+    };
+
+    let asset_config = read_asset_config(&deps.storage, &asset_token_raw)?;
     if let Some(_) = asset_config.end_price {
         return Err(StdError::generic_err(
             "Cannot deposit more collateral to the deprecated asset position",
@@ -466,15 +480,18 @@ pub fn try_withdraw<S: Storage, A: Api, Q: Querier>(
     }
 
     let config: Config = read_config(&deps.storage)?;
-    let asset_info: AssetInfo = position.asset.info.to_normal(&deps)?;
-    let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_info.to_string())?;
+    let asset_token_raw = match position.asset.info.clone() {
+        AssetInfoRaw::Token { contract_addr } => contract_addr,
+        _ => panic!("DO NOT ENTER HERE"),
+    };
 
+    let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
     let oracle: HumanAddr = deps.api.human_address(&config.oracle)?;
     let price: Decimal = load_price(
         &deps,
         &oracle,
-        asset_info.to_string(),
-        collateral.info.to_string(),
+        &position.asset.info,
+        &position.collateral.info,
         Some(env.block.time),
     )?;
 
@@ -550,7 +567,12 @@ pub fn try_mint<S: Storage, A: Api, Q: Querier>(
     assert_asset(&deps, &position, &asset)?;
 
     let config: Config = read_config(&deps.storage)?;
-    let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset.info.to_string())?;
+    let asset_token_raw = match position.asset.info.clone() {
+        AssetInfoRaw::Token { contract_addr } => contract_addr,
+        _ => panic!("DO NOT ENTER HERE"),
+    };
+
+    let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
     if let Some(_) = asset_config.end_price {
         return Err(StdError::generic_err("Cannot mint deprecated asset"));
     }
@@ -559,8 +581,8 @@ pub fn try_mint<S: Storage, A: Api, Q: Querier>(
     let price: Decimal = load_price(
         &deps,
         &oracle,
-        asset.info.to_string(),
-        (position.collateral.info.to_normal(&deps)?).to_string(),
+        &position.asset.info,
+        &position.collateral.info,
         Some(env.block.time),
     )?;
 
@@ -612,8 +634,12 @@ pub fn try_burn<S: Storage, A: Api, Q: Querier>(
     // Check the asset has same token with position asset
     // also Check burn amount is non-zero
     assert_asset(deps, &position, &asset)?;
+    let asset_token_raw = match position.asset.info.clone() {
+        AssetInfoRaw::Token { contract_addr } => contract_addr,
+        _ => panic!("DO NOT ENTER HERE"),
+    };
 
-    let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset.info.to_string())?;
+    let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
     if position.asset.amount < asset.amount {
         return Err(StdError::generic_err(
             "Cannot burn asset more than you mint",
@@ -694,10 +720,16 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
     asset: Asset,
 ) -> StdResult<HandleResponse> {
     let mut position: Position = read_position(&deps.storage, position_idx)?;
+
     assert_asset(&deps, &position, &asset)?;
 
     let config: Config = read_config(&deps.storage)?;
-    let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset.info.to_string())?;
+    let asset_token_raw = match position.asset.info.clone() {
+        AssetInfoRaw::Token { contract_addr } => contract_addr,
+        _ => panic!("DO NOT ENTER HERE"),
+    };
+
+    let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
     if let Some(_) = asset_config.end_price {
         return Err(StdError::generic_err(
             "Cannot liquidate a deprecated asset position",
@@ -717,8 +749,8 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
     let price: Decimal = load_price(
         &deps,
         &oracle,
-        asset.info.to_string(),
-        (position.collateral.info.to_normal(&deps)?).to_string(),
+        &position.asset.info,
+        &position.collateral.info,
         Some(env.block.time),
     )?;
 
@@ -886,7 +918,8 @@ pub fn query_asset_config<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     asset_token: HumanAddr,
 ) -> StdResult<AssetConfigResponse> {
-    let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token.to_string())?;
+    let asset_config: AssetConfig =
+        read_asset_config(&deps.storage, &deps.api.canonical_address(&asset_token)?)?;
 
     let resp = AssetConfigResponse {
         token: deps.api.human_address(&asset_config.token).unwrap(),

@@ -22,11 +22,11 @@
         "feeder": {
           "type": "object",
           "required": [
-            "asset"
+            "asset_token"
           ],
           "properties": {
-            "asset": {
-              "type": "string"
+            "asset_token": {
+              "$ref": "#/definitions/HumanAddr"
             }
           }
         }
@@ -41,14 +41,14 @@
         "price": {
           "type": "object",
           "required": [
-            "base",
-            "quote"
+            "base_asset",
+            "quote_asset"
           ],
           "properties": {
-            "base": {
+            "base_asset": {
               "type": "string"
             },
-            "quote": {
+            "quote_asset": {
               "type": "string"
             }
           }
@@ -73,14 +73,23 @@
               "minimum": 0.0
             },
             "start_after": {
-              "type": [
-                "string",
-                "null"
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
               ]
             }
           }
         }
       }
     }
-  ]
+  ],
+  "definitions": {
+    "HumanAddr": {
+      "type": "string"
+    }
+  }
 }

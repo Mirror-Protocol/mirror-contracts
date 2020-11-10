@@ -36,7 +36,10 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
 ) -> HandleResult {
     match msg {
         HandleMsg::UpdateConfig { owner } => try_update_config(deps, env, owner),
-        HandleMsg::RegisterAsset { asset, feeder } => try_register_asset(deps, env, asset, feeder),
+        HandleMsg::RegisterAsset {
+            asset_token,
+            feeder,
+        } => try_register_asset(deps, env, asset_token, feeder),
         HandleMsg::FeedPrice { prices } => try_feed_price(deps, env, prices),
     }
 }
@@ -62,7 +65,7 @@ pub fn try_update_config<S: Storage, A: Api, Q: Querier>(
 pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    asset: String,
+    asset_token: HumanAddr,
     feeder: HumanAddr,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
@@ -70,13 +73,14 @@ pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::unauthorized());
     }
 
-    if read_feeder(&deps.storage, &asset).is_ok() {
+    let asset_token_raw = deps.api.canonical_address(&asset_token)?;
+    if read_feeder(&deps.storage, &asset_token_raw).is_ok() {
         return Err(StdError::generic_err("Asset was already registered"));
     }
 
     store_price(
         &mut deps.storage,
-        &asset,
+        &asset_token_raw,
         &PriceInfo {
             price: Decimal::zero(),
             last_updated_time: 0u64,
@@ -85,7 +89,7 @@ pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
 
     store_feeder(
         &mut deps.storage,
-        &asset,
+        &asset_token_raw,
         &deps.api.canonical_address(&feeder)?,
     )?;
 
@@ -95,7 +99,7 @@ pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
 pub fn try_feed_price<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    prices: Vec<(String, Decimal)>,
+    prices: Vec<(HumanAddr, Decimal)>,
 ) -> HandleResult {
     let feeder_raw = deps.api.canonical_address(&env.message.sender)?;
 
@@ -105,15 +109,16 @@ pub fn try_feed_price<S: Storage, A: Api, Q: Querier>(
         logs.push(log("price", price.1.to_string()));
 
         // Check feeder permission
-        if feeder_raw != read_feeder(&deps.storage, &price.0)? {
+        let asset_token_raw = deps.api.canonical_address(&price.0)?;
+        if feeder_raw != read_feeder(&deps.storage, &asset_token_raw)? {
             return Err(StdError::unauthorized());
         }
 
-        let mut state: PriceInfo = read_price(&deps.storage, &price.0)?;
+        let mut state: PriceInfo = read_price(&deps.storage, &asset_token_raw)?;
         state.last_updated_time = env.block.time;
         state.price = price.1;
 
-        store_price(&mut deps.storage, &price.0, &state)?;
+        store_price(&mut deps.storage, &asset_token_raw, &state)?;
     }
 
     Ok(HandleResponse {
@@ -129,8 +134,11 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
-        QueryMsg::Feeder { asset } => to_binary(&query_feeder(deps, asset)?),
-        QueryMsg::Price { base, quote } => to_binary(&query_price(deps, base, quote)?),
+        QueryMsg::Feeder { asset_token } => to_binary(&query_feeder(deps, asset_token)?),
+        QueryMsg::Price {
+            base_asset,
+            quote_asset,
+        } => to_binary(&query_price(deps, base_asset, quote_asset)?),
         QueryMsg::Prices { start_after, limit } => {
             to_binary(&query_prices(deps, start_after, limit))
         }
@@ -151,11 +159,11 @@ fn query_config<S: Storage, A: Api, Q: Querier>(
 
 fn query_feeder<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
-    asset: String,
+    asset_token: HumanAddr,
 ) -> StdResult<FeederResponse> {
-    let feeder = read_feeder(&deps.storage, &asset)?;
+    let feeder = read_feeder(&deps.storage, &deps.api.canonical_address(&asset_token)?)?;
     let resp = FeederResponse {
-        asset,
+        asset_token,
         feeder: deps.api.human_address(&feeder)?,
     };
 
@@ -174,7 +182,10 @@ fn query_price<S: Storage, A: Api, Q: Querier>(
             last_updated_time: 9999999999,
         }
     } else {
-        read_price(&deps.storage, &quote)?
+        read_price(
+            &deps.storage,
+            &deps.api.canonical_address(&HumanAddr::from(quote))?,
+        )?
     };
 
     let base_price = if config.base_asset == base {
@@ -183,7 +194,10 @@ fn query_price<S: Storage, A: Api, Q: Querier>(
             last_updated_time: 9999999999,
         }
     } else {
-        read_price(&deps.storage, &base)?
+        read_price(
+            &deps.storage,
+            &deps.api.canonical_address(&HumanAddr::from(base))?,
+        )?
     };
 
     Ok(PriceResponse {
@@ -195,10 +209,16 @@ fn query_price<S: Storage, A: Api, Q: Querier>(
 
 fn query_prices<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
-    start_after: Option<String>,
+    start_after: Option<HumanAddr>,
     limit: Option<u32>,
 ) -> StdResult<PricesResponse> {
-    let prices: Vec<PricesResponseElem> = read_prices(&deps.storage, start_after, limit)?;
+    let start_after = if let Some(start_after) = start_after {
+        Some(deps.api.canonical_address(&start_after)?)
+    } else {
+        None
+    };
+
+    let prices: Vec<PricesResponseElem> = read_prices(&deps, start_after, limit)?;
 
     Ok(PricesResponse { prices })
 }
@@ -282,13 +302,16 @@ mod tests {
         // update price
         let env = mock_env("addr0000", &[]);
         let msg = HandleMsg::FeedPrice {
-            prices: vec![("mAAPL".to_string(), Decimal::from_ratio(12u128, 10u128))],
+            prices: vec![(
+                HumanAddr::from("mAAPL"),
+                Decimal::from_ratio(12u128, 10u128),
+            )],
         };
 
         let _res = handle(&mut deps, env, msg).unwrap_err();
 
         let msg = HandleMsg::RegisterAsset {
-            asset: "mAAPL".to_string(),
+            asset_token: HumanAddr::from("mAAPL"),
             feeder: HumanAddr::from("addr0000"),
         };
 
@@ -300,14 +323,14 @@ mod tests {
         }
 
         let msg = HandleMsg::RegisterAsset {
-            asset: "mAAPL".to_string(),
+            asset_token: HumanAddr::from("mAAPL"),
             feeder: HumanAddr::from("addr0000"),
         };
 
         let env = mock_env("owner0000", &[]);
         let _res = handle(&mut deps, env, msg).unwrap();
         let msg = HandleMsg::RegisterAsset {
-            asset: "mGOGL".to_string(),
+            asset_token: HumanAddr::from("mGOGL"),
             feeder: HumanAddr::from("addr0000"),
         };
 
@@ -316,7 +339,7 @@ mod tests {
 
         // try register the asset is already exists
         let msg = HandleMsg::RegisterAsset {
-            asset: "mAAPL".to_string(),
+            asset_token: HumanAddr::from("mAAPL"),
             feeder: HumanAddr::from("addr0000"),
         };
 
@@ -327,11 +350,11 @@ mod tests {
             _ => panic!("DO NOT ENTER HERE"),
         }
 
-        let value: FeederResponse = query_feeder(&deps, "mAAPL".to_string()).unwrap();
+        let value: FeederResponse = query_feeder(&deps, HumanAddr::from("mAAPL")).unwrap();
         assert_eq!(
             value,
             FeederResponse {
-                asset: "mAAPL".to_string(),
+                asset_token: HumanAddr::from("mAAPL"),
                 feeder: HumanAddr::from("addr0000"),
             }
         );
@@ -349,8 +372,14 @@ mod tests {
 
         let msg = HandleMsg::FeedPrice {
             prices: vec![
-                ("mAAPL".to_string(), Decimal::from_ratio(12u128, 10u128)),
-                ("mGOGL".to_string(), Decimal::from_ratio(22u128, 10u128)),
+                (
+                    HumanAddr::from("mAAPL"),
+                    Decimal::from_ratio(12u128, 10u128),
+                ),
+                (
+                    HumanAddr::from("mGOGL"),
+                    Decimal::from_ratio(22u128, 10u128),
+                ),
             ],
         };
         let env = mock_env("addr0000", &[]);
@@ -372,12 +401,12 @@ mod tests {
             PricesResponse {
                 prices: vec![
                     PricesResponseElem {
-                        asset: "mAAPL".to_string(),
+                        asset_token: HumanAddr::from("mAAPL"),
                         price: Decimal::from_ratio(12u128, 10u128),
                         last_updated_time: env.block.time,
                     },
                     PricesResponseElem {
-                        asset: "mGOGL".to_string(),
+                        asset_token: HumanAddr::from("mGOGL"),
                         price: Decimal::from_ratio(22u128, 10u128),
                         last_updated_time: env.block.time,
                     }
@@ -388,7 +417,10 @@ mod tests {
         // Unautorized try
         let env = mock_env("addr0001", &[]);
         let msg = HandleMsg::FeedPrice {
-            prices: vec![("mAAPL".to_string(), Decimal::from_ratio(12u128, 10u128))],
+            prices: vec![(
+                HumanAddr::from("mAAPL"),
+                Decimal::from_ratio(12u128, 10u128),
+            )],
         };
 
         let res = handle(&mut deps, env, msg);

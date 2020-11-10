@@ -171,27 +171,28 @@ impl WasmMockQuerier {
                 contract_addr: _,
                 msg,
             }) => match from_binary(&msg).unwrap() {
-                OracleQueryMsg::Price { base, quote } => {
-                    match self.oracle_price_querier.oracle_price.get(&base) {
-                        Some(base_price) => {
-                            match self.oracle_price_querier.oracle_price.get(&quote) {
-                                Some(quote_price) => Ok(to_binary(&PriceResponse {
-                                    rate: decimal_division(*base_price, *quote_price),
-                                    last_updated_base: 1000u64,
-                                    last_updated_quote: 1000u64,
-                                })),
-                                None => Err(SystemError::InvalidRequest {
-                                    error: "No oracle price exists".to_string(),
-                                    request: msg.as_slice().into(),
-                                }),
-                            }
+                OracleQueryMsg::Price {
+                    base_asset,
+                    quote_asset,
+                } => match self.oracle_price_querier.oracle_price.get(&base_asset) {
+                    Some(base_price) => {
+                        match self.oracle_price_querier.oracle_price.get(&quote_asset) {
+                            Some(quote_price) => Ok(to_binary(&PriceResponse {
+                                rate: decimal_division(*base_price, *quote_price),
+                                last_updated_base: 1000u64,
+                                last_updated_quote: 1000u64,
+                            })),
+                            None => Err(SystemError::InvalidRequest {
+                                error: "No oracle price exists".to_string(),
+                                request: msg.as_slice().into(),
+                            }),
                         }
-                        None => Err(SystemError::InvalidRequest {
-                            error: "No oracle price exists".to_string(),
-                            request: msg.as_slice().into(),
-                        }),
                     }
-                }
+                    None => Err(SystemError::InvalidRequest {
+                        error: "No oracle price exists".to_string(),
+                        request: msg.as_slice().into(),
+                    }),
+                },
             },
             QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
                 let key: &[u8] = key.as_slice();

@@ -17,11 +17,11 @@ pub enum HandleMsg {
     },
     /// Used to register new asset or to update feeder
     RegisterAsset {
-        asset: String,
+        asset_token: HumanAddr,
         feeder: HumanAddr,
     },
     FeedPrice {
-        prices: Vec<(String, Decimal)>,
+        prices: Vec<(HumanAddr, Decimal)>,
     },
 }
 
@@ -30,14 +30,14 @@ pub enum HandleMsg {
 pub enum QueryMsg {
     Config {},
     Feeder {
-        asset: String,
+        asset_token: HumanAddr,
     },
     Price {
-        base: String,
-        quote: String,
+        base_asset: String,
+        quote_asset: String,
     },
     Prices {
-        start_after: Option<String>,
+        start_after: Option<HumanAddr>,
         limit: Option<u32>,
     },
 }
@@ -52,7 +52,7 @@ pub struct ConfigResponse {
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct FeederResponse {
-    pub asset: String,
+    pub asset_token: HumanAddr,
     pub feeder: HumanAddr,
 }
 
@@ -67,7 +67,7 @@ pub struct PriceResponse {
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct PricesResponseElem {
-    pub asset: String,
+    pub asset_token: HumanAddr,
     pub price: Decimal,
     pub last_updated_time: u64,
 }

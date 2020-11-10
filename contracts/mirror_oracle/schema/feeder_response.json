@@ -3,12 +3,12 @@
   "title": "FeederResponse",
   "type": "object",
   "required": [
-    "asset",
+    "asset_token",
     "feeder"
   ],
   "properties": {
-    "asset": {
-      "type": "string"
+    "asset_token": {
+      "$ref": "#/definitions/HumanAddr"
     },
     "feeder": {
       "$ref": "#/definitions/HumanAddr"

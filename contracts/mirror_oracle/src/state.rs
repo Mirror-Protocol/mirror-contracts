@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{CanonicalAddr, Decimal, Order, StdResult, Storage};
+use cosmwasm_std::{Api, CanonicalAddr, Decimal, Extern, Order, Querier, StdResult, Storage};
 use cosmwasm_storage::{singleton, singleton_read, Bucket, ReadonlyBucket};
 
 use crate::msg::PricesResponseElem;
@@ -27,18 +27,21 @@ pub fn read_config<S: Storage>(storage: &S) -> StdResult<Config> {
 
 pub fn store_feeder<S: Storage>(
     storage: &mut S,
-    asset: &str,
+    asset_token: &CanonicalAddr,
     feeder: &CanonicalAddr,
 ) -> StdResult<()> {
     let mut feeder_bucket: Bucket<S, CanonicalAddr> = Bucket::new(PREFIX_FEEDER, storage);
 
-    feeder_bucket.save(asset.as_bytes(), feeder)
+    feeder_bucket.save(asset_token.as_slice(), feeder)
 }
 
-pub fn read_feeder<S: Storage>(storage: &S, asset: &str) -> StdResult<CanonicalAddr> {
+pub fn read_feeder<S: Storage>(
+    storage: &S,
+    asset_token: &CanonicalAddr,
+) -> StdResult<CanonicalAddr> {
     let feeder_bucket: ReadonlyBucket<S, CanonicalAddr> =
         ReadonlyBucket::new(PREFIX_FEEDER, storage);
-    feeder_bucket.load(asset.as_bytes())
+    feeder_bucket.load(asset_token.as_slice())
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -49,27 +52,28 @@ pub struct PriceInfo {
 
 pub fn store_price<S: Storage>(
     storage: &mut S,
-    asset: &str,
+    asset_token: &CanonicalAddr,
     price: &PriceInfo,
 ) -> StdResult<()> {
     let mut price_bucket: Bucket<S, PriceInfo> = Bucket::new(PREFIX_PRICE, storage);
-    price_bucket.save(asset.as_bytes(), price)
+    price_bucket.save(asset_token.as_slice(), price)
 }
 
-pub fn read_price<S: Storage>(storage: &S, asset: &str) -> StdResult<PriceInfo> {
+pub fn read_price<S: Storage>(storage: &S, asset_token: &CanonicalAddr) -> StdResult<PriceInfo> {
     let price_bucket: ReadonlyBucket<S, PriceInfo> = ReadonlyBucket::new(PREFIX_PRICE, storage);
-    price_bucket.load(asset.as_bytes())
+    price_bucket.load(asset_token.as_slice())
 }
 
 // settings for pagination
 const MAX_LIMIT: u32 = 30;
 const DEFAULT_LIMIT: u32 = 10;
-pub fn read_prices<S: Storage>(
-    storage: &S,
-    start_after: Option<String>,
+pub fn read_prices<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    start_after: Option<CanonicalAddr>,
     limit: Option<u32>,
 ) -> StdResult<Vec<PricesResponseElem>> {
-    let price_bucket: ReadonlyBucket<S, PriceInfo> = ReadonlyBucket::new(PREFIX_PRICE, storage);
+    let price_bucket: ReadonlyBucket<S, PriceInfo> =
+        ReadonlyBucket::new(PREFIX_PRICE, &deps.storage);
 
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
     let start = calc_range_start(start_after);
@@ -80,9 +84,9 @@ pub fn read_prices<S: Storage>(
         .map(|item| {
             let (k, v) = item?;
 
-            let asset = std::str::from_utf8(&k).unwrap().to_string();
+            let asset_token = deps.api.human_address(&CanonicalAddr::from(k))?;
             Ok(PricesResponseElem {
-                asset,
+                asset_token,
                 price: v.price,
                 last_updated_time: v.last_updated_time,
             })
@@ -91,9 +95,9 @@ pub fn read_prices<S: Storage>(
 }
 
 // this will set the first key after the provided key, by appending a 1 byte
-fn calc_range_start(start_after: Option<String>) -> Option<Vec<u8>> {
+fn calc_range_start(start_after: Option<CanonicalAddr>) -> Option<Vec<u8>> {
     start_after.map(|idx| {
-        let mut v = idx.as_bytes().to_vec();
+        let mut v = idx.as_slice().to_vec();
         v.push(1);
         v
     })

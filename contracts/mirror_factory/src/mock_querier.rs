@@ -160,7 +160,7 @@ impl WasmMockQuerier {
             },
             QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
                 let key: &[u8] = key.as_slice();
-                let prefix_asset = to_length_prefixed(b"asset").to_vec();
+                let prefix_asset_config = to_length_prefixed(b"asset_config").to_vec();
                 let prefix_feeder = to_length_prefixed(b"feeder").to_vec();
 
                 if key.len() > prefix_feeder.len()
@@ -192,11 +192,11 @@ impl WasmMockQuerier {
                     } else {
                         panic!("DO NOT ENTER HERE")
                     }
-                } else if key.len() > prefix_asset.len()
-                    && key[..prefix_asset.len()].to_vec() == prefix_asset
+                } else if key.len() > prefix_asset_config.len()
+                    && key[..prefix_asset_config.len()].to_vec() == prefix_asset_config
                 {
                     let api: MockApi = MockApi::new(self.canonical_length);
-                    let rest_key: &[u8] = &key[prefix_asset.len()..];
+                    let rest_key: &[u8] = &key[prefix_asset_config.len()..];
 
                     let asset_token: HumanAddr =
                         HumanAddr::from(String::from_utf8(rest_key.to_vec()).unwrap());
