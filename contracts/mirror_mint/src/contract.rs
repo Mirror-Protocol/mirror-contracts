@@ -825,10 +825,8 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
         send: vec![],
     }));
 
-    // Charge protocol fee to profit
-    // profit = return_collateral - liquidate_asset * (origin)price
-    let profit = (return_collateral_amount - liquidated_asset_amount * price).unwrap();
-    let protocol_fee = profit * config.protocol_fee_rate;
+    // Deduct protocol fee
+    let protocol_fee = return_collateral_amount * config.protocol_fee_rate;
     let return_collateral_amount = (return_collateral_amount - protocol_fee).unwrap();
 
     // return collateral to liqudation initiator(sender)

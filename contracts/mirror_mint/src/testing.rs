@@ -1992,10 +1992,9 @@ fn auction() {
                 amount: vec![Coin {
                     denom: "uusd".to_string(),
                     // Origin:          966,570
-                    // Profit:          193,314
-                    // ProtocolFee(1%): -1,933
-                    // Tax(5%):         -45,936
-                    amount: Uint128(918701u128) 
+                    // ProtocolFee(1%): -9,665
+                    // Tax(5%):         -45,567
+                    amount: Uint128(911338u128)
                 }],
             }),
             CosmosMsg::Bank(BankMsg::Send {
@@ -2003,9 +2002,9 @@ fn auction() {
                 to_address: HumanAddr::from("collector0000"),
                 amount: vec![Coin {
                     denom: "uusd".to_string(),
-                    // Origin:  1933
-                    // Tax(5%): -93
-                    amount: Uint128(1840u128) 
+                    // Origin:  9,665
+                    // Tax(5%): -461
+                    amount: Uint128(9204u128)
                 }]
             })
         ],
@@ -2016,10 +2015,10 @@ fn auction() {
             log("action", "auction"),
             log("position_idx", "1"),
             log("owner", "addr0000"),
-            log("return_collateral_amount", "964637uusd"),
+            log("return_collateral_amount", "956905uusd"),
             log("liquidated_amount", "6666asset0000"),
-            log("tax_amount", "45936uusd"),
-            log("protocol_fee", "1933uusd"),
+            log("tax_amount", "45567uusd"),
+            log("protocol_fee", "9665uusd"),
         ]
     );
 
@@ -2071,7 +2070,7 @@ fn auction() {
                 contract_addr: HumanAddr::from("asset0001"),
                 msg: to_binary(&Cw20HandleMsg::Transfer {
                     recipient: HumanAddr::from("addr0001"),
-                    amount: Uint128(998000u128), // protocol fee = 200000 * 0.01 = 2000
+                    amount: Uint128(990000u128), // protocol fee = 200000 * 0.01 = 2000
                 })
                 .unwrap(),
                 send: vec![],
@@ -2080,7 +2079,7 @@ fn auction() {
                 contract_addr: HumanAddr::from("asset0001"),
                 msg: to_binary(&Cw20HandleMsg::Transfer {
                     recipient: HumanAddr::from("collector0000"),
-                    amount: Uint128(2000u128), 
+                    amount: Uint128(10000u128),
                 })
                 .unwrap(),
                 send: vec![],
@@ -2093,10 +2092,10 @@ fn auction() {
             log("action", "auction"),
             log("position_idx", "2"),
             log("owner", "addr0000"),
-            log("return_collateral_amount", "998000asset0001"),
+            log("return_collateral_amount", "990000asset0001"),
             log("liquidated_amount", "200000asset0000"),
             log("tax_amount", "0asset0001"),
-            log("protocol_fee", "2000asset0001"),
+            log("protocol_fee", "10000asset0001"),
         ]
     );
 }
