@@ -12,9 +12,9 @@ use cosmwasm_std::{
 use cw20::{Cw20HandleMsg, MinterResponse};
 use terraswap::{AssetInfo, FactoryHandleMsg as TerraswapFactoryHandleMsg, InitHook, TokenInitMsg};
 
-fn mock_env_height(signer: &HumanAddr, height: u64) -> Env {
+fn mock_env_time(signer: &HumanAddr, time: u64) -> Env {
     let mut env = mock_env(signer, &[]);
-    env.block.height = height;
+    env.block.time = time;
     env
 }
 
@@ -29,6 +29,7 @@ fn proper_initialization() {
         mint_per_block: Uint128(100u128),
         base_denom: BASE_DENOM.to_string(),
         token_code_id: TOKEN_CODE_ID,
+        distribution_schedule: vec![],
     };
 
     let env = mock_env("addr0000", &[]);
@@ -70,9 +71,10 @@ fn proper_initialization() {
             commission_collector: HumanAddr::from("collector0000"),
             oracle_contract: HumanAddr::from("oracle0000"),
             terraswap_factory: HumanAddr::from("terraswapfactory"),
-            mint_per_block: Uint128(100u128),
             base_denom: BASE_DENOM.to_string(),
             token_code_id: TOKEN_CODE_ID,
+            genesis_time: 1_571_797_419,
+            distribution_schedule: vec![],
         }
     );
 }
@@ -85,6 +87,7 @@ fn test_update_config() {
         mint_per_block: Uint128(100u128),
         base_denom: BASE_DENOM.to_string(),
         token_code_id: TOKEN_CODE_ID,
+        distribution_schedule: vec![],
     };
 
     let env = mock_env("addr0000", &[]);
@@ -104,7 +107,7 @@ fn test_update_config() {
     // upate owner
     let msg = HandleMsg::UpdateConfig {
         owner: Some(HumanAddr::from("owner0001")),
-        mint_per_block: None,
+        distribution_schedule: None,
         token_code_id: None,
     };
 
@@ -122,16 +125,17 @@ fn test_update_config() {
             commission_collector: HumanAddr::from("collector0000"),
             oracle_contract: HumanAddr::from("oracle0000"),
             terraswap_factory: HumanAddr::from("terraswapfactory"),
-            mint_per_block: Uint128(100u128),
             base_denom: BASE_DENOM.to_string(),
             token_code_id: TOKEN_CODE_ID,
+            genesis_time: 1_571_797_419,
+            distribution_schedule: vec![],
         }
     );
 
     // update rest part
     let msg = HandleMsg::UpdateConfig {
         owner: None,
-        mint_per_block: Some(Uint128(200u128)),
+        distribution_schedule: Some(vec![(1, 2, Uint128::from(123u128))]),
         token_code_id: Some(TOKEN_CODE_ID + 1),
     };
 
@@ -149,16 +153,17 @@ fn test_update_config() {
             commission_collector: HumanAddr::from("collector0000"),
             oracle_contract: HumanAddr::from("oracle0000"),
             terraswap_factory: HumanAddr::from("terraswapfactory"),
-            mint_per_block: Uint128(200u128),
             base_denom: BASE_DENOM.to_string(),
             token_code_id: TOKEN_CODE_ID + 1,
+            genesis_time: 1_571_797_419,
+            distribution_schedule: vec![(1, 2, Uint128::from(123u128))],
         }
     );
 
     // failed unauthoirzed
     let msg = HandleMsg::UpdateConfig {
         owner: None,
-        mint_per_block: Some(Uint128(200u128)),
+        distribution_schedule: None,
         token_code_id: Some(TOKEN_CODE_ID + 1),
     };
 
@@ -178,6 +183,7 @@ fn test_whitelist() {
         mint_per_block: Uint128(100u128),
         base_denom: BASE_DENOM.to_string(),
         token_code_id: TOKEN_CODE_ID,
+        distribution_schedule: vec![],
     };
 
     let env = mock_env("addr0000", &[]);
@@ -199,7 +205,6 @@ fn test_whitelist() {
         symbol: "mAPPL".to_string(),
         oracle_feeder: HumanAddr::from("feeder0000"),
         params: Params {
-            weight: Decimal::from_ratio(15u64, 10u64),
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
         },
@@ -248,7 +253,6 @@ fn test_whitelist() {
     assert_eq!(
         params,
         Params {
-            weight: Decimal::from_ratio(15u64, 10u64),
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
         }
@@ -276,6 +280,7 @@ fn test_token_creation_hook() {
         mint_per_block: Uint128(100u128),
         base_denom: BASE_DENOM.to_string(),
         token_code_id: TOKEN_CODE_ID,
+        distribution_schedule: vec![],
     };
 
     let env = mock_env("addr0000", &[]);
@@ -310,7 +315,6 @@ fn test_token_creation_hook() {
         symbol: "mAPPL".to_string(),
         oracle_feeder: HumanAddr::from("feeder0000"),
         params: Params {
-            weight: Decimal::from_ratio(15u64, 10u64),
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
         },
@@ -370,19 +374,13 @@ fn test_token_creation_hook() {
         ]
     );
 
-    let res = query(
-        &deps,
-        QueryMsg::DistributionInfo {
-            asset_token: HumanAddr::from("asset0000"),
-        },
-    )
-    .unwrap();
+    let res = query(&deps, QueryMsg::DistributionInfo {}).unwrap();
     let distribution_info: DistributionInfoResponse = from_binary(&res).unwrap();
     assert_eq!(
         distribution_info,
         DistributionInfoResponse {
-            weight: Decimal::from_ratio(15u64, 10u64),
-            last_height: 12345,
+            weights: vec![(HumanAddr::from("asset0000"), 1)],
+            last_distributed: 1_571_797_419,
         }
     );
 
@@ -410,6 +408,7 @@ fn test_terraswap_creation_hook() {
         mint_per_block: Uint128(100u128),
         base_denom: BASE_DENOM.to_string(),
         token_code_id: TOKEN_CODE_ID,
+        distribution_schedule: vec![],
     };
 
     let env = mock_env("addr0000", &[]);
@@ -431,7 +430,6 @@ fn test_terraswap_creation_hook() {
         symbol: "mAPPL".to_string(),
         oracle_feeder: HumanAddr::from("feeder0000"),
         params: Params {
-            weight: Decimal::from_ratio(15u64, 10u64),
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
         },
@@ -465,97 +463,7 @@ fn test_terraswap_creation_hook() {
 }
 
 #[test]
-fn test_update_weight() {
-    let mut deps = mock_dependencies(20, &[]);
-    deps.querier
-        .with_terraswap_pairs(&[(&"uusdasset0000".to_string(), &HumanAddr::from("LP0000"))]);
-
-    let msg = InitMsg {
-        mint_per_block: Uint128(100u128),
-        base_denom: BASE_DENOM.to_string(),
-        token_code_id: TOKEN_CODE_ID,
-    };
-
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env.clone(), msg).unwrap();
-
-    let msg = HandleMsg::PostInitialize {
-        owner: HumanAddr::from("owner0000"),
-        mirror_token: HumanAddr::from("mirror0000"),
-        mint_contract: HumanAddr::from("mint0000"),
-        staking_contract: HumanAddr::from("staking0000"),
-        commission_collector: HumanAddr::from("collector0000"),
-        oracle_contract: HumanAddr::from("oracle0000"),
-        terraswap_factory: HumanAddr::from("terraswapfactory"),
-    };
-    let _res = handle(&mut deps, env, msg).unwrap();
-
-    let msg = HandleMsg::Whitelist {
-        name: "apple derivative".to_string(),
-        symbol: "mAPPL".to_string(),
-        oracle_feeder: HumanAddr::from("feeder0000"),
-        params: Params {
-            weight: Decimal::from_ratio(15u64, 10u64),
-            auction_discount: Decimal::percent(5),
-            min_collateral_ratio: Decimal::percent(150),
-        },
-    };
-    let env = mock_env("owner0000", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
-
-    let msg = HandleMsg::TokenCreationHook {
-        oracle_feeder: HumanAddr::from("feeder0000"),
-    };
-    let env = mock_env("asset0000", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
-
-    let msg = HandleMsg::TerraswapCreationHook {
-        asset_token: HumanAddr::from("asset0000"),
-    };
-    let env = mock_env("terraswapfactory", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
-
-    let msg = HandleMsg::UpdateWeight {
-        asset_token: HumanAddr::from("asset0000"),
-        weight: Decimal::from_ratio(2u64, 1u64),
-    };
-    let env = mock_env("owner0001", &[]);
-    let res = handle(&mut deps, env, msg.clone());
-    match res {
-        Err(StdError::Unauthorized { .. }) => {}
-        _ => panic!("DO NOT ENTER HERE"),
-    }
-
-    let env = mock_env("owner0000", &[]);
-    let res = handle(&mut deps, env.clone(), msg).unwrap();
-    assert_eq!(
-        res.log,
-        vec![
-            log("action", "update_weight"),
-            log("asset_token", "asset0000"),
-            log("weight", "2")
-        ]
-    );
-
-    let res = query(
-        &deps,
-        QueryMsg::DistributionInfo {
-            asset_token: HumanAddr::from("asset0000"),
-        },
-    )
-    .unwrap();
-    let distribution_info: DistributionInfoResponse = from_binary(&res).unwrap();
-    assert_eq!(
-        distribution_info,
-        DistributionInfoResponse {
-            weight: Decimal::from_ratio(2u64, 1u64),
-            last_height: 12345,
-        }
-    );
-}
-
-#[test]
-fn test_mint() {
+fn test_distribute() {
     let mut deps = mock_dependencies(20, &[]);
     deps.querier.with_terraswap_pairs(&[
         (&"uusdasset0000".to_string(), &HumanAddr::from("LP0000")),
@@ -566,6 +474,10 @@ fn test_mint() {
         mint_per_block: Uint128(100u128),
         base_denom: BASE_DENOM.to_string(),
         token_code_id: TOKEN_CODE_ID,
+        distribution_schedule: vec![
+            (1800, 3600, Uint128::from(3600u128)),
+            (3600, 3600 + 3600, Uint128::from(7200u128)),
+        ],
     };
 
     let env = mock_env("addr0000", &[]);
@@ -588,7 +500,6 @@ fn test_mint() {
         symbol: "mAPPL".to_string(),
         oracle_feeder: HumanAddr::from("feeder0000"),
         params: Params {
-            weight: Decimal::from_ratio(15u64, 10u64),
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
         },
@@ -614,7 +525,6 @@ fn test_mint() {
         symbol: "mGOGL".to_string(),
         oracle_feeder: HumanAddr::from("feeder0000"),
         params: Params {
-            weight: Decimal::one(),
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
         },
@@ -635,17 +545,25 @@ fn test_mint() {
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // height is not increased so zero amount will be minted
-    let msg = HandleMsg::Mint {
-        asset_token: HumanAddr::from("asset0000"),
-    };
+    let msg = HandleMsg::Distribute {};
     let env = mock_env("anyone", &[]);
+    let res = handle(&mut deps, env, msg);
+    match res {
+        Err(StdError::GenericErr { msg, .. }) => {
+            assert_eq!(msg, "Cannot distribute mirror token before interval")
+        }
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    // one height increase
+    let msg = HandleMsg::Distribute {};
+    let env = mock_env_time(&HumanAddr::from("addr0000"), 1_571_797_419u64 + 5400u64);
     let res = handle(&mut deps, env, msg).unwrap();
     assert_eq!(
         res.log,
         vec![
-            log("action", "mint"),
-            log("asset_token", "asset0000"),
-            log("mint_amount", "0"),
+            log("action", "distribute"),
+            log("distributed_amount", "7200"),
         ]
     );
 
@@ -654,18 +572,9 @@ fn test_mint() {
         vec![
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: HumanAddr::from("mirror0000"),
-                msg: to_binary(&Cw20HandleMsg::Mint {
-                    recipient: HumanAddr::from(MOCK_CONTRACT_ADDR),
-                    amount: Uint128::zero(),
-                })
-                .unwrap(),
-                send: vec![],
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("mirror0000"),
                 msg: to_binary(&Cw20HandleMsg::Send {
                     contract: HumanAddr::from("staking0000"),
-                    amount: Uint128::zero(),
+                    amount: Uint128(3600u128),
                     msg: Some(
                         to_binary(&StakingCw20HookMsg::DepositReward {
                             asset_token: HumanAddr::from("asset0000"),
@@ -676,44 +585,14 @@ fn test_mint() {
                 .unwrap(),
                 send: vec![],
             }),
-        ],
-    );
-
-    // one height increase
-    let msg = HandleMsg::Mint {
-        asset_token: HumanAddr::from("asset0000"),
-    };
-    let env = mock_env_height(&HumanAddr::from("addr0000"), 12346u64);
-    let res = handle(&mut deps, env, msg).unwrap();
-    assert_eq!(
-        res.log,
-        vec![
-            log("action", "mint"),
-            log("asset_token", "asset0000"),
-            log("mint_amount", "60"),
-        ]
-    );
-
-    assert_eq!(
-        res.messages,
-        vec![
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("mirror0000"),
-                msg: to_binary(&Cw20HandleMsg::Mint {
-                    recipient: HumanAddr::from(MOCK_CONTRACT_ADDR),
-                    amount: Uint128(60u128),
-                })
-                .unwrap(),
-                send: vec![],
-            }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: HumanAddr::from("mirror0000"),
                 msg: to_binary(&Cw20HandleMsg::Send {
                     contract: HumanAddr::from("staking0000"),
-                    amount: Uint128(60u128),
+                    amount: Uint128(3600u128),
                     msg: Some(
                         to_binary(&StakingCw20HookMsg::DepositReward {
-                            asset_token: HumanAddr::from("asset0000"),
+                            asset_token: HumanAddr::from("asset0001"),
                         })
                         .unwrap()
                     ),
@@ -735,6 +614,7 @@ fn test_migration() {
         mint_per_block: Uint128(100u128),
         base_denom: BASE_DENOM.to_string(),
         token_code_id: TOKEN_CODE_ID,
+        distribution_schedule: vec![],
     };
 
     let env = mock_env("addr0000", &[]);
@@ -757,7 +637,6 @@ fn test_migration() {
         symbol: "mAPPL".to_string(),
         oracle_feeder: HumanAddr::from("feeder0000"),
         params: Params {
-            weight: Decimal::from_ratio(15u64, 10u64),
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
         },
