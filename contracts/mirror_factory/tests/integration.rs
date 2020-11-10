@@ -54,6 +54,7 @@ fn proper_initialization() {
         mint_per_block: Uint128(100u128),
         base_denom: BASE_DENOM.to_string(),
         token_code_id: TOKEN_CODE_ID,
+        distribution_schedule: vec![],
     };
 
     let env = mock_env("addr0000", &[]);
@@ -99,9 +100,10 @@ fn proper_initialization() {
             commission_collector: HumanAddr::from("collector0000"),
             oracle_contract: HumanAddr::from("oracle0000"),
             terraswap_factory: HumanAddr::from("terraswapfactory"),
-            mint_per_block: Uint128(100u128),
             base_denom: BASE_DENOM.to_string(),
             token_code_id: TOKEN_CODE_ID,
+            genesis_time: 1_571_797_419,
+            distribution_schedule: vec![],
         }
     );
 }
@@ -114,6 +116,7 @@ fn test_update_config() {
         mint_per_block: Uint128(100u128),
         base_denom: BASE_DENOM.to_string(),
         token_code_id: TOKEN_CODE_ID,
+        distribution_schedule: vec![],
     };
 
     let env = mock_env("addr0000", &[]);
@@ -133,8 +136,8 @@ fn test_update_config() {
     // upate owner
     let msg = HandleMsg::UpdateConfig {
         owner: Some(HumanAddr::from("owner0001")),
-        mint_per_block: None,
         token_code_id: None,
+        distribution_schedule: None,
     };
 
     let env = mock_env("owner0000", &[]);
@@ -151,17 +154,18 @@ fn test_update_config() {
             commission_collector: HumanAddr::from("collector0000"),
             oracle_contract: HumanAddr::from("oracle0000"),
             terraswap_factory: HumanAddr::from("terraswapfactory"),
-            mint_per_block: Uint128(100u128),
             base_denom: BASE_DENOM.to_string(),
             token_code_id: TOKEN_CODE_ID,
+            genesis_time: 1_571_797_419,
+            distribution_schedule: vec![],
         }
     );
 
     // update rest part
     let msg = HandleMsg::UpdateConfig {
         owner: None,
-        mint_per_block: Some(Uint128(200u128)),
         token_code_id: Some(TOKEN_CODE_ID + 1),
+        distribution_schedule: Some(vec![(1, 2, Uint128::from(123u128))]),
     };
 
     let env = mock_env("owner0001", &[]);
@@ -178,16 +182,17 @@ fn test_update_config() {
             commission_collector: HumanAddr::from("collector0000"),
             oracle_contract: HumanAddr::from("oracle0000"),
             terraswap_factory: HumanAddr::from("terraswapfactory"),
-            mint_per_block: Uint128(200u128),
             base_denom: BASE_DENOM.to_string(),
             token_code_id: TOKEN_CODE_ID + 1,
+            genesis_time: 1_571_797_419,
+            distribution_schedule: vec![(1, 2, Uint128::from(123u128))],
         }
     );
 
     // failed unauthoirzed
     let msg = HandleMsg::UpdateConfig {
         owner: None,
-        mint_per_block: Some(Uint128(200u128)),
+        distribution_schedule: None,
         token_code_id: Some(TOKEN_CODE_ID + 1),
     };
 

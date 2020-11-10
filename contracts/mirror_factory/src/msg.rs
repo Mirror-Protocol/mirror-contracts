@@ -9,6 +9,7 @@ pub struct InitMsg {
     pub mint_per_block: Uint128,
     pub token_code_id: u64,
     pub base_denom: String,
+    pub distribution_schedule: Vec<(u64, u64, Uint128)>, // [[start_time, end_time, distribution_amount], [], ...]
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -25,12 +26,8 @@ pub enum HandleMsg {
     },
     UpdateConfig {
         owner: Option<HumanAddr>,
-        mint_per_block: Option<Uint128>,
         token_code_id: Option<u64>,
-    },
-    UpdateWeight {
-        asset_token: HumanAddr,
-        weight: Decimal,
+        distribution_schedule: Option<Vec<(u64, u64, Uint128)>>, // [[start_time, end_time, distribution_amount], [], ...]
     },
     Whitelist {
         /// asset name used to create token contract
@@ -52,9 +49,7 @@ pub enum HandleMsg {
         contract_addr: HumanAddr,
         msg: Binary,
     },
-    Mint {
-        asset_token: HumanAddr,
-    },
+    Distribute {},
     MigrateAsset {
         name: String,
         symbol: String,
@@ -67,7 +62,7 @@ pub enum HandleMsg {
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     Config {},
-    DistributionInfo { asset_token: HumanAddr },
+    DistributionInfo {},
 }
 
 // We define a custom struct for each query response
@@ -80,16 +75,17 @@ pub struct ConfigResponse {
     pub commission_collector: HumanAddr,
     pub oracle_contract: HumanAddr,
     pub terraswap_factory: HumanAddr,
-    pub mint_per_block: Uint128,
     pub token_code_id: u64,
     pub base_denom: String,
+    pub genesis_time: u64,
+    pub distribution_schedule: Vec<(u64, u64, Uint128)>,
 }
 
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct DistributionInfoResponse {
-    pub weight: Decimal,
-    pub last_height: u64,
+    pub weights: Vec<(HumanAddr, u32)>,
+    pub last_distributed: u64,
 }
 
 ////////////////////////
