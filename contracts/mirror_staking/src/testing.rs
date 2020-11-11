@@ -119,6 +119,7 @@ fn test_register() {
             staking_token: HumanAddr::from("staking0000"),
             total_bond_amount: Uint128::zero(),
             reward_index: Decimal::zero(),
+            pending_reward: Uint128::zero(),
         }
     );
 }
@@ -194,6 +195,7 @@ fn test_bond_tokens() {
             staking_token: HumanAddr::from("staking0000"),
             total_bond_amount: Uint128(100u128),
             reward_index: Decimal::zero(),
+            pending_reward: Uint128::zero(),
         }
     );
 
@@ -226,6 +228,7 @@ fn test_bond_tokens() {
             staking_token: HumanAddr::from("staking0000"),
             total_bond_amount: Uint128(200u128),
             reward_index: Decimal::zero(),
+            pending_reward: Uint128::zero(),
         }
     );
 
@@ -281,13 +284,26 @@ fn test_deposit_reward() {
     });
 
     let env = mock_env("reward0000", &[]);
-    let res = handle(&mut deps, env, deposit_msg.clone());
-    match res {
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Cannot deposit rewards to zero bond pool")
+    let _res = handle(&mut deps, env, deposit_msg.clone()).unwrap();
+
+    let data = query(
+        &deps,
+        QueryMsg::PoolInfo {
+            asset_token: HumanAddr::from("asset0000"),
+        },
+    )
+    .unwrap();
+    let pool_info: PoolInfoResponse = from_binary(&data).unwrap();
+    assert_eq!(
+        pool_info,
+        PoolInfoResponse {
+            asset_token: HumanAddr::from("asset0000"),
+            staking_token: HumanAddr::from("staking0000"),
+            total_bond_amount: Uint128::zero(),
+            reward_index: Decimal::zero(),
+            pending_reward: Uint128::from(100u128),
         }
-        _ => panic!("Must return unauthorized error"),
-    }
+    );
 
     // bond 100 tokens
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
@@ -329,7 +345,8 @@ fn test_deposit_reward() {
             asset_token: HumanAddr::from("asset0000"),
             staking_token: HumanAddr::from("staking0000"),
             total_bond_amount: Uint128(100u128),
-            reward_index: Decimal::one(),
+            reward_index: Decimal::from_ratio(2u128, 1u128),
+            pending_reward: Uint128::zero(),
         }
     );
 }

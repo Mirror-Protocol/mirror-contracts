@@ -31,6 +31,7 @@ pub fn read_config<S: Storage>(storage: &S) -> StdResult<Config> {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct PoolInfo {
     pub staking_token: CanonicalAddr,
+    pub pending_reward: Uint128, // not distributed amount due to zero bonding
     pub total_bond_amount: Uint128,
     pub reward_index: Decimal,
 }

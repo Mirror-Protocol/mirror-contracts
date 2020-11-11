@@ -66,6 +66,7 @@ pub struct PoolInfoResponse {
     pub staking_token: HumanAddr,
     pub total_bond_amount: Uint128,
     pub reward_index: Decimal,
+    pub pending_reward: Uint128,
 }
 
 // We define a custom struct for each query response

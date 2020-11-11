@@ -123,6 +123,7 @@ fn test_bond_tokens() {
             staking_token: HumanAddr::from("staking0000"),
             total_bond_amount: Uint128(100u128),
             reward_index: Decimal::zero(),
+            pending_reward: Uint128::zero(),
         }
     );
 
@@ -155,6 +156,7 @@ fn test_bond_tokens() {
             staking_token: HumanAddr::from("staking0000"),
             total_bond_amount: Uint128(200u128),
             reward_index: Decimal::zero(),
+            pending_reward: Uint128::zero(),
         }
     );
 
@@ -250,6 +252,7 @@ fn test_deposit_reward() {
             staking_token: HumanAddr::from("staking0000"),
             total_bond_amount: Uint128(100u128),
             reward_index: Decimal::one(),
+            pending_reward: Uint128::zero(),
         }
     );
 }

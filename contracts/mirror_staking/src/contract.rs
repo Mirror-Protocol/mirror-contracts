@@ -10,8 +10,8 @@ use crate::msg::{
 };
 
 use crate::state::{
-    read_config, read_pool_info, rewards_read, rewards_store,
-    store_config, store_pool_info, Config, PoolInfo, RewardInfo,
+    read_config, read_pool_info, rewards_read, rewards_store, store_config, store_pool_info,
+    Config, PoolInfo, RewardInfo,
 };
 
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
@@ -131,6 +131,7 @@ pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
         &asset_token_raw,
         &PoolInfo {
             staking_token: deps.api.canonical_address(&staking_token)?,
+            pending_reward: Uint128::zero(),
             total_bond_amount: Uint128::zero(),
             reward_index: Decimal::zero(),
         },
@@ -247,13 +248,16 @@ pub fn try_deposit_reward<S: Storage, A: Api, Q: Querier>(
     let asset_token_raw: CanonicalAddr = deps.api.canonical_address(&asset_token)?;
     let mut pool_info: PoolInfo = read_pool_info(&deps.storage, &asset_token_raw)?;
     if pool_info.total_bond_amount.is_zero() {
-        return Err(StdError::generic_err(
-            "Cannot deposit rewards to zero bond pool",
-        ));
+        pool_info.pending_reward += amount;
+    } else {
+        let reward_per_bond = Decimal::from_ratio(
+            amount + pool_info.pending_reward,
+            pool_info.total_bond_amount,
+        );
+        pool_info.reward_index = pool_info.reward_index + reward_per_bond;
+        pool_info.pending_reward = Uint128::zero();
     }
 
-    let reward_per_bond = Decimal::from_ratio(amount, pool_info.total_bond_amount);
-    pool_info.reward_index = pool_info.reward_index + reward_per_bond;
     store_pool_info(&mut deps.storage, &asset_token_raw, &pool_info)?;
 
     Ok(HandleResponse {
@@ -390,6 +394,7 @@ pub fn query_pool_info<S: Storage, A: Api, Q: Querier>(
         staking_token: deps.api.human_address(&pool_info.staking_token)?,
         total_bond_amount: pool_info.total_bond_amount,
         reward_index: pool_info.reward_index,
+        pending_reward: pool_info.pending_reward,
     })
 }
 
@@ -432,4 +437,3 @@ pub fn query_reward_info<S: Storage, A: Api, Q: Querier>(
         reward_infos,
     })
 }
-
