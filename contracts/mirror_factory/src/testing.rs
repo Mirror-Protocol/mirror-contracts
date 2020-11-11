@@ -26,7 +26,6 @@ fn proper_initialization() {
     let mut deps = mock_dependencies(20, &[]);
 
     let msg = InitMsg {
-        mint_per_block: Uint128(100u128),
         base_denom: BASE_DENOM.to_string(),
         token_code_id: TOKEN_CODE_ID,
         distribution_schedule: vec![],
@@ -84,7 +83,6 @@ fn test_update_config() {
     let mut deps = mock_dependencies(20, &[]);
 
     let msg = InitMsg {
-        mint_per_block: Uint128(100u128),
         base_denom: BASE_DENOM.to_string(),
         token_code_id: TOKEN_CODE_ID,
         distribution_schedule: vec![],
@@ -180,7 +178,6 @@ fn test_whitelist() {
     let mut deps = mock_dependencies(20, &[]);
 
     let msg = InitMsg {
-        mint_per_block: Uint128(100u128),
         base_denom: BASE_DENOM.to_string(),
         token_code_id: TOKEN_CODE_ID,
         distribution_schedule: vec![],
@@ -277,7 +274,6 @@ fn test_token_creation_hook() {
     let mut deps = mock_dependencies(20, &[]);
 
     let msg = InitMsg {
-        mint_per_block: Uint128(100u128),
         base_denom: BASE_DENOM.to_string(),
         token_code_id: TOKEN_CODE_ID,
         distribution_schedule: vec![],
@@ -405,7 +401,6 @@ fn test_terraswap_creation_hook() {
         .with_terraswap_pairs(&[(&"uusdasset0000".to_string(), &HumanAddr::from("LP0000"))]);
 
     let msg = InitMsg {
-        mint_per_block: Uint128(100u128),
         base_denom: BASE_DENOM.to_string(),
         token_code_id: TOKEN_CODE_ID,
         distribution_schedule: vec![],
@@ -471,7 +466,6 @@ fn test_distribute() {
     ]);
 
     let msg = InitMsg {
-        mint_per_block: Uint128(100u128),
         base_denom: BASE_DENOM.to_string(),
         token_code_id: TOKEN_CODE_ID,
         distribution_schedule: vec![
@@ -611,7 +605,6 @@ fn test_migration() {
         .with_terraswap_pairs(&[(&"uusdasset0000".to_string(), &HumanAddr::from("LP0000"))]);
 
     let msg = InitMsg {
-        mint_per_block: Uint128(100u128),
         base_denom: BASE_DENOM.to_string(),
         token_code_id: TOKEN_CODE_ID,
         distribution_schedule: vec![],

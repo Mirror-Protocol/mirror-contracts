@@ -5,7 +5,6 @@
   "required": [
     "base_denom",
     "distribution_schedule",
-    "mint_per_block",
     "token_code_id"
   ],
   "properties": {
@@ -34,9 +33,6 @@
         "maxItems": 3,
         "minItems": 3
       }
-    },
-    "mint_per_block": {
-      "$ref": "#/definitions/Uint128"
     },
     "token_code_id": {
       "type": "integer",

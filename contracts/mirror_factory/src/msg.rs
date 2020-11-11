@@ -6,7 +6,6 @@ use cosmwasm_std::{Binary, Decimal, HumanAddr, Uint128};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
-    pub mint_per_block: Uint128,
     pub token_code_id: u64,
     pub base_denom: String,
     pub distribution_schedule: Vec<(u64, u64, Uint128)>, // [[start_time, end_time, distribution_amount], [], ...]
