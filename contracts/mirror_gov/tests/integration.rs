@@ -40,6 +40,7 @@ const DEFAULT_QUORUM: u64 = 30u64;
 const DEFAULT_THRESHOLD: u64 = 50u64;
 const DEFAULT_VOTING_PERIOD: u64 = 10000u64;
 const DEFAULT_EFFECTIVE_DELAY: u64 = 10000u64;
+const DEFAULT_EXPIRATION_PERIOD: u64 = 20000u64;
 const DEFAULT_PROPOSAL_DEPOSIT: u128 = 10000000000u128;
 
 fn init_msg() -> InitMsg {
@@ -49,6 +50,7 @@ fn init_msg() -> InitMsg {
         threshold: Decimal::percent(DEFAULT_THRESHOLD),
         voting_period: DEFAULT_VOTING_PERIOD,
         effective_delay: DEFAULT_EFFECTIVE_DELAY,
+        expiration_period: DEFAULT_EXPIRATION_PERIOD,
         proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
     }
 }
@@ -85,6 +87,7 @@ fn proper_initialization() {
                 threshold: Decimal::percent(DEFAULT_THRESHOLD),
                 voting_period: DEFAULT_VOTING_PERIOD,
                 effective_delay: DEFAULT_EFFECTIVE_DELAY,
+                expiration_period: DEFAULT_EXPIRATION_PERIOD,
                 proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
             }
         );
@@ -112,6 +115,7 @@ fn update_config() {
         threshold: None,
         voting_period: None,
         effective_delay: None,
+        expiration_period: None,
         proposal_deposit: None,
     };
 
@@ -135,6 +139,7 @@ fn update_config() {
         threshold: Some(Decimal::percent(75)),
         voting_period: Some(20000u64),
         effective_delay: Some(20000u64),
+        expiration_period: Some(30000u64),
         proposal_deposit: Some(Uint128(123u128)),
     };
 
@@ -158,6 +163,7 @@ fn update_config() {
         threshold: None,
         voting_period: None,
         effective_delay: None,
+        expiration_period: None,
         proposal_deposit: None,
     };
 

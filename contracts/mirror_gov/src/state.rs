@@ -24,6 +24,7 @@ pub struct Config {
     pub threshold: Decimal,
     pub voting_period: u64,
     pub effective_delay: u64,
+    pub expiration_period: u64,
     pub proposal_deposit: Uint128,
 }
 
@@ -72,6 +73,7 @@ pub enum PollStatus {
     Passed,
     Rejected,
     Executed,
+    Expired,
 }
 
 impl fmt::Display for PollStatus {
