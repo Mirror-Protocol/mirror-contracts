@@ -22,8 +22,8 @@ mod tests {
     const DEFAULT_THRESHOLD: u64 = 50u64;
     const DEFAULT_VOTING_PERIOD: u64 = 10000u64;
     const DEFAULT_EFFECTIVE_DELAY: u64 = 10000u64;
+    const DEFAULT_EXPIRATION_PERIOD: u64 = 20000u64;
     const DEFAULT_PROPOSAL_DEPOSIT: u128 = 10000000000u128;
-
     fn mock_init(mut deps: &mut Extern<MockStorage, MockApi, WasmMockQuerier>) {
         let msg = InitMsg {
             mirror_token: HumanAddr::from(VOTING_TOKEN),
@@ -31,6 +31,7 @@ mod tests {
             threshold: Decimal::percent(DEFAULT_THRESHOLD),
             voting_period: DEFAULT_VOTING_PERIOD,
             effective_delay: DEFAULT_EFFECTIVE_DELAY,
+            expiration_period: DEFAULT_EXPIRATION_PERIOD,
             proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
         };
 
@@ -52,6 +53,7 @@ mod tests {
             threshold: Decimal::percent(DEFAULT_THRESHOLD),
             voting_period: DEFAULT_VOTING_PERIOD,
             effective_delay: DEFAULT_EFFECTIVE_DELAY,
+            expiration_period: DEFAULT_EXPIRATION_PERIOD,
             proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
         }
     }
@@ -81,6 +83,7 @@ mod tests {
                 threshold: Decimal::percent(DEFAULT_THRESHOLD),
                 voting_period: DEFAULT_VOTING_PERIOD,
                 effective_delay: DEFAULT_EFFECTIVE_DELAY,
+                expiration_period: DEFAULT_EXPIRATION_PERIOD,
                 proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
             }
         );
@@ -124,6 +127,7 @@ mod tests {
             threshold: Decimal::percent(DEFAULT_THRESHOLD),
             voting_period: DEFAULT_VOTING_PERIOD,
             effective_delay: DEFAULT_EFFECTIVE_DELAY,
+            expiration_period: DEFAULT_EXPIRATION_PERIOD,
             proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
         };
 
@@ -146,6 +150,7 @@ mod tests {
             threshold: Decimal::percent(101),
             voting_period: DEFAULT_VOTING_PERIOD,
             effective_delay: DEFAULT_EFFECTIVE_DELAY,
+            expiration_period: DEFAULT_EXPIRATION_PERIOD,
             proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
         };
 
@@ -713,6 +718,156 @@ mod tests {
                 locked_share: vec![]
             }
         );
+    }
+
+    #[test]
+    fn expire_poll() {
+        const POLL_START_HEIGHT: u64 = 1000;
+        const POLL_ID: u64 = 1;
+        let stake_amount = 1000;
+
+        let mut deps = mock_dependencies(20, &coins(1000, VOTING_TOKEN));
+        mock_init(&mut deps);
+        let mut creator_env = mock_env_height(
+            VOTING_TOKEN,
+            &coins(2, VOTING_TOKEN),
+            POLL_START_HEIGHT,
+            10000,
+        );
+
+        let exec_msg_bz = to_binary(&Cw20HandleMsg::Burn {
+            amount: Uint128(123),
+        })
+        .unwrap();
+        let msg = create_poll_msg(
+            "test".to_string(),
+            "test".to_string(),
+            None,
+            Some(ExecuteMsg {
+                contract: HumanAddr::from(VOTING_TOKEN),
+                msg: exec_msg_bz.clone(),
+            }),
+        );
+
+        let handle_res = handle(&mut deps, creator_env.clone(), msg).unwrap();
+
+        assert_create_poll_result(
+            1,
+            creator_env.block.height + DEFAULT_VOTING_PERIOD,
+            TEST_CREATOR,
+            handle_res,
+            &mut deps,
+        );
+
+        deps.querier.with_token_balances(&[(
+            &HumanAddr::from(VOTING_TOKEN),
+            &[(
+                &HumanAddr::from(MOCK_CONTRACT_ADDR),
+                &Uint128((stake_amount + DEFAULT_PROPOSAL_DEPOSIT) as u128),
+            )],
+        )]);
+
+        let msg = HandleMsg::Receive(Cw20ReceiveMsg {
+            sender: HumanAddr::from(TEST_VOTER),
+            amount: Uint128::from(stake_amount as u128),
+            msg: Some(to_binary(&Cw20HookMsg::StakeVotingTokens {}).unwrap()),
+        });
+
+        let env = mock_env(VOTING_TOKEN, &[]);
+        let handle_res = handle(&mut deps, env, msg.clone()).unwrap();
+        assert_stake_tokens_result(
+            stake_amount,
+            DEFAULT_PROPOSAL_DEPOSIT,
+            stake_amount,
+            1,
+            handle_res,
+            &mut deps,
+        );
+
+        let msg = HandleMsg::CastVote {
+            poll_id: 1,
+            vote: VoteOption::Yes,
+            amount: Uint128::from(stake_amount),
+        };
+        let env = mock_env_height(TEST_VOTER, &[], POLL_START_HEIGHT, 10000);
+        let handle_res = handle(&mut deps, env, msg).unwrap();
+
+        assert_eq!(
+            handle_res.log,
+            vec![
+                log("action", "cast_vote"),
+                log("poll_id", POLL_ID),
+                log("amount", "1000"),
+                log("voter", TEST_VOTER),
+                log("vote_option", "yes"),
+            ]
+        );
+
+        // Poll is not in passed status
+        creator_env.block.height = &creator_env.block.height + DEFAULT_EFFECTIVE_DELAY;
+        let msg = HandleMsg::ExpirePoll { poll_id: 1 };
+        let handle_res = handle(&mut deps, creator_env.clone(), msg);
+        match handle_res {
+            Err(StdError::GenericErr { msg, .. }) => {
+                assert_eq!(msg, "Poll is not in passed status")
+            }
+            _ => panic!("DO NOT ENTER HERE"),
+        }
+
+        let msg = HandleMsg::EndPoll { poll_id: 1 };
+        let handle_res = handle(&mut deps, creator_env.clone(), msg).unwrap();
+
+        assert_eq!(
+            handle_res.log,
+            vec![
+                log("action", "end_poll"),
+                log("poll_id", "1"),
+                log("rejected_reason", ""),
+                log("passed", "true"),
+            ]
+        );
+        assert_eq!(
+            handle_res.messages,
+            vec![CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from(VOTING_TOKEN),
+                msg: to_binary(&Cw20HandleMsg::Transfer {
+                    recipient: HumanAddr::from(TEST_CREATOR),
+                    amount: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+                })
+                .unwrap(),
+                send: vec![],
+            })]
+        );
+
+        // Expiration period has not been passed
+        let msg = HandleMsg::ExpirePoll { poll_id: 1 };
+        let handle_res = handle(&mut deps, creator_env.clone(), msg);
+        match handle_res {
+            Err(StdError::GenericErr { msg, .. }) => {
+                assert_eq!(msg, "Expire height has not been reached")
+            }
+            _ => panic!("DO NOT ENTER HERE"),
+        }
+
+        creator_env.block.height = &creator_env.block.height + DEFAULT_EXPIRATION_PERIOD;
+        let msg = HandleMsg::ExpirePoll { poll_id: 1 };
+        let _handle_res = handle(&mut deps, creator_env, msg).unwrap();
+
+        let res = query(&deps, QueryMsg::Poll { poll_id: 1 }).unwrap();
+        let poll_res: PollResponse = from_binary(&res).unwrap();
+        assert_eq!(poll_res.status, PollStatus::Expired);
+
+        let res = query(
+            &deps,
+            QueryMsg::Polls {
+                filter: Some(PollStatus::Expired),
+                start_after: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+        let polls_res: PollsResponse = from_binary(&res).unwrap();
+        assert_eq!(polls_res.polls[0], poll_res);
     }
 
     #[test]
@@ -1614,6 +1769,7 @@ mod tests {
             threshold: None,
             voting_period: None,
             effective_delay: None,
+            expiration_period: None,
             proposal_deposit: None,
         };
 
@@ -1638,6 +1794,7 @@ mod tests {
             threshold: Some(Decimal::percent(75)),
             voting_period: Some(20000u64),
             effective_delay: Some(20000u64),
+            expiration_period: Some(30000u64),
             proposal_deposit: Some(Uint128(123u128)),
         };
 
@@ -1652,6 +1809,7 @@ mod tests {
         assert_eq!(Decimal::percent(75), config.threshold);
         assert_eq!(20000u64, config.voting_period);
         assert_eq!(20000u64, config.effective_delay);
+        assert_eq!(30000u64, config.expiration_period);
         assert_eq!(123u128, config.proposal_deposit.u128());
 
         // Unauthorzied err
@@ -1662,6 +1820,7 @@ mod tests {
             threshold: None,
             voting_period: None,
             effective_delay: None,
+            expiration_period: None,
             proposal_deposit: None,
         };
 

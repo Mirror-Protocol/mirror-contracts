@@ -596,6 +596,16 @@ fn test_distribute() {
             }),
         ],
     );
+
+    let res = query(&deps, QueryMsg::DistributionInfo {}).unwrap();
+    let distribution_info: DistributionInfoResponse = from_binary(&res).unwrap();
+    assert_eq!(
+        distribution_info,
+        DistributionInfoResponse {
+            weights: vec![(HumanAddr::from("asset0000"), 1), (HumanAddr::from("asset0001"), 1)],
+            last_distributed: 1_571_802_819,
+        }
+    );
 }
 
 #[test]

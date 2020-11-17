@@ -37,6 +37,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         threshold: msg.threshold,
         voting_period: msg.voting_period,
         effective_delay: msg.effective_delay,
+        expiration_period: msg.expiration_period,
         proposal_deposit: msg.proposal_deposit,
     };
 
@@ -66,6 +67,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             threshold,
             voting_period,
             effective_delay,
+            expiration_period,
             proposal_deposit,
         } => update_config(
             deps,
@@ -75,6 +77,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             threshold,
             voting_period,
             effective_delay,
+            expiration_period,
             proposal_deposit,
         ),
         HandleMsg::WithdrawVotingTokens { amount } => withdraw_voting_tokens(deps, env, amount),
@@ -85,6 +88,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         } => cast_vote(deps, env, poll_id, vote, amount),
         HandleMsg::EndPoll { poll_id } => end_poll(deps, env, poll_id),
         HandleMsg::ExecutePoll { poll_id } => execute_poll(deps, env, poll_id),
+        HandleMsg::ExpirePoll { poll_id } => expire_poll(deps, env, poll_id),
     }
 }
 
@@ -181,6 +185,7 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     threshold: Option<Decimal>,
     voting_period: Option<u64>,
     effective_delay: Option<u64>,
+    expiration_period: Option<u64>,
     proposal_deposit: Option<Uint128>,
 ) -> HandleResult {
     let api = deps.api;
@@ -207,6 +212,10 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
 
         if let Some(effective_delay) = effective_delay {
             config.effective_delay = effective_delay;
+        }
+
+        if let Some(expiration_period) = expiration_period {
+            config.expiration_period = expiration_period;
         }
 
         if let Some(proposal_deposit) = proposal_deposit {
@@ -559,6 +568,50 @@ pub fn execute_poll<S: Storage, A: Api, Q: Querier>(
     })
 }
 
+pub fn expire_poll<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    poll_id: u64,
+) -> HandleResult {
+    let config: Config = config_read(&deps.storage).load()?;
+    let mut a_poll: Poll = poll_store(&mut deps.storage).load(&poll_id.to_be_bytes())?;
+
+    if a_poll.status != PollStatus::Passed {
+        return Err(StdError::generic_err("Poll is not in passed status"));
+    }
+
+    if a_poll.end_height + config.expiration_period > env.block.height {
+        return Err(StdError::generic_err("Expire height has not been reached"));
+    }
+
+    poll_indexer_store(&mut deps.storage, &PollStatus::Passed).remove(&poll_id.to_be_bytes());
+    poll_indexer_store(&mut deps.storage, &PollStatus::Expired)
+        .save(&poll_id.to_be_bytes(), &true)?;
+
+    a_poll.status = PollStatus::Expired;
+    poll_store(&mut deps.storage).save(&poll_id.to_be_bytes(), &a_poll)?;
+
+    let mut messages: Vec<CosmosMsg> = vec![];
+    if let Some(execute_data) = a_poll.execute_data {
+        messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: deps.api.human_address(&execute_data.contract)?,
+            msg: execute_data.msg,
+            send: vec![],
+        }))
+    } else {
+        return Err(StdError::generic_err("The poll does not have execute_data"));
+    }
+
+    Ok(HandleResponse {
+        messages,
+        log: vec![
+            log("action", "expire_poll"),
+            log("poll_id", poll_id.to_string()),
+        ],
+        data: None,
+    })
+}
+
 // unlock voter's tokens in a given poll
 fn unlock_tokens<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -731,6 +784,7 @@ fn query_config<S: Storage, A: Api, Q: Querier>(
         threshold: config.threshold,
         voting_period: config.voting_period,
         effective_delay: config.effective_delay,
+        expiration_period: config.expiration_period,
         proposal_deposit: config.proposal_deposit,
     })
 }

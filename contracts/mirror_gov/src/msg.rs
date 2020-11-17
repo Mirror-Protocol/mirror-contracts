@@ -11,6 +11,7 @@ pub struct InitMsg {
     pub threshold: Decimal,
     pub voting_period: u64,
     pub effective_delay: u64,
+    pub expiration_period: u64,
     pub proposal_deposit: Uint128,
 }
 
@@ -24,6 +25,7 @@ pub enum HandleMsg {
         threshold: Option<Decimal>,
         voting_period: Option<u64>,
         effective_delay: Option<u64>,
+        expiration_period: Option<u64>,
         proposal_deposit: Option<Uint128>,
     },
     CastVote {
@@ -38,6 +40,9 @@ pub enum HandleMsg {
         poll_id: u64,
     },
     ExecutePoll {
+        poll_id: u64,
+    },
+    ExpirePoll {
         poll_id: u64,
     },
 }
@@ -95,6 +100,7 @@ pub struct ConfigResponse {
     pub threshold: Decimal,
     pub voting_period: u64,
     pub effective_delay: u64,
+    pub expiration_period: u64,
     pub proposal_deposit: Uint128,
 }
 
