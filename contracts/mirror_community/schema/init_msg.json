@@ -3,27 +3,26 @@
   "title": "InitMsg",
   "type": "object",
   "required": [
-    "base_denom",
-    "distribution_contract",
     "mirror_token",
-    "terraswap_factory"
+    "owner",
+    "spend_limit"
   ],
   "properties": {
-    "base_denom": {
-      "type": "string"
-    },
-    "distribution_contract": {
-      "$ref": "#/definitions/HumanAddr"
-    },
     "mirror_token": {
       "$ref": "#/definitions/HumanAddr"
     },
-    "terraswap_factory": {
+    "owner": {
       "$ref": "#/definitions/HumanAddr"
+    },
+    "spend_limit": {
+      "$ref": "#/definitions/Uint128"
     }
   },
   "definitions": {
     "HumanAddr": {
+      "type": "string"
+    },
+    "Uint128": {
       "type": "string"
     }
   }

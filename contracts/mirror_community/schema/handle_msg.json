@@ -5,17 +5,31 @@
     {
       "type": "object",
       "required": [
-        "convert"
+        "update_config"
       ],
       "properties": {
-        "convert": {
+        "update_config": {
           "type": "object",
-          "required": [
-            "asset_token"
-          ],
           "properties": {
-            "asset_token": {
-              "$ref": "#/definitions/HumanAddr"
+            "owner": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "spend_limit": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Uint128"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             }
           }
         }
@@ -24,17 +38,32 @@
     {
       "type": "object",
       "required": [
-        "send"
+        "spend"
       ],
       "properties": {
-        "send": {
-          "type": "object"
+        "spend": {
+          "type": "object",
+          "required": [
+            "amount",
+            "recipient"
+          ],
+          "properties": {
+            "amount": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "recipient": {
+              "$ref": "#/definitions/HumanAddr"
+            }
+          }
         }
       }
     }
   ],
   "definitions": {
     "HumanAddr": {
+      "type": "string"
+    },
+    "Uint128": {
       "type": "string"
     }
   }

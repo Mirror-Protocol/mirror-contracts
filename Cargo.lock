@@ -562,6 +562,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "mirror-community"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cosmwasm-storage",
+ "cosmwasm-vm",
+ "cw20",
+ "schemars",
+ "serde",
+]
+
+[[package]]
 name = "mirror-factory"
 version = "1.0.0"
 dependencies = [
