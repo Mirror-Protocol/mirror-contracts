@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "InitMsg",
+  "type": "object",
+  "required": [
+    "base_denom",
+    "distribution_contract",
+    "mirror_token",
+    "terraswap_factory"
+  ],
+  "properties": {
+    "base_denom": {
+      "type": "string"
+    },
+    "distribution_contract": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "mirror_token": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "terraswap_factory": {
+      "$ref": "#/definitions/HumanAddr"
+    }
+  },
+  "definitions": {
+    "HumanAddr": {
+      "type": "string"
+    }
+  }
+}
