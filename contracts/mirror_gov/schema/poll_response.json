@@ -58,6 +58,16 @@
     "title": {
       "type": "string"
     },
+    "total_share_at_end_poll": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Uint128"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "yes_votes": {
       "$ref": "#/definitions/Uint128"
     }
@@ -91,7 +101,8 @@
         "in_progress",
         "passed",
         "rejected",
-        "executed"
+        "executed",
+        "expired"
       ]
     },
     "Uint128": {

@@ -153,7 +153,8 @@
         "in_progress",
         "passed",
         "rejected",
-        "executed"
+        "executed",
+        "expired"
       ]
     }
   }

@@ -30,6 +30,14 @@
               "format": "uint64",
               "minimum": 0.0
             },
+            "expiration_period": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            },
             "owner": {
               "anyOf": [
                 {
@@ -162,6 +170,27 @@
       ],
       "properties": {
         "execute_poll": {
+          "type": "object",
+          "required": [
+            "poll_id"
+          ],
+          "properties": {
+            "poll_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "expire_poll"
+      ],
+      "properties": {
+        "expire_poll": {
           "type": "object",
           "required": [
             "poll_id"
