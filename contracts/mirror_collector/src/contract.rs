@@ -42,8 +42,8 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
 
 /// Convert
 /// Anyone can execute convert function to swap
-/// asset token => collateral denom
-/// collateral denom => mirror token
+/// asset token => collateral token
+/// collateral token => MIR token
 pub fn try_convert<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
@@ -58,7 +58,7 @@ pub fn try_convert<S: Storage, A: Api, Q: Querier>(
         &terraswap_factory_raw,
         &[
             AssetInfo::NativeToken {
-                denom: "uusd".to_string(),
+                denom: config.base_denom.to_string(),
             },
             AssetInfo::Token {
                 contract_addr: asset_token.clone(),
@@ -68,7 +68,7 @@ pub fn try_convert<S: Storage, A: Api, Q: Querier>(
 
     let messages: Vec<CosmosMsg>;
     if config.mirror_token == asset_token_raw {
-        // uusd => staking token
+        // collateral token => MIR token
         let amount = load_balance(&deps, &env.contract.address, config.base_denom.to_string())?;
         let swap_asset = Asset {
             info: AssetInfo::NativeToken {
@@ -94,7 +94,7 @@ pub fn try_convert<S: Storage, A: Api, Q: Querier>(
             }],
         })];
     } else {
-        // asset token => uusd
+        // asset token => collateral token
         let amount = load_token_balance(&deps, &asset_token, &env.contract.address)?;
 
         messages = vec![CosmosMsg::Wasm(WasmMsg::Execute {

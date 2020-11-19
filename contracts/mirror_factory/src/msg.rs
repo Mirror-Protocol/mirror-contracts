@@ -14,6 +14,9 @@ pub struct InitMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum HandleMsg {
+    ///////////////////
+    /// Owner Operations
+    ///////////////////
     PostInitialize {
         owner: HumanAddr,
         terraswap_factory: HumanAddr,
@@ -38,23 +41,29 @@ pub enum HandleMsg {
         /// used to create all necessary contract or register asset
         params: Params,
     },
-    TokenCreationHook {
-        oracle_feeder: HumanAddr,
-    },
-    TerraswapCreationHook {
-        asset_token: HumanAddr,
-    },
+    /// Internal use
+    TokenCreationHook { oracle_feeder: HumanAddr },
+    /// Internal use except MIR registration
+    TerraswapCreationHook { asset_token: HumanAddr },
     PassCommand {
         contract_addr: HumanAddr,
         msg: Binary,
     },
-    Distribute {},
+
+    //////////////////////
+    /// Feeder Operations
+    /// //////////////////
     MigrateAsset {
         name: String,
         symbol: String,
         from_token: HumanAddr,
         end_price: Decimal,
     },
+
+    ///////////////////
+    /// User Operations
+    ///////////////////
+    Distribute {},
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
