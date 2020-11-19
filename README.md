@@ -94,5 +94,3 @@ This performs several optimizations which can significantly reduce the final siz
 ## License
 
 This software is licensed under the Apache 2.0 license. Read more about it [here](LICENSE.md).
-
-© 2020 Terraform Labs, PTE.
