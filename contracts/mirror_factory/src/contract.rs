@@ -398,7 +398,8 @@ pub fn try_distribute<S: Storage, A: Api, Q: Querier>(
         if s.0 > time_elapsed || s.1 < last_time_elapsed {
             continue;
         }
-        // max(s.0, last_time_elapsed) ~ min(s.1, time_elpased)
+
+        // min(s.1, time_elpased) - max(s.0, last_time_elapsed)
         let time_duration =
             std::cmp::min(s.1, time_elapsed) - std::cmp::max(s.0, last_time_elapsed);
 
