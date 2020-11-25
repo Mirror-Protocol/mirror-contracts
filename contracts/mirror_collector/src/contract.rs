@@ -35,8 +35,8 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     msg: HandleMsg,
 ) -> StdResult<HandleResponse> {
     match msg {
-        HandleMsg::Convert { asset_token } => try_convert(deps, env, asset_token),
-        HandleMsg::Send {} => try_send(deps, env),
+        HandleMsg::Convert { asset_token } => convert(deps, env, asset_token),
+        HandleMsg::Distribute {} => distribute(deps, env),
     }
 }
 
@@ -44,7 +44,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
 /// Anyone can execute convert function to swap
 /// asset token => collateral token
 /// collateral token => MIR token
-pub fn try_convert<S: Storage, A: Api, Q: Querier>(
+pub fn convert<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     asset_token: HumanAddr,
@@ -119,7 +119,7 @@ pub fn try_convert<S: Storage, A: Api, Q: Querier>(
 }
 
 // Anyone can execute send function to receive staking token rewards
-pub fn try_send<S: Storage, A: Api, Q: Querier>(
+pub fn distribute<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
 ) -> HandleResult {
@@ -139,7 +139,10 @@ pub fn try_send<S: Storage, A: Api, Q: Querier>(
             })?,
             send: vec![],
         })],
-        log: vec![log("action", "send"), log("amount", amount.to_string())],
+        log: vec![
+            log("action", "distribute"),
+            log("amount", amount.to_string()),
+        ],
         data: None,
     })
 }

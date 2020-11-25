@@ -132,7 +132,7 @@ fn test_send() {
 
     let env = mock_env("addr0000", &[]);
     let _res = init(&mut deps, env, msg).unwrap();
-    let msg = HandleMsg::Send {};
+    let msg = HandleMsg::Distribute {};
 
     let env = mock_env("addr0000", &[]);
     let res = handle(&mut deps, env, msg).unwrap();
