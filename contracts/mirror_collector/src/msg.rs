@@ -60,3 +60,7 @@ pub enum TerraswapCw20HookMsg {
     /// Sell a given amount of asset
     Swap { max_spread: Option<Decimal> },
 }
+
+/// We currently take no arguments for migrations
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct MigrateMsg {}

@@ -1,10 +1,11 @@
 use cosmwasm_std::{
     log, to_binary, Api, Binary, Coin, CosmosMsg, Env, Extern, HandleResponse, HandleResult,
-    HumanAddr, InitResponse, Querier, StdResult, Storage, WasmMsg,
+    HumanAddr, InitResponse, MigrateResponse, MigrateResult, Querier, StdResult, Storage, WasmMsg,
 };
 
 use crate::msg::{
-    ConfigResponse, HandleMsg, InitMsg, QueryMsg, TerraswapCw20HookMsg, TerraswapHandleMsg,
+    ConfigResponse, HandleMsg, InitMsg, MigrateMsg, QueryMsg, TerraswapCw20HookMsg,
+    TerraswapHandleMsg,
 };
 use crate::state::{read_config, store_config, Config};
 
@@ -168,4 +169,12 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
     };
 
     Ok(resp)
+}
+
+pub fn migrate<S: Storage, A: Api, Q: Querier>(
+    _deps: &mut Extern<S, A, Q>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> MigrateResult {
+    Ok(MigrateResponse::default())
 }
