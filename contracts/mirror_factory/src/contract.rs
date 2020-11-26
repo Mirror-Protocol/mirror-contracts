@@ -416,12 +416,17 @@ pub fn try_distribute<S: Storage, A: Api, Q: Querier>(
     let messages: Vec<CosmosMsg> = weights
         .iter()
         .map(|w| {
+            let amount =
+                distributed_amount * Decimal::from_ratio(w.1 as u128, total_weight as u128);
+            if amount.is_zero() {
+                return Err(StdError::generic_err("cannot distribute zero amount"));
+            }
+
             Ok(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: mirror_token.clone(),
                 msg: to_binary(&Cw20HandleMsg::Send {
                     contract: staking_contract.clone(),
-                    amount: distributed_amount
-                        * Decimal::from_ratio(w.1 as u128, total_weight as u128),
+                    amount,
                     msg: Some(to_binary(&StakingCw20HookMsg::DepositReward {
                         asset_token: deps.api.human_address(&w.0)?,
                     })?),
@@ -429,6 +434,7 @@ pub fn try_distribute<S: Storage, A: Api, Q: Querier>(
                 send: vec![],
             }))
         })
+        .filter(|m| m.is_ok())
         .collect::<StdResult<Vec<CosmosMsg>>>()?;
 
     // store last distributed
