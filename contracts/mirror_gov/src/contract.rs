@@ -580,6 +580,10 @@ pub fn expire_poll<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::generic_err("Poll is not in passed status"));
     }
 
+    if a_poll.execute_data.is_none() {
+        return Err(StdError::generic_err("Cannot make a text proposal to expired state"));
+    }
+
     if a_poll.end_height + config.expiration_period > env.block.height {
         return Err(StdError::generic_err("Expire height has not been reached"));
     }
