@@ -595,19 +595,8 @@ pub fn expire_poll<S: Storage, A: Api, Q: Querier>(
     a_poll.status = PollStatus::Expired;
     poll_store(&mut deps.storage).save(&poll_id.to_be_bytes(), &a_poll)?;
 
-    let mut messages: Vec<CosmosMsg> = vec![];
-    if let Some(execute_data) = a_poll.execute_data {
-        messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: deps.api.human_address(&execute_data.contract)?,
-            msg: execute_data.msg,
-            send: vec![],
-        }))
-    } else {
-        return Err(StdError::generic_err("The poll does not have execute_data"));
-    }
-
     Ok(HandleResponse {
-        messages,
+        messages: vec![],
         log: vec![
             log("action", "expire_poll"),
             log("poll_id", poll_id.to_string()),
