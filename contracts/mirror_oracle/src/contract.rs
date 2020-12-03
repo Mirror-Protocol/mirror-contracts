@@ -179,7 +179,7 @@ fn query_price<S: Storage, A: Api, Q: Querier>(
     let quote_price = if config.base_asset == quote {
         PriceInfo {
             price: Decimal::one(),
-            last_updated_time: 9999999999,
+            last_updated_time: u64::MAX,
         }
     } else {
         read_price(
@@ -191,7 +191,7 @@ fn query_price<S: Storage, A: Api, Q: Querier>(
     let base_price = if config.base_asset == base {
         PriceInfo {
             price: Decimal::one(),
-            last_updated_time: 9999999999,
+            last_updated_time: u64::MAX,
         }
     } else {
         read_price(
@@ -366,7 +366,7 @@ mod tests {
             PriceResponse {
                 rate: Decimal::zero(),
                 last_updated_base: 0u64,
-                last_updated_quote: 9999999999u64,
+                last_updated_quote: u64::MAX,
             }
         );
 
@@ -391,7 +391,7 @@ mod tests {
             PriceResponse {
                 rate: Decimal::from_ratio(12u128, 10u128),
                 last_updated_base: env.block.time,
-                last_updated_quote: 9999999999u64,
+                last_updated_quote: u64::MAX,
             }
         );
 

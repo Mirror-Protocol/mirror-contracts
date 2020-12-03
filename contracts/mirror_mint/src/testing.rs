@@ -167,6 +167,36 @@ fn register_asset() {
         StdError::Unauthorized { .. } => {}
         _ => panic!("DO NOT ENTER HERE"),
     }
+
+    // must be failed with unauthorized error
+    let msg = HandleMsg::RegisterAsset {
+        asset_token: HumanAddr::from("asset0000"),
+        auction_discount: Decimal::percent(150),
+        min_collateral_ratio: Decimal::percent(150),
+    };
+    let env = mock_env("owner0000", &[]);
+    let res = handle(&mut deps, env, msg).unwrap_err();
+    match res {
+        StdError::GenericErr { msg, .. } => {
+            assert_eq!(msg, "auction_discount must be smaller than 1")
+        }
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    // must be failed with unauthorized error
+    let msg = HandleMsg::RegisterAsset {
+        asset_token: HumanAddr::from("asset0000"),
+        auction_discount: Decimal::percent(20),
+        min_collateral_ratio: Decimal::percent(50),
+    };
+    let env = mock_env("owner0000", &[]);
+    let res = handle(&mut deps, env, msg).unwrap_err();
+    match res {
+        StdError::GenericErr { msg, .. } => {
+            assert_eq!(msg, "min_collateral_ratio must be bigger than 1")
+        }
+        _ => panic!("DO NOT ENTER HERE"),
+    }
 }
 
 #[test]
@@ -221,6 +251,34 @@ fn update_asset() {
             end_price: None,
         }
     );
+
+    let msg = HandleMsg::UpdateAsset {
+        asset_token: HumanAddr::from("asset0000"),
+        auction_discount: Some(Decimal::percent(130)),
+        min_collateral_ratio: Some(Decimal::percent(150)),
+    };
+    let env = mock_env("owner0000", &[]);
+    let res = handle(&mut deps, env, msg).unwrap_err();
+    match res {
+        StdError::GenericErr { msg, .. } => {
+            assert_eq!(msg, "auction_discount must be smaller than 1")
+        }
+        _ => panic!("Must return unauthorized error"),
+    }
+
+    let msg = HandleMsg::UpdateAsset {
+        asset_token: HumanAddr::from("asset0000"),
+        auction_discount: Some(Decimal::percent(30)),
+        min_collateral_ratio: Some(Decimal::percent(50)),
+    };
+    let env = mock_env("owner0000", &[]);
+    let res = handle(&mut deps, env, msg).unwrap_err();
+    match res {
+        StdError::GenericErr { msg, .. } => {
+            assert_eq!(msg, "min_collateral_ratio must be bigger than 1")
+        }
+        _ => panic!("Must return unauthorized error"),
+    }
 
     let msg = HandleMsg::UpdateAsset {
         asset_token: HumanAddr::from("asset0000"),

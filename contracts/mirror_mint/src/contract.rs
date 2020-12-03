@@ -234,10 +234,12 @@ pub fn try_update_asset<S: Storage, A: Api, Q: Querier>(
     }
 
     if let Some(auction_discount) = auction_discount {
+        assert_auction_discount(auction_discount)?;
         asset.auction_discount = auction_discount;
     }
 
     if let Some(min_collateral_ratio) = min_collateral_ratio {
+        assert_min_collateral_ratio(min_collateral_ratio)?;
         asset.min_collateral_ratio = min_collateral_ratio;
     }
 
@@ -256,6 +258,9 @@ pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
     auction_discount: Decimal,
     min_collateral_ratio: Decimal,
 ) -> StdResult<HandleResponse> {
+    assert_auction_discount(auction_discount)?;
+    assert_min_collateral_ratio(min_collateral_ratio)?;
+
     let config: Config = read_config(&deps.storage)?;
 
     // permission check
@@ -1026,4 +1031,24 @@ fn assert_migrated_asset(asset_config: &AssetConfig) -> StdResult<()> {
     }
 
     Ok(())
+}
+
+fn assert_auction_discount(auction_discount: Decimal) -> StdResult<()> {
+    if auction_discount > Decimal::one() {
+        Err(StdError::generic_err(
+            "auction_discount must be smaller than 1",
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+fn assert_min_collateral_ratio(min_collateral_ratio: Decimal) -> StdResult<()> {
+    if min_collateral_ratio < Decimal::one() {
+        Err(StdError::generic_err(
+            "min_collateral_ratio must be bigger than 1",
+        ))
+    } else {
+        Ok(())
+    }
 }
