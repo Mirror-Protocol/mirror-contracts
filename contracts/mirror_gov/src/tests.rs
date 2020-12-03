@@ -359,7 +359,7 @@ mod tests {
                     execute_data: None,
                     yes_votes: Uint128::zero(),
                     no_votes: Uint128::zero(),
-                    total_share_at_end_poll: None,
+                    total_balance_at_end_poll: None,
                 },
                 PollResponse {
                     id: 2u64,
@@ -373,7 +373,7 @@ mod tests {
                     execute_data: None,
                     yes_votes: Uint128::zero(),
                     no_votes: Uint128::zero(),
-                    total_share_at_end_poll: None,
+                    total_balance_at_end_poll: None,
                 },
             ]
         );
@@ -402,7 +402,7 @@ mod tests {
                 execute_data: None,
                 yes_votes: Uint128::zero(),
                 no_votes: Uint128::zero(),
-                total_share_at_end_poll: None,
+                total_balance_at_end_poll: None,
             },]
         );
 
@@ -430,7 +430,7 @@ mod tests {
                 execute_data: None,
                 yes_votes: Uint128::zero(),
                 no_votes: Uint128::zero(),
-                total_share_at_end_poll: None,
+                total_balance_at_end_poll: None,
             },]
         );
 
@@ -715,7 +715,7 @@ mod tests {
             StakerResponse {
                 balance: Uint128(stake_amount),
                 share: Uint128(stake_amount),
-                locked_share: vec![]
+                locked_balance: vec![]
             }
         );
     }
@@ -1246,6 +1246,15 @@ mod tests {
         let handle_res = handle(&mut deps, env, msg.clone()).unwrap();
         assert_cast_vote_success(TEST_VOTER, amount, 1, VoteOption::Yes, handle_res);
 
+        // balance be double
+        deps.querier.with_token_balances(&[(
+            &HumanAddr::from(VOTING_TOKEN),
+            &[(
+                &HumanAddr::from(MOCK_CONTRACT_ADDR),
+                &Uint128(22u128 + DEFAULT_PROPOSAL_DEPOSIT),
+            )],
+        )]);
+
         // Query staker
         let res = query(
             &deps,
@@ -1258,13 +1267,13 @@ mod tests {
         assert_eq!(
             response,
             StakerResponse {
-                balance: Uint128(11u128),
+                balance: Uint128(22u128),
                 share: Uint128(11u128),
-                locked_share: vec![(
+                locked_balance: vec![(
                     1u64,
                     VoterInfo {
                         vote: VoteOption::Yes,
-                        share: Uint128::from(amount),
+                        balance: Uint128::from(amount),
                     }
                 )]
             }
@@ -1286,7 +1295,6 @@ mod tests {
             vec![VotersResponseItem {
                 voter: HumanAddr::from(TEST_VOTER),
                 vote: VoteOption::Yes,
-                share: Uint128::from(amount),
                 balance: Uint128::from(amount),
             }]
         );
@@ -1338,6 +1346,12 @@ mod tests {
             }
         );
 
+        // double the balance, only half will be withdrawn
+        deps.querier.with_token_balances(&[(
+            &HumanAddr::from(VOTING_TOKEN),
+            &[(&HumanAddr::from(MOCK_CONTRACT_ADDR), &Uint128(22u128))],
+        )]);
+
         let env = mock_env(TEST_VOTER, &coins(11, VOTING_TOKEN));
         let msg = HandleMsg::WithdrawVotingTokens {
             amount: Some(Uint128::from(11u128)),
@@ -1368,7 +1382,7 @@ mod tests {
                     .canonical_address(&HumanAddr::from(MOCK_CONTRACT_ADDR))
                     .unwrap(),
                 poll_count: 0,
-                total_share: Uint128::zero(),
+                total_share: Uint128::from(6u128),
                 total_deposit: Uint128::zero(),
             }
         );
@@ -1672,7 +1686,7 @@ mod tests {
         let stake_info: StakerResponse = from_binary(&res).unwrap();
         assert_eq!(stake_info.share, Uint128(100));
         assert_eq!(stake_info.balance, Uint128(200));
-        assert_eq!(stake_info.locked_share, vec![]);
+        assert_eq!(stake_info.locked_balance, vec![]);
     }
 
     // helper to confirm the expected create_poll response

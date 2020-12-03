@@ -4,14 +4,14 @@
   "type": "object",
   "required": [
     "balance",
-    "locked_share",
+    "locked_balance",
     "share"
   ],
   "properties": {
     "balance": {
       "$ref": "#/definitions/Uint128"
     },
-    "locked_share": {
+    "locked_balance": {
       "type": "array",
       "items": {
         "type": "array",
@@ -47,11 +47,11 @@
     "VoterInfo": {
       "type": "object",
       "required": [
-        "share",
+        "balance",
         "vote"
       ],
       "properties": {
-        "share": {
+        "balance": {
           "$ref": "#/definitions/Uint128"
         },
         "vote": {
