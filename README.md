@@ -2,7 +2,7 @@
 
 This monorepository contains the source code for the core smart contracts implementing Mirror Protocol on the [Terra](https://terra.money) blockchain.
 
-You can find information about the architecture, usage, and function of the smart contracts on the official Mirror documentation [site](https://docs.mirror.finance).
+You can find information about the architecture, usage, and function of the smart contracts on the official Mirror documentation [site](https://docs.mirror.finance/contracts/architecture).
 
 ### Dependencies
 
@@ -10,15 +10,15 @@ Mirror depends on [Terraswap](https://terraswap.io) and uses its [implementation
 
 ## Contracts
 
-| Contract                                            | Reference                                                     | Description                                                                                                                        |
-| --------------------------------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| [`mirror_collector`](./contracts/mirror_collector)  | [doc](https://mirror-6.gitbook.io/mirror/contracts/collector) | Gathers protocol fees incurred from CDP withdrawals and liquidations and sends to Gov                                              |
-| [`mirror_community`](../contracts/mirror_community) | [doc](https://mirror-6.gitbook.io/mirror/contracts/community) | Manages the commuinty pool fund                                                                                                    |
-| [`mirror_factory`](./contracts/mirror_factory)      | [doc](https://mirror-6.gitbook.io/mirror/contracts/factory)   | Central directory that organizes the various component contracts of Mirror                                                         |
-| [`mirror_gov`](./contracts/mirror_gov)              | [doc](https://mirror-6.gitbook.io/mirror/contracts/gov)       | Allows other Mirror contracts to be controlled by decentralized governance, distributes MIR received from Collector to MIR stakers |
-| [`mirror_mint`](./contracts/mirror_mint)            | [doc](https://mirror-6.gitbook.io/mirror/contracts/mint)      | Handles CDP creation, management and liquidation                                                                                   |
-| [`mirror_oracle`](./contracts/mirror_oracle)        | [doc](https://mirror-6.gitbook.io/mirror/contracts/oracle)    | Provides interface for oracle feeders to post prices for mAssets                                                                   |
-| [`mirror_staking`](./contracts/mirror_staking)      | [doc](https://mirror-6.gitbook.io/mirror/contracts/staking)   | Distributes MIR rewards from block reward to LP stakers                                                                            |
+| Contract                                            | Reference                                              | Description                                                                                                                        |
+| --------------------------------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| [`mirror_collector`](./contracts/mirror_collector)  | [doc](https://docs.mirror.finance/contracts/collector) | Gathers protocol fees incurred from CDP withdrawals and liquidations and sends to Gov                                              |
+| [`mirror_community`](../contracts/mirror_community) | [doc](https://docs.mirror.finance/contracts/community) | Manages the commuinty pool fund                                                                                                    |
+| [`mirror_factory`](./contracts/mirror_factory)      | [doc](https://docs.mirror.finance/contracts/factory)   | Central directory that organizes the various component contracts of Mirror                                                         |
+| [`mirror_gov`](./contracts/mirror_gov)              | [doc](https://docs.mirror.finance/contracts/gov)       | Allows other Mirror contracts to be controlled by decentralized governance, distributes MIR received from Collector to MIR stakers |
+| [`mirror_mint`](./contracts/mirror_mint)            | [doc](https://docs.mirror.finance/contracts/mint)      | Handles CDP creation, management and liquidation                                                                                   |
+| [`mirror_oracle`](./contracts/mirror_oracle)        | [doc](https://docs.mirror.finance/contracts/oracle)    | Provides interface for oracle feeders to post prices for mAssets                                                                   |
+| [`mirror_staking`](./contracts/mirror_staking)      | [doc](https://docs.mirror.finance/contracts/staking)   | Distributes MIR rewards from block reward to LP stakers                                                                            |
 
 ## Development
 
