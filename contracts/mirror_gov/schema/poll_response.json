@@ -58,7 +58,7 @@
     "title": {
       "type": "string"
     },
-    "total_share_at_end_poll": {
+    "total_balance_at_end_poll": {
       "anyOf": [
         {
           "$ref": "#/definitions/Uint128"
