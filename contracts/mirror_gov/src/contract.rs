@@ -248,15 +248,11 @@ pub fn withdraw_voting_tokens<S: Storage, A: Api, Q: Querier>(
             &state.contract_addr,
         )? - state.total_deposit)?;
 
-        let locked_share = locked_share(&sender_address_raw, deps);
-        let withdraw_share = match amount {
-            Some(amount) => Some(
-                // balance to share
-                amount.multiply_ratio(total_share, total_balance).u128(),
-            ),
-            None => Some(token_manager.share.u128()),
-        }
-        .unwrap();
+        let locked_balance = locked_balance(&sender_address_raw, deps);
+        let locked_share = locked_balance * total_share.u128() / total_balance.u128();
+        let withdraw_share = amount
+            .map(|v| v.multiply_ratio(total_share, total_balance).u128())
+            .unwrap_or_else(|| token_manager.share.u128());
 
         if locked_share + withdraw_share > token_manager.share.u128() {
             Err(StdError::generic_err(
@@ -275,10 +271,7 @@ pub fn withdraw_voting_tokens<S: Storage, A: Api, Q: Querier>(
                 &deps.api,
                 &config.mirror_token,
                 &sender_address_raw,
-                // share to balance
-                Uint128(withdraw_share)
-                    .multiply_ratio(total_balance, total_share)
-                    .u128(),
+                amount.unwrap().u128(),
                 "withdraw",
             )
         }
@@ -396,7 +389,7 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
         link,
         execute_data,
         deposit_amount,
-        total_share_at_end_poll: None,
+        total_balance_at_end_poll: None,
     };
 
     poll_store(&mut deps.storage).save(&poll_id.to_be_bytes(), &new_poll)?;
@@ -446,15 +439,19 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
     let mut messages: Vec<CosmosMsg> = vec![];
     let config: Config = config_read(&deps.storage).load()?;
     let mut state: State = state_read(&deps.storage).load()?;
+    if state.total_share.u128() == 0 {
+        return Err(StdError::generic_err("Nothing staked"));
+    }
 
     let no = a_poll.no_votes.u128();
     let yes = a_poll.yes_votes.u128();
 
     let tallied_weight = yes + no;
-    let staked_weight = state.total_share.u128();
-    if staked_weight == 0 {
-        return Err(StdError::generic_err("Nothing staked"));
-    }
+    let staked_weight = (load_token_balance(
+        &deps,
+        &deps.api.human_address(&config.mirror_token)?,
+        &state.contract_addr,
+    )? - state.total_deposit)?;
 
     let quorum = Decimal::from_ratio(tallied_weight, staked_weight);
     if tallied_weight == 0 || quorum < config.quorum {
@@ -494,7 +491,7 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
 
     // Update poll status
     a_poll.status = poll_status;
-    a_poll.total_share_at_end_poll = Some(state.total_share);
+    a_poll.total_balance_at_end_poll = Some(staked_weight);
     poll_store(&mut deps.storage).save(&poll_id.to_be_bytes(), &a_poll)?;
 
     // Unlock all voter tokens
@@ -581,7 +578,9 @@ pub fn expire_poll<S: Storage, A: Api, Q: Querier>(
     }
 
     if a_poll.execute_data.is_none() {
-        return Err(StdError::generic_err("Cannot make a text proposal to expired state"));
+        return Err(StdError::generic_err(
+            "Cannot make a text proposal to expired state",
+        ));
     }
 
     if a_poll.end_height + config.expiration_period > env.block.height {
@@ -615,22 +614,22 @@ fn unlock_tokens<S: Storage, A: Api, Q: Querier>(
     let mut token_manager = bank_read(&deps.storage).load(voter_key).unwrap();
 
     // unlock entails removing the mapped poll_id, retaining the rest
-    token_manager.locked_share.retain(|(k, _)| k != &poll_id);
+    token_manager.locked_balance.retain(|(k, _)| k != &poll_id);
     bank_store(&mut deps.storage).save(voter_key, &token_manager)?;
     Ok(HandleResponse::default())
 }
 
 // finds the largest locked amount in participated polls.
-fn locked_share<S: Storage, A: Api, Q: Querier>(
+fn locked_balance<S: Storage, A: Api, Q: Querier>(
     voter: &CanonicalAddr,
     deps: &mut Extern<S, A, Q>,
 ) -> u128 {
     let voter_key = &voter.as_slice();
     let token_manager = bank_read(&deps.storage).load(voter_key).unwrap();
     token_manager
-        .locked_share
+        .locked_balance
         .iter()
-        .map(|(_, v)| v.share.u128())
+        .map(|(_, v)| v.balance.u128())
         .max()
         .unwrap_or_default()
 }
@@ -649,15 +648,6 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::generic_err("Poll does not exist"));
     }
 
-    // convert amount to share
-    let total_share = state.total_share;
-    let total_balance = (load_token_balance(
-        &deps,
-        &deps.api.human_address(&config.mirror_token)?,
-        &state.contract_addr,
-    )? - state.total_deposit)?;
-
-    let share = amount.multiply_ratio(total_share, total_balance);
     let mut a_poll: Poll = poll_store(&mut deps.storage).load(&poll_id.to_be_bytes())?;
     if a_poll.status != PollStatus::InProgress || env.block.height > a_poll.end_height {
         return Err(StdError::generic_err("Poll is not in progress"));
@@ -673,7 +663,20 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
 
     let key = &sender_address_raw.as_slice();
     let mut token_manager = bank_read(&deps.storage).may_load(key)?.unwrap_or_default();
-    if token_manager.share < share {
+
+    // convert share to amount
+    let total_share = state.total_share;
+    let total_balance = (load_token_balance(
+        &deps,
+        &deps.api.human_address(&config.mirror_token)?,
+        &state.contract_addr,
+    )? - state.total_deposit)?;
+
+    if token_manager
+        .share
+        .multiply_ratio(total_balance, total_share)
+        < amount
+    {
         return Err(StdError::generic_err(
             "User does not have enough staked tokens.",
         ));
@@ -681,15 +684,18 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
 
     // update tally info
     if VoteOption::Yes == vote {
-        a_poll.yes_votes += share;
+        a_poll.yes_votes += amount;
     } else {
-        a_poll.no_votes += share;
+        a_poll.no_votes += amount;
     }
 
-    let vote_info = VoterInfo { vote, share };
+    let vote_info = VoterInfo {
+        vote,
+        balance: amount,
+    };
     token_manager.participated_polls.push(poll_id);
     token_manager
-        .locked_share
+        .locked_balance
         .push((poll_id, vote_info.clone()));
     bank_store(&mut deps.storage).save(key, &token_manager)?;
 
@@ -820,7 +826,7 @@ fn query_poll<S: Storage, A: Api, Q: Querier>(
         },
         yes_votes: poll.yes_votes,
         no_votes: poll.no_votes,
-        total_share_at_end_poll: poll.total_share_at_end_poll,
+        total_balance_at_end_poll: poll.total_balance_at_end_poll,
     })
 }
 
@@ -853,7 +859,7 @@ fn query_polls<S: Storage, A: Api, Q: Querier>(
                 },
                 yes_votes: poll.yes_votes,
                 no_votes: poll.no_votes,
-                total_share_at_end_poll: poll.total_share_at_end_poll,
+                total_balance_at_end_poll: poll.total_balance_at_end_poll,
             })
         })
         .collect();
@@ -880,25 +886,13 @@ fn query_voters<S: Storage, A: Api, Q: Querier>(
         read_poll_voters(&deps.storage, poll_id, None, limit)?
     };
 
-    let config: Config = config_read(&deps.storage).load()?;
-    let state: State = state_read(&deps.storage).load()?;
-    let total_balance = (load_token_balance(
-        &deps,
-        &deps.api.human_address(&config.mirror_token)?,
-        &state.contract_addr,
-    )? - state.total_deposit)?;
-
     let voters_response: StdResult<Vec<VotersResponseItem>> = voters
         .iter()
         .map(|voter_info| {
             Ok(VotersResponseItem {
                 voter: deps.api.human_address(&voter_info.0)?,
                 vote: voter_info.1.vote.clone(),
-                share: voter_info.1.share,
-                balance: voter_info
-                    .1
-                    .share
-                    .multiply_ratio(total_balance, state.total_share),
+                balance: voter_info.1.balance,
             })
         })
         .collect();
@@ -934,7 +928,7 @@ fn query_staker<S: Storage, A: Api, Q: Querier>(
             Uint128::zero()
         },
         share: token_manager.share,
-        locked_share: token_manager.locked_share,
+        locked_balance: token_manager.locked_balance,
     })
 }
 

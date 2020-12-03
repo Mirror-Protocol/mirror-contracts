@@ -38,9 +38,9 @@ pub struct State {
 
 #[derive(Default, Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct TokenManager {
-    pub share: Uint128,                      // total staked balance
-    pub locked_share: Vec<(u64, VoterInfo)>, // maps poll_id to weight voted
-    pub participated_polls: Vec<u64>,        // poll_id
+    pub share: Uint128,                        // total staked balance
+    pub locked_balance: Vec<(u64, VoterInfo)>, // maps poll_id to weight voted
+    pub participated_polls: Vec<u64>,          // poll_id
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -63,7 +63,7 @@ impl fmt::Display for VoteOption {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct VoterInfo {
     pub vote: VoteOption,
-    pub share: Uint128,
+    pub balance: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -96,7 +96,7 @@ pub struct Poll {
     pub execute_data: Option<ExecuteData>,
     pub deposit_amount: Uint128,
     /// Total share at the end poll
-    pub total_share_at_end_poll: Option<Uint128>,
+    pub total_balance_at_end_poll: Option<Uint128>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

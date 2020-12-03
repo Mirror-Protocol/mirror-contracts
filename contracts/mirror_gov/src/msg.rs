@@ -122,9 +122,9 @@ pub struct PollResponse {
     pub link: Option<String>,
     pub deposit_amount: Uint128,
     pub execute_data: Option<ExecuteMsg>,
-    pub yes_votes: Uint128,
-    pub no_votes: Uint128,
-    pub total_share_at_end_poll: Option<Uint128>,
+    pub yes_votes: Uint128, // balance
+    pub no_votes: Uint128,  // balance
+    pub total_balance_at_end_poll: Option<Uint128>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema)]
@@ -141,14 +141,13 @@ pub struct PollCountResponse {
 pub struct StakerResponse {
     pub balance: Uint128,
     pub share: Uint128,
-    pub locked_share: Vec<(u64, VoterInfo)>,
+    pub locked_balance: Vec<(u64, VoterInfo)>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema)]
 pub struct VotersResponseItem {
     pub voter: HumanAddr,
     pub vote: VoteOption,
-    pub share: Uint128,
     pub balance: Uint128,
 }
 
