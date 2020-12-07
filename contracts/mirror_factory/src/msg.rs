@@ -103,3 +103,7 @@ pub struct DistributionInfoResponse {
 pub enum StakingCw20HookMsg {
     DepositReward { asset_token: HumanAddr },
 }
+
+/// We currently take no arguments for migrations
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct MigrateMsg {}

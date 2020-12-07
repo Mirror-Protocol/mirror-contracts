@@ -1,10 +1,12 @@
 use cosmwasm_std::{
     log, to_binary, Api, Binary, CanonicalAddr, CosmosMsg, Decimal, Env, Extern, HandleResponse,
-    HandleResult, HumanAddr, InitResponse, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
+    HandleResult, HumanAddr, InitResponse, MigrateResponse, MigrateResult, Querier, StdError,
+    StdResult, Storage, Uint128, WasmMsg,
 };
 
 use crate::msg::{
-    ConfigResponse, DistributionInfoResponse, HandleMsg, InitMsg, QueryMsg, StakingCw20HookMsg,
+    ConfigResponse, DistributionInfoResponse, HandleMsg, InitMsg, MigrateMsg, QueryMsg,
+    StakingCw20HookMsg,
 };
 use crate::querier::{load_mint_asset_config, load_oracle_feeder};
 use crate::register_msgs::*;
@@ -23,7 +25,7 @@ use terraswap::{
 
 const MIRROR_TOKEN_WEIGHT: u32 = 3u32;
 const NORMAL_TOKEN_WEIGHT: u32 = 1u32;
-const DISTRIBUTION_INTERVAL: u64 = 3600u64;
+const DISTRIBUTION_INTERVAL: u64 = 60u64;
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -570,4 +572,12 @@ pub fn query_distribution_info<S: Storage, A: Api, Q: Querier>(
     };
 
     Ok(resp)
+}
+
+pub fn migrate<S: Storage, A: Api, Q: Querier>(
+    _deps: &mut Extern<S, A, Q>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> MigrateResult {
+    Ok(MigrateResponse::default())
 }
