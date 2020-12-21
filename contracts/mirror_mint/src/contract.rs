@@ -5,8 +5,8 @@ use cosmwasm_std::{
 };
 
 use crate::msg::{
-    AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, PositionResponse,
-    PositionsResponse, QueryMsg,
+    AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, OrderBy,
+    PositionResponse, PositionsResponse, QueryMsg,
 };
 
 use crate::state::{
@@ -893,12 +893,14 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
             asset_token,
             start_after,
             limit,
+            order_by,
         } => to_binary(&query_positions(
             deps,
             owner_addr,
             asset_token,
             start_after,
             limit,
+            order_by,
         )?),
     }
 }
@@ -957,6 +959,7 @@ pub fn query_positions<S: Storage, A: Api, Q: Querier>(
     asset_token: Option<HumanAddr>,
     start_after: Option<Uint128>,
     limit: Option<u32>,
+    order_by: Option<OrderBy>,
 ) -> StdResult<PositionsResponse> {
     let positions: Vec<Position> = if let Some(owner_addr) = owner_addr {
         read_positions_with_user_indexer(
@@ -964,6 +967,7 @@ pub fn query_positions<S: Storage, A: Api, Q: Querier>(
             &deps.api.canonical_address(&owner_addr)?,
             start_after,
             limit,
+            order_by,
         )?
     } else if let Some(asset_token) = asset_token {
         read_positions_with_asset_indexer(
@@ -971,9 +975,10 @@ pub fn query_positions<S: Storage, A: Api, Q: Querier>(
             &deps.api.canonical_address(&asset_token)?,
             start_after,
             limit,
+            order_by,
         )?
     } else {
-        read_positions(&deps.storage, start_after, limit)?
+        read_positions(&deps.storage, start_after, limit, order_by)?
     };
 
     let position_responses: StdResult<Vec<PositionResponse>> = positions

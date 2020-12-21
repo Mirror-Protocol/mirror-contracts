@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Decimal, HumanAddr};
+use cosmwasm_std::{Decimal, HumanAddr, Order};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
@@ -39,6 +39,7 @@ pub enum QueryMsg {
     Prices {
         start_after: Option<HumanAddr>,
         limit: Option<u32>,
+        order_by: Option<OrderBy>,
     },
 }
 
@@ -76,4 +77,21 @@ pub struct PricesResponseElem {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct PricesResponse {
     pub prices: Vec<PricesResponseElem>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum OrderBy {
+    AES,
+    DESC,
+}
+
+impl Into<Order> for OrderBy {
+    fn into(self) -> Order {
+        if self == OrderBy::AES {
+            Order::Ascending
+        } else {
+            Order::Descending
+        }
+    }
 }

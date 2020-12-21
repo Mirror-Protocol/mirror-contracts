@@ -9,6 +9,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
+use crate::msg::OrderBy;
+
 static KEY_CONFIG: &[u8] = b"config";
 static KEY_STATE: &[u8] = b"state";
 
@@ -125,7 +127,7 @@ pub fn poll_store<S: Storage>(storage: &mut S) -> Bucket<S, Poll> {
     bucket(PREFIX_POLL, storage)
 }
 
-pub fn poll_read<'a, S: ReadonlyStorage>(storage: &'a S) -> ReadonlyBucket<S, Poll> {
+pub fn poll_read<S: ReadonlyStorage>(storage: &S) -> ReadonlyBucket<S, Poll> {
     bucket_read(PREFIX_POLL, storage)
 }
 
@@ -136,25 +138,22 @@ pub fn poll_indexer_store<'a, S: Storage>(
     Bucket::multilevel(&[PREFIX_POLL_VOTER, status.to_string().as_bytes()], storage)
 }
 
-pub fn poll_voter_store<'a, S: Storage>(
-    storage: &'a mut S,
-    poll_id: u64,
-) -> Bucket<'a, S, VoterInfo> {
+pub fn poll_voter_store<S: Storage>(storage: &mut S, poll_id: u64) -> Bucket<S, VoterInfo> {
     Bucket::multilevel(&[PREFIX_POLL_VOTER, &poll_id.to_be_bytes()], storage)
 }
 
-pub fn poll_voter_read<'a, S: ReadonlyStorage>(
-    storage: &'a S,
+pub fn poll_voter_read<S: ReadonlyStorage>(
+    storage: &S,
     poll_id: u64,
-) -> ReadonlyBucket<'a, S, VoterInfo> {
+) -> ReadonlyBucket<S, VoterInfo> {
     ReadonlyBucket::multilevel(&[PREFIX_POLL_VOTER, &poll_id.to_be_bytes()], storage)
 }
 
-pub fn poll_all_voters<'a, S: ReadonlyStorage>(
-    storage: &'a S,
+pub fn poll_all_voters<S: ReadonlyStorage>(
+    storage: &S,
     poll_id: u64,
 ) -> StdResult<Vec<CanonicalAddr>> {
-    let voters: ReadonlyBucket<'a, S, VoterInfo> =
+    let voters: ReadonlyBucket<S, VoterInfo> =
         ReadonlyBucket::multilevel(&[PREFIX_POLL_VOTER, &poll_id.to_be_bytes()], storage);
 
     voters
@@ -171,6 +170,7 @@ pub fn read_poll_voters<'a, S: ReadonlyStorage>(
     poll_id: u64,
     start_after: Option<CanonicalAddr>,
     limit: Option<u32>,
+    order_by: Option<OrderBy>,
 ) -> StdResult<Vec<(CanonicalAddr, VoterInfo)>> {
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
     let start = calc_range_start_addr(start_after);
@@ -178,7 +178,11 @@ pub fn read_poll_voters<'a, S: ReadonlyStorage>(
     let voters: ReadonlyBucket<'a, S, VoterInfo> =
         ReadonlyBucket::multilevel(&[PREFIX_POLL_VOTER, &poll_id.to_be_bytes()], storage);
     voters
-        .range(start.as_deref(), None, Order::Ascending)
+        .range(
+            start.as_deref(),
+            None,
+            order_by.unwrap_or(OrderBy::DESC).into(),
+        )
         .take(limit)
         .map(|item| {
             let (k, v) = item?;
@@ -194,6 +198,7 @@ pub fn read_polls<'a, S: ReadonlyStorage>(
     filter: Option<PollStatus>,
     start_after: Option<u64>,
     limit: Option<u32>,
+    order_by: Option<OrderBy>,
 ) -> StdResult<Vec<Poll>> {
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
     let start = calc_range_start(start_after);
@@ -204,7 +209,11 @@ pub fn read_polls<'a, S: ReadonlyStorage>(
             storage,
         );
         poll_indexer
-            .range(start.as_deref(), None, Order::Ascending)
+            .range(
+                start.as_deref(),
+                None,
+                order_by.unwrap_or(OrderBy::DESC).into(),
+            )
             .take(limit)
             .map(|item| {
                 let (k, _) = item?;

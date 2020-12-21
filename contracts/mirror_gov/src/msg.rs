@@ -1,5 +1,5 @@
 use crate::state::{PollStatus, VoteOption, VoterInfo};
-use cosmwasm_std::{Binary, Decimal, HumanAddr, Uint128};
+use cosmwasm_std::{Binary, Decimal, HumanAddr, Order, Uint128};
 use cw20::Cw20ReceiveMsg;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -84,11 +84,13 @@ pub enum QueryMsg {
         filter: Option<PollStatus>,
         start_after: Option<u64>,
         limit: Option<u32>,
+        order_by: Option<OrderBy>,
     },
     Voters {
         poll_id: u64,
         start_after: Option<HumanAddr>,
         limit: Option<u32>,
+        order_by: Option<OrderBy>,
     },
 }
 
@@ -159,3 +161,20 @@ pub struct VotersResponse {
 /// We currently take no arguments for migrations
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct MigrateMsg {}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum OrderBy {
+    AES,
+    DESC,
+}
+
+impl Into<Order> for OrderBy {
+    fn into(self) -> Order {
+        if self == OrderBy::AES {
+            Order::Ascending
+        } else {
+            Order::Descending
+        }
+    }
+}

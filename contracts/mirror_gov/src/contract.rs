@@ -1,5 +1,5 @@
 use crate::msg::{
-    ConfigResponse, Cw20HookMsg, ExecuteMsg, HandleMsg, InitMsg, MigrateMsg, PollResponse,
+    ConfigResponse, Cw20HookMsg, ExecuteMsg, HandleMsg, InitMsg, MigrateMsg, OrderBy, PollResponse,
     PollsResponse, QueryMsg, StakerResponse, StateResponse, VotersResponse, VotersResponseItem,
 };
 use crate::querier::load_token_balance;
@@ -177,6 +177,7 @@ pub fn stake_voting_tokens<S: Storage, A: Api, Q: Querier>(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn update_config<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
@@ -337,6 +338,7 @@ fn validate_threshold(threshold: Decimal) -> StdResult<()> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 /// create a new poll
 pub fn create_poll<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -763,12 +765,14 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
             filter,
             start_after,
             limit,
-        } => to_binary(&query_polls(deps, filter, start_after, limit)?),
+            order_by,
+        } => to_binary(&query_polls(deps, filter, start_after, limit, order_by)?),
         QueryMsg::Voters {
             poll_id,
             start_after,
             limit,
-        } => to_binary(&query_voters(deps, poll_id, start_after, limit)?),
+            order_by,
+        } => to_binary(&query_voters(deps, poll_id, start_after, limit, order_by)?),
     }
 }
 
@@ -835,8 +839,9 @@ fn query_polls<S: Storage, A: Api, Q: Querier>(
     filter: Option<PollStatus>,
     start_after: Option<u64>,
     limit: Option<u32>,
+    order_by: Option<OrderBy>,
 ) -> StdResult<PollsResponse> {
-    let polls = read_polls(&deps.storage, filter, start_after, limit)?;
+    let polls = read_polls(&deps.storage, filter, start_after, limit, order_by)?;
     let poll_responses: StdResult<Vec<PollResponse>> = polls
         .iter()
         .map(|poll| {
@@ -874,6 +879,7 @@ fn query_voters<S: Storage, A: Api, Q: Querier>(
     poll_id: u64,
     start_after: Option<HumanAddr>,
     limit: Option<u32>,
+    order_by: Option<OrderBy>,
 ) -> StdResult<VotersResponse> {
     let voters = if let Some(start_after) = start_after {
         read_poll_voters(
@@ -881,9 +887,10 @@ fn query_voters<S: Storage, A: Api, Q: Querier>(
             poll_id,
             Some(deps.api.canonical_address(&start_after)?),
             limit,
+            order_by,
         )?
     } else {
-        read_poll_voters(&deps.storage, poll_id, None, limit)?
+        read_poll_voters(&deps.storage, poll_id, None, limit, order_by)?
     };
 
     let voters_response: StdResult<Vec<VotersResponseItem>> = voters

@@ -5,39 +5,12 @@
     {
       "type": "object",
       "required": [
-        "receive"
-      ],
-      "properties": {
-        "receive": {
-          "$ref": "#/definitions/Cw20ReceiveMsg"
-        }
-      }
-    },
-    {
-      "type": "object",
-      "required": [
         "update_config"
       ],
       "properties": {
         "update_config": {
           "type": "object",
           "properties": {
-            "effective_delay": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint64",
-              "minimum": 0.0
-            },
-            "expiration_period": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint64",
-              "minimum": 0.0
-            },
             "owner": {
               "anyOf": [
                 {
@@ -47,73 +20,30 @@
                   "type": "null"
                 }
               ]
-            },
-            "proposal_deposit": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/Uint128"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "quorum": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/Decimal"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "threshold": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/Decimal"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "voting_period": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint64",
-              "minimum": 0.0
             }
           }
         }
       }
     },
     {
+      "description": "Used to register new asset or to update feeder",
       "type": "object",
       "required": [
-        "cast_vote"
+        "register_asset"
       ],
       "properties": {
-        "cast_vote": {
+        "register_asset": {
           "type": "object",
           "required": [
-            "amount",
-            "poll_id",
-            "vote"
+            "asset_token",
+            "feeder"
           ],
           "properties": {
-            "amount": {
-              "$ref": "#/definitions/Uint128"
+            "asset_token": {
+              "$ref": "#/definitions/HumanAddr"
             },
-            "poll_id": {
-              "type": "integer",
-              "format": "uint64",
-              "minimum": 0.0
-            },
-            "vote": {
-              "$ref": "#/definitions/VoteOption"
+            "feeder": {
+              "$ref": "#/definitions/HumanAddr"
             }
           }
         }
@@ -122,84 +52,30 @@
     {
       "type": "object",
       "required": [
-        "withdraw_voting_tokens"
+        "feed_price"
       ],
       "properties": {
-        "withdraw_voting_tokens": {
-          "type": "object",
-          "properties": {
-            "amount": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/Uint128"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            }
-          }
-        }
-      }
-    },
-    {
-      "type": "object",
-      "required": [
-        "end_poll"
-      ],
-      "properties": {
-        "end_poll": {
+        "feed_price": {
           "type": "object",
           "required": [
-            "poll_id"
+            "prices"
           ],
           "properties": {
-            "poll_id": {
-              "type": "integer",
-              "format": "uint64",
-              "minimum": 0.0
-            }
-          }
-        }
-      }
-    },
-    {
-      "type": "object",
-      "required": [
-        "execute_poll"
-      ],
-      "properties": {
-        "execute_poll": {
-          "type": "object",
-          "required": [
-            "poll_id"
-          ],
-          "properties": {
-            "poll_id": {
-              "type": "integer",
-              "format": "uint64",
-              "minimum": 0.0
-            }
-          }
-        }
-      }
-    },
-    {
-      "type": "object",
-      "required": [
-        "expire_poll"
-      ],
-      "properties": {
-        "expire_poll": {
-          "type": "object",
-          "required": [
-            "poll_id"
-          ],
-          "properties": {
-            "poll_id": {
-              "type": "integer",
-              "format": "uint64",
-              "minimum": 0.0
+            "prices": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": [
+                  {
+                    "$ref": "#/definitions/HumanAddr"
+                  },
+                  {
+                    "$ref": "#/definitions/Decimal"
+                  }
+                ],
+                "maxItems": 2,
+                "minItems": 2
+              }
             }
           }
         }
@@ -207,52 +83,12 @@
     }
   ],
   "definitions": {
-    "Binary": {
-      "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>",
-      "type": "string"
-    },
-    "Cw20ReceiveMsg": {
-      "description": "Cw20ReceiveMsg should be de/serialized under `Receive()` variant in a HandleMsg",
-      "type": "object",
-      "required": [
-        "amount",
-        "sender"
-      ],
-      "properties": {
-        "amount": {
-          "$ref": "#/definitions/Uint128"
-        },
-        "msg": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/Binary"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "sender": {
-          "$ref": "#/definitions/HumanAddr"
-        }
-      }
-    },
     "Decimal": {
       "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0\n\nThe greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
       "type": "string"
     },
     "HumanAddr": {
       "type": "string"
-    },
-    "Uint128": {
-      "type": "string"
-    },
-    "VoteOption": {
-      "type": "string",
-      "enum": [
-        "yes",
-        "no"
-      ]
     }
   }
 }

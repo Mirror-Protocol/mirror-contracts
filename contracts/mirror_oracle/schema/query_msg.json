@@ -72,6 +72,16 @@
               "format": "uint32",
               "minimum": 0.0
             },
+            "order_by": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/OrderBy"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "start_after": {
               "anyOf": [
                 {
@@ -90,6 +100,13 @@
   "definitions": {
     "HumanAddr": {
       "type": "string"
+    },
+    "OrderBy": {
+      "type": "string",
+      "enum": [
+        "a_e_s",
+        "d_e_s_c"
+      ]
     }
   }
 }

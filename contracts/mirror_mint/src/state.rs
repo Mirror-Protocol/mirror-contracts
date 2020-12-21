@@ -2,12 +2,14 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{
-    CanonicalAddr, Decimal, Order, ReadonlyStorage, StdError, StdResult, Storage, Uint128,
+    CanonicalAddr, Decimal, ReadonlyStorage, StdError, StdResult, Storage, Uint128,
 };
 
 use cosmwasm_storage::{singleton, singleton_read, Bucket, ReadonlyBucket};
 use std::convert::TryInto;
 use terraswap::{AssetInfoRaw, AssetRaw};
+
+use crate::msg::OrderBy;
 
 static PREFIX_ASSET_CONFIG: &[u8] = b"asset_config";
 static PREFIX_POSITION: &[u8] = b"position";
@@ -162,6 +164,7 @@ pub fn read_positions<S: ReadonlyStorage>(
     storage: &S,
     start_after: Option<Uint128>,
     limit: Option<u32>,
+    order_by: Option<OrderBy>,
 ) -> StdResult<Vec<Position>> {
     let position_bucket: ReadonlyBucket<S, Position> =
         ReadonlyBucket::new(PREFIX_POSITION, storage);
@@ -170,7 +173,11 @@ pub fn read_positions<S: ReadonlyStorage>(
     let start = calc_range_start(start_after);
 
     position_bucket
-        .range(start.as_deref(), None, Order::Ascending)
+        .range(
+            start.as_deref(),
+            None,
+            order_by.unwrap_or(OrderBy::DESC).into(),
+        )
         .take(limit)
         .map(|item| {
             let (_, v) = item?;
@@ -184,6 +191,7 @@ pub fn read_positions_with_user_indexer<S: ReadonlyStorage>(
     position_owner: &CanonicalAddr,
     start_after: Option<Uint128>,
     limit: Option<u32>,
+    order_by: Option<OrderBy>,
 ) -> StdResult<Vec<Position>> {
     let position_indexer: ReadonlyBucket<S, bool> =
         ReadonlyBucket::multilevel(&[PREFIX_INDEX_BY_USER, position_owner.as_slice()], storage);
@@ -192,7 +200,11 @@ pub fn read_positions_with_user_indexer<S: ReadonlyStorage>(
     let start = calc_range_start(start_after);
 
     position_indexer
-        .range(start.as_deref(), None, Order::Ascending)
+        .range(
+            start.as_deref(),
+            None,
+            order_by.unwrap_or(OrderBy::DESC).into(),
+        )
         .take(limit)
         .map(|item| {
             let (k, _) = item?;
@@ -206,6 +218,7 @@ pub fn read_positions_with_asset_indexer<S: ReadonlyStorage>(
     asset_token: &CanonicalAddr,
     start_after: Option<Uint128>,
     limit: Option<u32>,
+    order_by: Option<OrderBy>,
 ) -> StdResult<Vec<Position>> {
     let position_indexer: ReadonlyBucket<S, bool> =
         ReadonlyBucket::multilevel(&[PREFIX_INDEX_BY_ASSET, asset_token.as_slice()], storage);
@@ -214,7 +227,11 @@ pub fn read_positions_with_asset_indexer<S: ReadonlyStorage>(
     let start = calc_range_start(start_after);
 
     position_indexer
-        .range(start.as_deref(), None, Order::Ascending)
+        .range(
+            start.as_deref(),
+            None,
+            order_by.unwrap_or(OrderBy::DESC).into(),
+        )
         .take(limit)
         .map(|item| {
             let (k, _) = item?;

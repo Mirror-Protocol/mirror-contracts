@@ -6,8 +6,8 @@ use cosmwasm_std::{
 use crate::contract::{handle, init, query};
 
 use crate::msg::{
-    AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, PositionResponse,
-    PositionsResponse, QueryMsg,
+    AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, OrderBy,
+    PositionResponse, PositionsResponse, QueryMsg,
 };
 
 use crate::mock_querier::mock_dependencies;
@@ -527,6 +527,7 @@ fn open_position() {
             asset_token: None,
             limit: None,
             start_after: None,
+            order_by: Some(OrderBy::AES),
         },
     )
     .unwrap();
@@ -647,6 +648,7 @@ fn open_position() {
             asset_token: None,
             limit: None,
             start_after: Some(Uint128(1u128)),
+            order_by: Some(OrderBy::AES),
         },
     )
     .unwrap();
@@ -966,6 +968,7 @@ fn migrated_asset() {
             asset_token: Some(HumanAddr::from("asset0000")),
             start_after: None,
             limit: None,
+            order_by: None,
         },
     )
     .unwrap();

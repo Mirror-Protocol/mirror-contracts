@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Decimal, HumanAddr, Uint128};
+use cosmwasm_std::{Decimal, HumanAddr, Order, Uint128};
 use cw20::Cw20ReceiveMsg;
 use terraswap::{Asset, AssetInfo};
 
@@ -106,6 +106,7 @@ pub enum QueryMsg {
         asset_token: Option<HumanAddr>,
         start_after: Option<Uint128>,
         limit: Option<u32>,
+        order_by: Option<OrderBy>,
     },
 }
 
@@ -140,4 +141,21 @@ pub struct PositionResponse {
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
 pub struct PositionsResponse {
     pub positions: Vec<PositionResponse>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum OrderBy {
+    AES,
+    DESC,
+}
+
+impl Into<Order> for OrderBy {
+    fn into(self) -> Order {
+        if self == OrderBy::AES {
+            Order::Ascending
+        } else {
+            Order::Descending
+        }
+    }
 }

@@ -16,27 +16,16 @@
     {
       "type": "object",
       "required": [
-        "state"
+        "feeder"
       ],
       "properties": {
-        "state": {
-          "type": "object"
-        }
-      }
-    },
-    {
-      "type": "object",
-      "required": [
-        "staker"
-      ],
-      "properties": {
-        "staker": {
+        "feeder": {
           "type": "object",
           "required": [
-            "address"
+            "asset_token"
           ],
           "properties": {
-            "address": {
+            "asset_token": {
               "$ref": "#/definitions/HumanAddr"
             }
           }
@@ -46,19 +35,21 @@
     {
       "type": "object",
       "required": [
-        "poll"
+        "price"
       ],
       "properties": {
-        "poll": {
+        "price": {
           "type": "object",
           "required": [
-            "poll_id"
+            "base_asset",
+            "quote_asset"
           ],
           "properties": {
-            "poll_id": {
-              "type": "integer",
-              "format": "uint64",
-              "minimum": 0.0
+            "base_asset": {
+              "type": "string"
+            },
+            "quote_asset": {
+              "type": "string"
             }
           }
         }
@@ -67,66 +58,29 @@
     {
       "type": "object",
       "required": [
-        "polls"
+        "prices"
       ],
       "properties": {
-        "polls": {
+        "prices": {
           "type": "object",
           "properties": {
-            "filter": {
+            "limit": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint32",
+              "minimum": 0.0
+            },
+            "order_by": {
               "anyOf": [
                 {
-                  "$ref": "#/definitions/PollStatus"
+                  "$ref": "#/definitions/OrderBy"
                 },
                 {
                   "type": "null"
                 }
               ]
-            },
-            "limit": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint32",
-              "minimum": 0.0
-            },
-            "start_after": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint64",
-              "minimum": 0.0
-            }
-          }
-        }
-      }
-    },
-    {
-      "type": "object",
-      "required": [
-        "voters"
-      ],
-      "properties": {
-        "voters": {
-          "type": "object",
-          "required": [
-            "poll_id"
-          ],
-          "properties": {
-            "limit": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint32",
-              "minimum": 0.0
-            },
-            "poll_id": {
-              "type": "integer",
-              "format": "uint64",
-              "minimum": 0.0
             },
             "start_after": {
               "anyOf": [
@@ -147,14 +101,11 @@
     "HumanAddr": {
       "type": "string"
     },
-    "PollStatus": {
+    "OrderBy": {
       "type": "string",
       "enum": [
-        "in_progress",
-        "passed",
-        "rejected",
-        "executed",
-        "expired"
+        "a_e_s",
+        "d_e_s_c"
       ]
     }
   }

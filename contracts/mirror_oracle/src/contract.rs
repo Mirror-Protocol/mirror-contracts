@@ -5,7 +5,7 @@ use cosmwasm_std::{
 
 use crate::math::decimal_division;
 use crate::msg::{
-    ConfigResponse, FeederResponse, HandleMsg, InitMsg, PriceResponse, PricesResponse,
+    ConfigResponse, FeederResponse, HandleMsg, InitMsg, OrderBy, PriceResponse, PricesResponse,
     PricesResponseElem, QueryMsg,
 };
 use crate::state::{
@@ -139,9 +139,11 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
             base_asset,
             quote_asset,
         } => to_binary(&query_price(deps, base_asset, quote_asset)?),
-        QueryMsg::Prices { start_after, limit } => {
-            to_binary(&query_prices(deps, start_after, limit))
-        }
+        QueryMsg::Prices {
+            start_after,
+            limit,
+            order_by,
+        } => to_binary(&query_prices(deps, start_after, limit, order_by)),
     }
 }
 
@@ -211,6 +213,7 @@ fn query_prices<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     start_after: Option<HumanAddr>,
     limit: Option<u32>,
+    order_by: Option<OrderBy>,
 ) -> StdResult<PricesResponse> {
     let start_after = if let Some(start_after) = start_after {
         Some(deps.api.canonical_address(&start_after)?)
@@ -218,7 +221,7 @@ fn query_prices<S: Storage, A: Api, Q: Querier>(
         None
     };
 
-    let prices: Vec<PricesResponseElem> = read_prices(&deps, start_after, limit)?;
+    let prices: Vec<PricesResponseElem> = read_prices(&deps, start_after, limit, order_by)?;
 
     Ok(PricesResponse { prices })
 }
@@ -395,7 +398,7 @@ mod tests {
             }
         );
 
-        let value: PricesResponse = query_prices(&deps, None, None).unwrap();
+        let value: PricesResponse = query_prices(&deps, None, None, Some(OrderBy::AES)).unwrap();
         assert_eq!(
             value,
             PricesResponse {

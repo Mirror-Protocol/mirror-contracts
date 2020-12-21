@@ -3,8 +3,8 @@ mod tests {
     use crate::contract::{handle, init, query};
     use crate::mock_querier::{mock_dependencies, WasmMockQuerier};
     use crate::msg::{
-        ConfigResponse, Cw20HookMsg, ExecuteMsg, HandleMsg, InitMsg, PollResponse, PollsResponse,
-        QueryMsg, StakerResponse, VotersResponse, VotersResponseItem,
+        ConfigResponse, Cw20HookMsg, ExecuteMsg, HandleMsg, InitMsg, OrderBy, PollResponse,
+        PollsResponse, QueryMsg, StakerResponse, VotersResponse, VotersResponseItem,
     };
     use crate::state::{config_read, state_read, Config, PollStatus, State, VoteOption, VoterInfo};
     use cosmwasm_std::testing::{mock_env, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
@@ -340,6 +340,7 @@ mod tests {
                 filter: None,
                 start_after: None,
                 limit: None,
+                order_by: Some(OrderBy::AES),
             },
         )
         .unwrap();
@@ -384,6 +385,7 @@ mod tests {
                 filter: None,
                 start_after: Some(1u64),
                 limit: None,
+                order_by: Some(OrderBy::AES),
             },
         )
         .unwrap();
@@ -412,6 +414,7 @@ mod tests {
                 filter: Some(PollStatus::InProgress),
                 start_after: Some(1u64),
                 limit: None,
+                order_by: Some(OrderBy::AES),
             },
         )
         .unwrap();
@@ -440,6 +443,7 @@ mod tests {
                 filter: Some(PollStatus::Passed),
                 start_after: None,
                 limit: None,
+                order_by: None,
             },
         )
         .unwrap();
@@ -658,6 +662,7 @@ mod tests {
                 filter: Some(PollStatus::Passed),
                 start_after: None,
                 limit: None,
+                order_by: None,
             },
         )
         .unwrap();
@@ -670,6 +675,7 @@ mod tests {
                 filter: Some(PollStatus::InProgress),
                 start_after: None,
                 limit: None,
+                order_by: None,
             },
         )
         .unwrap();
@@ -682,6 +688,7 @@ mod tests {
                 filter: Some(PollStatus::Executed),
                 start_after: None,
                 limit: None,
+                order_by: Some(OrderBy::DESC),
             },
         )
         .unwrap();
@@ -695,6 +702,7 @@ mod tests {
                 poll_id: 1u64,
                 start_after: None,
                 limit: None,
+                order_by: None,
             },
         )
         .unwrap();
@@ -863,6 +871,7 @@ mod tests {
                 filter: Some(PollStatus::Expired),
                 start_after: None,
                 limit: None,
+                order_by: Some(OrderBy::DESC),
             },
         )
         .unwrap();
@@ -940,6 +949,7 @@ mod tests {
                 filter: Some(PollStatus::Rejected),
                 start_after: None,
                 limit: None,
+                order_by: Some(OrderBy::DESC),
             },
         )
         .unwrap();
@@ -952,6 +962,7 @@ mod tests {
                 filter: Some(PollStatus::InProgress),
                 start_after: None,
                 limit: None,
+                order_by: None,
             },
         )
         .unwrap();
@@ -964,6 +975,7 @@ mod tests {
                 filter: Some(PollStatus::Passed),
                 start_after: None,
                 limit: None,
+                order_by: None,
             },
         )
         .unwrap();
@@ -1286,6 +1298,7 @@ mod tests {
                 poll_id: 1u64,
                 start_after: None,
                 limit: None,
+                order_by: Some(OrderBy::DESC),
             },
         )
         .unwrap();
@@ -1305,6 +1318,7 @@ mod tests {
                 poll_id: 1u64,
                 start_after: Some(HumanAddr::from(TEST_VOTER)),
                 limit: None,
+                order_by: None,
             },
         )
         .unwrap();

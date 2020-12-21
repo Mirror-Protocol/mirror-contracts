@@ -1,16 +1,16 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "InitMsg",
+  "title": "FeederResponse",
   "type": "object",
   "required": [
-    "base_asset",
-    "owner"
+    "asset_token",
+    "feeder"
   ],
   "properties": {
-    "base_asset": {
-      "type": "string"
+    "asset_token": {
+      "$ref": "#/definitions/HumanAddr"
     },
-    "owner": {
+    "feeder": {
       "$ref": "#/definitions/HumanAddr"
     }
   },

@@ -1,10 +1,10 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Api, CanonicalAddr, Decimal, Extern, Order, Querier, StdResult, Storage};
+use cosmwasm_std::{Api, CanonicalAddr, Decimal, Extern, Querier, StdResult, Storage};
 use cosmwasm_storage::{singleton, singleton_read, Bucket, ReadonlyBucket};
 
-use crate::msg::PricesResponseElem;
+use crate::msg::{OrderBy, PricesResponseElem};
 
 static PREFIX_FEEDER: &[u8] = b"feeder";
 static PREFIX_PRICE: &[u8] = b"price";
@@ -71,6 +71,7 @@ pub fn read_prices<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     start_after: Option<CanonicalAddr>,
     limit: Option<u32>,
+    order_by: Option<OrderBy>,
 ) -> StdResult<Vec<PricesResponseElem>> {
     let price_bucket: ReadonlyBucket<S, PriceInfo> =
         ReadonlyBucket::new(PREFIX_PRICE, &deps.storage);
@@ -79,7 +80,11 @@ pub fn read_prices<S: Storage, A: Api, Q: Querier>(
     let start = calc_range_start(start_after);
 
     price_bucket
-        .range(start.as_deref(), None, Order::Ascending)
+        .range(
+            start.as_deref(),
+            None,
+            order_by.unwrap_or(OrderBy::DESC).into(),
+        )
         .take(limit)
         .map(|item| {
             let (k, v) = item?;
