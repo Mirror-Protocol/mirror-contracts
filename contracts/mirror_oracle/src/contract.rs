@@ -398,7 +398,7 @@ mod tests {
             }
         );
 
-        let value: PricesResponse = query_prices(&deps, None, None, Some(OrderBy::AES)).unwrap();
+        let value: PricesResponse = query_prices(&deps, None, None, Some(OrderBy::Aes)).unwrap();
         assert_eq!(
             value,
             PricesResponse {

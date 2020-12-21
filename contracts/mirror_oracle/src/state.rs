@@ -83,7 +83,7 @@ pub fn read_prices<S: Storage, A: Api, Q: Querier>(
         .range(
             start.as_deref(),
             None,
-            order_by.unwrap_or(OrderBy::DESC).into(),
+            order_by.unwrap_or(OrderBy::Desc).into(),
         )
         .take(limit)
         .map(|item| {

@@ -104,8 +104,8 @@
     "OrderBy": {
       "type": "string",
       "enum": [
-        "a_e_s",
-        "d_e_s_c"
+        "aes",
+        "desc"
       ]
     }
   }
