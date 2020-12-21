@@ -170,7 +170,7 @@
     "OrderBy": {
       "type": "string",
       "enum": [
-        "aes",
+        "asc",
         "desc"
       ]
     },

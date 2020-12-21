@@ -340,7 +340,7 @@ mod tests {
                 filter: None,
                 start_after: None,
                 limit: None,
-                order_by: Some(OrderBy::Aes),
+                order_by: Some(OrderBy::Asc),
             },
         )
         .unwrap();
@@ -385,7 +385,7 @@ mod tests {
                 filter: None,
                 start_after: Some(1u64),
                 limit: None,
-                order_by: Some(OrderBy::Aes),
+                order_by: Some(OrderBy::Asc),
             },
         )
         .unwrap();
@@ -414,7 +414,7 @@ mod tests {
                 filter: Some(PollStatus::InProgress),
                 start_after: Some(1u64),
                 limit: None,
-                order_by: Some(OrderBy::Aes),
+                order_by: Some(OrderBy::Asc),
             },
         )
         .unwrap();
