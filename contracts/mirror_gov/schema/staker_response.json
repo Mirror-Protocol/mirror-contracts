@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "StakerResponse",
+  "type": "object",
+  "required": [
+    "balance",
+    "locked_balance",
+    "share"
+  ],
+  "properties": {
+    "balance": {
+      "$ref": "#/definitions/Uint128"
+    },
+    "locked_balance": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": [
+          {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0.0
+          },
+          {
+            "$ref": "#/definitions/VoterInfo"
+          }
+        ],
+        "maxItems": 2,
+        "minItems": 2
+      }
+    },
+    "share": {
+      "$ref": "#/definitions/Uint128"
+    }
+  },
+  "definitions": {
+    "Uint128": {
+      "type": "string"
+    },
+    "VoteOption": {
+      "type": "string",
+      "enum": [
+        "yes",
+        "no"
+      ]
+    },
+    "VoterInfo": {
+      "type": "object",
+      "required": [
+        "balance",
+        "vote"
+      ],
+      "properties": {
+        "balance": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "vote": {
+          "$ref": "#/definitions/VoteOption"
+        }
+      }
+    }
+  }
+}

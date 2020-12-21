@@ -340,7 +340,7 @@ mod tests {
                 filter: None,
                 start_after: None,
                 limit: None,
-                order_by: Some(OrderBy::AES),
+                order_by: Some(OrderBy::Aes),
             },
         )
         .unwrap();
@@ -385,7 +385,7 @@ mod tests {
                 filter: None,
                 start_after: Some(1u64),
                 limit: None,
-                order_by: Some(OrderBy::AES),
+                order_by: Some(OrderBy::Aes),
             },
         )
         .unwrap();
@@ -414,7 +414,7 @@ mod tests {
                 filter: Some(PollStatus::InProgress),
                 start_after: Some(1u64),
                 limit: None,
-                order_by: Some(OrderBy::AES),
+                order_by: Some(OrderBy::Aes),
             },
         )
         .unwrap();
@@ -688,7 +688,7 @@ mod tests {
                 filter: Some(PollStatus::Executed),
                 start_after: None,
                 limit: None,
-                order_by: Some(OrderBy::DESC),
+                order_by: Some(OrderBy::Desc),
             },
         )
         .unwrap();
@@ -871,7 +871,7 @@ mod tests {
                 filter: Some(PollStatus::Expired),
                 start_after: None,
                 limit: None,
-                order_by: Some(OrderBy::DESC),
+                order_by: Some(OrderBy::Desc),
             },
         )
         .unwrap();
@@ -949,7 +949,7 @@ mod tests {
                 filter: Some(PollStatus::Rejected),
                 start_after: None,
                 limit: None,
-                order_by: Some(OrderBy::DESC),
+                order_by: Some(OrderBy::Desc),
             },
         )
         .unwrap();
@@ -1298,7 +1298,7 @@ mod tests {
                 poll_id: 1u64,
                 start_after: None,
                 limit: None,
-                order_by: Some(OrderBy::DESC),
+                order_by: Some(OrderBy::Desc),
             },
         )
         .unwrap();

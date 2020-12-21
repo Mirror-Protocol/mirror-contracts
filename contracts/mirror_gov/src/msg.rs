@@ -165,13 +165,13 @@ pub struct MigrateMsg {}
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum OrderBy {
-    AES,
-    DESC,
+    Aes,
+    Desc,
 }
 
 impl Into<Order> for OrderBy {
     fn into(self) -> Order {
-        if self == OrderBy::AES {
+        if self == OrderBy::Aes {
             Order::Ascending
         } else {
             Order::Descending

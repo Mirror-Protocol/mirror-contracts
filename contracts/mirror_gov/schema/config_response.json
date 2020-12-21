@@ -3,19 +3,56 @@
   "title": "ConfigResponse",
   "type": "object",
   "required": [
-    "base_asset",
-    "owner"
+    "effective_delay",
+    "expiration_period",
+    "mirror_token",
+    "owner",
+    "proposal_deposit",
+    "quorum",
+    "threshold",
+    "voting_period"
   ],
   "properties": {
-    "base_asset": {
-      "type": "string"
+    "effective_delay": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    },
+    "expiration_period": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    },
+    "mirror_token": {
+      "$ref": "#/definitions/HumanAddr"
     },
     "owner": {
       "$ref": "#/definitions/HumanAddr"
+    },
+    "proposal_deposit": {
+      "$ref": "#/definitions/Uint128"
+    },
+    "quorum": {
+      "$ref": "#/definitions/Decimal"
+    },
+    "threshold": {
+      "$ref": "#/definitions/Decimal"
+    },
+    "voting_period": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
     }
   },
   "definitions": {
+    "Decimal": {
+      "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0\n\nThe greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
+      "type": "string"
+    },
     "HumanAddr": {
+      "type": "string"
+    },
+    "Uint128": {
       "type": "string"
     }
   }

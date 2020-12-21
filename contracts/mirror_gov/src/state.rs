@@ -181,7 +181,7 @@ pub fn read_poll_voters<'a, S: ReadonlyStorage>(
         .range(
             start.as_deref(),
             None,
-            order_by.unwrap_or(OrderBy::DESC).into(),
+            order_by.unwrap_or(OrderBy::Desc).into(),
         )
         .take(limit)
         .map(|item| {
@@ -212,7 +212,7 @@ pub fn read_polls<'a, S: ReadonlyStorage>(
             .range(
                 start.as_deref(),
                 None,
-                order_by.unwrap_or(OrderBy::DESC).into(),
+                order_by.unwrap_or(OrderBy::Desc).into(),
             )
             .take(limit)
             .map(|item| {

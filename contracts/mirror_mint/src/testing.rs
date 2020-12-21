@@ -527,7 +527,7 @@ fn open_position() {
             asset_token: None,
             limit: None,
             start_after: None,
-            order_by: Some(OrderBy::AES),
+            order_by: Some(OrderBy::Aes),
         },
     )
     .unwrap();
@@ -648,7 +648,7 @@ fn open_position() {
             asset_token: None,
             limit: None,
             start_after: Some(Uint128(1u128)),
-            order_by: Some(OrderBy::AES),
+            order_by: Some(OrderBy::Aes),
         },
     )
     .unwrap();

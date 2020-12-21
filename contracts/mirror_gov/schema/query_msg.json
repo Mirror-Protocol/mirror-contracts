@@ -16,16 +16,27 @@
     {
       "type": "object",
       "required": [
-        "feeder"
+        "state"
       ],
       "properties": {
-        "feeder": {
+        "state": {
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "staker"
+      ],
+      "properties": {
+        "staker": {
           "type": "object",
           "required": [
-            "asset_token"
+            "address"
           ],
           "properties": {
-            "asset_token": {
+            "address": {
               "$ref": "#/definitions/HumanAddr"
             }
           }
@@ -35,21 +46,19 @@
     {
       "type": "object",
       "required": [
-        "price"
+        "poll"
       ],
       "properties": {
-        "price": {
+        "poll": {
           "type": "object",
           "required": [
-            "base_asset",
-            "quote_asset"
+            "poll_id"
           ],
           "properties": {
-            "base_asset": {
-              "type": "string"
-            },
-            "quote_asset": {
-              "type": "string"
+            "poll_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
             }
           }
         }
@@ -58,11 +67,63 @@
     {
       "type": "object",
       "required": [
-        "prices"
+        "polls"
       ],
       "properties": {
-        "prices": {
+        "polls": {
           "type": "object",
+          "properties": {
+            "filter": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/PollStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "limit": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint32",
+              "minimum": 0.0
+            },
+            "order_by": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/OrderBy"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "start_after": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "voters"
+      ],
+      "properties": {
+        "voters": {
+          "type": "object",
+          "required": [
+            "poll_id"
+          ],
           "properties": {
             "limit": {
               "type": [
@@ -81,6 +142,11 @@
                   "type": "null"
                 }
               ]
+            },
+            "poll_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
             },
             "start_after": {
               "anyOf": [
@@ -104,8 +170,18 @@
     "OrderBy": {
       "type": "string",
       "enum": [
-        "a_e_s",
-        "d_e_s_c"
+        "aes",
+        "desc"
+      ]
+    },
+    "PollStatus": {
+      "type": "string",
+      "enum": [
+        "in_progress",
+        "passed",
+        "rejected",
+        "executed",
+        "expired"
       ]
     }
   }

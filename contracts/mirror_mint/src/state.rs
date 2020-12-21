@@ -176,7 +176,7 @@ pub fn read_positions<S: ReadonlyStorage>(
         .range(
             start.as_deref(),
             None,
-            order_by.unwrap_or(OrderBy::DESC).into(),
+            order_by.unwrap_or(OrderBy::Desc).into(),
         )
         .take(limit)
         .map(|item| {
@@ -203,7 +203,7 @@ pub fn read_positions_with_user_indexer<S: ReadonlyStorage>(
         .range(
             start.as_deref(),
             None,
-            order_by.unwrap_or(OrderBy::DESC).into(),
+            order_by.unwrap_or(OrderBy::Desc).into(),
         )
         .take(limit)
         .map(|item| {
@@ -230,7 +230,7 @@ pub fn read_positions_with_asset_indexer<S: ReadonlyStorage>(
         .range(
             start.as_deref(),
             None,
-            order_by.unwrap_or(OrderBy::DESC).into(),
+            order_by.unwrap_or(OrderBy::Desc).into(),
         )
         .take(limit)
         .map(|item| {
