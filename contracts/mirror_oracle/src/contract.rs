@@ -1,12 +1,12 @@
 use cosmwasm_std::{
     log, to_binary, Api, Binary, Decimal, Env, Extern, HandleResponse, HandleResult, HumanAddr,
-    InitResponse, Querier, StdError, StdResult, Storage,
+    InitResponse, MigrateResponse, MigrateResult, Querier, StdError, StdResult, Storage,
 };
 
 use crate::math::decimal_division;
 use crate::msg::{
-    ConfigResponse, FeederResponse, HandleMsg, InitMsg, OrderBy, PriceResponse, PricesResponse,
-    PricesResponseElem, QueryMsg,
+    ConfigResponse, FeederResponse, HandleMsg, InitMsg, MigrateMsg, OrderBy, PriceResponse,
+    PricesResponse, PricesResponseElem, QueryMsg,
 };
 use crate::state::{
     read_config, read_feeder, read_price, read_prices, store_config, store_feeder, store_price,
@@ -432,4 +432,12 @@ mod tests {
             _ => panic!("Must return unauthorized error"),
         }
     }
+}
+
+pub fn migrate<S: Storage, A: Api, Q: Querier>(
+    _deps: &mut Extern<S, A, Q>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> MigrateResult {
+    Ok(MigrateResponse::default())
 }

@@ -1,11 +1,11 @@
 use cosmwasm_std::{
     from_binary, log, to_binary, Api, Binary, CosmosMsg, Decimal, Env, Extern, HandleResponse,
-    HandleResult, HumanAddr, InitResponse, LogAttribute, Querier, StdError, StdResult, Storage,
-    Uint128, WasmMsg,
+    HandleResult, HumanAddr, InitResponse, LogAttribute, MigrateResponse, MigrateResult, Querier,
+    StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 
 use crate::msg::{
-    AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, OrderBy,
+    AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrateMsg, OrderBy,
     PositionResponse, PositionsResponse, QueryMsg,
 };
 
@@ -1056,4 +1056,12 @@ fn assert_min_collateral_ratio(min_collateral_ratio: Decimal) -> StdResult<()> {
     } else {
         Ok(())
     }
+}
+
+pub fn migrate<S: Storage, A: Api, Q: Querier>(
+    _deps: &mut Extern<S, A, Q>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> MigrateResult {
+    Ok(MigrateResponse::default())
 }
