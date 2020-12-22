@@ -92,7 +92,7 @@ pub fn migrate_share_to_balance<S: Storage, A: Api, Q: Querier>(
     let mut bank_bucket: Bucket<S, TokenManager> = bank_store(&mut deps.storage);
     for old_staker in old_stakers {
         bank_bucket.save(
-            &old_staker.0.as_slice(),
+            old_staker.0.as_slice(),
             &TokenManager {
                 share: old_staker.1.share,
                 participated_polls: old_staker.1.participated_polls,
