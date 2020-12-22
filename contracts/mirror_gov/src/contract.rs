@@ -1,3 +1,4 @@
+use crate::migration::migrate_share_to_balance;
 use crate::msg::{
     ConfigResponse, Cw20HookMsg, ExecuteMsg, HandleMsg, InitMsg, MigrateMsg, OrderBy, PollResponse,
     PollsResponse, QueryMsg, StakerResponse, StateResponse, VotersResponse, VotersResponseItem,
@@ -940,9 +941,13 @@ fn query_staker<S: Storage, A: Api, Q: Querier>(
 }
 
 pub fn migrate<S: Storage, A: Api, Q: Querier>(
-    _deps: &mut Extern<S, A, Q>,
+    deps: &mut Extern<S, A, Q>,
     _env: Env,
-    _msg: MigrateMsg,
+    msg: MigrateMsg,
 ) -> MigrateResult {
+    if msg.version == 1 {
+        migrate_share_to_balance(deps)?;
+    }
+
     Ok(MigrateResponse::default())
 }

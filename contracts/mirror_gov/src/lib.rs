@@ -1,4 +1,5 @@
 pub mod contract;
+pub mod migration;
 pub mod msg;
 pub mod querier;
 pub mod state;

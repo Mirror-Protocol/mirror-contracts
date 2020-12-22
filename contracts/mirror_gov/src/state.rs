@@ -97,7 +97,7 @@ pub struct Poll {
     pub link: Option<String>,
     pub execute_data: Option<ExecuteData>,
     pub deposit_amount: Uint128,
-    /// Total share at the end poll
+    /// Total balance at the end poll
     pub total_balance_at_end_poll: Option<Uint128>,
 }
 
