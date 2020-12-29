@@ -647,8 +647,60 @@ fn open_position() {
             owner_addr: Some(HumanAddr::from("addr0000")),
             asset_token: None,
             limit: None,
-            start_after: Some(Uint128(1u128)),
-            order_by: Some(OrderBy::Asc),
+            start_after: None,
+            order_by: Some(OrderBy::Desc),
+        },
+    )
+    .unwrap();
+    let positions: PositionsResponse = from_binary(&res).unwrap();
+    assert_eq!(
+        positions,
+        PositionsResponse {
+            positions: vec![
+                PositionResponse {
+                    idx: Uint128(2u128),
+                    owner: HumanAddr::from("addr0000"),
+                    asset: Asset {
+                        info: AssetInfo::Token {
+                            contract_addr: HumanAddr::from("asset0000"),
+                        },
+                        amount: Uint128(333333u128),
+                    },
+                    collateral: Asset {
+                        info: AssetInfo::Token {
+                            contract_addr: HumanAddr::from("asset0001"),
+                        },
+                        amount: Uint128(1000000u128),
+                    },
+                },
+                PositionResponse {
+                    idx: Uint128(1u128),
+                    owner: HumanAddr::from("addr0000"),
+                    asset: Asset {
+                        info: AssetInfo::Token {
+                            contract_addr: HumanAddr::from("asset0000"),
+                        },
+                        amount: Uint128(666666u128),
+                    },
+                    collateral: Asset {
+                        info: AssetInfo::NativeToken {
+                            denom: "uusd".to_string(),
+                        },
+                        amount: Uint128(1000000u128),
+                    },
+                }
+            ],
+        }
+    );
+
+    let res = query(
+        &deps,
+        QueryMsg::Positions {
+            owner_addr: Some(HumanAddr::from("addr0000")),
+            asset_token: None,
+            limit: None,
+            start_after: Some(Uint128(2u128)),
+            order_by: Some(OrderBy::Desc),
         },
     )
     .unwrap();
@@ -657,17 +709,17 @@ fn open_position() {
         positions,
         PositionsResponse {
             positions: vec![PositionResponse {
-                idx: Uint128(2u128),
+                idx: Uint128(1u128),
                 owner: HumanAddr::from("addr0000"),
                 asset: Asset {
                     info: AssetInfo::Token {
                         contract_addr: HumanAddr::from("asset0000"),
                     },
-                    amount: Uint128(333333u128),
+                    amount: Uint128(666666u128),
                 },
                 collateral: Asset {
-                    info: AssetInfo::Token {
-                        contract_addr: HumanAddr::from("asset0001"),
+                    info: AssetInfo::NativeToken {
+                        denom: "uusd".to_string(),
                     },
                     amount: Uint128(1000000u128),
                 },

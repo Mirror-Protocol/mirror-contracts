@@ -411,6 +411,35 @@ mod tests {
         let res = query(
             &deps,
             QueryMsg::Polls {
+                filter: None,
+                start_after: Some(2u64),
+                limit: None,
+                order_by: Some(OrderBy::Desc),
+            },
+        )
+        .unwrap();
+        let response: PollsResponse = from_binary(&res).unwrap();
+        assert_eq!(
+            response.polls,
+            vec![PollResponse {
+                id: 1u64,
+                creator: HumanAddr::from(TEST_CREATOR),
+                status: PollStatus::InProgress,
+                end_height: 10000u64,
+                title: "test".to_string(),
+                description: "test".to_string(),
+                link: Some("http://google.com".to_string()),
+                deposit_amount: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+                execute_data: None,
+                yes_votes: Uint128::zero(),
+                no_votes: Uint128::zero(),
+                total_balance_at_end_poll: None,
+            }]
+        );
+
+        let res = query(
+            &deps,
+            QueryMsg::Polls {
                 filter: Some(PollStatus::InProgress),
                 start_after: Some(1u64),
                 limit: None,

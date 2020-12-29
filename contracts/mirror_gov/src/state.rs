@@ -173,16 +173,15 @@ pub fn read_poll_voters<'a, S: ReadonlyStorage>(
     order_by: Option<OrderBy>,
 ) -> StdResult<Vec<(CanonicalAddr, VoterInfo)>> {
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
-    let start = calc_range_start_addr(start_after);
+    let (start, end, order_by) = match order_by {
+        Some(OrderBy::Asc) => (calc_range_start_addr(start_after), None, OrderBy::Asc),
+        _ => (None, calc_range_end_addr(start_after), OrderBy::Desc),
+    };
 
     let voters: ReadonlyBucket<'a, S, VoterInfo> =
         ReadonlyBucket::multilevel(&[PREFIX_POLL_VOTER, &poll_id.to_be_bytes()], storage);
     voters
-        .range(
-            start.as_deref(),
-            None,
-            order_by.unwrap_or(OrderBy::Desc).into(),
-        )
+        .range(start.as_deref(), end.as_deref(), order_by.into())
         .take(limit)
         .map(|item| {
             let (k, v) = item?;
@@ -201,7 +200,10 @@ pub fn read_polls<'a, S: ReadonlyStorage>(
     order_by: Option<OrderBy>,
 ) -> StdResult<Vec<Poll>> {
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
-    let start = calc_range_start(start_after);
+    let (start, end, order_by) = match order_by {
+        Some(OrderBy::Asc) => (calc_range_start(start_after), None, OrderBy::Asc),
+        _ => (None, calc_range_end(start_after), OrderBy::Desc),
+    };
 
     if let Some(status) = filter {
         let poll_indexer: ReadonlyBucket<'a, S, bool> = ReadonlyBucket::multilevel(
@@ -209,11 +211,7 @@ pub fn read_polls<'a, S: ReadonlyStorage>(
             storage,
         );
         poll_indexer
-            .range(
-                start.as_deref(),
-                None,
-                order_by.unwrap_or(OrderBy::Desc).into(),
-            )
+            .range(start.as_deref(), end.as_deref(), order_by.into())
             .take(limit)
             .map(|item| {
                 let (k, _) = item?;
@@ -224,7 +222,7 @@ pub fn read_polls<'a, S: ReadonlyStorage>(
         let polls: ReadonlyBucket<'a, S, Poll> = ReadonlyBucket::new(PREFIX_POLL, storage);
 
         polls
-            .range(start.as_deref(), None, Order::Ascending)
+            .range(start.as_deref(), end.as_deref(), order_by.into())
             .take(limit)
             .map(|item| {
                 let (_, v) = item?;
@@ -252,10 +250,20 @@ fn calc_range_start(start_after: Option<u64>) -> Option<Vec<u8>> {
 }
 
 // this will set the first key after the provided key, by appending a 1 byte
+fn calc_range_end(start_after: Option<u64>) -> Option<Vec<u8>> {
+    start_after.map(|id| id.to_be_bytes().to_vec())
+}
+
+// this will set the first key after the provided key, by appending a 1 byte
 fn calc_range_start_addr(start_after: Option<CanonicalAddr>) -> Option<Vec<u8>> {
     start_after.map(|addr| {
         let mut v = addr.as_slice().to_vec();
         v.push(1);
         v
     })
+}
+
+// this will set the first key after the provided key, by appending a 1 byte
+fn calc_range_end_addr(start_after: Option<CanonicalAddr>) -> Option<Vec<u8>> {
+    start_after.map(|addr| addr.as_slice().to_vec())
 }

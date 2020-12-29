@@ -77,14 +77,13 @@ pub fn read_prices<S: Storage, A: Api, Q: Querier>(
         ReadonlyBucket::new(PREFIX_PRICE, &deps.storage);
 
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
-    let start = calc_range_start(start_after);
+    let (start, end, order_by) = match order_by {
+        Some(OrderBy::Asc) => (calc_range_start(start_after), None, OrderBy::Asc),
+        _ => (None, calc_range_end(start_after), OrderBy::Desc),
+    };
 
     price_bucket
-        .range(
-            start.as_deref(),
-            None,
-            order_by.unwrap_or(OrderBy::Desc).into(),
-        )
+        .range(start.as_deref(), end.as_deref(), order_by.into())
         .take(limit)
         .map(|item| {
             let (k, v) = item?;
@@ -106,4 +105,9 @@ fn calc_range_start(start_after: Option<CanonicalAddr>) -> Option<Vec<u8>> {
         v.push(1);
         v
     })
+}
+
+// this will set the first key after the provided key in Desc
+fn calc_range_end(start_after: Option<CanonicalAddr>) -> Option<Vec<u8>> {
+    start_after.map(|idx| idx.as_slice().to_vec())
 }

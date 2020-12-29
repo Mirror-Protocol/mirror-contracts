@@ -197,14 +197,13 @@ pub fn read_positions_with_user_indexer<S: ReadonlyStorage>(
         ReadonlyBucket::multilevel(&[PREFIX_INDEX_BY_USER, position_owner.as_slice()], storage);
 
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
-    let start = calc_range_start(start_after);
+    let (start, end, order_by) = match order_by {
+        Some(OrderBy::Asc) => (calc_range_start(start_after), None, OrderBy::Asc),
+        _ => (None, calc_range_end(start_after), OrderBy::Desc),
+    };
 
     position_indexer
-        .range(
-            start.as_deref(),
-            None,
-            order_by.unwrap_or(OrderBy::Desc).into(),
-        )
+        .range(start.as_deref(), end.as_deref(), order_by.into())
         .take(limit)
         .map(|item| {
             let (k, _) = item?;
@@ -224,14 +223,13 @@ pub fn read_positions_with_asset_indexer<S: ReadonlyStorage>(
         ReadonlyBucket::multilevel(&[PREFIX_INDEX_BY_ASSET, asset_token.as_slice()], storage);
 
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
-    let start = calc_range_start(start_after);
+    let (start, end, order_by) = match order_by {
+        Some(OrderBy::Asc) => (calc_range_start(start_after), None, OrderBy::Asc),
+        _ => (None, calc_range_end(start_after), OrderBy::Desc),
+    };
 
     position_indexer
-        .range(
-            start.as_deref(),
-            None,
-            order_by.unwrap_or(OrderBy::Desc).into(),
-        )
+        .range(start.as_deref(), end.as_deref(), order_by.into())
         .take(limit)
         .map(|item| {
             let (k, _) = item?;
@@ -256,4 +254,9 @@ fn calc_range_start(start_after: Option<Uint128>) -> Option<Vec<u8>> {
         v.push(1);
         v
     })
+}
+
+// this will set the first key after the provided key, by appending a 1 byte
+fn calc_range_end(start_after: Option<Uint128>) -> Option<Vec<u8>> {
+    start_after.map(|idx| idx.u128().to_be_bytes().to_vec())
 }
