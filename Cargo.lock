@@ -555,6 +555,7 @@ dependencies = [
  "cosmwasm-storage",
  "cosmwasm-vm",
  "cw20",
+ "mirror-protocol",
  "schemars",
  "serde",
  "terra-cosmwasm",
@@ -570,6 +571,7 @@ dependencies = [
  "cosmwasm-storage",
  "cosmwasm-vm",
  "cw20",
+ "mirror-protocol",
  "schemars",
  "serde",
 ]
@@ -583,6 +585,7 @@ dependencies = [
  "cosmwasm-storage",
  "cosmwasm-vm",
  "cw20",
+ "mirror-protocol",
  "schemars",
  "serde",
  "terraswap",
@@ -598,6 +601,7 @@ dependencies = [
  "cosmwasm-vm",
  "cw20",
  "hex",
+ "mirror-protocol",
  "schemars",
  "serde",
 ]
@@ -652,6 +656,7 @@ dependencies = [
  "cosmwasm-storage",
  "cosmwasm-vm",
  "cw20",
+ "mirror-protocol",
  "schemars",
  "serde",
 ]

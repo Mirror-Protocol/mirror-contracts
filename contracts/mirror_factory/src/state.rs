@@ -1,8 +1,10 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{CanonicalAddr, Decimal, Order, StdError, StdResult, Storage, Uint128};
+use cosmwasm_std::{CanonicalAddr, Order, StdError, StdResult, Storage, Uint128};
 use cosmwasm_storage::{singleton, singleton_read, Bucket, ReadonlyBucket, Singleton};
+
+use mirror_protocol::factory::Params;
 
 static KEY_CONFIG: &[u8] = b"config";
 static KEY_PARAMS: &[u8] = b"params";
@@ -32,15 +34,6 @@ pub fn store_config<S: Storage>(storage: &mut S, config: &Config) -> StdResult<(
 
 pub fn read_config<S: Storage>(storage: &S) -> StdResult<Config> {
     singleton_read(storage, KEY_CONFIG).load()
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub struct Params {
-    /// Auction discount rate applied to asset mint
-    pub auction_discount: Decimal,
-    /// Minium collateral ratio applied to asset mint
-    pub min_collateral_ratio: Decimal,
 }
 
 pub fn store_params<S: Storage>(storage: &mut S, init_data: &Params) -> StdResult<()> {

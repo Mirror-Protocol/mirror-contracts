@@ -2,7 +2,7 @@ use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 use std::env::current_dir;
 use std::fs::create_dir_all;
 
-use mirror_gov::msg::{
+use mirror_protocol::gov::{
     ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrateMsg, PollResponse, QueryMsg,
     StakerResponse,
 };

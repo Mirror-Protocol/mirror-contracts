@@ -3,14 +3,12 @@ use cosmwasm_std::{
     HumanAddr, InitResponse, MigrateResponse, MigrateResult, Querier, StdResult, Storage, WasmMsg,
 };
 
-use crate::msg::{
-    ConfigResponse, HandleMsg, InitMsg, MigrateMsg, QueryMsg, TerraswapCw20HookMsg,
-    TerraswapHandleMsg,
-};
 use crate::state::{read_config, store_config, Config};
 
 use cw20::Cw20HandleMsg;
+use mirror_protocol::collector::{ConfigResponse, HandleMsg, InitMsg, MigrateMsg, QueryMsg};
 use terraswap::{query_balance, query_pair_info, query_token_balance, Asset, AssetInfo, PairInfo};
+use terraswap::{PairCw20HookMsg as TerraswapCw20HookMsg, PairHandleMsg as TerraswapHandleMsg};
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -88,6 +86,8 @@ pub fn convert<S: Storage, A: Api, Q: Querier>(
                     ..swap_asset
                 },
                 max_spread: None,
+                belief_price: None,
+                to: None,
             })?,
             send: vec![Coin {
                 denom: config.base_denom,
@@ -103,7 +103,11 @@ pub fn convert<S: Storage, A: Api, Q: Querier>(
             msg: to_binary(&Cw20HandleMsg::Send {
                 contract: pair_info.contract_addr,
                 amount,
-                msg: Some(to_binary(&TerraswapCw20HookMsg::Swap { max_spread: None })?),
+                msg: Some(to_binary(&TerraswapCw20HookMsg::Swap {
+                    max_spread: None,
+                    belief_price: None,
+                    to: None,
+                })?),
             })?,
             send: vec![],
         })];

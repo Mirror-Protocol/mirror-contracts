@@ -1,12 +1,8 @@
-use crate::msg::{
-    ConfigResponse, Cw20HookMsg, ExecuteMsg, HandleMsg, InitMsg, MigrateMsg, OrderBy, PollResponse,
-    PollsResponse, QueryMsg, StakerResponse, StateResponse, VotersResponse, VotersResponseItem,
-};
 use crate::querier::load_token_balance;
 use crate::state::{
     bank_read, bank_store, config_read, config_store, poll_all_voters, poll_indexer_store,
     poll_read, poll_store, poll_voter_read, poll_voter_store, read_poll_voters, read_polls,
-    state_read, state_store, Config, ExecuteData, Poll, PollStatus, State, VoteOption, VoterInfo,
+    state_read, state_store, Config, ExecuteData, Poll, State,
 };
 use cosmwasm_std::{
     from_binary, log, to_binary, Api, Binary, CanonicalAddr, CosmosMsg, Decimal, Env, Extern,
@@ -14,6 +10,13 @@ use cosmwasm_std::{
     MigrateResult, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
+
+use mirror_protocol::common::OrderBy;
+use mirror_protocol::gov::{
+    ConfigResponse, Cw20HookMsg, ExecuteMsg, HandleMsg, InitMsg, MigrateMsg, PollResponse,
+    PollStatus, PollsResponse, QueryMsg, StakerResponse, StateResponse, VoteOption, VoterInfo,
+    VotersResponse, VotersResponseItem,
+};
 
 const MIN_TITLE_LENGTH: usize = 4;
 const MAX_TITLE_LENGTH: usize = 64;

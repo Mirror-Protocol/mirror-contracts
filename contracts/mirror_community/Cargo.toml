@@ -40,6 +40,7 @@ singlepass = ["cosmwasm-vm/default-singlepass"]
 cw20 = "0.2"
 cosmwasm-std = { version = "0.10.1" }
 cosmwasm-storage = { version = "0.10.1" }
+mirror-protocol = { version = "1.0.0", path = "../../packages/mirror_protocol" }
 schemars = "0.7"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 

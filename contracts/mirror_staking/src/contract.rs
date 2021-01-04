@@ -4,7 +4,7 @@ use cosmwasm_std::{
     Storage, Uint128, WasmMsg,
 };
 
-use crate::msg::{
+use mirror_protocol::staking::{
     ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, PoolInfoResponse, QueryMsg,
     RewardInfoResponse, RewardInfoResponseItem,
 };

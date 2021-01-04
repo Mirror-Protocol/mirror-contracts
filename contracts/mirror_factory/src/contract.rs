@@ -4,18 +4,20 @@ use cosmwasm_std::{
     StdResult, Storage, Uint128, WasmMsg,
 };
 
-use crate::msg::{
-    ConfigResponse, DistributionInfoResponse, HandleMsg, InitMsg, MigrateMsg, QueryMsg,
-    StakingCw20HookMsg,
-};
 use crate::querier::{load_mint_asset_config, load_oracle_feeder};
-use crate::register_msgs::*;
 use crate::state::{
     decrease_total_weight, increase_total_weight, read_all_weight, read_config,
     read_last_distributed, read_params, read_total_weight, remove_params, remove_weight,
     store_config, store_last_distributed, store_params, store_total_weight, store_weight, Config,
-    Params,
 };
+
+use mirror_protocol::factory::{
+    ConfigResponse, DistributionInfoResponse, HandleMsg, InitMsg, MigrateMsg, Params, QueryMsg,
+};
+use mirror_protocol::mint::HandleMsg as MintHandleMsg;
+use mirror_protocol::oracle::HandleMsg as OracleHandleMsg;
+use mirror_protocol::staking::Cw20HookMsg as StakingCw20HookMsg;
+use mirror_protocol::staking::HandleMsg as StakingHandleMsg;
 
 use cw20::{Cw20HandleMsg, MinterResponse};
 use terraswap::{
@@ -503,8 +505,8 @@ pub fn try_migrate_asset<S: Storage, A: Api, Q: Querier>(
                 send: vec![],
                 label: None,
                 msg: to_binary(&TokenInitMsg {
-                    name: name.clone(),
-                    symbol: symbol.to_string(),
+                    name,
+                    symbol,
                     decimals: 6u8,
                     initial_balances: vec![],
                     mint: Some(MinterResponse {
@@ -564,7 +566,7 @@ pub fn query_distribution_info<S: Storage, A: Api, Q: Querier>(
     let weights: Vec<(CanonicalAddr, u32)> = read_all_weight(&deps.storage)?;
     let last_distributed = read_last_distributed(&deps.storage)?;
     let resp = DistributionInfoResponse {
-        last_distributed: last_distributed,
+        last_distributed,
         weights: weights
             .iter()
             .map(|w| Ok((deps.api.human_address(&w.0)?, w.1)))

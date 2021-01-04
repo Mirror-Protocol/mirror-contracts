@@ -21,7 +21,7 @@ use cosmwasm_vm::testing::{
     init, mock_dependencies, mock_env, query, MockApi, MockQuerier, MockStorage,
 };
 use cosmwasm_vm::Instance;
-use mirror_collector::msg::{ConfigResponse, InitMsg, QueryMsg};
+use mirror_protocol::collector::{ConfigResponse, InitMsg, QueryMsg};
 
 // This line will test the output of cargo wasm
 static WASM: &[u8] =

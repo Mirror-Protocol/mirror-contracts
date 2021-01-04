@@ -1,10 +1,11 @@
 use crate::contract::{handle, init, query_config};
 use crate::mock_querier::mock_dependencies;
-use crate::msg::{ConfigResponse, HandleMsg, InitMsg, TerraswapCw20HookMsg, TerraswapHandleMsg};
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{to_binary, Coin, CosmosMsg, Decimal, HumanAddr, Uint128, WasmMsg};
 use cw20::Cw20HandleMsg;
+use mirror_protocol::collector::{ConfigResponse, HandleMsg, InitMsg};
 use terraswap::{Asset, AssetInfo};
+use terraswap::{PairCw20HookMsg as TerraswapCw20HookMsg, PairHandleMsg as TerraswapHandleMsg};
 
 #[test]
 fn proper_initialization() {
@@ -78,7 +79,14 @@ fn test_convert() {
             msg: to_binary(&Cw20HandleMsg::Send {
                 contract: HumanAddr::from("pairAPPL"),
                 amount: Uint128(100u128),
-                msg: Some(to_binary(&TerraswapCw20HookMsg::Swap { max_spread: None }).unwrap()),
+                msg: Some(
+                    to_binary(&TerraswapCw20HookMsg::Swap {
+                        max_spread: None,
+                        belief_price: None,
+                        to: None,
+                    })
+                    .unwrap()
+                ),
             })
             .unwrap(),
             send: vec![],
@@ -104,7 +112,9 @@ fn test_convert() {
                     },
                     amount: Uint128(99u128),
                 },
-                max_spread: None
+                max_spread: None,
+                belief_price: None,
+                to: None,
             })
             .unwrap(),
             send: vec![Coin {

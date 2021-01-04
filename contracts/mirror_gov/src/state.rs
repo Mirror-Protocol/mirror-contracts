@@ -7,9 +7,9 @@ use cosmwasm_storage::{
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::fmt;
 
-use crate::msg::OrderBy;
+use mirror_protocol::common::OrderBy;
+use mirror_protocol::gov::{PollStatus, VoterInfo};
 
 static KEY_CONFIG: &[u8] = b"config";
 static KEY_STATE: &[u8] = b"state";
@@ -43,45 +43,6 @@ pub struct TokenManager {
     pub share: Uint128,                        // total staked balance
     pub locked_balance: Vec<(u64, VoterInfo)>, // maps poll_id to weight voted
     pub participated_polls: Vec<u64>,          // poll_id
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum VoteOption {
-    Yes,
-    No,
-}
-
-impl fmt::Display for VoteOption {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if *self == VoteOption::Yes {
-            write!(f, "yes")
-        } else {
-            write!(f, "no")
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct VoterInfo {
-    pub vote: VoteOption,
-    pub balance: Uint128,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum PollStatus {
-    InProgress,
-    Passed,
-    Rejected,
-    Executed,
-    Expired,
-}
-
-impl fmt::Display for PollStatus {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
-    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

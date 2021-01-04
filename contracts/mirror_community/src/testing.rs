@@ -1,8 +1,9 @@
 use crate::contract::{handle, init, query};
-use crate::msg::{ConfigResponse, HandleMsg, InitMsg, QueryMsg};
+
 use cosmwasm_std::testing::{mock_dependencies, mock_env};
 use cosmwasm_std::{from_binary, to_binary, CosmosMsg, HumanAddr, StdError, Uint128, WasmMsg};
 use cw20::Cw20HandleMsg;
+use mirror_protocol::community::{ConfigResponse, HandleMsg, InitMsg, QueryMsg};
 
 #[test]
 fn proper_initialization() {

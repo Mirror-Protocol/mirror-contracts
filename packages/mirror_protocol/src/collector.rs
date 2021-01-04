@@ -1,8 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Decimal, HumanAddr};
-use terraswap::Asset;
+use cosmwasm_std::HumanAddr;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
@@ -32,33 +31,6 @@ pub struct ConfigResponse {
     pub terraswap_factory: HumanAddr,
     pub mirror_token: HumanAddr,
     pub base_denom: String,
-}
-
-////////////////////////
-/// Staking contract hook
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum StakingCw20HookMsg {
-    DepositReward {},
-}
-
-//////////////////////////////
-/// Terraswap contract handle msg
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum TerraswapHandleMsg {
-    /// Swap an offer asset to the other
-    Swap {
-        offer_asset: Asset,
-        max_spread: Option<Decimal>,
-    },
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum TerraswapCw20HookMsg {
-    /// Sell a given amount of asset
-    Swap { max_spread: Option<Decimal> },
 }
 
 /// We currently take no arguments for migrations

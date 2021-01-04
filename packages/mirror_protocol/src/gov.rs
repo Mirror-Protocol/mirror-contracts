@@ -2,6 +2,7 @@ use cosmwasm_std::{Binary, Decimal, HumanAddr, Uint128};
 use cw20::Cw20ReceiveMsg;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 use crate::common::OrderBy;
 
@@ -181,9 +182,25 @@ pub enum PollStatus {
     Expired,
 }
 
+impl fmt::Display for PollStatus {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum VoteOption {
     Yes,
     No,
+}
+
+impl fmt::Display for VoteOption {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if *self == VoteOption::Yes {
+            write!(f, "yes")
+        } else {
+            write!(f, "no")
+        }
+    }
 }

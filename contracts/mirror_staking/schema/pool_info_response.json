@@ -4,6 +4,7 @@
   "type": "object",
   "required": [
     "asset_token",
+    "pending_reward",
     "reward_index",
     "staking_token",
     "total_bond_amount"
@@ -11,6 +12,9 @@
   "properties": {
     "asset_token": {
       "$ref": "#/definitions/HumanAddr"
+    },
+    "pending_reward": {
+      "$ref": "#/definitions/Uint128"
     },
     "reward_index": {
       "$ref": "#/definitions/Decimal"

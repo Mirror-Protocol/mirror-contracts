@@ -1,13 +1,13 @@
 use crate::contract::{handle, init, query};
-use crate::msg::{
-    ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, PoolInfoResponse, QueryMsg,
-    RewardInfoResponse, RewardInfoResponseItem,
-};
 use cosmwasm_std::testing::{mock_dependencies, mock_env};
 use cosmwasm_std::{
     from_binary, log, to_binary, CosmosMsg, Decimal, HumanAddr, StdError, Uint128, WasmMsg,
 };
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
+use mirror_protocol::staking::{
+    ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, PoolInfoResponse, QueryMsg,
+    RewardInfoResponse, RewardInfoResponseItem,
+};
 
 #[test]
 fn proper_initialization() {

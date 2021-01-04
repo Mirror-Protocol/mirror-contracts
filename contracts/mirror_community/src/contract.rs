@@ -1,10 +1,11 @@
+use crate::state::{read_config, store_config, Config};
+
 use cosmwasm_std::{
     log, to_binary, Api, Binary, CosmosMsg, Env, Extern, HandleResponse, HandleResult, HumanAddr,
     InitResponse, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 
-use crate::msg::{ConfigResponse, HandleMsg, InitMsg, QueryMsg};
-use crate::state::{read_config, store_config, Config};
+use mirror_protocol::community::{ConfigResponse, HandleMsg, InitMsg, QueryMsg};
 
 use cw20::Cw20HandleMsg;
 

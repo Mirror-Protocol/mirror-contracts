@@ -1,15 +1,20 @@
 use crate::contract::{handle, init, query};
 use crate::mock_querier::mock_dependencies;
-use crate::msg::{
-    ConfigResponse, DistributionInfoResponse, HandleMsg, InitMsg, QueryMsg, StakingCw20HookMsg,
-};
-use crate::register_msgs::*;
-use crate::state::{read_params, Params};
+
+use crate::state::read_params;
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
     from_binary, log, to_binary, CosmosMsg, Decimal, Env, HumanAddr, StdError, Uint128, WasmMsg,
 };
 use cw20::{Cw20HandleMsg, MinterResponse};
+
+use mirror_protocol::factory::{
+    ConfigResponse, DistributionInfoResponse, HandleMsg, InitMsg, Params, QueryMsg,
+};
+use mirror_protocol::mint::HandleMsg as MintHandleMsg;
+use mirror_protocol::oracle::HandleMsg as OracleHandleMsg;
+use mirror_protocol::staking::Cw20HookMsg as StakingCw20HookMsg;
+use mirror_protocol::staking::HandleMsg as StakingHandleMsg;
 use terraswap::{AssetInfo, FactoryHandleMsg as TerraswapFactoryHandleMsg, InitHook, TokenInitMsg};
 
 fn mock_env_time(signer: &HumanAddr, time: u64) -> Env {
@@ -602,7 +607,10 @@ fn test_distribute() {
     assert_eq!(
         distribution_info,
         DistributionInfoResponse {
-            weights: vec![(HumanAddr::from("asset0000"), 1), (HumanAddr::from("asset0001"), 1)],
+            weights: vec![
+                (HumanAddr::from("asset0000"), 1),
+                (HumanAddr::from("asset0001"), 1)
+            ],
             last_distributed: 1_571_802_819,
         }
     );
