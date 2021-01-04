@@ -6,10 +6,9 @@ use cosmwasm_std::{
 };
 
 use cosmwasm_storage::{singleton, singleton_read, Bucket, ReadonlyBucket};
+use mirror_protocol::common::OrderBy;
 use std::convert::TryInto;
 use terraswap::{AssetInfoRaw, AssetRaw};
-
-use crate::msg::OrderBy;
 
 static PREFIX_ASSET_CONFIG: &[u8] = b"asset_config";
 static PREFIX_POSITION: &[u8] = b"position";

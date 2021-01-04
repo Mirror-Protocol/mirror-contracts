@@ -1,9 +1,11 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Decimal, HumanAddr, Order, Uint128};
+use cosmwasm_std::{Decimal, HumanAddr, Uint128};
 use cw20::Cw20ReceiveMsg;
 use terraswap::{Asset, AssetInfo};
+
+use crate::common::OrderBy;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
@@ -141,23 +143,6 @@ pub struct PositionResponse {
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
 pub struct PositionsResponse {
     pub positions: Vec<PositionResponse>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum OrderBy {
-    Asc,
-    Desc,
-}
-
-impl Into<Order> for OrderBy {
-    fn into(self) -> Order {
-        if self == OrderBy::Asc {
-            Order::Ascending
-        } else {
-            Order::Descending
-        }
-    }
 }
 
 /// We currently take no arguments for migrations

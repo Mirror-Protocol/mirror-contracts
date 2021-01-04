@@ -19,7 +19,7 @@ use crate::state::{
 
 use cw20::{Cw20HandleMsg, MinterResponse};
 use terraswap::{
-    load_pair_info, AssetInfo, FactoryHandleMsg as TerraswapFactoryHandleMsg, InitHook, PairInfo,
+    query_pair_info, AssetInfo, FactoryHandleMsg as TerraswapFactoryHandleMsg, InitHook, PairInfo,
     TokenInitMsg,
 };
 
@@ -357,7 +357,7 @@ pub fn terraswap_creation_hook<S: Storage, A: Api, Q: Querier>(
     ];
 
     // Load terraswap pair info
-    let pair_info: PairInfo = load_pair_info(
+    let pair_info: PairInfo = query_pair_info(
         &deps,
         &deps.api.human_address(&config.terraswap_factory)?,
         &asset_infos,

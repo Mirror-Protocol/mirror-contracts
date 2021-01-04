@@ -4,7 +4,8 @@ use serde::{Deserialize, Serialize};
 use cosmwasm_std::{Api, CanonicalAddr, Decimal, Extern, Querier, StdResult, Storage};
 use cosmwasm_storage::{singleton, singleton_read, Bucket, ReadonlyBucket};
 
-use crate::msg::{OrderBy, PricesResponseElem};
+use mirror_protocol::common::OrderBy;
+use mirror_protocol::oracle::PricesResponseElem;
 
 static PREFIX_FEEDER: &[u8] = b"feeder";
 static PREFIX_PRICE: &[u8] = b"price";

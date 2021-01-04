@@ -5,9 +5,10 @@ use cosmwasm_std::{
 
 use crate::contract::{handle, init, query};
 
-use crate::msg::{
-    AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, OrderBy,
-    PositionResponse, PositionsResponse, QueryMsg,
+use mirror_protocol::common::OrderBy;
+use mirror_protocol::mint::{
+    AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, PositionResponse,
+    PositionsResponse, QueryMsg,
 };
 
 use crate::mock_querier::mock_dependencies;

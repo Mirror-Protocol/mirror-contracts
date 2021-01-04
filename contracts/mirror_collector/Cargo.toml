@@ -37,7 +37,7 @@ cranelift = ["cosmwasm-vm/default-cranelift"]
 singlepass = ["cosmwasm-vm/default-singlepass"]
 
 [dependencies]
-terraswap = { path = "../../packages/terraswap", default-features = false, version = "0.1.0"}
+terraswap = "1.0.1"
 cw20 = "0.2"
 cosmwasm-std = { version = "0.10.1" }
 cosmwasm-storage = { version = "0.10.1" }

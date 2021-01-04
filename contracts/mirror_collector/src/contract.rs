@@ -10,7 +10,7 @@ use crate::msg::{
 use crate::state::{read_config, store_config, Config};
 
 use cw20::Cw20HandleMsg;
-use terraswap::{load_balance, load_pair_info, load_token_balance, Asset, AssetInfo, PairInfo};
+use terraswap::{query_balance, query_pair_info, query_token_balance, Asset, AssetInfo, PairInfo};
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -54,7 +54,7 @@ pub fn convert<S: Storage, A: Api, Q: Querier>(
     let asset_token_raw = deps.api.canonical_address(&asset_token)?;
     let terraswap_factory_raw = deps.api.human_address(&config.terraswap_factory)?;
 
-    let pair_info: PairInfo = load_pair_info(
+    let pair_info: PairInfo = query_pair_info(
         &deps,
         &terraswap_factory_raw,
         &[
@@ -70,7 +70,7 @@ pub fn convert<S: Storage, A: Api, Q: Querier>(
     let messages: Vec<CosmosMsg>;
     if config.mirror_token == asset_token_raw {
         // collateral token => MIR token
-        let amount = load_balance(&deps, &env.contract.address, config.base_denom.to_string())?;
+        let amount = query_balance(&deps, &env.contract.address, config.base_denom.to_string())?;
         let swap_asset = Asset {
             info: AssetInfo::NativeToken {
                 denom: config.base_denom.clone(),
@@ -96,7 +96,7 @@ pub fn convert<S: Storage, A: Api, Q: Querier>(
         })];
     } else {
         // asset token => collateral token
-        let amount = load_token_balance(&deps, &asset_token, &env.contract.address)?;
+        let amount = query_token_balance(&deps, &asset_token, &env.contract.address)?;
 
         messages = vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: asset_token.clone(),
@@ -125,7 +125,7 @@ pub fn distribute<S: Storage, A: Api, Q: Querier>(
     env: Env,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
-    let amount = load_token_balance(
+    let amount = query_token_balance(
         &deps,
         &deps.api.human_address(&config.mirror_token)?,
         &env.contract.address,

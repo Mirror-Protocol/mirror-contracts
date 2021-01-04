@@ -2,7 +2,7 @@ use std::env::current_dir;
 use std::fs::create_dir_all;
 
 use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
-use mirror_oracle::msg::{
+use mirror_protocol::oracle::{
     ConfigResponse, FeederResponse, HandleMsg, InitMsg, PriceResponse, PricesResponse, QueryMsg,
 };
 

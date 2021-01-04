@@ -1,7 +1,7 @@
 [workspace]
 members = ["packages/*", "contracts/*"]
 
-[profile.release.package.terraswap]
+[profile.release.package.mirror-protocol]
 opt-level = 3
 debug = false
 debug-assertions = false

@@ -4,13 +4,15 @@ use cosmwasm_std::{
 };
 
 use crate::math::decimal_division;
-use crate::msg::{
-    ConfigResponse, FeederResponse, HandleMsg, InitMsg, MigrateMsg, OrderBy, PriceResponse,
-    PricesResponse, PricesResponseElem, QueryMsg,
-};
 use crate::state::{
     read_config, read_feeder, read_price, read_prices, store_config, store_feeder, store_price,
     Config, PriceInfo,
+};
+
+use mirror_protocol::common::OrderBy;
+use mirror_protocol::oracle::{
+    ConfigResponse, FeederResponse, HandleMsg, InitMsg, MigrateMsg, PriceResponse, PricesResponse,
+    PricesResponseElem, QueryMsg,
 };
 
 pub fn init<S: Storage, A: Api, Q: Querier>(

@@ -24,7 +24,7 @@ use cosmwasm_vm::testing::{
     handle, init, mock_dependencies, mock_env, query, MockApi, MockQuerier, MockStorage,
 };
 use cosmwasm_vm::Instance;
-use mirror_oracle::msg::{ConfigResponse, HandleMsg, InitMsg, PriceResponse, QueryMsg};
+use mirror_protocol::oracle::{ConfigResponse, HandleMsg, InitMsg, PriceResponse, QueryMsg};
 
 // This line will test the output of cargo wasm
 static WASM: &[u8] =

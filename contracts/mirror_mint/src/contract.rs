@@ -4,11 +4,8 @@ use cosmwasm_std::{
     StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 
-use crate::msg::{
-    AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrateMsg, OrderBy,
-    PositionResponse, PositionsResponse, QueryMsg,
-};
-
+use crate::math::{decimal_division, decimal_subtraction, reverse_decimal};
+use crate::querier::load_price;
 use crate::state::{
     create_position, read_asset_config, read_config, read_position, read_position_idx,
     read_positions, read_positions_with_asset_indexer, read_positions_with_user_indexer,
@@ -16,9 +13,12 @@ use crate::state::{
     AssetConfig, Config, Position,
 };
 
-use crate::math::{decimal_division, decimal_subtraction, reverse_decimal};
-use crate::querier::load_price;
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
+use mirror_protocol::common::OrderBy;
+use mirror_protocol::mint::{
+    AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrateMsg,
+    PositionResponse, PositionsResponse, QueryMsg,
+};
 use terraswap::{Asset, AssetInfo, AssetInfoRaw, AssetRaw};
 
 pub fn init<S: Storage, A: Api, Q: Querier>(

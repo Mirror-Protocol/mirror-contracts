@@ -1,7 +1,8 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Decimal, HumanAddr, Order};
+use crate::common::OrderBy;
+use cosmwasm_std::{Decimal, HumanAddr};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
@@ -77,23 +78,6 @@ pub struct PricesResponseElem {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct PricesResponse {
     pub prices: Vec<PricesResponseElem>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum OrderBy {
-    Asc,
-    Desc,
-}
-
-impl Into<Order> for OrderBy {
-    fn into(self) -> Order {
-        if self == OrderBy::Asc {
-            Order::Ascending
-        } else {
-            Order::Descending
-        }
-    }
 }
 
 /// We currently take no arguments for migrations

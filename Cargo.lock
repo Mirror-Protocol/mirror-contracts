@@ -611,6 +611,7 @@ dependencies = [
  "cosmwasm-storage",
  "cosmwasm-vm",
  "cw20",
+ "mirror-protocol",
  "schemars",
  "serde",
  "terra-cosmwasm",
@@ -625,8 +626,21 @@ dependencies = [
  "cosmwasm-std",
  "cosmwasm-storage",
  "cosmwasm-vm",
+ "mirror-protocol",
  "schemars",
  "serde",
+]
+
+[[package]]
+name = "mirror-protocol"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw20",
+ "schemars",
+ "serde",
+ "terraswap",
 ]
 
 [[package]]
@@ -993,9 +1007,9 @@ checksum = "ab0e7238dcc7b40a7be719a25365910f6807bd864f4cce6b2e6b873658e2b19d"
 
 [[package]]
 name = "terra-cosmwasm"
-version = "1.2.2"
+version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e414791554fbc27ef2c50301e84b7b542778cb82ef5a93cfb486ea3ac27065ac"
+checksum = "d9049d617aa6729f8d1e050970bfd774d7c5a56450ae291b09df5117933aa5d8"
 dependencies = [
  "cosmwasm-std",
  "schemars",
@@ -1004,11 +1018,12 @@ dependencies = [
 
 [[package]]
 name = "terraswap"
-version = "0.1.0"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c01af1e53e1182b6ad5117ab2c2ab8f9f8bd322f1e11229a20e36dc9949fa6e6"
 dependencies = [
  "cosmwasm-std",
  "cosmwasm-storage",
- "cosmwasm-vm",
  "cw20",
  "schemars",
  "serde",
