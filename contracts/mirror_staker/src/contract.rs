@@ -1,7 +1,7 @@
 use cosmwasm_std::{
     log, to_binary, Api, BankMsg, Binary, Coin, CosmosMsg, Decimal, Env, Extern, HandleResponse,
-    HandleResult, HumanAddr, InitResponse, InitResult, Querier, StdError, StdResult, Storage,
-    Uint128, WasmMsg,
+    HandleResult, HumanAddr, InitResponse, InitResult, MigrateResponse, MigrateResult, Querier,
+    StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 
 use crate::math::{decimal_multiplication, reverse_decimal};
@@ -11,7 +11,7 @@ use crate::state::{read_config, store_config, Config};
 use cw20::Cw20HandleMsg;
 use integer_sqrt::IntegerSquareRoot;
 use mirror_protocol::mint::HandleMsg as MintHandleMsg;
-use mirror_protocol::staker::{ConfigResponse, HandleMsg, InitMsg, QueryMsg};
+use mirror_protocol::staker::{ConfigResponse, HandleMsg, InitMsg, MigrateMsg, QueryMsg};
 use mirror_protocol::staking::Cw20HookMsg as StakingCw20HookMsg;
 use terraswap::asset::{Asset, AssetInfo, PairInfo};
 use terraswap::pair::HandleMsg as PairHandleMsg;
@@ -295,7 +295,10 @@ pub fn execute_mint_operations<S: Storage, A: Api, Q: Querier>(
                 send: vec![],
             }),
         ],
-        log: vec![],
+        log: vec![
+            log("action", "execute_mint_operations"),
+            log("deposit_amount", amount),
+        ],
         data: None,
     })
 }
@@ -394,7 +397,7 @@ pub fn stake_operation<S: Storage, A: Api, Q: Querier>(
             from_address: env.contract.address.clone(),
             to_address: staker.clone(),
             amount: vec![Coin {
-                denom: config.base_denom,
+                denom: config.base_denom.clone(),
                 amount: (native_balance - tax_amount)?,
             }],
         }));
@@ -420,7 +423,7 @@ pub fn stake_operation<S: Storage, A: Api, Q: Querier>(
             contract: deps.api.human_address(&config.staking_contract)?,
             amount: lp_amount,
             msg: Some(to_binary(&StakingCw20HookMsg::Bond {
-                asset_token,
+                asset_token: asset_token.clone(),
                 staker: Some(staker),
             })?),
         })?,
@@ -428,7 +431,16 @@ pub fn stake_operation<S: Storage, A: Api, Q: Querier>(
 
     Ok(HandleResponse {
         messages,
-        log: vec![],
+        log: vec![
+            log(
+                "refund_native_amount",
+                native_balance.to_string() + &config.base_denom,
+            ),
+            log(
+                "refund_asset_amount",
+                native_balance.to_string() + asset_token.as_str(),
+            ),
+        ],
         data: None,
     })
 }
@@ -455,4 +467,12 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
     };
 
     Ok(resp)
+}
+
+pub fn migrate<S: Storage, A: Api, Q: Querier>(
+    _deps: &mut Extern<S, A, Q>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> MigrateResult {
+    Ok(MigrateResponse::default())
 }
