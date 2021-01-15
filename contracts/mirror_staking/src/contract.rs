@@ -1,11 +1,11 @@
 use cosmwasm_std::{
     from_binary, log, to_binary, Api, Binary, CanonicalAddr, CosmosMsg, Decimal, Env, Extern,
-    HandleResponse, HandleResult, HumanAddr, InitResponse, Order, Querier, StdError, StdResult,
-    Storage, Uint128, WasmMsg,
+    HandleResponse, HandleResult, HumanAddr, InitResponse, MigrateResponse, MigrateResult, Order,
+    Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 
 use mirror_protocol::staking::{
-    ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, PoolInfoResponse, QueryMsg,
+    ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrateMsg, PoolInfoResponse, QueryMsg,
     RewardInfoResponse, RewardInfoResponseItem,
 };
 
@@ -61,7 +61,10 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
         let config: Config = read_config(&deps.storage)?;
 
         match from_binary(&msg)? {
-            Cw20HookMsg::Bond { asset_token } => {
+            Cw20HookMsg::Bond {
+                asset_token,
+                staker,
+            } => {
                 let pool_info: PoolInfo =
                     read_pool_info(&deps.storage, &deps.api.canonical_address(&asset_token)?)?;
 
@@ -70,7 +73,13 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
                     return Err(StdError::unauthorized());
                 }
 
-                try_bond(deps, env, cw20_msg.sender, asset_token, cw20_msg.amount)
+                let staker = if let Some(staker) = staker {
+                    staker
+                } else {
+                    cw20_msg.sender
+                };
+
+                try_bond(deps, env, staker, asset_token, cw20_msg.amount)
             }
             Cw20HookMsg::DepositReward { asset_token } => {
                 // only reward token contract can execute this message
@@ -436,4 +445,12 @@ pub fn query_reward_info<S: Storage, A: Api, Q: Querier>(
         staker,
         reward_infos,
     })
+}
+
+pub fn migrate<S: Storage, A: Api, Q: Querier>(
+    _deps: &mut Extern<S, A, Q>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> MigrateResult {
+    Ok(MigrateResponse::default())
 }

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{Decimal, HumanAddr, Uint128};
 use cw20::Cw20ReceiveMsg;
-use terraswap::{Asset, AssetInfo};
+use terraswap::asset::{Asset, AssetInfo};
 
 use crate::common::OrderBy;
 
@@ -56,6 +56,7 @@ pub enum HandleMsg {
     //////////////////////
     // Create position to meet collateral ratio
     OpenPosition {
+        owner: Option<HumanAddr>,
         collateral: Asset,
         asset_info: AssetInfo,
         collateral_ratio: Decimal,
@@ -82,6 +83,7 @@ pub enum HandleMsg {
 pub enum Cw20HookMsg {
     // Create position to meet collateral ratio
     OpenPosition {
+        owner: Option<HumanAddr>,
         asset_info: AssetInfo,
         collateral_ratio: Decimal,
     },

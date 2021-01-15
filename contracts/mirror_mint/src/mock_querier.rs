@@ -8,7 +8,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::{math::decimal_division, querier::OracleQueryMsg, querier::PriceResponse};
+use crate::math::decimal_division;
+use mirror_protocol::oracle::{PriceResponse, QueryMsg as OracleQueryMsg};
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
@@ -193,6 +194,7 @@ impl WasmMockQuerier {
                         request: msg.as_slice().into(),
                     }),
                 },
+                _ => panic!("DO NOT ENTER HERE"),
             },
             QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
                 let key: &[u8] = key.as_slice();

@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use cosmwasm_std::{
     to_binary, Api, Decimal, Extern, HumanAddr, Querier, QueryRequest, StdError, StdResult,
     Storage, WasmQuery,
@@ -7,26 +5,11 @@ use cosmwasm_std::{
 
 use crate::math::decimal_division;
 use crate::state::{read_config, read_end_price, Config};
-use terraswap::AssetInfoRaw;
+
+use mirror_protocol::oracle::{PriceResponse, QueryMsg as OracleQueryMsg};
+use terraswap::asset::AssetInfoRaw;
 
 const PRICE_EXPIRE_TIME: u64 = 60;
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum OracleQueryMsg {
-    Price {
-        base_asset: String,
-        quote_asset: String,
-    },
-}
-
-// We define a custom struct for each query response
-#[derive(Serialize, Deserialize)]
-pub struct PriceResponse {
-    pub rate: Decimal,
-    pub last_updated_base: u64,
-    pub last_updated_quote: u64,
-}
 
 pub fn load_price<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,

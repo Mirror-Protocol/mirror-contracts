@@ -14,7 +14,7 @@ use mirror_protocol::mint::{
 use crate::mock_querier::mock_dependencies;
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
-use terraswap::{Asset, AssetInfo};
+use terraswap::asset::{Asset, AssetInfo};
 
 static TOKEN_CODE_ID: u64 = 10u64;
 #[test]
@@ -427,6 +427,7 @@ fn open_position() {
 
     // must be failed; collateral ratio is too low
     let msg = HandleMsg::OpenPosition {
+        owner: None,
         collateral: Asset {
             info: AssetInfo::NativeToken {
                 denom: "uusd".to_string(),
@@ -456,6 +457,7 @@ fn open_position() {
     }
 
     let msg = HandleMsg::OpenPosition {
+        owner: None,
         collateral: Asset {
             info: AssetInfo::NativeToken {
                 denom: "uusd".to_string(),
@@ -557,6 +559,7 @@ fn open_position() {
 
     // Cannot directly deposit token
     let msg = HandleMsg::OpenPosition {
+        owner: None,
         collateral: Asset {
             info: AssetInfo::Token {
                 contract_addr: HumanAddr::from("asset0001"),
@@ -577,6 +580,7 @@ fn open_position() {
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         msg: Some(
             to_binary(&Cw20HookMsg::OpenPosition {
+                owner: None,
                 asset_info: AssetInfo::Token {
                     contract_addr: HumanAddr::from("asset0000"),
                 },
@@ -778,6 +782,7 @@ fn migrated_asset() {
 
     // Open uusd:asset0000 position
     let msg = HandleMsg::OpenPosition {
+        owner: None,
         collateral: Asset {
             info: AssetInfo::NativeToken {
                 denom: "uusd".to_string(),
@@ -803,6 +808,7 @@ fn migrated_asset() {
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         msg: Some(
             to_binary(&Cw20HookMsg::OpenPosition {
+                owner: None,
                 asset_info: AssetInfo::Token {
                     contract_addr: HumanAddr::from("asset0001"),
                 },
@@ -835,6 +841,7 @@ fn migrated_asset() {
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         msg: Some(
             to_binary(&Cw20HookMsg::OpenPosition {
+                owner: None,
                 asset_info: AssetInfo::Token {
                     contract_addr: HumanAddr::from("asset0001"),
                 },
@@ -1072,6 +1079,7 @@ fn deposit() {
 
     // open uusd-asset0000 position
     let msg = HandleMsg::OpenPosition {
+        owner: None,
         collateral: Asset {
             info: AssetInfo::NativeToken {
                 denom: "uusd".to_string(),
@@ -1097,6 +1105,7 @@ fn deposit() {
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         msg: Some(
             to_binary(&Cw20HookMsg::OpenPosition {
+                owner: None,
                 asset_info: AssetInfo::Token {
                     contract_addr: HumanAddr::from("asset0000"),
                 },
@@ -1266,6 +1275,7 @@ fn mint() {
 
     // open uusd-asset0000 position
     let msg = HandleMsg::OpenPosition {
+        owner: None,
         collateral: Asset {
             info: AssetInfo::NativeToken {
                 denom: "uusd".to_string(),
@@ -1291,6 +1301,7 @@ fn mint() {
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         msg: Some(
             to_binary(&Cw20HookMsg::OpenPosition {
+                owner: None,
                 asset_info: AssetInfo::Token {
                     contract_addr: HumanAddr::from("asset0000"),
                 },
@@ -1494,6 +1505,7 @@ fn burn() {
 
     // open uusd-asset0000 position
     let msg = HandleMsg::OpenPosition {
+        owner: None,
         collateral: Asset {
             info: AssetInfo::NativeToken {
                 denom: "uusd".to_string(),
@@ -1519,6 +1531,7 @@ fn burn() {
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         msg: Some(
             to_binary(&Cw20HookMsg::OpenPosition {
+                owner: None,
                 asset_info: AssetInfo::Token {
                     contract_addr: HumanAddr::from("asset0000"),
                 },
@@ -1745,6 +1758,7 @@ fn withdraw() {
 
     // open uusd-asset0000 position
     let msg = HandleMsg::OpenPosition {
+        owner: None,
         collateral: Asset {
             info: AssetInfo::NativeToken {
                 denom: "uusd".to_string(),
@@ -1770,6 +1784,7 @@ fn withdraw() {
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         msg: Some(
             to_binary(&Cw20HookMsg::OpenPosition {
+                owner: None,
                 asset_info: AssetInfo::Token {
                     contract_addr: HumanAddr::from("asset0000"),
                 },
@@ -1924,6 +1939,7 @@ fn auction() {
 
     // open uusd-asset0000 position
     let msg = HandleMsg::OpenPosition {
+        owner: None,
         collateral: Asset {
             info: AssetInfo::NativeToken {
                 denom: "uusd".to_string(),
@@ -1949,6 +1965,7 @@ fn auction() {
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         msg: Some(
             to_binary(&Cw20HookMsg::OpenPosition {
+                owner: None,
                 asset_info: AssetInfo::Token {
                     contract_addr: HumanAddr::from("asset0000"),
                 },

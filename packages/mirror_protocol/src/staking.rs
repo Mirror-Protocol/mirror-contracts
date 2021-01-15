@@ -35,8 +35,13 @@ pub enum HandleMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Cw20HookMsg {
-    Bond { asset_token: HumanAddr },
-    DepositReward { asset_token: HumanAddr },
+    Bond {
+        asset_token: HumanAddr,
+        staker: Option<HumanAddr>,
+    },
+    DepositReward {
+        asset_token: HumanAddr,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -83,3 +88,7 @@ pub struct RewardInfoResponseItem {
     pub bond_amount: Uint128,
     pub pending_reward: Uint128,
 }
+
+/// We currently take no arguments for migrations
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct MigrateMsg {}

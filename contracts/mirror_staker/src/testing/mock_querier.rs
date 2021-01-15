@@ -1,17 +1,29 @@
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
-
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
     from_binary, from_slice, to_binary, Api, CanonicalAddr, Coin, Decimal, Extern, HumanAddr,
     Querier, QuerierResult, QueryRequest, SystemError, Uint128, WasmQuery,
 };
 use cosmwasm_storage::to_length_prefixed;
-
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+use crate::math::decimal_division;
+use mirror_protocol::oracle::PriceResponse;
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 use terraswap::asset::{AssetInfo, PairInfo};
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum QueryMsg {
+    Price {
+        base_asset: String,
+        quote_asset: String,
+    },
+    Pair {
+        asset_infos: [AssetInfo; 2],
+    },
+}
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
 /// this uses our CustomQuerier.
@@ -37,6 +49,7 @@ pub struct WasmMockQuerier {
     base: MockQuerier<TerraQueryWrapper>,
     token_querier: TokenQuerier,
     tax_querier: TaxQuerier,
+    oracle_price_querier: OraclePriceQuerier,
     terraswap_factory_querier: TerraswapFactoryQuerier,
     canonical_length: usize,
 }
@@ -95,6 +108,31 @@ pub(crate) fn caps_to_map(caps: &[(&String, &Uint128)]) -> HashMap<String, Uint1
 }
 
 #[derive(Clone, Default)]
+pub struct OraclePriceQuerier {
+    // this lets us iterate over all pairs that match the first string
+    oracle_price: HashMap<String, Decimal>,
+}
+
+impl OraclePriceQuerier {
+    pub fn new(oracle_price: &[(&String, &Decimal)]) -> Self {
+        OraclePriceQuerier {
+            oracle_price: oracle_price_to_map(oracle_price),
+        }
+    }
+}
+
+pub(crate) fn oracle_price_to_map(
+    oracle_price: &[(&String, &Decimal)],
+) -> HashMap<String, Decimal> {
+    let mut oracle_price_map: HashMap<String, Decimal> = HashMap::new();
+    for (base_quote, oracle_price) in oracle_price.iter() {
+        oracle_price_map.insert((*base_quote).clone(), **oracle_price);
+    }
+
+    oracle_price_map
+}
+
+#[derive(Clone, Default)]
 pub struct TerraswapFactoryQuerier {
     pairs: HashMap<String, HumanAddr>,
 }
@@ -133,8 +171,8 @@ impl Querier for WasmMockQuerier {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum QueryMsg {
-    Pair { asset_infos: [AssetInfo; 2] },
+pub enum MockQueryMsg {
+    Price {},
 }
 
 impl WasmMockQuerier {
@@ -169,6 +207,28 @@ impl WasmMockQuerier {
                 contract_addr: _,
                 msg,
             }) => match from_binary(&msg).unwrap() {
+                QueryMsg::Price {
+                    base_asset,
+                    quote_asset,
+                } => match self.oracle_price_querier.oracle_price.get(&base_asset) {
+                    Some(base_price) => {
+                        match self.oracle_price_querier.oracle_price.get(&quote_asset) {
+                            Some(quote_price) => Ok(to_binary(&PriceResponse {
+                                rate: decimal_division(*base_price, *quote_price),
+                                last_updated_base: 1000u64,
+                                last_updated_quote: 1000u64,
+                            })),
+                            None => Err(SystemError::InvalidRequest {
+                                error: "No oracle price exists".to_string(),
+                                request: msg.as_slice().into(),
+                            }),
+                        }
+                    }
+                    None => Err(SystemError::InvalidRequest {
+                        error: "No oracle price exists".to_string(),
+                        request: msg.as_slice().into(),
+                    }),
+                },
                 QueryMsg::Pair { asset_infos } => {
                     let key = asset_infos[0].to_string() + asset_infos[1].to_string().as_str();
                     match self.terraswap_factory_querier.pairs.get(&key) {
@@ -195,21 +255,21 @@ impl WasmMockQuerier {
                 let key: &[u8] = key.as_slice();
                 let prefix_balance = to_length_prefixed(b"balance").to_vec();
 
-                let balances: &HashMap<HumanAddr, Uint128> =
-                    match self.token_querier.balances.get(contract_addr) {
-                        Some(balances) => balances,
-                        None => {
-                            return Err(SystemError::InvalidRequest {
-                                error: format!(
-                                    "No balance info exists for the contract {}",
-                                    contract_addr
-                                ),
-                                request: key.into(),
-                            })
-                        }
-                    };
-
                 if key[..prefix_balance.len()].to_vec() == prefix_balance {
+                    let balances: &HashMap<HumanAddr, Uint128> =
+                        match self.token_querier.balances.get(contract_addr) {
+                            Some(balances) => balances,
+                            None => {
+                                return Err(SystemError::InvalidRequest {
+                                    error: format!(
+                                        "No balance info exists for the contract {}",
+                                        contract_addr
+                                    ),
+                                    request: key.into(),
+                                })
+                            }
+                        };
+
                     let key_address: &[u8] = &key[prefix_balance.len()..];
                     let address_raw: CanonicalAddr = CanonicalAddr::from(key_address);
 
@@ -254,22 +314,30 @@ impl WasmMockQuerier {
             base,
             token_querier: TokenQuerier::default(),
             tax_querier: TaxQuerier::default(),
+            oracle_price_querier: OraclePriceQuerier::default(),
             terraswap_factory_querier: TerraswapFactoryQuerier::default(),
             canonical_length,
         }
     }
 
-    // configure the mint whitelist mock querier
+    pub fn with_balance(&mut self, balances: &[(&HumanAddr, &[Coin])]) {
+        for (addr, balance) in balances {
+            self.base.update_balance(addr, balance.to_vec());
+        }
+    }
+
     pub fn with_token_balances(&mut self, balances: &[(&HumanAddr, &[(&HumanAddr, &Uint128)])]) {
         self.token_querier = TokenQuerier::new(balances);
     }
 
-    // configure the token owner mock querier
     pub fn with_tax(&mut self, rate: Decimal, caps: &[(&String, &Uint128)]) {
         self.tax_querier = TaxQuerier::new(rate, caps);
     }
 
-    // configure the terraswap pair
+    pub fn with_oracle_price(&mut self, oracle_price: &[(&String, &Decimal)]) {
+        self.oracle_price_querier = OraclePriceQuerier::new(oracle_price);
+    }
+
     pub fn with_terraswap_pairs(&mut self, pairs: &[(&String, &HumanAddr)]) {
         self.terraswap_factory_querier = TerraswapFactoryQuerier::new(pairs);
     }

@@ -150,6 +150,7 @@ fn test_bond_tokens() {
         msg: Some(
             to_binary(&Cw20HookMsg::Bond {
                 asset_token: HumanAddr::from("asset0000"),
+                staker: None,
             })
             .unwrap(),
         ),
@@ -206,6 +207,7 @@ fn test_bond_tokens() {
         msg: Some(
             to_binary(&Cw20HookMsg::Bond {
                 asset_token: HumanAddr::from("asset0000"),
+                staker: None,
             })
             .unwrap(),
         ),
@@ -239,6 +241,7 @@ fn test_bond_tokens() {
         msg: Some(
             to_binary(&Cw20HookMsg::Bond {
                 asset_token: HumanAddr::from("asset0000"),
+                staker: None,
             })
             .unwrap(),
         ),
@@ -312,6 +315,7 @@ fn test_deposit_reward() {
         msg: Some(
             to_binary(&Cw20HookMsg::Bond {
                 asset_token: HumanAddr::from("asset0000"),
+                staker: None,
             })
             .unwrap(),
         ),
@@ -379,6 +383,7 @@ fn test_unbond() {
         msg: Some(
             to_binary(&Cw20HookMsg::Bond {
                 asset_token: HumanAddr::from("asset0000"),
+                staker: None,
             })
             .unwrap(),
         ),
@@ -450,6 +455,7 @@ fn test_before_share_changes() {
         msg: Some(
             to_binary(&Cw20HookMsg::Bond {
                 asset_token: HumanAddr::from("asset0000"),
+                staker: None,
             })
             .unwrap(),
         ),
@@ -478,6 +484,7 @@ fn test_before_share_changes() {
         msg: Some(
             to_binary(&Cw20HookMsg::Bond {
                 asset_token: HumanAddr::from("asset0000"),
+                staker: None,
             })
             .unwrap(),
         ),
@@ -578,6 +585,7 @@ fn test_withdraw() {
         msg: Some(
             to_binary(&Cw20HookMsg::Bond {
                 asset_token: HumanAddr::from("asset0000"),
+                staker: None,
             })
             .unwrap(),
         ),
@@ -654,6 +662,7 @@ fn withdraw_multiple_rewards() {
         msg: Some(
             to_binary(&Cw20HookMsg::Bond {
                 asset_token: HumanAddr::from("asset0000"),
+                staker: None,
             })
             .unwrap(),
         ),
@@ -668,6 +677,7 @@ fn withdraw_multiple_rewards() {
         msg: Some(
             to_binary(&Cw20HookMsg::Bond {
                 asset_token: HumanAddr::from("asset0001"),
+                staker: None,
             })
             .unwrap(),
         ),

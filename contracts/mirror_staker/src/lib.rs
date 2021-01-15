@@ -1,6 +1,9 @@
 pub mod contract;
 pub mod state;
 
+mod math;
+mod querier;
+
 #[cfg(test)]
 mod testing;
 

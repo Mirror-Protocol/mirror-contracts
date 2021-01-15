@@ -1,0 +1,129 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "HandleMsg",
+  "anyOf": [
+    {
+      "description": "Execute following messages 1. swap half tokens 2. provide liquidity 3. stake lp token",
+      "type": "object",
+      "required": [
+        "execute_buy_operations"
+      ],
+      "properties": {
+        "execute_buy_operations": {
+          "type": "object",
+          "required": [
+            "asset_token"
+          ],
+          "properties": {
+            "asset_token": {
+              "$ref": "#/definitions/HumanAddr"
+            },
+            "belief_price": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Decimal"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "max_spread": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Decimal"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "1. mint tokens 2. provide liquidity 3. stake lp token",
+      "type": "object",
+      "required": [
+        "execute_mint_operations"
+      ],
+      "properties": {
+        "execute_mint_operations": {
+          "type": "object",
+          "required": [
+            "asset_token",
+            "collateral_ratio"
+          ],
+          "properties": {
+            "asset_token": {
+              "$ref": "#/definitions/HumanAddr"
+            },
+            "collateral_ratio": {
+              "$ref": "#/definitions/Decimal"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "provide_operation"
+      ],
+      "properties": {
+        "provide_operation": {
+          "type": "object",
+          "required": [
+            "asset_token",
+            "pair_contract"
+          ],
+          "properties": {
+            "asset_token": {
+              "$ref": "#/definitions/HumanAddr"
+            },
+            "pair_contract": {
+              "$ref": "#/definitions/HumanAddr"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "stake_operation"
+      ],
+      "properties": {
+        "stake_operation": {
+          "type": "object",
+          "required": [
+            "asset_token",
+            "liquidity_token",
+            "staker"
+          ],
+          "properties": {
+            "asset_token": {
+              "$ref": "#/definitions/HumanAddr"
+            },
+            "liquidity_token": {
+              "$ref": "#/definitions/HumanAddr"
+            },
+            "staker": {
+              "$ref": "#/definitions/HumanAddr"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "Decimal": {
+      "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0 The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
+      "type": "string"
+    },
+    "HumanAddr": {
+      "type": "string"
+    }
+  }
+}

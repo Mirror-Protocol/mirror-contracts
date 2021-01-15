@@ -19,7 +19,7 @@ use mirror_protocol::mint::{
     AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrateMsg,
     PositionResponse, PositionsResponse, QueryMsg,
 };
-use terraswap::{Asset, AssetInfo, AssetInfoRaw, AssetRaw};
+use terraswap::asset::{Asset, AssetInfo, AssetInfoRaw, AssetRaw};
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -89,6 +89,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             end_price,
         } => try_register_migration(deps, env, asset_token, end_price),
         HandleMsg::OpenPosition {
+            owner,
             collateral,
             asset_info,
             collateral_ratio,
@@ -101,14 +102,14 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             // Check the actual deposit happens
             collateral.assert_sent_native_token_balance(&env)?;
 
-            try_open_position(
-                deps,
-                env.clone(),
-                env.message.sender,
-                collateral,
-                asset_info,
-                collateral_ratio,
-            )
+            // Allow to spacify opsition owner
+            let owner = if let Some(owner) = owner {
+                owner
+            } else {
+                env.message.sender.clone()
+            };
+
+            try_open_position(deps, env, owner, collateral, asset_info, collateral_ratio)
         }
         HandleMsg::Deposit {
             position_idx,
@@ -150,16 +151,19 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
     if let Some(msg) = cw20_msg.msg {
         match from_binary(&msg)? {
             Cw20HookMsg::OpenPosition {
+                owner,
                 asset_info,
                 collateral_ratio,
-            } => try_open_position(
-                deps,
-                env,
-                cw20_msg.sender,
-                passed_asset,
-                asset_info,
-                collateral_ratio,
-            ),
+            } => {
+                // Allow to spacify opsition owner
+                let owner = if let Some(owner) = owner {
+                    owner
+                } else {
+                    cw20_msg.sender
+                };
+
+                try_open_position(deps, env, owner, passed_asset, asset_info, collateral_ratio)
+            }
             Cw20HookMsg::Deposit { position_idx } => {
                 try_deposit(deps, cw20_msg.sender, position_idx, passed_asset)
             }

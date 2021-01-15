@@ -16,6 +16,16 @@
           "properties": {
             "asset_token": {
               "$ref": "#/definitions/HumanAddr"
+            },
+            "staker": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             }
           }
         }
