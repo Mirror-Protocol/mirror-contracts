@@ -358,7 +358,7 @@ fn provide_operation() {
                             amount: Uint128(476u128),
                         },
                     ],
-                    slippage_tolerance: None,
+                    slippage_tolerance: Some(Decimal::percent(1)),
                 })
                 .unwrap(),
                 send: vec![Coin {
@@ -452,7 +452,7 @@ fn provide_operation() {
                             amount: Uint128(383u128),
                         },
                     ],
-                    slippage_tolerance: None,
+                    slippage_tolerance: Some(Decimal::percent(1)),
                 })
                 .unwrap(),
                 send: vec![Coin {

@@ -325,10 +325,16 @@ pub fn provide_operation<S: Storage, A: Api, Q: Querier>(
     let tax_amount = compute_tax(&deps, native_balance, config.base_denom.to_string())?;
     let native_balance = (native_balance - tax_amount)?;
 
-    let native_balance = std::cmp::min(
-        native_balance,
-        Decimal::from_ratio(native_balance_pair, asset_balance_pair) * asset_balance,
-    );
+    let required_native_balance =
+        Decimal::from_ratio(native_balance_pair, asset_balance_pair) * asset_balance;
+    let (native_balance, asset_balance) = if native_balance < required_native_balance {
+        (
+            native_balance,
+            Decimal::from_ratio(asset_balance_pair, native_balance_pair) * native_balance,
+        )
+    } else {
+        (required_native_balance, asset_balance)
+    };
 
     Ok(HandleResponse {
         messages: vec![
@@ -358,7 +364,7 @@ pub fn provide_operation<S: Storage, A: Api, Q: Querier>(
                             amount: asset_balance,
                         },
                     ],
-                    slippage_tolerance: None,
+                    slippage_tolerance: Some(Decimal::percent(1)),
                 })?,
                 send: vec![Coin {
                     denom: config.base_denom,
