@@ -2,6 +2,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{Decimal, HumanAddr};
+use cw20::Cw20ReceiveMsg;
+use terraswap::asset::AssetInfo;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
@@ -15,11 +17,12 @@ pub struct InitMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum HandleMsg {
+    Receive(Cw20ReceiveMsg),
     /// Execute following messages
     /// 1. swap half tokens
     /// 2. provide liquidity
     /// 3. stake lp token
-    ExecuteBuyOperations {
+    BuyAndStake {
         asset_token: HumanAddr,
         belief_price: Option<Decimal>,
         max_spread: Option<Decimal>,
@@ -27,11 +30,23 @@ pub enum HandleMsg {
     /// 1. mint tokens
     /// 2. provide liquidity
     /// 3. stake lp token
-    ExecuteMintOperations {
+    MintAndStake {
         asset_token: HumanAddr,
         collateral_ratio: Decimal,
     },
+    /// Execute multiple BuyOperation
+    BuyWithRoutes {
+        offer_asset_info: AssetInfo,
+        routes: Vec<AssetInfo>,
+        max_spread: Option<Decimal>,
+    },
 
+    BuyOperation {
+        offer_asset_info: AssetInfo,
+        ask_asset_info: AssetInfo,
+        max_spread: Option<Decimal>,
+        to: Option<HumanAddr>,
+    },
     ProvideOperation {
         asset_token: HumanAddr,
         pair_contract: HumanAddr,
@@ -40,6 +55,15 @@ pub enum HandleMsg {
         asset_token: HumanAddr,
         liquidity_token: HumanAddr,
         staker: HumanAddr,
+    },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Cw20HookMsg {
+    BuyWithRoutes {
+        routes: Vec<AssetInfo>,
+        max_spread: Option<Decimal>,
     },
 }
 
