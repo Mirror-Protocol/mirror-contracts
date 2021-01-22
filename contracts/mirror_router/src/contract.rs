@@ -174,7 +174,7 @@ pub fn buy_and_stake<S: Storage, A: Api, Q: Querier>(
     )?;
 
     // Extimated required asset amount without consideration of commission and tax
-    // let swap_amount = sqrt(pool*(pool + deposit)) * sqrt(pool) - pool
+    // let swap_amount = sqrt(pool*(pool + deposit)) - pool
     let swap_amount = Uint128(
         (native_pool_balance.u128() * (native_pool_balance.u128() + amount.u128())).integer_sqrt()
             - native_pool_balance.u128(),
