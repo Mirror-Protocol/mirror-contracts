@@ -9,7 +9,9 @@ use crate::testing::mock_querier::mock_dependencies;
 
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
 use mirror_protocol::mint::HandleMsg as MintHandleMsg;
-use mirror_protocol::router::{ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, QueryMsg};
+use mirror_protocol::router::{
+    BuyWithRoutesResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, QueryMsg,
+};
 use mirror_protocol::staking::Cw20HookMsg as StakingCw20HookMsg;
 use terraswap::asset::{Asset, AssetInfo};
 use terraswap::pair::HandleMsg as PairHandleMsg;
@@ -858,5 +860,66 @@ fn stake_operation() {
                 .unwrap(),
             })
         ]
+    );
+}
+
+#[test]
+fn query_buy_with_routes() {
+    let mut deps = mock_dependencies(20, &[]);
+
+    let msg = InitMsg {
+        mint_contract: HumanAddr("mint".to_string()),
+        oracle_contract: HumanAddr("oracle".to_string()),
+        staking_contract: HumanAddr("staking".to_string()),
+        terraswap_factory: HumanAddr("terraswapfactory".to_string()),
+        base_denom: "uusd".to_string(),
+    };
+
+    let env = mock_env("addr0000", &[]);
+
+    // we can just call .unwrap() to assert this was a success
+    let _res = init(&mut deps, env, msg).unwrap();
+
+    // set tax rate as 5%
+    deps.querier.with_tax(
+        Decimal::percent(5),
+        &[
+            (&"uusd".to_string(), &Uint128(1000000u128)),
+            (&"ukrw".to_string(), &Uint128(1000000u128)),
+        ],
+    );
+
+    let msg = QueryMsg::BuyWithRoutes {
+        offer_asset: Asset {
+            info: AssetInfo::NativeToken {
+                denom: "uusd".to_string(),
+            },
+            amount: Uint128::from(1000000u128),
+        },
+        routes: vec![
+            AssetInfo::Token {
+                contract_addr: HumanAddr::from("asset0000"),
+            },
+            AssetInfo::NativeToken {
+                denom: "ukrw".to_string(),
+            },
+            AssetInfo::Token {
+                contract_addr: HumanAddr::from("asset0001"),
+            },
+        ],
+    };
+
+    deps.querier.with_terraswap_pairs(&[
+        (&"uusdasset0000".to_string(), &HumanAddr::from("pair0000")),
+        (&"asset0000ukrw".to_string(), &HumanAddr::from("pair0001")),
+        (&"ukrwasset0001".to_string(), &HumanAddr::from("pair0002")),
+    ]);
+
+    let res: BuyWithRoutesResponse = from_binary(&query(&deps, msg).unwrap()).unwrap();
+    assert_eq!(
+        res,
+        BuyWithRoutesResponse {
+            amount: Uint128::from(863836u128), // tax charged 3 times uusd => asset0000, asset0000 => ukrw, ukrw => asset0001
+        }
     );
 }

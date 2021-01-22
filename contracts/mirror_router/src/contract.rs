@@ -1,7 +1,8 @@
 use cosmwasm_std::{
     from_binary, log, to_binary, Api, Binary, Coin, CosmosMsg, Decimal, Env, Extern,
     HandleResponse, HandleResult, HumanAddr, InitResponse, InitResult, MigrateResponse,
-    MigrateResult, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
+    MigrateResult, Querier, QueryRequest, StdError, StdResult, Storage, Uint128, WasmMsg,
+    WasmQuery,
 };
 
 use crate::math::{decimal_multiplication, reverse_decimal};
@@ -13,10 +14,10 @@ use cw20::Cw20ReceiveMsg;
 use integer_sqrt::IntegerSquareRoot;
 use mirror_protocol::mint::HandleMsg as MintHandleMsg;
 use mirror_protocol::router::{
-    ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrateMsg, QueryMsg,
+    BuyWithRoutesResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrateMsg, QueryMsg,
 };
 use terraswap::asset::{Asset, AssetInfo, PairInfo};
-use terraswap::pair::HandleMsg as PairHandleMsg;
+use terraswap::pair::{HandleMsg as PairHandleMsg, QueryMsg as PairQueryMsg, SimulationResponse};
 use terraswap::querier::{query_balance, query_pair_info, query_token_balance};
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
@@ -404,6 +405,10 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
+        QueryMsg::BuyWithRoutes {
+            offer_asset,
+            routes,
+        } => to_binary(&query_buy_with_routes(deps, offer_asset, routes)?),
     }
 }
 
@@ -428,4 +433,55 @@ pub fn migrate<S: Storage, A: Api, Q: Querier>(
     _msg: MigrateMsg,
 ) -> MigrateResult {
     Ok(MigrateResponse::default())
+}
+
+fn query_buy_with_routes<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    offer_asset: Asset,
+    routes: Vec<AssetInfo>,
+) -> StdResult<BuyWithRoutesResponse> {
+    let config: Config = read_config(&deps.storage)?;
+    let terraswap_factory = deps.api.human_address(&config.terraswap_factory)?;
+
+    let mut offer_asset = offer_asset;
+    for route in routes.into_iter() {
+        let pair_info: PairInfo = query_pair_info(
+            &deps,
+            &terraswap_factory,
+            &[offer_asset.info.clone(), route.clone()],
+        )?;
+
+        // Deduct tax before querying simulation
+        match offer_asset.info.clone() {
+            AssetInfo::NativeToken { denom } => {
+                offer_asset.amount =
+                    (offer_asset.amount - compute_tax(&deps, offer_asset.amount, denom)?)?;
+            }
+            _ => {}
+        }
+
+        let mut res: SimulationResponse =
+            deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+                contract_addr: HumanAddr::from(pair_info.contract_addr),
+                msg: to_binary(&PairQueryMsg::Simulation { offer_asset })?,
+            }))?;
+
+        // Deduct tax after querying simulation
+        match route.clone() {
+            AssetInfo::NativeToken { denom } => {
+                res.return_amount =
+                    (res.return_amount - compute_tax(&deps, res.return_amount, denom)?)?;
+            }
+            _ => {}
+        }
+
+        offer_asset = Asset {
+            info: route,
+            amount: res.return_amount,
+        };
+    }
+
+    Ok(BuyWithRoutesResponse {
+        amount: offer_asset.amount,
+    })
 }

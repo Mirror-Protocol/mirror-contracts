@@ -1,9 +1,9 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Decimal, HumanAddr};
+use cosmwasm_std::{Decimal, HumanAddr, Uint128};
 use cw20::Cw20ReceiveMsg;
-use terraswap::asset::AssetInfo;
+use terraswap::asset::{Asset, AssetInfo};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
@@ -71,6 +71,10 @@ pub enum Cw20HookMsg {
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     Config {},
+    BuyWithRoutes {
+        offer_asset: Asset,
+        routes: Vec<AssetInfo>,
+    },
 }
 
 // We define a custom struct for each query response
@@ -81,6 +85,12 @@ pub struct ConfigResponse {
     pub staking_contract: HumanAddr,
     pub terraswap_factory: HumanAddr,
     pub base_denom: String,
+}
+
+// We define a custom struct for each query response
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct BuyWithRoutesResponse {
+    pub amount: Uint128,
 }
 
 /// We currently take no arguments for migrations

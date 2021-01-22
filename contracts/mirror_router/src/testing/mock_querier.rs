@@ -11,7 +11,8 @@ use std::collections::HashMap;
 use crate::math::decimal_division;
 use mirror_protocol::oracle::PriceResponse;
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
-use terraswap::asset::{AssetInfo, PairInfo};
+use terraswap::asset::{Asset, AssetInfo, PairInfo};
+use terraswap::pair::SimulationResponse;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -22,6 +23,9 @@ pub enum QueryMsg {
     },
     Pair {
         asset_infos: [AssetInfo; 2],
+    },
+    Simulation {
+        offer_asset: Asset,
     },
 }
 
@@ -250,6 +254,11 @@ impl WasmMockQuerier {
                         }),
                     }
                 }
+                QueryMsg::Simulation { offer_asset } => Ok(to_binary(&SimulationResponse {
+                    return_amount: offer_asset.amount,
+                    commission_amount: Uint128::zero(),
+                    spread_amount: Uint128::zero(),
+                })),
             },
             QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
                 let key: &[u8] = key.as_slice();
