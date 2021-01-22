@@ -1,8 +1,8 @@
 pub mod contract;
 pub mod state;
 
-mod operations;
 mod math;
+mod operations;
 mod querier;
 
 #[cfg(test)]

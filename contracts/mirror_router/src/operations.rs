@@ -222,10 +222,7 @@ pub fn asset_into_swap_msg<S: Storage, A: Api, Q: Querier>(
             let amount = (offer_asset.deduct_tax(&deps)?).amount;
             Ok(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: pair_contract,
-                send: vec![Coin {
-                    denom: denom,
-                    amount,
-                }],
+                send: vec![Coin { denom, amount }],
                 msg: to_binary(&PairHandleMsg::Swap {
                     offer_asset: Asset {
                         amount,
