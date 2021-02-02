@@ -204,6 +204,27 @@
           }
         }
       }
+    },
+    {
+      "type": "object",
+      "required": [
+        "undo_expire_poll"
+      ],
+      "properties": {
+        "undo_expire_poll": {
+          "type": "object",
+          "required": [
+            "poll_id"
+          ],
+          "properties": {
+            "poll_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          }
+        }
+      }
     }
   ],
   "definitions": {
