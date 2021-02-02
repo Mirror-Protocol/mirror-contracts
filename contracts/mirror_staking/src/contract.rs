@@ -1,11 +1,11 @@
 use cosmwasm_std::{
     from_binary, log, to_binary, Api, Binary, CanonicalAddr, CosmosMsg, Decimal, Env, Extern,
-    HandleResponse, HandleResult, HumanAddr, InitResponse, Order, Querier, StdError, StdResult,
-    Storage, Uint128, WasmMsg,
+    HandleResponse, HandleResult, HumanAddr, InitResponse, MigrateResponse, MigrateResult, Order,
+    Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 
 use mirror_protocol::staking::{
-    ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, PoolInfoResponse, QueryMsg,
+    ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrateMsg, PoolInfoResponse, QueryMsg,
     RewardInfoResponse, RewardInfoResponseItem,
 };
 
@@ -436,4 +436,12 @@ pub fn query_reward_info<S: Storage, A: Api, Q: Querier>(
         staker,
         reward_infos,
     })
+}
+
+pub fn migrate<S: Storage, A: Api, Q: Querier>(
+    _deps: &mut Extern<S, A, Q>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> MigrateResult {
+    Ok(MigrateResponse::default())
 }

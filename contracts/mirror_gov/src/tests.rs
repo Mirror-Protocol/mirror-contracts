@@ -885,7 +885,7 @@ fn expire_poll() {
 
     creator_env.block.height = &creator_env.block.height + DEFAULT_EXPIRATION_PERIOD;
     let msg = HandleMsg::ExpirePoll { poll_id: 1 };
-    let _handle_res = handle(&mut deps, creator_env, msg).unwrap();
+    let _handle_res = handle(&mut deps, creator_env.clone(), msg).unwrap();
 
     let res = query(&deps, QueryMsg::Poll { poll_id: 1 }).unwrap();
     let poll_res: PollResponse = from_binary(&res).unwrap();
@@ -895,6 +895,25 @@ fn expire_poll() {
         &deps,
         QueryMsg::Polls {
             filter: Some(PollStatus::Expired),
+            start_after: None,
+            limit: None,
+            order_by: Some(OrderBy::Desc),
+        },
+    )
+    .unwrap();
+    let polls_res: PollsResponse = from_binary(&res).unwrap();
+    assert_eq!(polls_res.polls[0], poll_res);
+
+    let msg = HandleMsg::UndoExpirePoll { poll_id: 1 };
+    let _handle_res = handle(&mut deps, creator_env, msg).unwrap();
+    let res = query(&deps, QueryMsg::Poll { poll_id: 1 }).unwrap();
+    let poll_res: PollResponse = from_binary(&res).unwrap();
+    assert_eq!(poll_res.status, PollStatus::Passed);
+
+    let res = query(
+        &deps,
+        QueryMsg::Polls {
+            filter: Some(PollStatus::Passed),
             start_after: None,
             limit: None,
             order_by: Some(OrderBy::Desc),

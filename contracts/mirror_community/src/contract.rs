@@ -2,10 +2,11 @@ use crate::state::{read_config, store_config, Config};
 
 use cosmwasm_std::{
     log, to_binary, Api, Binary, CosmosMsg, Env, Extern, HandleResponse, HandleResult, HumanAddr,
-    InitResponse, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
+    InitResponse, MigrateResponse, MigrateResult, Querier, StdError, StdResult, Storage, Uint128,
+    WasmMsg,
 };
 
-use mirror_protocol::community::{ConfigResponse, HandleMsg, InitMsg, QueryMsg};
+use mirror_protocol::community::{ConfigResponse, HandleMsg, InitMsg, MigrateMsg, QueryMsg};
 
 use cw20::Cw20HandleMsg;
 
@@ -124,4 +125,12 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
     };
 
     Ok(resp)
+}
+
+pub fn migrate<S: Storage, A: Api, Q: Querier>(
+    _deps: &mut Extern<S, A, Q>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> MigrateResult {
+    Ok(MigrateResponse::default())
 }

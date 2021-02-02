@@ -47,6 +47,9 @@ pub enum HandleMsg {
     ExpirePoll {
         poll_id: u64,
     },
+    UndoExpirePoll {
+        poll_id: u64,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
