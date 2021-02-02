@@ -92,7 +92,6 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::EndPoll { poll_id } => end_poll(deps, env, poll_id),
         HandleMsg::ExecutePoll { poll_id } => execute_poll(deps, env, poll_id),
         HandleMsg::ExpirePoll { poll_id } => expire_poll(deps, env, poll_id),
-        HandleMsg::UndoExpirePoll { poll_id } => undo_expire_poll(deps, env, poll_id),
     }
 }
 
@@ -605,35 +604,6 @@ pub fn expire_poll<S: Storage, A: Api, Q: Querier>(
         messages: vec![],
         log: vec![
             log("action", "expire_poll"),
-            log("poll_id", poll_id.to_string()),
-        ],
-        data: None,
-    })
-}
-
-/// UndoExpirePoll is used to revert ExpirePoll operation
-pub fn undo_expire_poll<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    _env: Env,
-    poll_id: u64,
-) -> HandleResult {
-    let mut a_poll: Poll = poll_store(&mut deps.storage).load(&poll_id.to_be_bytes())?;
-
-    if a_poll.status != PollStatus::Expired {
-        return Err(StdError::generic_err("Poll is not in expired status"));
-    }
-
-    poll_indexer_store(&mut deps.storage, &PollStatus::Expired).remove(&poll_id.to_be_bytes());
-    poll_indexer_store(&mut deps.storage, &PollStatus::Passed)
-        .save(&poll_id.to_be_bytes(), &true)?;
-
-    a_poll.status = PollStatus::Passed;
-    poll_store(&mut deps.storage).save(&poll_id.to_be_bytes(), &a_poll)?;
-
-    Ok(HandleResponse {
-        messages: vec![],
-        log: vec![
-            log("action", "undo_expire_poll"),
             log("poll_id", poll_id.to_string()),
         ],
         data: None,
