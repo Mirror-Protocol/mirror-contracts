@@ -617,6 +617,91 @@ fn test_distribute() {
 }
 
 #[test]
+fn test_revocation() {
+    let mut deps = mock_dependencies(20, &[]);
+    deps.querier
+        .with_terraswap_pairs(&[(&"uusdasset0000".to_string(), &HumanAddr::from("LP0000"))]);
+
+    let msg = InitMsg {
+        base_denom: BASE_DENOM.to_string(),
+        token_code_id: TOKEN_CODE_ID,
+        distribution_schedule: vec![],
+    };
+
+    let env = mock_env("addr0000", &[]);
+    let _res = init(&mut deps, env.clone(), msg).unwrap();
+
+    let msg = HandleMsg::PostInitialize {
+        owner: HumanAddr::from("owner0000"),
+        mirror_token: HumanAddr::from("mirror0000"),
+        mint_contract: HumanAddr::from("mint0000"),
+        staking_contract: HumanAddr::from("staking0000"),
+        commission_collector: HumanAddr::from("collector0000"),
+        oracle_contract: HumanAddr::from("oracle0000"),
+        terraswap_factory: HumanAddr::from("terraswapfactory"),
+    };
+    let _res = handle(&mut deps, env, msg).unwrap();
+
+    // whitelist first item with weight 1.5
+    let msg = HandleMsg::Whitelist {
+        name: "apple derivative".to_string(),
+        symbol: "mAPPL".to_string(),
+        oracle_feeder: HumanAddr::from("feeder0000"),
+        params: Params {
+            auction_discount: Decimal::percent(5),
+            min_collateral_ratio: Decimal::percent(150),
+        },
+    };
+    let env = mock_env("owner0000", &[]);
+    let _res = handle(&mut deps, env, msg).unwrap();
+
+    let msg = HandleMsg::TokenCreationHook {
+        oracle_feeder: HumanAddr::from("feeder0000"),
+    };
+    let env = mock_env("asset0000", &[]);
+    let _res = handle(&mut deps, env, msg).unwrap();
+
+    let msg = HandleMsg::TerraswapCreationHook {
+        asset_token: HumanAddr::from("asset0000"),
+    };
+    let env = mock_env("terraswapfactory", &[]);
+    let _res = handle(&mut deps, env, msg).unwrap();
+    // register queriers
+    deps.querier.with_oracle_feeders(&[(
+        &HumanAddr::from("asset0000"),
+        &HumanAddr::from("feeder0000"),
+    )]);
+
+    // unauthorized revoke attempt
+    let msg = HandleMsg::RevokeAsset {
+        asset_token: HumanAddr::from("asset0000"),
+        end_price: Decimal::from_ratio(2u128, 1u128),
+    };
+    let env = mock_env("owner0000", &[]);
+    let res = handle(&mut deps, env, msg.clone()).unwrap_err();
+
+    match res {
+        StdError::Unauthorized { .. } => {}
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    let env = mock_env("feeder0000", &[]);
+    let res = handle(&mut deps, env, msg).unwrap();
+    assert_eq!(
+        res.messages,
+        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: HumanAddr::from("mint0000"),
+            send: vec![],
+            msg: to_binary(&MintHandleMsg::RegisterMigration {
+                asset_token: HumanAddr::from("asset0000"),
+                end_price: Decimal::from_ratio(2u128, 1u128),
+            })
+            .unwrap(),
+        }),]
+    );
+}
+
+#[test]
 fn test_migration() {
     let mut deps = mock_dependencies(20, &[]);
     deps.querier

@@ -70,7 +70,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             terraswap_factory,
             staking_contract,
             commission_collector,
-        } => try_post_initialize(
+        } => post_initialize(
             deps,
             env,
             owner,
@@ -85,34 +85,38 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             owner,
             token_code_id,
             distribution_schedule,
-        } => try_update_config(deps, env, owner, token_code_id, distribution_schedule),
+        } => update_config(deps, env, owner, token_code_id, distribution_schedule),
         HandleMsg::Whitelist {
             name,
             symbol,
             oracle_feeder,
             params,
-        } => try_whitelist(deps, env, name, symbol, oracle_feeder, params),
+        } => whitelist(deps, env, name, symbol, oracle_feeder, params),
         HandleMsg::TokenCreationHook { oracle_feeder } => {
             token_creation_hook(deps, env, oracle_feeder)
         }
         HandleMsg::TerraswapCreationHook { asset_token } => {
             terraswap_creation_hook(deps, env, asset_token)
         }
-        HandleMsg::Distribute {} => try_distribute(deps, env),
+        HandleMsg::Distribute {} => distribute(deps, env),
         HandleMsg::PassCommand { contract_addr, msg } => {
-            try_pass_command(deps, env, contract_addr, msg)
+            pass_command(deps, env, contract_addr, msg)
         }
+        HandleMsg::RevokeAsset {
+            asset_token,
+            end_price,
+        } => revoke_asset(deps, env, asset_token, end_price),
         HandleMsg::MigrateAsset {
             name,
             symbol,
             from_token,
             end_price,
-        } => try_migrate_asset(deps, env, name, symbol, from_token, end_price),
+        } => migrate_asset(deps, env, name, symbol, from_token, end_price),
     }
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn try_post_initialize<S: Storage, A: Api, Q: Querier>(
+pub fn post_initialize<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     _env: Env,
     owner: HumanAddr,
@@ -140,7 +144,7 @@ pub fn try_post_initialize<S: Storage, A: Api, Q: Querier>(
     Ok(HandleResponse::default())
 }
 
-pub fn try_update_config<S: Storage, A: Api, Q: Querier>(
+pub fn update_config<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     owner: Option<HumanAddr>,
@@ -174,7 +178,7 @@ pub fn try_update_config<S: Storage, A: Api, Q: Querier>(
 }
 
 // just for by passing command to other contract like update config
-pub fn try_pass_command<S: Storage, A: Api, Q: Querier>(
+pub fn pass_command<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     contract_addr: HumanAddr,
@@ -205,7 +209,7 @@ pub fn try_pass_command<S: Storage, A: Api, Q: Querier>(
 ///    2-4. Create terraswap pair through terraswap factory
 /// 3. Call `TerraswapCreationHook`
 ///    3-1. Register asset to staking contract
-pub fn try_whitelist<S: Storage, A: Api, Q: Querier>(
+pub fn whitelist<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     name: String,
@@ -383,7 +387,7 @@ pub fn terraswap_creation_hook<S: Storage, A: Api, Q: Querier>(
 /// Distribute
 /// Anyone can execute distribute operation to distribute
 /// mirror inflation rewards on the staking pool
-pub fn try_distribute<S: Storage, A: Api, Q: Querier>(
+pub fn distribute<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
 ) -> HandleResult {
@@ -455,7 +459,46 @@ pub fn try_distribute<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-pub fn try_migrate_asset<S: Storage, A: Api, Q: Querier>(
+pub fn revoke_asset<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    asset_token: HumanAddr,
+    end_price: Decimal,
+) -> HandleResult {
+    let config: Config = read_config(&deps.storage)?;
+    let asset_token_raw: CanonicalAddr = deps.api.canonical_address(&asset_token)?;
+    let oracle_feeder: HumanAddr = deps.api.human_address(&load_oracle_feeder(
+        &deps,
+        &deps.api.human_address(&config.oracle_contract)?,
+        &asset_token_raw,
+    )?)?;
+
+    if oracle_feeder != env.message.sender {
+        return Err(StdError::unauthorized());
+    }
+
+    remove_weight(&mut deps.storage, &asset_token_raw);
+    decrease_total_weight(&mut deps.storage, NORMAL_TOKEN_WEIGHT)?;
+
+    Ok(HandleResponse {
+        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: deps.api.human_address(&config.mint_contract)?,
+            send: vec![],
+            msg: to_binary(&MintHandleMsg::RegisterMigration {
+                asset_token: asset_token.clone(),
+                end_price,
+            })?,
+        })],
+        log: vec![
+            log("action", "revoke_asset"),
+            log("end_price", end_price.to_string()),
+            log("asset_token", asset_token.to_string()),
+        ],
+        data: None,
+    })
+}
+
+pub fn migrate_asset<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     name: String,

@@ -52,6 +52,16 @@ pub enum HandleMsg {
     //////////////////////
     /// Feeder Operations
     /// //////////////////
+
+    /// Revoke asset from MIR rewards pool
+    /// and register end_price to mint contract
+    RevokeAsset {
+        asset_token: HumanAddr,
+        end_price: Decimal,
+    },
+    /// Migrate asset to new asset by registering
+    /// end_price to mint contract and add 
+    /// the new asset to MIR rewards pool
     MigrateAsset {
         name: String,
         symbol: String,
