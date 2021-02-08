@@ -1,8 +1,9 @@
 use crate::contract::{handle, init, query};
 use crate::mock_querier::mock_dependencies;
 
-use crate::state::read_params;
+use crate::state::{read_params, read_total_weight, read_weight, store_total_weight, store_weight};
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
+use cosmwasm_std::Api;
 use cosmwasm_std::{
     from_binary, log, to_binary, CosmosMsg, Decimal, Env, HumanAddr, StdError, Uint128, WasmMsg,
 };
@@ -179,6 +180,78 @@ fn test_update_config() {
 }
 
 #[test]
+fn test_update_weight() {
+    let mut deps = mock_dependencies(20, &[]);
+    let msg = InitMsg {
+        base_denom: BASE_DENOM.to_string(),
+        token_code_id: TOKEN_CODE_ID,
+        distribution_schedule: vec![],
+    };
+
+    let env = mock_env("addr0000", &[]);
+    let _res = init(&mut deps, env.clone(), msg).unwrap();
+
+    let msg = HandleMsg::PostInitialize {
+        owner: HumanAddr::from("owner0000"),
+        mirror_token: HumanAddr::from("mirror0000"),
+        mint_contract: HumanAddr::from("mint0000"),
+        staking_contract: HumanAddr::from("staking0000"),
+        commission_collector: HumanAddr::from("collector0000"),
+        oracle_contract: HumanAddr::from("oracle0000"),
+        terraswap_factory: HumanAddr::from("terraswapfactory"),
+    };
+    let _res = handle(&mut deps, env.clone(), msg).unwrap();
+
+    store_total_weight(&mut deps.storage, 100).unwrap();
+    store_weight(
+        &mut deps.storage,
+        &deps
+            .api
+            .canonical_address(&HumanAddr::from("asset0000"))
+            .unwrap(),
+        10,
+    )
+    .unwrap();
+
+    // incrase weight
+    let msg = HandleMsg::UpdateWeight {
+        asset_token: HumanAddr::from("asset0000"),
+        weight: 20,
+    };
+    let env = mock_env("owner0001", &[]);
+    let res = handle(&mut deps, env, msg.clone()).unwrap_err();
+    match res {
+        StdError::Unauthorized { .. } => {}
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    let env = mock_env("owner0000", &[]);
+    let _res = handle(&mut deps, env, msg).unwrap();
+    let res = query(&deps, QueryMsg::DistributionInfo {}).unwrap();
+    let distribution_info: DistributionInfoResponse = from_binary(&res).unwrap();
+    assert_eq!(
+        distribution_info,
+        DistributionInfoResponse {
+            weights: vec![(HumanAddr::from("asset0000"), 20)],
+            last_distributed: 1_571_797_419,
+        }
+    );
+
+    assert_eq!(
+        read_weight(
+            &deps.storage,
+            &deps
+                .api
+                .canonical_address(&HumanAddr::from("asset0000"))
+                .unwrap()
+        )
+        .unwrap(),
+        20u32
+    );
+    assert_eq!(read_total_weight(&deps.storage).unwrap(), 110u32);
+}
+
+#[test]
 fn test_whitelist() {
     let mut deps = mock_dependencies(20, &[]);
 
@@ -209,6 +282,7 @@ fn test_whitelist() {
         params: Params {
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
+            weight: Some(100u32),
         },
     };
     let env = mock_env("owner0000", &[]);
@@ -257,6 +331,7 @@ fn test_whitelist() {
         Params {
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
+            weight: Some(100u32),
         }
     );
 
@@ -318,6 +393,7 @@ fn test_token_creation_hook() {
         params: Params {
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
+            weight: Some(100u32),
         },
     };
     let env = mock_env("owner0000", &[]);
@@ -380,7 +456,133 @@ fn test_token_creation_hook() {
     assert_eq!(
         distribution_info,
         DistributionInfoResponse {
-            weights: vec![(HumanAddr::from("asset0000"), 1)],
+            weights: vec![(HumanAddr::from("asset0000"), 100)],
+            last_distributed: 1_571_797_419,
+        }
+    );
+
+    // There is no whitelist process; failed
+    let msg = HandleMsg::TokenCreationHook {
+        oracle_feeder: HumanAddr::from("feeder0000"),
+    };
+    let env = mock_env("asset0000", &[]);
+    let res = handle(&mut deps, env.clone(), msg.clone());
+    match res {
+        Err(StdError::GenericErr { msg, .. }) => {
+            assert_eq!(msg, "No whitelist process in progress")
+        }
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+}
+
+#[test]
+fn test_token_creation_hook_without_weight() {
+    let mut deps = mock_dependencies(20, &[]);
+
+    let msg = InitMsg {
+        base_denom: BASE_DENOM.to_string(),
+        token_code_id: TOKEN_CODE_ID,
+        distribution_schedule: vec![],
+    };
+
+    let env = mock_env("addr0000", &[]);
+    let _res = init(&mut deps, env.clone(), msg).unwrap();
+
+    let msg = HandleMsg::PostInitialize {
+        owner: HumanAddr::from("owner0000"),
+        mirror_token: HumanAddr::from("mirror0000"),
+        mint_contract: HumanAddr::from("mint0000"),
+        staking_contract: HumanAddr::from("staking0000"),
+        commission_collector: HumanAddr::from("collector0000"),
+        oracle_contract: HumanAddr::from("oracle0000"),
+        terraswap_factory: HumanAddr::from("terraswapfactory"),
+    };
+    let _res = handle(&mut deps, env.clone(), msg).unwrap();
+
+    // There is no whitelist process; failed
+    let msg = HandleMsg::TokenCreationHook {
+        oracle_feeder: HumanAddr::from("feeder0000"),
+    };
+    let env = mock_env("asset0000", &[]);
+    let res = handle(&mut deps, env.clone(), msg.clone());
+    match res {
+        Err(StdError::GenericErr { msg, .. }) => {
+            assert_eq!(msg, "No whitelist process in progress")
+        }
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    let msg = HandleMsg::Whitelist {
+        name: "apple derivative".to_string(),
+        symbol: "mAPPL".to_string(),
+        oracle_feeder: HumanAddr::from("feeder0000"),
+        params: Params {
+            auction_discount: Decimal::percent(5),
+            min_collateral_ratio: Decimal::percent(150),
+            weight: None,
+        },
+    };
+    let env = mock_env("owner0000", &[]);
+    let _res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
+
+    let msg = HandleMsg::TokenCreationHook {
+        oracle_feeder: HumanAddr::from("feeder0000"),
+    };
+    let env = mock_env("asset0000", &[]);
+    let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
+    assert_eq!(
+        res.messages,
+        vec![
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from("mint0000"),
+                send: vec![],
+                msg: to_binary(&MintHandleMsg::RegisterAsset {
+                    asset_token: HumanAddr::from("asset0000"),
+                    auction_discount: Decimal::percent(5),
+                    min_collateral_ratio: Decimal::percent(150),
+                })
+                .unwrap(),
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from("oracle0000"),
+                send: vec![],
+                msg: to_binary(&OracleHandleMsg::RegisterAsset {
+                    asset_token: HumanAddr::from("asset0000"),
+                    feeder: HumanAddr::from("feeder0000"),
+                })
+                .unwrap(),
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from("terraswapfactory"),
+                send: vec![],
+                msg: to_binary(&TerraswapFactoryHandleMsg::CreatePair {
+                    asset_infos: [
+                        AssetInfo::NativeToken {
+                            denom: BASE_DENOM.to_string(),
+                        },
+                        AssetInfo::Token {
+                            contract_addr: HumanAddr::from("asset0000"),
+                        },
+                    ],
+                    init_hook: Some(InitHook {
+                        msg: to_binary(&HandleMsg::TerraswapCreationHook {
+                            asset_token: HumanAddr::from("asset0000"),
+                        })
+                        .unwrap(),
+                        contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
+                    }),
+                })
+                .unwrap(),
+            })
+        ]
+    );
+
+    let res = query(&deps, QueryMsg::DistributionInfo {}).unwrap();
+    let distribution_info: DistributionInfoResponse = from_binary(&res).unwrap();
+    assert_eq!(
+        distribution_info,
+        DistributionInfoResponse {
+            weights: vec![(HumanAddr::from("asset0000"), 30)],
             last_distributed: 1_571_797_419,
         }
     );
@@ -432,6 +634,7 @@ fn test_terraswap_creation_hook() {
         params: Params {
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
+            weight: Some(100u32),
         },
     };
     let env = mock_env("owner0000", &[]);
@@ -501,6 +704,7 @@ fn test_distribute() {
         params: Params {
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
+            weight: Some(100u32),
         },
     };
     let env = mock_env("owner0000", &[]);
@@ -526,6 +730,7 @@ fn test_distribute() {
         params: Params {
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
+            weight: Some(100u32),
         },
     };
     let env = mock_env("owner0000", &[]);
@@ -608,8 +813,8 @@ fn test_distribute() {
         distribution_info,
         DistributionInfoResponse {
             weights: vec![
-                (HumanAddr::from("asset0000"), 1),
-                (HumanAddr::from("asset0001"), 1)
+                (HumanAddr::from("asset0000"), 100),
+                (HumanAddr::from("asset0001"), 100)
             ],
             last_distributed: 1_571_802_819,
         }
@@ -650,6 +855,7 @@ fn test_revocation() {
         params: Params {
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
+            weight: Some(100u32),
         },
     };
     let env = mock_env("owner0000", &[]);
@@ -735,6 +941,7 @@ fn test_migration() {
         params: Params {
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
+            weight: Some(100u32),
         },
     };
     let env = mock_env("owner0000", &[]);

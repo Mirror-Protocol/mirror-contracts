@@ -30,6 +30,10 @@ pub enum HandleMsg {
         token_code_id: Option<u64>,
         distribution_schedule: Option<Vec<(u64, u64, Uint128)>>, // [[start_time, end_time, distribution_amount], [], ...]
     },
+    UpdateWeight {
+        asset_token: HumanAddr,
+        weight: u32,
+    },
     Whitelist {
         /// asset name used to create token contract
         name: String,
@@ -41,9 +45,13 @@ pub enum HandleMsg {
         params: Params,
     },
     /// Internal use
-    TokenCreationHook { oracle_feeder: HumanAddr },
+    TokenCreationHook {
+        oracle_feeder: HumanAddr,
+    },
     /// Internal use except MIR registration
-    TerraswapCreationHook { asset_token: HumanAddr },
+    TerraswapCreationHook {
+        asset_token: HumanAddr,
+    },
     PassCommand {
         contract_addr: HumanAddr,
         msg: Binary,
@@ -60,7 +68,7 @@ pub enum HandleMsg {
         end_price: Decimal,
     },
     /// Migrate asset to new asset by registering
-    /// end_price to mint contract and add 
+    /// end_price to mint contract and add
     /// the new asset to MIR rewards pool
     MigrateAsset {
         name: String,
@@ -116,4 +124,6 @@ pub struct Params {
     pub auction_discount: Decimal,
     /// Minium collateral ratio applied to asset mint
     pub min_collateral_ratio: Decimal,
+    /// Distribution weight (default is 30, which is 1/10 of MIR distribution weight)
+    pub weight: Option<u32>,
 }

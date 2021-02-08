@@ -7,8 +7,9 @@ use cosmwasm_std::{
 use crate::querier::{load_mint_asset_config, load_oracle_feeder};
 use crate::state::{
     decrease_total_weight, increase_total_weight, read_all_weight, read_config,
-    read_last_distributed, read_params, read_total_weight, remove_params, remove_weight,
-    store_config, store_last_distributed, store_params, store_total_weight, store_weight, Config,
+    read_last_distributed, read_params, read_total_weight, read_weight, remove_params,
+    remove_weight, store_config, store_last_distributed, store_params, store_total_weight,
+    store_weight, Config,
 };
 
 use mirror_protocol::factory::{
@@ -25,8 +26,8 @@ use terraswap::{
     TokenInitMsg,
 };
 
-const MIRROR_TOKEN_WEIGHT: u32 = 3u32;
-const NORMAL_TOKEN_WEIGHT: u32 = 1u32;
+const MIRROR_TOKEN_WEIGHT: u32 = 300u32;
+const NORMAL_TOKEN_WEIGHT: u32 = 30u32;
 const DISTRIBUTION_INTERVAL: u64 = 60u64;
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
@@ -86,6 +87,10 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             token_code_id,
             distribution_schedule,
         } => update_config(deps, env, owner, token_code_id, distribution_schedule),
+        HandleMsg::UpdateWeight {
+            asset_token,
+            weight,
+        } => update_weight(deps, env, asset_token, weight),
         HandleMsg::Whitelist {
             name,
             symbol,
@@ -173,6 +178,38 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     Ok(HandleResponse {
         messages: vec![],
         log: vec![log("action", "update_config")],
+        data: None,
+    })
+}
+
+pub fn update_weight<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    asset_token: HumanAddr,
+    weight: u32,
+) -> HandleResult {
+    let config: Config = read_config(&deps.storage)?;
+    if config.owner != deps.api.canonical_address(&env.message.sender)? {
+        return Err(StdError::unauthorized());
+    }
+
+    let asset_token_raw = deps.api.canonical_address(&asset_token)?;
+    let origin_weight = read_weight(&deps.storage, &asset_token_raw)?;
+    store_weight(&mut deps.storage, &asset_token_raw, weight)?;
+
+    let origin_total_weight = read_total_weight(&deps.storage)?;
+    store_total_weight(
+        &mut deps.storage,
+        origin_total_weight + weight - origin_weight,
+    )?;
+
+    Ok(HandleResponse {
+        messages: vec![],
+        log: vec![
+            log("action", "update_weight"),
+            log("asset_token", asset_token),
+            log("weight", weight),
+        ],
         data: None,
     })
 }
@@ -278,9 +315,16 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
     let asset_token = env.message.sender;
     let asset_token_raw = deps.api.canonical_address(&asset_token)?;
 
+    // If weight is given as params, we use that or just use default
+    let weight = if let Some(weight) = params.weight {
+        weight
+    } else {
+        NORMAL_TOKEN_WEIGHT
+    };
+
     // Increase total weight
-    store_weight(&mut deps.storage, &asset_token_raw, NORMAL_TOKEN_WEIGHT)?;
-    increase_total_weight(&mut deps.storage, NORMAL_TOKEN_WEIGHT)?;
+    store_weight(&mut deps.storage, &asset_token_raw, weight)?;
+    increase_total_weight(&mut deps.storage, weight)?;
 
     // Remove params == clear flag
     remove_params(&mut deps.storage);
@@ -518,6 +562,7 @@ pub fn migrate_asset<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::unauthorized());
     }
 
+    let weight = read_weight(&deps.storage, &asset_token_raw)?;
     remove_weight(&mut deps.storage, &asset_token_raw);
     decrease_total_weight(&mut deps.storage, NORMAL_TOKEN_WEIGHT)?;
 
@@ -530,6 +575,7 @@ pub fn migrate_asset<S: Storage, A: Api, Q: Querier>(
         &Params {
             auction_discount: mint_config.0,
             min_collateral_ratio: mint_config.1,
+            weight: Some(weight),
         },
     )?;
 
@@ -620,9 +666,16 @@ pub fn query_distribution_info<S: Storage, A: Api, Q: Querier>(
 }
 
 pub fn migrate<S: Storage, A: Api, Q: Querier>(
-    _deps: &mut Extern<S, A, Q>,
+    deps: &mut Extern<S, A, Q>,
     _env: Env,
     _msg: MigrateMsg,
 ) -> MigrateResult {
+    let weights = read_all_weight(&deps.storage)?;
+    for (asset_token, weight) in weights.iter() {
+        store_weight(&mut deps.storage, &asset_token, weight * 100)?;
+    }
+
+    let total_weight = read_total_weight(&deps.storage)?;
+    store_total_weight(&mut deps.storage, total_weight * 100)?;
     Ok(MigrateResponse::default())
 }
