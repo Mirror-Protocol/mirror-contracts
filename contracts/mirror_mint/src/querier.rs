@@ -7,7 +7,7 @@ use cosmwasm_std::{
 
 use crate::math::decimal_division;
 use crate::state::{read_config, read_end_price, Config};
-use terraswap::AssetInfoRaw;
+use terraswap::asset::AssetInfoRaw;
 
 const PRICE_EXPIRE_TIME: u64 = 60;
 

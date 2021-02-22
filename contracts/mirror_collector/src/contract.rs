@@ -7,8 +7,9 @@ use crate::state::{read_config, store_config, Config};
 
 use cw20::Cw20HandleMsg;
 use mirror_protocol::collector::{ConfigResponse, HandleMsg, InitMsg, MigrateMsg, QueryMsg};
-use terraswap::{query_balance, query_pair_info, query_token_balance, Asset, AssetInfo, PairInfo};
-use terraswap::{PairCw20HookMsg as TerraswapCw20HookMsg, PairHandleMsg as TerraswapHandleMsg};
+use terraswap::asset::{Asset, AssetInfo, PairInfo};
+use terraswap::pair::{Cw20HookMsg as TerraswapCw20HookMsg, HandleMsg as TerraswapHandleMsg};
+use terraswap::querier::{query_balance, query_pair_info, query_token_balance};
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,

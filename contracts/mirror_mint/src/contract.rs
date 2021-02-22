@@ -19,7 +19,7 @@ use mirror_protocol::mint::{
     AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrateMsg,
     PositionResponse, PositionsResponse, QueryMsg,
 };
-use terraswap::{Asset, AssetInfo, AssetInfoRaw, AssetRaw};
+use terraswap::asset::{Asset, AssetInfo, AssetInfoRaw, AssetRaw};
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,

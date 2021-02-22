@@ -16,7 +16,10 @@ use mirror_protocol::mint::HandleMsg as MintHandleMsg;
 use mirror_protocol::oracle::HandleMsg as OracleHandleMsg;
 use mirror_protocol::staking::Cw20HookMsg as StakingCw20HookMsg;
 use mirror_protocol::staking::HandleMsg as StakingHandleMsg;
-use terraswap::{AssetInfo, FactoryHandleMsg as TerraswapFactoryHandleMsg, InitHook, TokenInitMsg};
+use terraswap::asset::AssetInfo;
+use terraswap::factory::HandleMsg as TerraswapFactoryHandleMsg;
+use terraswap::hook::InitHook;
+use terraswap::token::InitMsg as TokenInitMsg;
 
 fn mock_env_time(signer: &HumanAddr, time: u64) -> Env {
     let mut env = mock_env(signer, &[]);

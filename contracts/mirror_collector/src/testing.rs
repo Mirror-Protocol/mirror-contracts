@@ -4,8 +4,8 @@ use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{to_binary, Coin, CosmosMsg, Decimal, HumanAddr, Uint128, WasmMsg};
 use cw20::Cw20HandleMsg;
 use mirror_protocol::collector::{ConfigResponse, HandleMsg, InitMsg};
-use terraswap::{Asset, AssetInfo};
-use terraswap::{PairCw20HookMsg as TerraswapCw20HookMsg, PairHandleMsg as TerraswapHandleMsg};
+use terraswap::asset::{Asset, AssetInfo};
+use terraswap::pair::{Cw20HookMsg as TerraswapCw20HookMsg, HandleMsg as TerraswapHandleMsg};
 
 #[test]
 fn proper_initialization() {

@@ -10,7 +10,7 @@ use cosmwasm_storage::to_length_prefixed;
 
 use crate::querier::MintAssetConfig;
 use std::collections::HashMap;
-use terraswap::{AssetInfo, PairInfo};
+use terraswap::asset::{AssetInfo, PairInfo};
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
 /// this uses our CustomQuerier.

@@ -21,10 +21,11 @@ use mirror_protocol::staking::Cw20HookMsg as StakingCw20HookMsg;
 use mirror_protocol::staking::HandleMsg as StakingHandleMsg;
 
 use cw20::{Cw20HandleMsg, MinterResponse};
-use terraswap::{
-    query_pair_info, AssetInfo, FactoryHandleMsg as TerraswapFactoryHandleMsg, InitHook, PairInfo,
-    TokenInitMsg,
-};
+use terraswap::asset::{AssetInfo, PairInfo};
+use terraswap::factory::HandleMsg as TerraswapFactoryHandleMsg;
+use terraswap::hook::InitHook;
+use terraswap::querier::query_pair_info;
+use terraswap::token::InitMsg as TokenInitMsg;
 
 const MIRROR_TOKEN_WEIGHT: u32 = 300u32;
 const NORMAL_TOKEN_WEIGHT: u32 = 30u32;
