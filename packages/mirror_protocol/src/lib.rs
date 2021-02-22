@@ -5,4 +5,5 @@ pub mod factory;
 pub mod gov;
 pub mod mint;
 pub mod oracle;
+pub mod router;
 pub mod staking;
