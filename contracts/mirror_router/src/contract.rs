@@ -13,6 +13,7 @@ use mirror_protocol::router::{
     ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrateMsg, QueryMsg,
     SimulateSwapOperationsResponse, SwapOperation,
 };
+use std::collections::HashMap;
 use terra_cosmwasm::{SwapResponse, TerraMsgWrapper, TerraQuerier};
 use terraswap::asset::{Asset, AssetInfo, PairInfo};
 use terraswap::pair::{QueryMsg as PairQueryMsg, SimulationResponse};
@@ -246,7 +247,7 @@ fn simulate_swap_operations<S: Storage, A: Api, Q: Querier>(
 }
 
 fn assert_operations(operations: &Vec<SwapOperation>) -> StdResult<()> {
-    let mut last_ask_asset: Option<AssetInfo> = None;
+    let mut ask_asset_map: HashMap<String, bool> = HashMap::new();
     for operation in operations.into_iter() {
         let (offer_asset, ask_asset) = match operation {
             SwapOperation::NativeSwap {
@@ -266,12 +267,121 @@ fn assert_operations(operations: &Vec<SwapOperation>) -> StdResult<()> {
             } => (offer_asset_info.clone(), ask_asset_info.clone()),
         };
 
-        if last_ask_asset.is_some() && offer_asset != last_ask_asset.unwrap() {
-            return Err(StdError::generic_err("invalid operations are given"));
-        }
+        ask_asset_map.remove(&offer_asset.to_string());
+        ask_asset_map.insert(ask_asset.to_string(), true);
+    }
 
-        last_ask_asset = Some(ask_asset);
+    if ask_asset_map.keys().len() != 1 {
+        return Err(StdError::generic_err(
+            "invalid operations; multiple output token",
+        ));
     }
 
     Ok(())
+}
+
+#[test]
+fn test_invalid_operations() {
+    // empty error
+    assert_eq!(true, assert_operations(&vec![]).is_err());
+
+    // uluna output
+    assert_eq!(
+        true,
+        assert_operations(&vec![
+            SwapOperation::NativeSwap {
+                offer_denom: "uusd".to_string(),
+                ask_denom: "uluna".to_string(),
+            },
+            SwapOperation::TerraSwap {
+                offer_asset_info: AssetInfo::NativeToken {
+                    denom: "ukrw".to_string(),
+                },
+                ask_asset_info: AssetInfo::Token {
+                    contract_addr: HumanAddr::from("asset0001"),
+                },
+            },
+            SwapOperation::TerraSwap {
+                offer_asset_info: AssetInfo::Token {
+                    contract_addr: HumanAddr::from("asset0001"),
+                },
+                ask_asset_info: AssetInfo::NativeToken {
+                    denom: "uluna".to_string(),
+                },
+            }
+        ])
+        .is_ok()
+    );
+
+    // asset0002 output
+    assert_eq!(
+        true,
+        assert_operations(&vec![
+            SwapOperation::NativeSwap {
+                offer_denom: "uusd".to_string(),
+                ask_denom: "uluna".to_string(),
+            },
+            SwapOperation::TerraSwap {
+                offer_asset_info: AssetInfo::NativeToken {
+                    denom: "ukrw".to_string(),
+                },
+                ask_asset_info: AssetInfo::Token {
+                    contract_addr: HumanAddr::from("asset0001"),
+                },
+            },
+            SwapOperation::TerraSwap {
+                offer_asset_info: AssetInfo::Token {
+                    contract_addr: HumanAddr::from("asset0001"),
+                },
+                ask_asset_info: AssetInfo::NativeToken {
+                    denom: "uluna".to_string(),
+                },
+            },
+            SwapOperation::TerraSwap {
+                offer_asset_info: AssetInfo::NativeToken {
+                    denom: "uluna".to_string(),
+                },
+                ask_asset_info: AssetInfo::Token {
+                    contract_addr: HumanAddr::from("asset0002"),
+                },
+            },
+        ])
+        .is_ok()
+    );
+
+    // multiple output token types error
+    assert_eq!(
+        true,
+        assert_operations(&vec![
+            SwapOperation::NativeSwap {
+                offer_denom: "uusd".to_string(),
+                ask_denom: "ukrw".to_string(),
+            },
+            SwapOperation::TerraSwap {
+                offer_asset_info: AssetInfo::NativeToken {
+                    denom: "ukrw".to_string(),
+                },
+                ask_asset_info: AssetInfo::Token {
+                    contract_addr: HumanAddr::from("asset0001"),
+                },
+            },
+            SwapOperation::TerraSwap {
+                offer_asset_info: AssetInfo::Token {
+                    contract_addr: HumanAddr::from("asset0001"),
+                },
+                ask_asset_info: AssetInfo::NativeToken {
+                    denom: "uaud".to_string(),
+                },
+            },
+            SwapOperation::TerraSwap {
+                offer_asset_info: AssetInfo::NativeToken {
+                    denom: "uluna".to_string(),
+                },
+                ask_asset_info: AssetInfo::Token {
+                    contract_addr: HumanAddr::from("asset0002"),
+                },
+            },
+        ])
+        .is_err()
+    );
 }
