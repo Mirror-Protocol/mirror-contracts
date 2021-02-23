@@ -1,5 +1,5 @@
-# Mirror Staker <!-- omit in toc -->
+# Mirror Router <!-- omit in toc -->
 
-<!-- **NOTE**: Reference documentation for this contract is available [here](https://docs.mirror.finance/contracts/staker). -->
+<!-- **NOTE**: Reference documentation for this contract is available [here](https://docs.mirror.finance/contracts/router). -->
 
-The Staker Contract contains the logic to reduce the steps required to LP token staking. A user can buy asset token, provide liquidity, and stake LP token with single message `BuyAndStake`. Also A user can mint asset token, provide liquidity, and stake LP token with single message `MintAndStake`
+The Router Contract contains the logic to facilitate multi-hop swap operations via native & terraswap.
