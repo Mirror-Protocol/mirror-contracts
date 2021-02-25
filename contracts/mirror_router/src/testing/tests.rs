@@ -47,7 +47,7 @@ fn execute_swap_operations() {
 
     let msg = HandleMsg::ExecuteSwapOperations {
         operations: vec![],
-        max_spread: None,
+        minimum_receive: None,
         to: None,
     };
 
@@ -89,7 +89,7 @@ fn execute_swap_operations() {
                 },
             },
         ],
-        max_spread: Some(Decimal::one()),
+        minimum_receive: Some(Uint128::from(1000000u128)),
         to: None,
     };
 
@@ -106,7 +106,6 @@ fn execute_swap_operations() {
                         offer_denom: "uusd".to_string(),
                         ask_denom: "ukrw".to_string(),
                     },
-                    max_spread: Some(Decimal::one()),
                     to: None,
                 })
                 .unwrap(),
@@ -123,7 +122,6 @@ fn execute_swap_operations() {
                             contract_addr: HumanAddr::from("asset0001"),
                         },
                     },
-                    max_spread: Some(Decimal::one()),
                     to: None,
                 })
                 .unwrap(),
@@ -140,7 +138,6 @@ fn execute_swap_operations() {
                             denom: "uluna".to_string(),
                         },
                     },
-                    max_spread: Some(Decimal::one()),
                     to: None,
                 })
                 .unwrap(),
@@ -157,11 +154,23 @@ fn execute_swap_operations() {
                             contract_addr: HumanAddr::from("asset0002"),
                         },
                     },
-                    max_spread: Some(Decimal::one()),
                     to: Some(HumanAddr::from("addr0000")),
                 })
                 .unwrap(),
-            })
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
+                send: vec![],
+                msg: to_binary(&HandleMsg::AssertMinimumReceive {
+                    asset_info: AssetInfo::Token {
+                        contract_addr: HumanAddr::from("asset0002"),
+                    },
+                    prev_balance: Uint128::zero(),
+                    minimum_receive: Uint128::from(1000000u128),
+                    receiver: HumanAddr::from("addr0000"),
+                })
+                .unwrap(),
+            }),
         ]
     );
 
@@ -200,7 +209,7 @@ fn execute_swap_operations() {
                         },
                     },
                 ],
-                max_spread: Some(Decimal::one()),
+                minimum_receive: None,
                 to: Some(HumanAddr::from("addr0002")),
             })
             .unwrap(),
@@ -220,7 +229,6 @@ fn execute_swap_operations() {
                         offer_denom: "uusd".to_string(),
                         ask_denom: "ukrw".to_string(),
                     },
-                    max_spread: Some(Decimal::one()),
                     to: None,
                 })
                 .unwrap(),
@@ -237,7 +245,6 @@ fn execute_swap_operations() {
                             contract_addr: HumanAddr::from("asset0001"),
                         },
                     },
-                    max_spread: Some(Decimal::one()),
                     to: None,
                 })
                 .unwrap(),
@@ -254,7 +261,6 @@ fn execute_swap_operations() {
                             denom: "uluna".to_string(),
                         },
                     },
-                    max_spread: Some(Decimal::one()),
                     to: None,
                 })
                 .unwrap(),
@@ -271,7 +277,6 @@ fn execute_swap_operations() {
                             contract_addr: HumanAddr::from("asset0002"),
                         },
                     },
-                    max_spread: Some(Decimal::one()),
                     to: Some(HumanAddr::from("addr0002")),
                 })
                 .unwrap(),
@@ -311,7 +316,6 @@ fn execute_swap_operation() {
             offer_denom: "uusd".to_string(),
             ask_denom: "uluna".to_string(),
         },
-        max_spread: Some(Decimal::one()),
         to: None,
     };
     let env = mock_env("addr0000", &[]);
@@ -342,7 +346,6 @@ fn execute_swap_operation() {
             offer_denom: "uusd".to_string(),
             ask_denom: "uluna".to_string(),
         },
-        max_spread: Some(Decimal::one()),
         to: Some(HumanAddr::from("addr0000")),
     };
     let env = mock_env(MOCK_CONTRACT_ADDR, &[]);
@@ -375,7 +378,6 @@ fn execute_swap_operation() {
                 denom: "uusd".to_string(),
             },
         },
-        max_spread: Some(Decimal::one()),
         to: Some(HumanAddr::from("addr0000")),
     };
 
@@ -398,7 +400,7 @@ fn execute_swap_operation() {
                             amount: Uint128(1000000u128),
                         },
                         belief_price: None,
-                        max_spread: Some(Decimal::one()),
+                        max_spread: None,
                         to: Some(HumanAddr::from("addr0000")),
                     })
                     .unwrap()
@@ -491,4 +493,85 @@ fn query_buy_with_routes() {
             amount: Uint128::from(952380u128), // tax charged 1 times uusd => ukrw, ukrw => uluna
         }
     );
+}
+
+#[test]
+fn assert_minimum_receive_native_token() {
+    let mut deps = mock_dependencies(20, &[]);
+    deps.querier.with_balance(&[(
+        &HumanAddr::from("addr0000"),
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(1000000u128),
+        }],
+    )]);
+
+    let env = mock_env("addr0000", &[]);
+    // success
+    let msg = HandleMsg::AssertMinimumReceive {
+        asset_info: AssetInfo::NativeToken {
+            denom: "uusd".to_string(),
+        },
+        prev_balance: Uint128::zero(),
+        minimum_receive: Uint128::from(1000000u128),
+        receiver: HumanAddr::from("addr0000"),
+    };
+    let _res = handle(&mut deps, env.clone(), msg).unwrap();
+
+    // assertion failed; native token
+    let msg = HandleMsg::AssertMinimumReceive {
+        asset_info: AssetInfo::NativeToken {
+            denom: "uusd".to_string(),
+        },
+        prev_balance: Uint128::zero(),
+        minimum_receive: Uint128::from(1000001u128),
+        receiver: HumanAddr::from("addr0000"),
+    };
+    let res = handle(&mut deps, env.clone(), msg);
+    match res {
+        Err(StdError::GenericErr { msg, .. }) => assert_eq!(
+            msg,
+            "assertion failed; minimum receive amount: 1000001, swap amount: 1000000"
+        ),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+}
+
+#[test]
+fn assert_minimum_receive_token() {
+    let mut deps = mock_dependencies(20, &[]);
+    deps.querier.with_token_balances(&[(
+        &HumanAddr::from("token0000"),
+        &[(&HumanAddr::from("addr0000"), &Uint128::from(1000000u128))],
+    )]);
+
+    let env = mock_env("addr0000", &[]);
+    // success
+    let msg = HandleMsg::AssertMinimumReceive {
+        asset_info: AssetInfo::Token {
+            contract_addr: HumanAddr::from("token0000"),
+        },
+        prev_balance: Uint128::zero(),
+        minimum_receive: Uint128::from(1000000u128),
+        receiver: HumanAddr::from("addr0000"),
+    };
+    let _res = handle(&mut deps, env.clone(), msg).unwrap();
+
+    // assertion failed; native token
+    let msg = HandleMsg::AssertMinimumReceive {
+        asset_info: AssetInfo::Token {
+            contract_addr: HumanAddr::from("token0000"),
+        },
+        prev_balance: Uint128::zero(),
+        minimum_receive: Uint128::from(1000001u128),
+        receiver: HumanAddr::from("addr0000"),
+    };
+    let res = handle(&mut deps, env.clone(), msg);
+    match res {
+        Err(StdError::GenericErr { msg, .. }) => assert_eq!(
+            msg,
+            "assertion failed; minimum receive amount: 1000001, swap amount: 1000000"
+        ),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
 }

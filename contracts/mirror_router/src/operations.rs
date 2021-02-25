@@ -19,7 +19,6 @@ pub fn execute_swap_operation<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     operation: SwapOperation,
-    max_spread: Option<Decimal>,
     to: Option<HumanAddr>,
 ) -> HandleResult<TerraMsgWrapper> {
     if env.contract.address != env.message.sender {
@@ -85,7 +84,7 @@ pub fn execute_swap_operation<S: Storage, A: Api, Q: Querier>(
                 &deps,
                 pair_info.contract_addr,
                 offer_asset,
-                max_spread,
+                None,
                 to,
             )?]
         }

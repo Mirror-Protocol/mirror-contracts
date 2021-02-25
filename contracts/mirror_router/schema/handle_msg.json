@@ -26,10 +26,10 @@
             "operations"
           ],
           "properties": {
-            "max_spread": {
+            "minimum_receive": {
               "anyOf": [
                 {
-                  "$ref": "#/definitions/Decimal"
+                  "$ref": "#/definitions/Uint128"
                 },
                 {
                   "type": "null"
@@ -69,16 +69,6 @@
             "operation"
           ],
           "properties": {
-            "max_spread": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/Decimal"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
             "operation": {
               "$ref": "#/definitions/SwapOperation"
             },
@@ -91,6 +81,38 @@
                   "type": "null"
                 }
               ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "Internal use Check the swap amount is exceed minimum_receive",
+      "type": "object",
+      "required": [
+        "assert_minimum_receive"
+      ],
+      "properties": {
+        "assert_minimum_receive": {
+          "type": "object",
+          "required": [
+            "asset_info",
+            "minimum_receive",
+            "prev_balance",
+            "receiver"
+          ],
+          "properties": {
+            "asset_info": {
+              "$ref": "#/definitions/AssetInfo"
+            },
+            "minimum_receive": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "prev_balance": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "receiver": {
+              "$ref": "#/definitions/HumanAddr"
             }
           }
         }
@@ -169,10 +191,6 @@
           "$ref": "#/definitions/HumanAddr"
         }
       }
-    },
-    "Decimal": {
-      "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0 The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
-      "type": "string"
     },
     "HumanAddr": {
       "type": "string"

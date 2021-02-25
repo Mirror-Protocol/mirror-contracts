@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    from_binary, to_binary, Api, Binary, Coin, CosmosMsg, Decimal, Env, Extern, HandleResponse,
+    from_binary, to_binary, Api, Binary, Coin, CosmosMsg, Env, Extern, HandleResponse,
     HandleResult, HumanAddr, InitResponse, InitResult, MigrateResponse, MigrateResult, Querier,
     QueryRequest, StdError, StdResult, Storage, Uint128, WasmMsg, WasmQuery,
 };
@@ -43,21 +43,25 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::Receive(msg) => receive_cw20(deps, env, msg),
         HandleMsg::ExecuteSwapOperations {
             operations,
-            max_spread,
+            minimum_receive,
             to,
         } => execute_swap_operations(
             deps,
             env.clone(),
             env.message.sender,
             operations,
-            max_spread,
+            minimum_receive,
             to,
         ),
-        HandleMsg::ExecuteSwapOperation {
-            operation,
-            max_spread,
-            to,
-        } => execute_swap_operation(deps, env, operation, max_spread, to),
+        HandleMsg::ExecuteSwapOperation { operation, to } => {
+            execute_swap_operation(deps, env, operation, to)
+        }
+        HandleMsg::AssertMinimumReceive {
+            asset_info,
+            prev_balance,
+            minimum_receive,
+            receiver,
+        } => assert_minium_receive(deps, asset_info, prev_balance, minimum_receive, receiver),
     }
 }
 
@@ -70,9 +74,11 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
         match from_binary(&msg)? {
             Cw20HookMsg::ExecuteSwapOperations {
                 operations,
-                max_spread,
+                minimum_receive,
                 to,
-            } => execute_swap_operations(deps, env, cw20_msg.sender, operations, max_spread, to),
+            } => {
+                execute_swap_operations(deps, env, cw20_msg.sender, operations, minimum_receive, to)
+            }
         }
     } else {
         Err(StdError::generic_err("data should be given"))
@@ -80,11 +86,11 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
 }
 
 pub fn execute_swap_operations<S: Storage, A: Api, Q: Querier>(
-    _deps: &mut Extern<S, A, Q>,
+    deps: &mut Extern<S, A, Q>,
     env: Env,
     sender: HumanAddr,
     operations: Vec<SwapOperation>,
-    max_spread: Option<Decimal>,
+    minimum_receive: Option<Uint128>,
     to: Option<HumanAddr>,
 ) -> HandleResult<TerraMsgWrapper> {
     let operations_len = operations.len();
@@ -96,9 +102,10 @@ pub fn execute_swap_operations<S: Storage, A: Api, Q: Querier>(
     assert_operations(&operations)?;
 
     let to = if let Some(to) = to { to } else { sender };
+    let target_asset_info = operations.last().unwrap().get_target_asset_info();
 
     let mut operation_index = 0;
-    let messages: Vec<CosmosMsg<TerraMsgWrapper>> = operations
+    let mut messages: Vec<CosmosMsg<TerraMsgWrapper>> = operations
         .into_iter()
         .map(|op| {
             operation_index += 1;
@@ -107,7 +114,6 @@ pub fn execute_swap_operations<S: Storage, A: Api, Q: Querier>(
                 send: vec![],
                 msg: to_binary(&HandleMsg::ExecuteSwapOperation {
                     operation: op,
-                    max_spread,
                     to: if operation_index == operations_len {
                         Some(to.clone())
                     } else {
@@ -118,11 +124,46 @@ pub fn execute_swap_operations<S: Storage, A: Api, Q: Querier>(
         })
         .collect::<StdResult<Vec<CosmosMsg<TerraMsgWrapper>>>>()?;
 
+    // Execute minimum amount assertion
+    if let Some(minimum_receive) = minimum_receive {
+        let receiver_balance = target_asset_info.query_pool(&deps, &to)?;
+        messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: env.contract.address,
+            send: vec![],
+            msg: to_binary(&HandleMsg::AssertMinimumReceive {
+                asset_info: target_asset_info,
+                prev_balance: receiver_balance,
+                minimum_receive,
+                receiver: to,
+            })?,
+        }))
+    }
+
     Ok(HandleResponse {
         messages,
         log: vec![],
         data: None,
     })
+}
+
+fn assert_minium_receive<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    asset_info: AssetInfo,
+    prev_balance: Uint128,
+    minium_receive: Uint128,
+    receiver: HumanAddr,
+) -> HandleResult<TerraMsgWrapper> {
+    let receiver_balance = asset_info.query_pool(&deps, &receiver)?;
+    let swap_amount = (receiver_balance - prev_balance)?;
+
+    if swap_amount < minium_receive {
+        return Err(StdError::generic_err(format!(
+            "assertion failed; minimum receive amount: {}, swap amount: {}",
+            minium_receive, swap_amount
+        )));
+    }
+
+    Ok(HandleResponse::default())
 }
 
 pub fn query<S: Storage, A: Api, Q: Querier>(
