@@ -476,6 +476,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "integer-sqrt"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "276ec31bcb4a9ee45f58bec6f9ec700ae4cf4f4f8f2fa7e06cb406bd5ffdd770"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "itoa"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -607,6 +616,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "mirror-limit-order"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw20",
+ "integer-sqrt",
+ "mirror-protocol",
+ "schemars",
+ "serde",
+ "terra-cosmwasm",
+ "terraswap",
+]
+
+[[package]]
 name = "mirror-mint"
 version = "1.0.0"
 dependencies = [
@@ -672,6 +697,15 @@ dependencies = [
  "cfg-if",
  "libc",
  "void",
+]
+
+[[package]]
+name = "num-traits"
+version = "0.2.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a64b1ec5cda2586e284722486d802acf1f7dbdc623e2bfc57e65ca1cd099290"
+dependencies = [
+ "autocfg",
 ]
 
 [[package]]
@@ -1023,9 +1057,9 @@ dependencies = [
 
 [[package]]
 name = "terraswap"
-version = "1.0.1"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c01af1e53e1182b6ad5117ab2c2ab8f9f8bd322f1e11229a20e36dc9949fa6e6"
+checksum = "02334ec5ad280fcc09c86467d40383ea1e4d977103345e53a4f03006c4be51c2"
 dependencies = [
  "cosmwasm-std",
  "cosmwasm-storage",
