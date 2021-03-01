@@ -105,7 +105,7 @@ Depends on the `ask asset`(= `execute asset`) type
        base64(Send {
            contract_addr: 'limit_order_contract_addr',
            amount: 'amount',
-           msg: Some(base64(SExecuteOrder {
+           msg: Some(base64(ExecuteOrder {
                order_id: u64,
            })),
        })
