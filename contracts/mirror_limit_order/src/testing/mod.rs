@@ -1,2 +1,2 @@
-mod tests;
 mod mock_querier;
+mod tests;

@@ -58,7 +58,7 @@ pub enum QueryMsg {
         limit: Option<u32>,
         order_by: Option<OrderBy>,
     },
-    LastOrderID {},
+    LastOrderId {},
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -77,6 +77,6 @@ pub struct OrdersResponse {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct LastOrderIDResponse {
+pub struct LastOrderIdResponse {
     pub last_order_id: u64,
 }

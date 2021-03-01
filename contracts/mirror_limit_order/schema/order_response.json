@@ -1,49 +1,37 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Cw20HookMsg",
-  "anyOf": [
-    {
-      "type": "object",
-      "required": [
-        "submit_order"
-      ],
-      "properties": {
-        "submit_order": {
-          "type": "object",
-          "required": [
-            "ask_asset"
-          ],
-          "properties": {
-            "ask_asset": {
-              "$ref": "#/definitions/Asset"
-            }
-          }
-        }
-      }
-    },
-    {
-      "description": "Arbitrager execute order to get profit",
-      "type": "object",
-      "required": [
-        "execute_order"
-      ],
-      "properties": {
-        "execute_order": {
-          "type": "object",
-          "required": [
-            "order_id"
-          ],
-          "properties": {
-            "order_id": {
-              "type": "integer",
-              "format": "uint64",
-              "minimum": 0.0
-            }
-          }
-        }
-      }
-    }
+  "title": "OrderResponse",
+  "type": "object",
+  "required": [
+    "ask_asset",
+    "bidder_addr",
+    "filled_ask_amount",
+    "filled_offer_amount",
+    "offer_asset",
+    "order_id"
   ],
+  "properties": {
+    "ask_asset": {
+      "$ref": "#/definitions/Asset"
+    },
+    "bidder_addr": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "filled_ask_amount": {
+      "$ref": "#/definitions/Uint128"
+    },
+    "filled_offer_amount": {
+      "$ref": "#/definitions/Uint128"
+    },
+    "offer_asset": {
+      "$ref": "#/definitions/Asset"
+    },
+    "order_id": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    }
+  },
   "definitions": {
     "Asset": {
       "type": "object",

@@ -10,7 +10,7 @@ use crate::state::{
     read_orders_with_bidder_indexer, remove_order, store_order, Order,
 };
 use mirror_protocol::common::OrderBy;
-use mirror_protocol::limit_order::{LastOrderIDResponse, OrderResponse, OrdersResponse};
+use mirror_protocol::limit_order::{LastOrderIdResponse, OrderResponse, OrdersResponse};
 
 pub fn submit_order<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -207,9 +207,9 @@ pub fn query_orders<S: Storage, A: Api, Q: Querier>(
 
 pub fn query_last_order_id<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
-) -> StdResult<LastOrderIDResponse> {
+) -> StdResult<LastOrderIdResponse> {
     let last_order_id = read_last_order_id(&deps.storage)?;
-    let resp = LastOrderIDResponse { last_order_id };
+    let resp = LastOrderIdResponse { last_order_id };
 
     Ok(resp)
 }

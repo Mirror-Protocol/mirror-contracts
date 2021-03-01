@@ -14,83 +14,71 @@
       }
     },
     {
-      "description": "Execute multiple BuyOperation",
+      "description": "User Operations ///",
       "type": "object",
       "required": [
-        "execute_swap_operations"
+        "submit_order"
       ],
       "properties": {
-        "execute_swap_operations": {
+        "submit_order": {
           "type": "object",
           "required": [
-            "operations"
+            "ask_asset",
+            "offer_asset"
           ],
           "properties": {
-            "max_spread": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/Decimal"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+            "ask_asset": {
+              "$ref": "#/definitions/Asset"
             },
-            "operations": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/SwapOperation"
-              }
-            },
-            "to": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/HumanAddr"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+            "offer_asset": {
+              "$ref": "#/definitions/Asset"
             }
           }
         }
       }
     },
     {
-      "description": "Internal use Swap all offer tokens to ask token",
       "type": "object",
       "required": [
-        "execute_swap_operation"
+        "cancel_order"
       ],
       "properties": {
-        "execute_swap_operation": {
+        "cancel_order": {
           "type": "object",
           "required": [
-            "operation"
+            "order_id"
           ],
           "properties": {
-            "max_spread": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/Decimal"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+            "order_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "Arbitrager execute order to get profit",
+      "type": "object",
+      "required": [
+        "execute_order"
+      ],
+      "properties": {
+        "execute_order": {
+          "type": "object",
+          "required": [
+            "execute_asset",
+            "order_id"
+          ],
+          "properties": {
+            "execute_asset": {
+              "$ref": "#/definitions/Asset"
             },
-            "operation": {
-              "$ref": "#/definitions/SwapOperation"
-            },
-            "to": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/HumanAddr"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+            "order_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
             }
           }
         }
@@ -98,6 +86,21 @@
     }
   ],
   "definitions": {
+    "Asset": {
+      "type": "object",
+      "required": [
+        "amount",
+        "info"
+      ],
+      "properties": {
+        "amount": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "info": {
+          "$ref": "#/definitions/AssetInfo"
+        }
+      }
+    },
     "AssetInfo": {
       "anyOf": [
         {
@@ -170,62 +173,8 @@
         }
       }
     },
-    "Decimal": {
-      "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0 The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
-      "type": "string"
-    },
     "HumanAddr": {
       "type": "string"
-    },
-    "SwapOperation": {
-      "anyOf": [
-        {
-          "type": "object",
-          "required": [
-            "native_swap"
-          ],
-          "properties": {
-            "native_swap": {
-              "type": "object",
-              "required": [
-                "ask_denom",
-                "offer_denom"
-              ],
-              "properties": {
-                "ask_denom": {
-                  "type": "string"
-                },
-                "offer_denom": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        },
-        {
-          "type": "object",
-          "required": [
-            "terra_swap"
-          ],
-          "properties": {
-            "terra_swap": {
-              "type": "object",
-              "required": [
-                "ask_asset_info",
-                "offer_asset_info"
-              ],
-              "properties": {
-                "ask_asset_info": {
-                  "$ref": "#/definitions/AssetInfo"
-                },
-                "offer_asset_info": {
-                  "$ref": "#/definitions/AssetInfo"
-                }
-              }
-            }
-          }
-        }
-      ]
     },
     "Uint128": {
       "type": "string"

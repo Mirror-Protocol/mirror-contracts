@@ -10,7 +10,7 @@ use crate::testing::mock_querier::mock_dependencies;
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
 use mirror_protocol::common::OrderBy;
 use mirror_protocol::limit_order::{
-    Cw20HookMsg, HandleMsg, InitMsg, LastOrderIDResponse, OrderResponse, OrdersResponse, QueryMsg,
+    Cw20HookMsg, HandleMsg, InitMsg, LastOrderIdResponse, OrderResponse, OrdersResponse, QueryMsg,
 };
 use terraswap::asset::{Asset, AssetInfo};
 
@@ -117,9 +117,9 @@ fn submit_order() {
     );
 
     assert_eq!(
-        from_binary::<LastOrderIDResponse>(&query(&deps, QueryMsg::LastOrderID {}).unwrap())
+        from_binary::<LastOrderIdResponse>(&query(&deps, QueryMsg::LastOrderId {}).unwrap())
             .unwrap(),
-        LastOrderIDResponse { last_order_id: 1 }
+        LastOrderIdResponse { last_order_id: 1 }
     );
 
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
@@ -151,9 +151,9 @@ fn submit_order() {
         ]
     );
     assert_eq!(
-        from_binary::<LastOrderIDResponse>(&query(&deps, QueryMsg::LastOrderID {}).unwrap())
+        from_binary::<LastOrderIdResponse>(&query(&deps, QueryMsg::LastOrderId {}).unwrap())
             .unwrap(),
-        LastOrderIDResponse { last_order_id: 2 }
+        LastOrderIdResponse { last_order_id: 2 }
     );
 }
 

@@ -108,6 +108,6 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
             limit,
             order_by,
         )?),
-        QueryMsg::LastOrderID {} => to_binary(&query_last_order_id(deps)?),
+        QueryMsg::LastOrderId {} => to_binary(&query_last_order_id(deps)?),
     }
 }
