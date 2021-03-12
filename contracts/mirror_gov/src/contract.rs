@@ -255,7 +255,7 @@ pub fn withdraw_voting_tokens<S: Storage, A: Api, Q: Querier>(
         let locked_balance = locked_balance(&sender_address_raw, deps);
         let locked_share = locked_balance * total_share.u128() / total_balance.u128();
         let withdraw_share = amount
-            .map(|v| v.multiply_ratio(total_share, total_balance).u128())
+            .map(|v| std::cmp::max(v.multiply_ratio(total_share, total_balance).u128(), 1u128))
             .unwrap_or_else(|| token_manager.share.u128());
 
         if locked_share + withdraw_share > token_manager.share.u128() {

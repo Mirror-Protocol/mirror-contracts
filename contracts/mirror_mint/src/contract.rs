@@ -498,7 +498,7 @@ pub fn try_withdraw<S: Storage, A: Api, Q: Querier>(
     // Convert asset to collateral unit
     let asset_value_in_collateral_asset: Uint128 = position.asset.amount * price;
 
-    // Check minimum collateral ratio is statified
+    // Check minimum collateral ratio is satisfied
     if asset_value_in_collateral_asset * asset_config.min_collateral_ratio > collateral_amount {
         return Err(StdError::generic_err(
             "Cannot withdraw collateral over than minimum collateral ratio",
@@ -587,7 +587,7 @@ pub fn try_mint<S: Storage, A: Api, Q: Querier>(
     // Convert asset to collateral unit
     let asset_value_in_collateral_asset: Uint128 = asset_amount * price;
 
-    // Check minimum collateral ratio is statified
+    // Check minimum collateral ratio is satisfied
     if asset_value_in_collateral_asset * asset_config.min_collateral_ratio
         > position.collateral.amount
     {
@@ -624,11 +624,14 @@ pub fn try_burn<S: Storage, A: Api, Q: Querier>(
     position_idx: Uint128,
     asset: Asset,
 ) -> StdResult<HandleResponse> {
+    let config: Config = read_config(&deps.storage)?;
     let mut position: Position = read_position(&deps.storage, position_idx)?;
+    let collateral_info: AssetInfo = position.collateral.info.to_normal(&deps)?;
 
     // Check the asset has same token with position asset
     // also Check burn amount is non-zero
     assert_asset(deps, &position, &asset)?;
+
     let asset_token_raw = match position.asset.info.clone() {
         AssetInfoRaw::Token { contract_addr } => contract_addr,
         _ => panic!("DO NOT ENTER HERE"),
@@ -641,13 +644,21 @@ pub fn try_burn<S: Storage, A: Api, Q: Querier>(
         ));
     }
 
-    // If the asset is in deprecated state, anyone can exeucte burn
     let mut messages: Vec<CosmosMsg> = vec![];
     let mut logs: Vec<LogAttribute> = vec![];
-    if let Some(end_price) = asset_config.end_price {
+
+    // If the collateral is default denom asset and the asset is deprecated,
+    // anyone can execute burn the asset to any position without permission
+    if asset_config.end_price.is_some()
+        && collateral_info.equal(&AssetInfo::NativeToken {
+            denom: config.base_denom,
+        })
+    {
+        let end_price = asset_config.end_price.unwrap();
+
         // Burn deprecated asset to receive collaterals back
         let refund_collateral = Asset {
-            info: position.collateral.info.to_normal(&deps)?,
+            info: collateral_info,
             amount: asset.amount * end_price,
         };
 
@@ -761,7 +772,7 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
         decimal_subtraction(Decimal::one(), asset_config.auction_discount),
     );
 
-    // Convert asset value in discounted colalteral unit
+    // Convert asset value in discounted collateral unit
     let asset_value_in_collateral_asset: Uint128 = asset.amount * discounted_price;
 
     let mut messages: Vec<CosmosMsg> = vec![];
@@ -834,7 +845,7 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
     let protocol_fee = return_collateral_amount * config.protocol_fee_rate;
     let return_collateral_amount = (return_collateral_amount - protocol_fee).unwrap();
 
-    // return collateral to liqudation initiator(sender)
+    // return collateral to liquidation initiator(sender)
     let return_collateral_asset = Asset {
         info: collateral_info.clone(),
         amount: return_collateral_amount,
