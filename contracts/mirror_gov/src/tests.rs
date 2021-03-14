@@ -1392,7 +1392,7 @@ fn happy_days_withdraw_voting_tokens() {
         &[(&HumanAddr::from(MOCK_CONTRACT_ADDR), &Uint128(22u128))],
     )]);
 
-    let env = mock_env(TEST_VOTER, &coins(11, VOTING_TOKEN));
+    let env = mock_env(TEST_VOTER, &[]);
     let msg = HandleMsg::WithdrawVotingTokens {
         amount: Some(Uint128::from(11u128)),
     };
@@ -1423,6 +1423,80 @@ fn happy_days_withdraw_voting_tokens() {
                 .unwrap(),
             poll_count: 0,
             total_share: Uint128::from(6u128),
+            total_deposit: Uint128::zero(),
+        }
+    );
+}
+
+#[test]
+fn happy_days_withdraw_voting_tokens_all() {
+    let mut deps = mock_dependencies(20, &[]);
+    mock_init(&mut deps);
+
+    deps.querier.with_token_balances(&[(
+        &HumanAddr::from(VOTING_TOKEN),
+        &[(&HumanAddr::from(MOCK_CONTRACT_ADDR), &Uint128(11u128))],
+    )]);
+
+    let msg = HandleMsg::Receive(Cw20ReceiveMsg {
+        sender: HumanAddr::from(TEST_VOTER),
+        amount: Uint128::from(11u128),
+        msg: Some(to_binary(&Cw20HookMsg::StakeVotingTokens {}).unwrap()),
+    });
+
+    let env = mock_env(VOTING_TOKEN, &[]);
+    let handle_res = handle(&mut deps, env, msg.clone()).unwrap();
+    assert_stake_tokens_result(11, 0, 11, 0, handle_res, &mut deps);
+
+    let state: State = state_read(&mut deps.storage).load().unwrap();
+    assert_eq!(
+        state,
+        State {
+            contract_addr: deps
+                .api
+                .canonical_address(&HumanAddr::from(MOCK_CONTRACT_ADDR))
+                .unwrap(),
+            poll_count: 0,
+            total_share: Uint128::from(11u128),
+            total_deposit: Uint128::zero(),
+        }
+    );
+
+    // double the balance, all balance withdrawn
+    deps.querier.with_token_balances(&[(
+        &HumanAddr::from(VOTING_TOKEN),
+        &[(&HumanAddr::from(MOCK_CONTRACT_ADDR), &Uint128(22u128))],
+    )]);
+
+    let env = mock_env(TEST_VOTER, &[]);
+    let msg = HandleMsg::WithdrawVotingTokens { amount: None };
+
+    let handle_res = handle(&mut deps, env, msg.clone()).unwrap();
+    let msg = handle_res.messages.get(0).expect("no message");
+
+    assert_eq!(
+        msg,
+        &CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: HumanAddr::from(VOTING_TOKEN),
+            msg: to_binary(&Cw20HandleMsg::Transfer {
+                recipient: HumanAddr::from(TEST_VOTER),
+                amount: Uint128::from(22u128),
+            })
+            .unwrap(),
+            send: vec![],
+        })
+    );
+
+    let state: State = state_read(&mut deps.storage).load().unwrap();
+    assert_eq!(
+        state,
+        State {
+            contract_addr: deps
+                .api
+                .canonical_address(&HumanAddr::from(MOCK_CONTRACT_ADDR))
+                .unwrap(),
+            poll_count: 0,
+            total_share: Uint128::zero(),
             total_deposit: Uint128::zero(),
         }
     );
