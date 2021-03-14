@@ -245,37 +245,43 @@ pub fn withdraw_voting_tokens<S: Storage, A: Api, Q: Querier>(
         let mut state: State = state_store(&mut deps.storage).load()?;
 
         // Load total share & total balance except proposal deposit amount
-        let total_share = state.total_share;
+        let total_share = state.total_share.u128();
         let total_balance = (load_token_balance(
             &deps,
             &deps.api.human_address(&config.mirror_token)?,
             &state.contract_addr,
-        )? - state.total_deposit)?;
+        )? - state.total_deposit)?
+            .u128();
 
         let locked_balance = locked_balance(&sender_address_raw, deps);
-        let locked_share = locked_balance * total_share.u128() / total_balance.u128();
+        let locked_share = locked_balance * total_share / total_balance;
+        let user_share = token_manager.share.u128();
+
         let withdraw_share = amount
             .map(|v| std::cmp::max(v.multiply_ratio(total_share, total_balance).u128(), 1u128))
-            .unwrap_or_else(|| token_manager.share.u128());
+            .unwrap_or_else(|| user_share - locked_share);
+        let withdraw_amount = amount
+            .map(|v| v.u128())
+            .unwrap_or_else(|| withdraw_share * total_balance / total_share);
 
-        if locked_share + withdraw_share > token_manager.share.u128() {
+        if locked_share + withdraw_share > user_share {
             Err(StdError::generic_err(
                 "User is trying to withdraw too many tokens.",
             ))
         } else {
-            let share = token_manager.share.u128() - withdraw_share;
+            let share = user_share - withdraw_share;
             token_manager.share = Uint128::from(share);
 
             bank_store(&mut deps.storage).save(key, &token_manager)?;
 
-            state.total_share = Uint128::from(total_share.u128() - withdraw_share);
+            state.total_share = Uint128::from(total_share - withdraw_share);
             state_store(&mut deps.storage).save(&state)?;
 
             send_tokens(
                 &deps.api,
                 &config.mirror_token,
                 &sender_address_raw,
-                amount.unwrap().u128(),
+                withdraw_amount,
                 "withdraw",
             )
         }
