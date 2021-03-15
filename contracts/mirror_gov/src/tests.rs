@@ -1,11 +1,14 @@
 use crate::contract::{handle, init, query};
 use crate::mock_querier::{mock_dependencies, WasmMockQuerier};
-use crate::state::{config_read, state_read, Config, State};
+use crate::state::{
+    bank_read, bank_store, config_read, poll_store, poll_voter_read, poll_voter_store, state_read,
+    Config, Poll, State, TokenManager,
+};
 
 use cosmwasm_std::testing::{mock_env, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    coins, from_binary, log, to_binary, Api, Coin, CosmosMsg, Decimal, Env, Extern, HandleResponse,
-    HumanAddr, StdError, Uint128, WasmMsg,
+    coins, from_binary, log, to_binary, Api, CanonicalAddr, Coin, CosmosMsg, Decimal, Env, Extern,
+    HandleResponse, HumanAddr, StdError, Uint128, WasmMsg,
 };
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
 use mirror_protocol::common::OrderBy;
@@ -1090,6 +1093,41 @@ fn end_poll_quorum_rejected() {
 }
 
 #[test]
+fn end_poll_quorum_rejected_noting_staked() {
+    let mut deps = mock_dependencies(20, &coins(100, VOTING_TOKEN));
+    mock_init(&mut deps);
+
+    let msg = create_poll_msg("test".to_string(), "test".to_string(), None, None);
+    let mut creator_env = mock_env(VOTING_TOKEN, &vec![]);
+    let handle_res = handle(&mut deps, creator_env.clone(), msg.clone()).unwrap();
+    assert_eq!(
+        handle_res.log,
+        vec![
+            log("action", "create_poll"),
+            log("creator", TEST_CREATOR),
+            log("poll_id", "1"),
+            log("end_height", "22345"),
+        ]
+    );
+
+    let msg = HandleMsg::EndPoll { poll_id: 1 };
+
+    creator_env.message.sender = HumanAddr::from(TEST_CREATOR);
+    creator_env.block.height = &creator_env.block.height + DEFAULT_VOTING_PERIOD;
+
+    let handle_res = handle(&mut deps, creator_env.clone(), msg.clone()).unwrap();
+    assert_eq!(
+        handle_res.log,
+        vec![
+            log("action", "end_poll"),
+            log("poll_id", "1"),
+            log("rejected_reason", "Quorum not reached"),
+            log("passed", "false"),
+        ]
+    );
+}
+
+#[test]
 fn end_poll_nay_rejected() {
     let voter1_stake = 100;
     let voter2_stake = 1000;
@@ -1499,6 +1537,154 @@ fn happy_days_withdraw_voting_tokens_all() {
             total_share: Uint128::zero(),
             total_deposit: Uint128::zero(),
         }
+    );
+}
+
+#[test]
+fn withdraw_voting_tokens_remove_not_in_progress_poll_voter_info() {
+    let mut deps = mock_dependencies(20, &[]);
+    mock_init(&mut deps);
+
+    deps.querier.with_token_balances(&[(
+        &HumanAddr::from(VOTING_TOKEN),
+        &[(&HumanAddr::from(MOCK_CONTRACT_ADDR), &Uint128(11u128))],
+    )]);
+
+    let msg = HandleMsg::Receive(Cw20ReceiveMsg {
+        sender: HumanAddr::from(TEST_VOTER),
+        amount: Uint128::from(11u128),
+        msg: Some(to_binary(&Cw20HookMsg::StakeVotingTokens {}).unwrap()),
+    });
+
+    let env = mock_env(VOTING_TOKEN, &[]);
+    let handle_res = handle(&mut deps, env, msg.clone()).unwrap();
+    assert_stake_tokens_result(11, 0, 11, 0, handle_res, &mut deps);
+
+    // make fake polls; one in progress & one in passed
+    poll_store(&mut deps.storage)
+        .save(
+            &1u64.to_be_bytes(),
+            &Poll {
+                id: 1u64,
+                creator: CanonicalAddr::default(),
+                status: PollStatus::InProgress,
+                yes_votes: Uint128::zero(),
+                no_votes: Uint128::zero(),
+                end_height: 0u64,
+                title: "title".to_string(),
+                description: "description".to_string(),
+                deposit_amount: Uint128::zero(),
+                link: None,
+                execute_data: None,
+                total_balance_at_end_poll: None,
+            },
+        )
+        .unwrap();
+
+    poll_store(&mut deps.storage)
+        .save(
+            &2u64.to_be_bytes(),
+            &Poll {
+                id: 1u64,
+                creator: CanonicalAddr::default(),
+                status: PollStatus::Passed,
+                yes_votes: Uint128::zero(),
+                no_votes: Uint128::zero(),
+                end_height: 0u64,
+                title: "title".to_string(),
+                description: "description".to_string(),
+                deposit_amount: Uint128::zero(),
+                link: None,
+                execute_data: None,
+                total_balance_at_end_poll: None,
+            },
+        )
+        .unwrap();
+
+    let voter_addr_raw = deps
+        .api
+        .canonical_address(&HumanAddr::from(TEST_VOTER))
+        .unwrap();
+    poll_voter_store(&mut deps.storage, 1u64)
+        .save(
+            &voter_addr_raw.as_slice(),
+            &VoterInfo {
+                vote: VoteOption::Yes,
+                balance: Uint128(5u128),
+            },
+        )
+        .unwrap();
+    poll_voter_store(&mut deps.storage, 2u64)
+        .save(
+            &voter_addr_raw.as_slice(),
+            &VoterInfo {
+                vote: VoteOption::Yes,
+                balance: Uint128(5u128),
+            },
+        )
+        .unwrap();
+    bank_store(&mut deps.storage)
+        .save(
+            &voter_addr_raw.as_slice(),
+            &TokenManager {
+                share: Uint128(11u128),
+                locked_balance: vec![
+                    (
+                        1u64,
+                        VoterInfo {
+                            vote: VoteOption::Yes,
+                            balance: Uint128(5u128),
+                        },
+                    ),
+                    (
+                        2u64,
+                        VoterInfo {
+                            vote: VoteOption::Yes,
+                            balance: Uint128(5u128),
+                        },
+                    ),
+                ],
+                participated_polls: vec![],
+            },
+        )
+        .unwrap();
+
+    // withdraw voting token must remove not in-progress votes infos from the store
+    let env = mock_env(TEST_VOTER, &[]);
+    let msg = HandleMsg::WithdrawVotingTokens {
+        amount: Some(Uint128::from(5u128)),
+    };
+
+    let _ = handle(&mut deps, env, msg).unwrap();
+    let voter = poll_voter_read(&deps.storage, 1u64)
+        .load(&voter_addr_raw.as_slice())
+        .unwrap();
+    assert_eq!(
+        voter,
+        VoterInfo {
+            vote: VoteOption::Yes,
+            balance: Uint128(5u128),
+        }
+    );
+    assert_eq!(
+        poll_voter_read(&deps.storage, 2u64)
+            .load(&voter_addr_raw.as_slice())
+            .is_err(),
+        true
+    );
+
+    let token_manager = bank_read(&deps.storage)
+        .load(&voter_addr_raw.as_slice())
+        .unwrap();
+    assert_eq!(
+        token_manager.locked_balance,
+        vec![(
+            1u64,
+            VoterInfo {
+                vote: VoteOption::Yes,
+                balance: Uint128(5u128),
+            }
+        )]
     );
 }
 
