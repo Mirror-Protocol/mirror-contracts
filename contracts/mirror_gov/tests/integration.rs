@@ -172,7 +172,7 @@ fn update_config() {
     assert_eq!(20000u64, config.voting_period);
     assert_eq!(123u128, config.proposal_deposit.u128());
 
-    // Unauthorzied err
+    // Unauthorized err
     let env = mock_env(TEST_CREATOR, &[]);
     let msg = HandleMsg::UpdateConfig {
         owner: None,
