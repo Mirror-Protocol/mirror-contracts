@@ -111,7 +111,7 @@ pub fn execute_order<S: Storage, A: Api, Q: Querier>(
     // Cap the send amount to left_offer_amount
     let executor_receive = Asset {
         info: order.offer_asset.info.to_normal(&deps)?,
-        amount: if left_ask_amount.is_zero() {
+        amount: if left_ask_amount == execute_asset.amount {
             left_offer_amount
         } else {
             std::cmp::min(
