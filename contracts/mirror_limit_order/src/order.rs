@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    log, Api, Decimal, Env, Extern, HandleResponse, HandleResult, HumanAddr, Querier, StdError,
-    StdResult, Storage, Uint128,
+    log, Api, CosmosMsg, Decimal, Env, Extern, HandleResponse, HandleResult, HumanAddr, Querier,
+    StdError, StdResult, Storage, Uint128,
 };
 
 use terraswap::asset::Asset;
@@ -108,14 +108,18 @@ pub fn execute_order<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::generic_err("insufficient order amount left"));
     }
 
-    // cap the send amount to left_offer_amount
+    // Cap the send amount to left_offer_amount
     let executor_receive = Asset {
         info: order.offer_asset.info.to_normal(&deps)?,
-        amount: std::cmp::min(
-            left_offer_amount,
-            execute_asset.amount
-                * Decimal::from_ratio(order.offer_asset.amount, order.ask_asset.amount),
-        ),
+        amount: if left_ask_amount.is_zero() {
+            left_offer_amount
+        } else {
+            std::cmp::min(
+                left_offer_amount,
+                execute_asset.amount
+                    * Decimal::from_ratio(order.offer_asset.amount, order.ask_asset.amount),
+            )
+        },
     };
 
     let bidder_addr = deps.api.human_address(&order.bidder_addr)?;
@@ -130,15 +134,25 @@ pub fn execute_order<S: Storage, A: Api, Q: Querier>(
         store_order(&mut deps.storage, &order)?;
     }
 
-    Ok(HandleResponse {
-        messages: vec![
+    let mut messages: Vec<CosmosMsg> = vec![];
+    if !executor_receive.amount.is_zero() {
+        messages.push(
             executor_receive
                 .clone()
                 .into_msg(&deps, contract_addr.clone(), sender)?,
+        );
+    }
+
+    if !bidder_receive.amount.is_zero() {
+        messages.push(
             bidder_receive
                 .clone()
                 .into_msg(&deps, contract_addr, bidder_addr)?,
-        ],
+        );
+    }
+
+    Ok(HandleResponse {
+        messages,
         log: vec![
             log("action", "execute_order"),
             log("order_id", order_id),
