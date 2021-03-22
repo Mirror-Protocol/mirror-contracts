@@ -80,3 +80,7 @@ pub struct OrdersResponse {
 pub struct LastOrderIdResponse {
     pub last_order_id: u64,
 }
+
+/// We currently take no arguments for migrations
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct MigrateMsg {}

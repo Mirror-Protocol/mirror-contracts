@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     from_binary, to_binary, Api, Binary, Env, Extern, HandleResponse, HandleResult, InitResponse,
-    InitResult, Querier, StdError, StdResult, Storage,
+    InitResult, MigrateResponse, MigrateResult, Querier, StdError, StdResult, Storage,
 };
 
 use crate::order::{
@@ -9,7 +9,7 @@ use crate::order::{
 use crate::state::init_last_order_id;
 
 use cw20::Cw20ReceiveMsg;
-use mirror_protocol::limit_order::{Cw20HookMsg, HandleMsg, InitMsg, QueryMsg};
+use mirror_protocol::limit_order::{Cw20HookMsg, HandleMsg, InitMsg, MigrateMsg, QueryMsg};
 use terraswap::asset::{Asset, AssetInfo};
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
@@ -110,4 +110,12 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
         )?),
         QueryMsg::LastOrderId {} => to_binary(&query_last_order_id(deps)?),
     }
+}
+
+pub fn migrate<S: Storage, A: Api, Q: Querier>(
+    _deps: &mut Extern<S, A, Q>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> MigrateResult {
+    Ok(MigrateResponse::default())
 }
