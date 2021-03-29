@@ -111,6 +111,17 @@
           }
         }
       }
+    },
+    {
+      "type": "object",
+      "required": [
+        "next_position_idx"
+      ],
+      "properties": {
+        "next_position_idx": {
+          "type": "object"
+        }
+      }
     }
   ],
   "definitions": {

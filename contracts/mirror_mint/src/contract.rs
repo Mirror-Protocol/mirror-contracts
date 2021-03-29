@@ -17,7 +17,7 @@ use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
 use mirror_protocol::common::OrderBy;
 use mirror_protocol::mint::{
     AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrateMsg,
-    PositionResponse, PositionsResponse, QueryMsg,
+    NextPositionIdxResponse, PositionResponse, PositionsResponse, QueryMsg,
 };
 use terraswap::asset::{Asset, AssetInfo, AssetInfoRaw, AssetRaw};
 
@@ -913,6 +913,7 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
             limit,
             order_by,
         )?),
+        QueryMsg::NextPositionIdx {} => to_binary(&query_next_position_idx(deps)?),
     }
 }
 
@@ -1007,6 +1008,17 @@ pub fn query_positions<S: Storage, A: Api, Q: Querier>(
     Ok(PositionsResponse {
         positions: position_responses?,
     })
+}
+
+pub fn query_next_position_idx<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+) -> StdResult<NextPositionIdxResponse> {
+    let idx = read_position_idx(&deps.storage)?;
+    let resp = NextPositionIdxResponse {
+        next_position_idx: idx,
+    };
+
+    Ok(resp)
 }
 
 // Check zero balance & same collateral with position

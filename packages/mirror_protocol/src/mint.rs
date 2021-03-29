@@ -110,6 +110,7 @@ pub enum QueryMsg {
         limit: Option<u32>,
         order_by: Option<OrderBy>,
     },
+    NextPositionIdx {},
 }
 
 // We define a custom struct for each query response
@@ -143,6 +144,11 @@ pub struct PositionResponse {
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
 pub struct PositionsResponse {
     pub positions: Vec<PositionResponse>,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
+pub struct NextPositionIdxResponse {
+    pub next_position_idx: Uint128,
 }
 
 /// We currently take no arguments for migrations

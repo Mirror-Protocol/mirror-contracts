@@ -557,7 +557,7 @@ dependencies = [
 
 [[package]]
 name = "mirror-collector"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -573,7 +573,7 @@ dependencies = [
 
 [[package]]
 name = "mirror-community"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -587,7 +587,7 @@ dependencies = [
 
 [[package]]
 name = "mirror-factory"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -602,7 +602,7 @@ dependencies = [
 
 [[package]]
 name = "mirror-gov"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -617,7 +617,7 @@ dependencies = [
 
 [[package]]
 name = "mirror-limit-order"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -633,7 +633,7 @@ dependencies = [
 
 [[package]]
 name = "mirror-mint"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -649,7 +649,7 @@ dependencies = [
 
 [[package]]
 name = "mirror-oracle"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -662,7 +662,7 @@ dependencies = [
 
 [[package]]
 name = "mirror-protocol"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "cosmwasm-std",
  "cosmwasm-storage",
@@ -674,7 +674,7 @@ dependencies = [
 
 [[package]]
 name = "mirror-staking"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
