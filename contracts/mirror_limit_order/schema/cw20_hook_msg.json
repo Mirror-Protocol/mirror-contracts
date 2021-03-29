@@ -1,0 +1,112 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Cw20HookMsg",
+  "anyOf": [
+    {
+      "type": "object",
+      "required": [
+        "submit_order"
+      ],
+      "properties": {
+        "submit_order": {
+          "type": "object",
+          "required": [
+            "ask_asset"
+          ],
+          "properties": {
+            "ask_asset": {
+              "$ref": "#/definitions/Asset"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "Arbitrager execute order to get profit",
+      "type": "object",
+      "required": [
+        "execute_order"
+      ],
+      "properties": {
+        "execute_order": {
+          "type": "object",
+          "required": [
+            "order_id"
+          ],
+          "properties": {
+            "order_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          }
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "Asset": {
+      "type": "object",
+      "required": [
+        "amount",
+        "info"
+      ],
+      "properties": {
+        "amount": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "info": {
+          "$ref": "#/definitions/AssetInfo"
+        }
+      }
+    },
+    "AssetInfo": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "token"
+          ],
+          "properties": {
+            "token": {
+              "type": "object",
+              "required": [
+                "contract_addr"
+              ],
+              "properties": {
+                "contract_addr": {
+                  "$ref": "#/definitions/HumanAddr"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "native_token"
+          ],
+          "properties": {
+            "native_token": {
+              "type": "object",
+              "required": [
+                "denom"
+              ],
+              "properties": {
+                "denom": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "HumanAddr": {
+      "type": "string"
+    },
+    "Uint128": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "QueryMsg",
+  "anyOf": [
+    {
+      "type": "object",
+      "required": [
+        "order"
+      ],
+      "properties": {
+        "order": {
+          "type": "object",
+          "required": [
+            "order_id"
+          ],
+          "properties": {
+            "order_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "orders"
+      ],
+      "properties": {
+        "orders": {
+          "type": "object",
+          "properties": {
+            "bidder_addr": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "limit": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint32",
+              "minimum": 0.0
+            },
+            "order_by": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/OrderBy"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "start_after": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "last_order_id"
+      ],
+      "properties": {
+        "last_order_id": {
+          "type": "object"
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "HumanAddr": {
+      "type": "string"
+    },
+    "OrderBy": {
+      "type": "string",
+      "enum": [
+        "asc",
+        "desc"
+      ]
+    }
+  }
+}
