@@ -1260,7 +1260,7 @@ fn burn_migrated_asset_position() {
                 send: vec![],
                 msg: to_binary(&Cw20HandleMsg::Transfer {
                     recipient: HumanAddr::from("addr0001"),
-                    amount: Uint128::from(666666u128),
+                    amount: Uint128::from(666665u128), // rounding
                 })
                 .unwrap(),
             }),
@@ -1273,7 +1273,7 @@ fn burn_migrated_asset_position() {
             log("action", "burn"),
             log("position_idx", "1"),
             log("burn_amount", "1333333asset0001"),
-            log("refund_collateral_amount", "666666asset0000")
+            log("refund_collateral_amount", "666665asset0000") // rounding
         ]
     );
 

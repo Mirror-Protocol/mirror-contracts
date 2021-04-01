@@ -686,15 +686,19 @@ pub fn try_burn<S: Storage, A: Api, Q: Querier>(
         )?;
 
         // Burn deprecated asset to receive collaterals back
+        let conversion_rate =
+            Decimal::from_ratio(position.collateral.amount, position.asset.amount);
         let refund_collateral = Asset {
             info: collateral_info,
-            amount: asset.amount * price,
+            amount: std::cmp::min(asset.amount * price, asset.amount * conversion_rate),
         };
 
         position.asset.amount = (position.asset.amount - asset.amount).unwrap();
         position.collateral.amount =
             (position.collateral.amount - refund_collateral.amount).unwrap();
-        if position.collateral.amount == Uint128::zero() && position.asset.amount == Uint128::zero()
+
+        // due to rounding, include 1
+        if position.collateral.amount <= Uint128(1u128) && position.asset.amount == Uint128::zero()
         {
             remove_position(&mut deps.storage, position_idx)?;
         } else {
