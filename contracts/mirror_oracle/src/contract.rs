@@ -281,7 +281,7 @@ mod tests {
         assert_eq!("owner0001", value.owner.as_str());
         assert_eq!("base0000", &value.base_asset.to_string());
 
-        // Unauthorzied err
+        // Unauthorized err
         let env = mock_env("owner0000", &[]);
         let msg = HandleMsg::UpdateConfig { owner: None };
 

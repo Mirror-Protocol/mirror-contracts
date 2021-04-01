@@ -340,7 +340,16 @@ pub fn try_open_position<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::generic_err("Wrong collateral"));
     }
 
+    // assert collateral migrated
     let collateral_info_raw: AssetInfoRaw = collateral.info.to_raw(&deps)?;
+    match collateral_info_raw.clone() {
+        AssetInfoRaw::Token { contract_addr } => {
+            assert_migrated_asset(&read_asset_config(&deps.storage, &contract_addr)?)?;
+        }
+        _ => {}
+    };
+
+    // assert asset migrated
     let asset_info_raw: AssetInfoRaw = asset_info.to_raw(&deps)?;
     let asset_token_raw = match asset_info_raw.clone() {
         AssetInfoRaw::Token { contract_addr } => contract_addr,
@@ -431,13 +440,21 @@ pub fn try_deposit<S: Storage, A: Api, Q: Querier>(
     // also Check the collateral amount is non-zero
     assert_collateral(deps, &position, &collateral)?;
 
-    let asset_token_raw = match position.asset.info.clone() {
-        AssetInfoRaw::Token { contract_addr } => contract_addr,
-        _ => panic!("DO NOT ENTER HERE"),
+    // assert collateral migrated
+    match position.collateral.info.clone() {
+        AssetInfoRaw::Token { contract_addr } => {
+            assert_migrated_asset(&read_asset_config(&deps.storage, &contract_addr)?)?;
+        }
+        _ => {}
     };
 
-    let asset_config = read_asset_config(&deps.storage, &asset_token_raw)?;
-    assert_migrated_asset(&asset_config)?;
+    // assert asset migrated
+    match position.asset.info.clone() {
+        AssetInfoRaw::Token { contract_addr } => {
+            assert_migrated_asset(&read_asset_config(&deps.storage, &contract_addr)?)?
+        }
+        _ => panic!("DO NOT ENTER HERE"),
+    };
 
     // Increase collateral amount
     position.collateral.amount += collateral.amount;
@@ -563,12 +580,21 @@ pub fn try_mint<S: Storage, A: Api, Q: Querier>(
 
     assert_asset(&deps, &position, &asset)?;
 
+    // assert the collateral migrated
+    match position.collateral.info.clone() {
+        AssetInfoRaw::Token { contract_addr } => {
+            assert_migrated_asset(&read_asset_config(&deps.storage, &contract_addr)?)?;
+        }
+        _ => {}
+    };
+
     let config: Config = read_config(&deps.storage)?;
     let asset_token_raw = match position.asset.info.clone() {
         AssetInfoRaw::Token { contract_addr } => contract_addr,
         _ => panic!("DO NOT ENTER HERE"),
     };
 
+    // assert the asset migrated
     let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
     assert_migrated_asset(&asset_config)?;
 
@@ -649,17 +675,20 @@ pub fn try_burn<S: Storage, A: Api, Q: Querier>(
 
     // If the collateral is default denom asset and the asset is deprecated,
     // anyone can execute burn the asset to any position without permission
-    if asset_config.end_price.is_some()
-        && collateral_info.equal(&AssetInfo::NativeToken {
-            denom: config.base_denom,
-        })
-    {
-        let end_price = asset_config.end_price.unwrap();
+    if asset_config.end_price.is_some() {
+        let oracle: HumanAddr = deps.api.human_address(&config.oracle)?;
+        let price: Decimal = load_price(
+            &deps,
+            &oracle,
+            &position.asset.info,
+            &position.collateral.info,
+            Some(env.block.time),
+        )?;
 
         // Burn deprecated asset to receive collaterals back
         let refund_collateral = Asset {
             info: collateral_info,
-            amount: asset.amount * end_price,
+            amount: asset.amount * price,
         };
 
         position.asset.amount = (position.asset.amount - asset.amount).unwrap();
