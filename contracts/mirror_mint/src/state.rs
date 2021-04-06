@@ -50,6 +50,7 @@ pub struct AssetConfig {
     pub auction_discount: Decimal,
     pub min_collateral_ratio: Decimal,
     pub end_price: Option<Decimal>,
+    pub mint_end: Option<u64>,
 }
 
 pub fn store_asset_config<S: Storage>(

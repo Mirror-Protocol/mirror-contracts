@@ -39,12 +39,14 @@ pub enum HandleMsg {
         asset_token: HumanAddr,
         auction_discount: Option<Decimal>,
         min_collateral_ratio: Option<Decimal>,
+        mint_end: Option<u64>,
     },
     /// Generate asset token initialize msg and register required infos except token address
     RegisterAsset {
         asset_token: HumanAddr,
         auction_discount: Decimal,
         min_collateral_ratio: Decimal,
+        mint_end: Option<u64>,
     },
     RegisterMigration {
         asset_token: HumanAddr,

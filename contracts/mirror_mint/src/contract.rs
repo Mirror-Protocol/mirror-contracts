@@ -66,23 +66,27 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             asset_token,
             auction_discount,
             min_collateral_ratio,
+            mint_end,
         } => try_update_asset(
             deps,
             env,
             asset_token,
             auction_discount,
             min_collateral_ratio,
+            mint_end,
         ),
         HandleMsg::RegisterAsset {
             asset_token,
             auction_discount,
             min_collateral_ratio,
+            mint_end,
         } => try_register_asset(
             deps,
             env,
             asset_token,
             auction_discount,
             min_collateral_ratio,
+            mint_end,
         ),
         HandleMsg::RegisterMigration {
             asset_token,
@@ -224,6 +228,7 @@ pub fn try_update_asset<S: Storage, A: Api, Q: Querier>(
     asset_token: HumanAddr,
     auction_discount: Option<Decimal>,
     min_collateral_ratio: Option<Decimal>,
+    mint_end: Option<u64>,
 ) -> StdResult<HandleResponse> {
     let config: Config = read_config(&deps.storage)?;
     let asset_token_raw = deps.api.canonical_address(&asset_token)?;
@@ -243,6 +248,8 @@ pub fn try_update_asset<S: Storage, A: Api, Q: Querier>(
         asset.min_collateral_ratio = min_collateral_ratio;
     }
 
+    asset.mint_end = mint_end;
+
     store_asset_config(&mut deps.storage, &asset_token_raw, &asset)?;
     Ok(HandleResponse {
         messages: vec![],
@@ -257,6 +264,7 @@ pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
     asset_token: HumanAddr,
     auction_discount: Decimal,
     min_collateral_ratio: Decimal,
+    mint_end: Option<u64>,
 ) -> StdResult<HandleResponse> {
     assert_auction_discount(auction_discount)?;
     assert_min_collateral_ratio(min_collateral_ratio)?;
@@ -282,6 +290,7 @@ pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
             auction_discount,
             min_collateral_ratio,
             end_price: None,
+            mint_end,
         },
     )?;
 
@@ -313,6 +322,7 @@ pub fn try_register_migration<S: Storage, A: Api, Q: Querier>(
         &AssetConfig {
             end_price: Some(end_price),
             min_collateral_ratio: Decimal::percent(100),
+            mint_end: None,
             ..asset_config
         },
     )?;
@@ -358,6 +368,15 @@ pub fn try_open_position<S: Storage, A: Api, Q: Querier>(
 
     let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
     assert_migrated_asset(&asset_config)?;
+
+    if let Some(mint_end) = asset_config.mint_end {
+        if mint_end < env.block.height {
+            return Err(StdError::generic_err(format!(
+                "The minting period for this asset ended at height {}",
+                mint_end
+            )));
+        }
+    }
 
     if collateral_ratio < asset_config.min_collateral_ratio {
         return Err(StdError::generic_err(
@@ -598,6 +617,15 @@ pub fn try_mint<S: Storage, A: Api, Q: Querier>(
     let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
     assert_migrated_asset(&asset_config)?;
 
+    if let Some(mint_end) = asset_config.mint_end {
+        if mint_end < env.block.height {
+            return Err(StdError::generic_err(format!(
+                "The minting period for this asset ended at height {}",
+                mint_end
+            )));
+        }
+    }
+
     let oracle: HumanAddr = deps.api.human_address(&config.oracle)?;
     let price: Decimal = load_price(
         &deps,
@@ -672,6 +700,18 @@ pub fn try_burn<S: Storage, A: Api, Q: Querier>(
 
     let mut messages: Vec<CosmosMsg> = vec![];
     let mut logs: Vec<LogAttribute> = vec![];
+
+    // If mint_end is different than None, it is a pre-IPO asset.
+    // In that case, burning should be disabled after the minting period is over.
+    // Burning is enabled again after asset migration (IPO event), when mint_end is reset to None
+    if let Some(mint_end) = asset_config.mint_end {
+        if mint_end < env.block.height {
+            return Err(StdError::generic_err(format!(
+                "Burning is disabled for assets with limitied minting time. Mint period ended at {}",
+                mint_end
+            )));
+        }
+    }
 
     // If the collateral is default denom asset and the asset is deprecated,
     // anyone can execute burn the asset to any position without permission
