@@ -237,7 +237,6 @@ fn update_asset() {
         asset_token: HumanAddr::from("asset0000"),
         auction_discount: Some(Decimal::percent(30)),
         min_collateral_ratio: Some(Decimal::percent(200)),
-        mint_end: None,
     };
     let env = mock_env("owner0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
@@ -264,7 +263,6 @@ fn update_asset() {
         asset_token: HumanAddr::from("asset0000"),
         auction_discount: Some(Decimal::percent(130)),
         min_collateral_ratio: Some(Decimal::percent(150)),
-        mint_end: None,
     };
     let env = mock_env("owner0000", &[]);
     let res = handle(&mut deps, env, msg).unwrap_err();
@@ -279,7 +277,6 @@ fn update_asset() {
         asset_token: HumanAddr::from("asset0000"),
         auction_discount: Some(Decimal::percent(30)),
         min_collateral_ratio: Some(Decimal::percent(50)),
-        mint_end: None,
     };
     let env = mock_env("owner0000", &[]);
     let res = handle(&mut deps, env, msg).unwrap_err();
@@ -294,7 +291,6 @@ fn update_asset() {
         asset_token: HumanAddr::from("asset0000"),
         auction_discount: Some(Decimal::percent(30)),
         min_collateral_ratio: Some(Decimal::percent(200)),
-        mint_end: None,
     };
     let env = mock_env("owner0001", &[]);
     let res = handle(&mut deps, env, msg).unwrap_err();

@@ -117,8 +117,16 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             symbol,
             from_token,
             end_price,
-            new_min_cr,
-        } => migrate_asset(deps, env, name, symbol, from_token, end_price, new_min_cr),
+            min_collateral_ratio,
+        } => migrate_asset(
+            deps,
+            env,
+            name,
+            symbol,
+            from_token,
+            end_price,
+            min_collateral_ratio,
+        ),
     }
 }
 

@@ -989,7 +989,7 @@ fn test_migration() {
         symbol: "mAPPL2".to_string(),
         from_token: HumanAddr::from("asset0000"),
         end_price: Decimal::from_ratio(2u128, 1u128),
-        new_min_cr: None, // use previous cr
+        min_collateral_ratio: None, // use previous cr
     };
     let env = mock_env("owner0000", &[]);
     let res = handle(&mut deps, env, msg.clone()).unwrap_err();
@@ -1176,8 +1176,10 @@ fn test_whitelist_pre_ipo_asset() {
 #[test]
 fn test_migrate_pre_ipo_asset() {
     let mut deps = mock_dependencies(20, &[]);
-    deps.querier
-        .with_terraswap_pairs(&[(&"uusdpreIPOasset0000".to_string(), &HumanAddr::from("LP0000"))]);
+    deps.querier.with_terraswap_pairs(&[(
+        &"uusdpreIPOasset0000".to_string(),
+        &HumanAddr::from("LP0000"),
+    )]);
 
     let msg = InitMsg {
         base_denom: BASE_DENOM.to_string(),
@@ -1242,7 +1244,7 @@ fn test_migrate_pre_ipo_asset() {
         symbol: "mPostIPO".to_string(),
         from_token: HumanAddr::from("preIPOasset0000"),
         end_price: Decimal::from_ratio(2u128, 1u128), // give first IPO price
-        new_min_cr: Some(Decimal::percent(150)), // new mcr
+        min_collateral_ratio: Some(Decimal::percent(150)), // new mcr
     };
 
     let env = mock_env("feeder0000", &[]);

@@ -75,7 +75,7 @@ pub enum HandleMsg {
         symbol: String,
         from_token: HumanAddr,
         end_price: Decimal,
-        new_min_cr: Option<Decimal>,
+        min_collateral_ratio: Option<Decimal>,
     },
 
     ///////////////////
