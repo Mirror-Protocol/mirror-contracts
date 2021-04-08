@@ -10,9 +10,7 @@ use mirror_protocol::common::OrderBy;
 use std::convert::TryInto;
 use terraswap::asset::{AssetInfoRaw, AssetRaw};
 
-// make public for migration
-pub static PREFIX_ASSET_CONFIG: &[u8] = b"asset_config";
-
+static PREFIX_ASSET_CONFIG: &[u8] = b"asset_config";
 static PREFIX_POSITION: &[u8] = b"position";
 static PREFIX_INDEX_BY_USER: &[u8] = b"by_user";
 static PREFIX_INDEX_BY_ASSET: &[u8] = b"by_asset";
