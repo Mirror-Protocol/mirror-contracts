@@ -5,6 +5,7 @@ use cosmwasm_std::{
 };
 
 use crate::math::{decimal_division, decimal_subtraction, reverse_decimal};
+use crate::migration::migrate_asset_configs;
 use crate::querier::load_price;
 use crate::state::{
     create_position, read_asset_config, read_config, read_position, read_position_idx,
@@ -77,12 +78,14 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             asset_token,
             auction_discount,
             min_collateral_ratio,
+            mint_end,
         } => try_register_asset(
             deps,
             env,
             asset_token,
             auction_discount,
             min_collateral_ratio,
+            mint_end,
         ),
         HandleMsg::RegisterMigration {
             asset_token,
@@ -257,6 +260,7 @@ pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
     asset_token: HumanAddr,
     auction_discount: Decimal,
     min_collateral_ratio: Decimal,
+    mint_end: Option<u64>,
 ) -> StdResult<HandleResponse> {
     assert_auction_discount(auction_discount)?;
     assert_min_collateral_ratio(min_collateral_ratio)?;
@@ -282,6 +286,7 @@ pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
             auction_discount,
             min_collateral_ratio,
             end_price: None,
+            mint_end,
         },
     )?;
 
@@ -313,6 +318,7 @@ pub fn try_register_migration<S: Storage, A: Api, Q: Querier>(
         &AssetConfig {
             end_price: Some(end_price),
             min_collateral_ratio: Decimal::percent(100),
+            mint_end: None,
             ..asset_config
         },
     )?;
@@ -358,6 +364,9 @@ pub fn try_open_position<S: Storage, A: Api, Q: Querier>(
 
     let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
     assert_migrated_asset(&asset_config)?;
+
+    // for assets with limited minting period (preIPO assets), assert minting phase
+    assert_mint_period(env.clone(), &asset_config)?;
 
     if collateral_ratio < asset_config.min_collateral_ratio {
         return Err(StdError::generic_err(
@@ -598,6 +607,9 @@ pub fn try_mint<S: Storage, A: Api, Q: Querier>(
     let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
     assert_migrated_asset(&asset_config)?;
 
+    // for assets with limited minting period (preIPO assets), assert minting phase
+    assert_mint_period(env.clone(), &asset_config)?;
+
     let oracle: HumanAddr = deps.api.human_address(&config.oracle)?;
     let price: Decimal = load_price(
         &deps,
@@ -672,6 +684,11 @@ pub fn try_burn<S: Storage, A: Api, Q: Querier>(
 
     let mut messages: Vec<CosmosMsg> = vec![];
     let mut logs: Vec<LogAttribute> = vec![];
+
+    // If mint_end is different than None, it is a pre-IPO asset.
+    // In that case, burning should be disabled after the minting period is over.
+    // Burning is enabled again after asset migration (IPO event), when mint_end is reset to None
+    assert_burn_period(env.clone(), &asset_config)?;
 
     // If the collateral is default denom asset and the asset is deprecated,
     // anyone can execute burn the asset to any position without permission
@@ -1114,10 +1131,38 @@ fn assert_min_collateral_ratio(min_collateral_ratio: Decimal) -> StdResult<()> {
     }
 }
 
+fn assert_mint_period(env: Env, asset_config: &AssetConfig) -> StdResult<()> {
+    if let Some(mint_end) = asset_config.mint_end {
+        if mint_end < env.block.height {
+            return Err(StdError::generic_err(format!(
+                "The minting period for this asset ended at height {}",
+                mint_end
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn assert_burn_period(env: Env, asset_config: &AssetConfig) -> StdResult<()> {
+    if let Some(mint_end) = asset_config.mint_end {
+        if mint_end < env.block.height {
+            return Err(StdError::generic_err(format!(
+                "Burning is disabled for assets with limitied minting time. Mint period ended at {}",
+                mint_end
+            )));
+        }
+    }
+    Ok(())
+}
+
 pub fn migrate<S: Storage, A: Api, Q: Querier>(
-    _deps: &mut Extern<S, A, Q>,
+    deps: &mut Extern<S, A, Q>,
     _env: Env,
     _msg: MigrateMsg,
 ) -> MigrateResult {
+
+    // migrate all asset configurations to use new add mint_end parameter
+    migrate_asset_configs(&mut deps.storage)?;
+
     Ok(MigrateResponse::default())
 }

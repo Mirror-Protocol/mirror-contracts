@@ -75,6 +75,7 @@ pub enum HandleMsg {
         symbol: String,
         from_token: HumanAddr,
         end_price: Decimal,
+        min_collateral_ratio: Option<Decimal>,
     },
 
     ///////////////////
@@ -126,4 +127,6 @@ pub struct Params {
     pub min_collateral_ratio: Decimal,
     /// Distribution weight (default is 30, which is 1/10 of MIR distribution weight)
     pub weight: Option<u32>,
+    /// For pre-IPO assets, time period after asset creation in which minting is enabled
+    pub mint_period: Option<u64>,
 }

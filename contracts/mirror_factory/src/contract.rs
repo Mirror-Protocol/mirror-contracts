@@ -117,7 +117,16 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             symbol,
             from_token,
             end_price,
-        } => migrate_asset(deps, env, name, symbol, from_token, end_price),
+            min_collateral_ratio,
+        } => migrate_asset(
+            deps,
+            env,
+            name,
+            symbol,
+            from_token,
+            end_price,
+            min_collateral_ratio,
+        ),
     }
 }
 
@@ -330,6 +339,13 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
     // Remove params == clear flag
     remove_params(&mut deps.storage);
 
+    // If it is a pre-IPO asset, calculate the end of the minting period
+    let mint_end = if let Some(mint_period) = params.mint_period {
+        Some(env.block.height + mint_period)
+    } else {
+        None
+    };
+
     // Register asset to mint contract
     // Register asset to oracle contract
     // Create terraswap pair
@@ -342,6 +358,7 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
                     asset_token: asset_token.clone(),
                     auction_discount: params.auction_discount,
                     min_collateral_ratio: params.min_collateral_ratio,
+                    mint_end,
                 })?,
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
@@ -550,6 +567,7 @@ pub fn migrate_asset<S: Storage, A: Api, Q: Querier>(
     symbol: String,
     asset_token: HumanAddr,
     end_price: Decimal,
+    new_min_cr: Option<Decimal>,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
     let asset_token_raw: CanonicalAddr = deps.api.canonical_address(&asset_token)?;
@@ -570,13 +588,20 @@ pub fn migrate_asset<S: Storage, A: Api, Q: Querier>(
     let mint_contract = deps.api.human_address(&config.mint_contract)?;
     let mint_config: (Decimal, Decimal) =
         load_mint_asset_config(&deps, &mint_contract, &asset_token_raw)?;
+    // If there is a new MCR given, update. Otherwise, import from previous
+    let min_cr = if let Some(new_min_cr) = new_min_cr {
+        new_min_cr
+    } else {
+        mint_config.1
+    };
 
     store_params(
         &mut deps.storage,
         &Params {
             auction_discount: mint_config.0,
-            min_collateral_ratio: mint_config.1,
+            min_collateral_ratio: min_cr,
             weight: Some(weight),
+            mint_period: None,
         },
     )?;
 

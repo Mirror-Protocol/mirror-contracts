@@ -138,6 +138,14 @@
             },
             "min_collateral_ratio": {
               "$ref": "#/definitions/Decimal"
+            },
+            "mint_end": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
             }
           }
         }
