@@ -280,16 +280,6 @@
             "from_token": {
               "$ref": "#/definitions/HumanAddr"
             },
-            "min_collateral_ratio": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/Decimal"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
             "name": {
               "type": "string"
             },
@@ -319,7 +309,7 @@
       "type": "string"
     },
     "Decimal": {
-      "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0 The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
+      "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0\n\nThe greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
       "type": "string"
     },
     "HumanAddr": {
@@ -345,6 +335,17 @@
           "allOf": [
             {
               "$ref": "#/definitions/Decimal"
+            }
+          ]
+        },
+        "min_collateral_ratio_after_migration": {
+          "description": "For pre-IPO assets, collateral ratio for the asset after migration",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Decimal"
+            },
+            {
+              "type": "null"
             }
           ]
         },

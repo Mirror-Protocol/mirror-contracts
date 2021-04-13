@@ -287,6 +287,7 @@ fn test_whitelist() {
             min_collateral_ratio: Decimal::percent(150),
             weight: Some(100u32),
             mint_period: None,
+            min_collateral_ratio_after_migration: None,
         },
     };
     let env = mock_env("owner0000", &[]);
@@ -337,6 +338,7 @@ fn test_whitelist() {
             min_collateral_ratio: Decimal::percent(150),
             weight: Some(100u32),
             mint_period: None,
+            min_collateral_ratio_after_migration: None,
         }
     );
 
@@ -400,6 +402,7 @@ fn test_token_creation_hook() {
             min_collateral_ratio: Decimal::percent(150),
             weight: Some(100u32),
             mint_period: None,
+            min_collateral_ratio_after_migration: None,
         },
     };
     let env = mock_env("owner0000", &[]);
@@ -421,6 +424,7 @@ fn test_token_creation_hook() {
                     auction_discount: Decimal::percent(5),
                     min_collateral_ratio: Decimal::percent(150),
                     mint_end: None,
+                    min_collateral_ratio_after_migration: None,
                 })
                 .unwrap(),
             }),
@@ -528,6 +532,7 @@ fn test_token_creation_hook_without_weight() {
             min_collateral_ratio: Decimal::percent(150),
             weight: None,
             mint_period: None,
+            min_collateral_ratio_after_migration: None,
         },
     };
     let env = mock_env("owner0000", &[]);
@@ -549,6 +554,7 @@ fn test_token_creation_hook_without_weight() {
                     auction_discount: Decimal::percent(5),
                     min_collateral_ratio: Decimal::percent(150),
                     mint_end: None,
+                    min_collateral_ratio_after_migration: None,
                 })
                 .unwrap(),
             }),
@@ -645,6 +651,7 @@ fn test_terraswap_creation_hook() {
             min_collateral_ratio: Decimal::percent(150),
             weight: Some(100u32),
             mint_period: None,
+            min_collateral_ratio_after_migration: None,
         },
     };
     let env = mock_env("owner0000", &[]);
@@ -716,6 +723,7 @@ fn test_distribute() {
             min_collateral_ratio: Decimal::percent(150),
             weight: Some(100u32),
             mint_period: None,
+            min_collateral_ratio_after_migration: None,
         },
     };
     let env = mock_env("owner0000", &[]);
@@ -743,6 +751,7 @@ fn test_distribute() {
             min_collateral_ratio: Decimal::percent(150),
             weight: Some(100u32),
             mint_period: None,
+            min_collateral_ratio_after_migration: None,
         },
     };
     let env = mock_env("owner0000", &[]);
@@ -869,6 +878,7 @@ fn test_revocation() {
             min_collateral_ratio: Decimal::percent(150),
             weight: Some(100u32),
             mint_period: None,
+            min_collateral_ratio_after_migration: None,
         },
     };
     let env = mock_env("owner0000", &[]);
@@ -956,6 +966,7 @@ fn test_migration() {
             min_collateral_ratio: Decimal::percent(150),
             weight: Some(100u32),
             mint_period: None,
+            min_collateral_ratio_after_migration: None,
         },
     };
     let env = mock_env("owner0000", &[]);
@@ -976,7 +987,7 @@ fn test_migration() {
     // register queriers
     deps.querier.with_mint_configs(&[(
         &HumanAddr::from("asset0000"),
-        &(Decimal::percent(1), Decimal::percent(1)),
+        &(Decimal::percent(1), Decimal::percent(1), None),
     )]);
     deps.querier.with_oracle_feeders(&[(
         &HumanAddr::from("asset0000"),
@@ -989,7 +1000,6 @@ fn test_migration() {
         symbol: "mAPPL2".to_string(),
         from_token: HumanAddr::from("asset0000"),
         end_price: Decimal::from_ratio(2u128, 1u128),
-        min_collateral_ratio: None, // use previous cr
     };
     let env = mock_env("owner0000", &[]);
     let res = handle(&mut deps, env, msg.clone()).unwrap_err();
@@ -1073,6 +1083,7 @@ fn test_whitelist_pre_ipo_asset() {
             min_collateral_ratio: Decimal::percent(1000),
             weight: Some(100u32),
             mint_period: Some(10000u64),
+            min_collateral_ratio_after_migration: Some(Decimal::percent(150)),
         },
     };
     let env = mock_env("owner0000", &[]);
@@ -1114,6 +1125,7 @@ fn test_whitelist_pre_ipo_asset() {
             min_collateral_ratio: Decimal::percent(1000),
             weight: Some(100u32),
             mint_period: Some(10000u64),
+            min_collateral_ratio_after_migration: Some(Decimal::percent(150)),
         }
     );
 
@@ -1135,6 +1147,7 @@ fn test_whitelist_pre_ipo_asset() {
                     auction_discount: Decimal::percent(5),
                     min_collateral_ratio: Decimal::percent(1000),
                     mint_end: Some(env.block.height + 10000u64),
+                    min_collateral_ratio_after_migration: Some(Decimal::percent(150)),
                 })
                 .unwrap(),
             }),
@@ -1211,6 +1224,7 @@ fn test_migrate_pre_ipo_asset() {
             min_collateral_ratio: Decimal::percent(1000),
             weight: Some(100u32),
             mint_period: Some(1000u64),
+            min_collateral_ratio_after_migration: Some(Decimal::percent(150)),
         },
     };
     let env = mock_env("owner0000", &[]);
@@ -1231,7 +1245,11 @@ fn test_migrate_pre_ipo_asset() {
     // register queriers
     deps.querier.with_mint_configs(&[(
         &HumanAddr::from("preIPOasset0000"),
-        &(Decimal::percent(1), Decimal::percent(1)),
+        &(
+            Decimal::percent(5),
+            Decimal::percent(1000),
+            Some(Decimal::percent(150)),
+        ),
     )]);
     deps.querier.with_oracle_feeders(&[(
         &HumanAddr::from("preIPOasset0000"),
@@ -1244,7 +1262,6 @@ fn test_migrate_pre_ipo_asset() {
         symbol: "mPostIPO".to_string(),
         from_token: HumanAddr::from("preIPOasset0000"),
         end_price: Decimal::from_ratio(2u128, 1u128), // give first IPO price
-        min_collateral_ratio: Some(Decimal::percent(150)), // new mcr
     };
 
     let env = mock_env("feeder0000", &[]);
@@ -1280,6 +1297,60 @@ fn test_migrate_pre_ipo_asset() {
                             oracle_feeder: HumanAddr::from("feeder0000") // same feeder
                         })
                         .unwrap(),
+                    }),
+                })
+                .unwrap(),
+            })
+        ]
+    );
+
+    let msg = HandleMsg::TokenCreationHook {
+        oracle_feeder: HumanAddr::from("feeder0000"),
+    };
+    let env = mock_env("postIPOasset", &[]);
+    let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
+    assert_eq!(
+        res.messages,
+        vec![
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from("mint0000"),
+                send: vec![],
+                msg: to_binary(&MintHandleMsg::RegisterAsset {
+                    asset_token: HumanAddr::from("postIPOasset"),
+                    auction_discount: Decimal::percent(5),
+                    min_collateral_ratio: Decimal::percent(150), // new collateral ratio
+                    mint_end: None,                              // reset to None
+                    min_collateral_ratio_after_migration: None,  // reset to None
+                })
+                .unwrap(),
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from("oracle0000"),
+                send: vec![],
+                msg: to_binary(&OracleHandleMsg::RegisterAsset {
+                    asset_token: HumanAddr::from("postIPOasset"),
+                    feeder: HumanAddr::from("feeder0000"),
+                })
+                .unwrap(),
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from("terraswapfactory"),
+                send: vec![],
+                msg: to_binary(&TerraswapFactoryHandleMsg::CreatePair {
+                    asset_infos: [
+                        AssetInfo::NativeToken {
+                            denom: BASE_DENOM.to_string(),
+                        },
+                        AssetInfo::Token {
+                            contract_addr: HumanAddr::from("postIPOasset"),
+                        },
+                    ],
+                    init_hook: Some(InitHook {
+                        msg: to_binary(&HandleMsg::TerraswapCreationHook {
+                            asset_token: HumanAddr::from("postIPOasset"),
+                        })
+                        .unwrap(),
+                        contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
                     }),
                 })
                 .unwrap(),

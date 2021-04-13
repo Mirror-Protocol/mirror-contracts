@@ -42,13 +42,14 @@ pub struct MintAssetConfig {
     pub token: CanonicalAddr,
     pub auction_discount: Decimal,
     pub min_collateral_ratio: Decimal,
+    pub min_collateral_ratio_after_migration: Option<Decimal>,
 }
 
 pub fn load_mint_asset_config<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     contract_addr: &HumanAddr,
     asset_token: &CanonicalAddr,
-) -> StdResult<(Decimal, Decimal)> {
+) -> StdResult<(Decimal, Decimal, Option<Decimal>)> {
     let res: StdResult<Binary> = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
         contract_addr: HumanAddr::from(contract_addr),
         key: Binary::from(concat(
@@ -79,6 +80,7 @@ pub fn load_mint_asset_config<S: Storage, A: Api, Q: Querier>(
     Ok((
         asset_config.auction_discount,
         asset_config.min_collateral_ratio,
+        asset_config.min_collateral_ratio_after_migration,
     ))
 }
 

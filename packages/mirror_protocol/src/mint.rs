@@ -46,6 +46,7 @@ pub enum HandleMsg {
         auction_discount: Decimal,
         min_collateral_ratio: Decimal,
         mint_end: Option<u64>,
+        min_collateral_ratio_after_migration: Option<Decimal>,
     },
     RegisterMigration {
         asset_token: HumanAddr,

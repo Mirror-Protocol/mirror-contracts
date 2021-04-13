@@ -120,6 +120,7 @@ fn register_asset() {
         auction_discount: Decimal::percent(20),
         min_collateral_ratio: Decimal::percent(150),
         mint_end: None,
+        min_collateral_ratio_after_migration: None,
     };
 
     let env = mock_env("owner0000", &[]);
@@ -150,6 +151,7 @@ fn register_asset() {
         auction_discount: Decimal::percent(20),
         min_collateral_ratio: Decimal::percent(150),
         mint_end: None,
+        min_collateral_ratio_after_migration: None,
     };
     let env = mock_env("owner0000", &[]);
     let res = handle(&mut deps, env, msg).unwrap_err();
@@ -164,6 +166,7 @@ fn register_asset() {
         auction_discount: Decimal::percent(20),
         min_collateral_ratio: Decimal::percent(150),
         mint_end: None,
+        min_collateral_ratio_after_migration: None,
     };
     let env = mock_env("owner0001", &[]);
     let res = handle(&mut deps, env, msg).unwrap_err();
@@ -178,6 +181,7 @@ fn register_asset() {
         auction_discount: Decimal::percent(150),
         min_collateral_ratio: Decimal::percent(150),
         mint_end: None,
+        min_collateral_ratio_after_migration: None,
     };
     let env = mock_env("owner0000", &[]);
     let res = handle(&mut deps, env, msg).unwrap_err();
@@ -194,6 +198,7 @@ fn register_asset() {
         auction_discount: Decimal::percent(20),
         min_collateral_ratio: Decimal::percent(50),
         mint_end: None,
+        min_collateral_ratio_after_migration: None,
     };
     let env = mock_env("owner0000", &[]);
     let res = handle(&mut deps, env, msg).unwrap_err();
@@ -228,6 +233,7 @@ fn update_asset() {
         auction_discount: Decimal::percent(20),
         min_collateral_ratio: Decimal::percent(150),
         mint_end: None,
+        min_collateral_ratio_after_migration: None,
     };
 
     let env = mock_env("owner0000", &[]);
@@ -330,6 +336,7 @@ fn register_migration() {
         auction_discount: Decimal::percent(20),
         min_collateral_ratio: Decimal::percent(150),
         mint_end: None,
+        min_collateral_ratio_after_migration: None,
     };
 
     let env = mock_env("owner0000", &[]);
@@ -419,6 +426,7 @@ fn open_position() {
         auction_discount: Decimal::percent(20),
         min_collateral_ratio: Decimal::percent(150),
         mint_end: None,
+        min_collateral_ratio_after_migration: None,
     };
 
     let env = mock_env("owner0000", &[]);
@@ -429,6 +437,7 @@ fn open_position() {
         auction_discount: Decimal::percent(20),
         min_collateral_ratio: Decimal::percent(150),
         mint_end: None,
+        min_collateral_ratio_after_migration: None,
     };
 
     let env = mock_env("owner0000", &[]);
@@ -774,6 +783,7 @@ fn migrated_asset() {
         auction_discount: Decimal::percent(20),
         min_collateral_ratio: Decimal::percent(150),
         mint_end: None,
+        min_collateral_ratio_after_migration: None,
     };
     let env = mock_env("owner0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
@@ -783,6 +793,7 @@ fn migrated_asset() {
         auction_discount: Decimal::percent(20),
         min_collateral_ratio: Decimal::percent(150),
         mint_end: None,
+        min_collateral_ratio_after_migration: None,
     };
     let env = mock_env("owner0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
@@ -1132,6 +1143,7 @@ fn burn_migrated_asset_position() {
         auction_discount: Decimal::percent(20),
         min_collateral_ratio: Decimal::percent(150),
         mint_end: None,
+        min_collateral_ratio_after_migration: None,
     };
     let env = mock_env("owner0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
@@ -1141,6 +1153,7 @@ fn burn_migrated_asset_position() {
         auction_discount: Decimal::percent(20),
         min_collateral_ratio: Decimal::percent(150),
         mint_end: None,
+        min_collateral_ratio_after_migration: None,
     };
     let env = mock_env("owner0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
@@ -1333,6 +1346,7 @@ fn deposit() {
         auction_discount: Decimal::percent(20),
         min_collateral_ratio: Decimal::percent(150),
         mint_end: None,
+        min_collateral_ratio_after_migration: None,
     };
 
     let env = mock_env("owner0000", &[]);
@@ -1343,6 +1357,7 @@ fn deposit() {
         auction_discount: Decimal::percent(20),
         min_collateral_ratio: Decimal::percent(150),
         mint_end: None,
+        min_collateral_ratio_after_migration: None,
     };
 
     let env = mock_env("owner0000", &[]);
@@ -1529,6 +1544,7 @@ fn mint() {
         auction_discount: Decimal::percent(20),
         min_collateral_ratio: Decimal::percent(150),
         mint_end: None,
+        min_collateral_ratio_after_migration: None,
     };
 
     let env = mock_env("owner0000", &[]);
@@ -1539,6 +1555,7 @@ fn mint() {
         auction_discount: Decimal::percent(20),
         min_collateral_ratio: Decimal::percent(150),
         mint_end: None,
+        min_collateral_ratio_after_migration: None,
     };
 
     let env = mock_env("owner0000", &[]);
@@ -1759,6 +1776,7 @@ fn burn() {
         auction_discount: Decimal::percent(20),
         min_collateral_ratio: Decimal::percent(150),
         mint_end: None,
+        min_collateral_ratio_after_migration: None,
     };
 
     let env = mock_env("owner0000", &[]);
@@ -1769,6 +1787,7 @@ fn burn() {
         auction_discount: Decimal::percent(20),
         min_collateral_ratio: Decimal::percent(150),
         mint_end: None,
+        min_collateral_ratio_after_migration: None,
     };
 
     let env = mock_env("owner0000", &[]);
@@ -2012,6 +2031,7 @@ fn withdraw() {
         auction_discount: Decimal::percent(20),
         min_collateral_ratio: Decimal::percent(150),
         mint_end: None,
+        min_collateral_ratio_after_migration: None,
     };
 
     let env = mock_env("owner0000", &[]);
@@ -2022,6 +2042,7 @@ fn withdraw() {
         auction_discount: Decimal::percent(20),
         min_collateral_ratio: Decimal::percent(150),
         mint_end: None,
+        min_collateral_ratio_after_migration: None,
     };
 
     let env = mock_env("owner0000", &[]);
@@ -2193,6 +2214,7 @@ fn auction() {
         auction_discount: Decimal::percent(20),
         min_collateral_ratio: Decimal::percent(130),
         mint_end: None,
+        min_collateral_ratio_after_migration: None,
     };
 
     let env = mock_env("owner0000", &[]);
@@ -2203,6 +2225,7 @@ fn auction() {
         auction_discount: Decimal::percent(20),
         min_collateral_ratio: Decimal::percent(150),
         mint_end: None,
+        min_collateral_ratio_after_migration: None,
     };
 
     let env = mock_env("owner0000", &[]);
@@ -2531,6 +2554,7 @@ fn pre_ipo_assets() {
         auction_discount: Decimal::percent(20),
         min_collateral_ratio: Decimal::percent(1000),
         mint_end: Some(mint_end),
+        min_collateral_ratio_after_migration: None,
     };
     let env = mock_env("owner0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
