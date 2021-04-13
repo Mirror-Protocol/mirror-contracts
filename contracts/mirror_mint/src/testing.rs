@@ -142,6 +142,8 @@ fn register_asset() {
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
             end_price: None,
+            mint_end: None,
+            min_collateral_ratio_after_migration: None,
         }
     );
 
@@ -262,6 +264,8 @@ fn update_asset() {
             auction_discount: Decimal::percent(30),
             min_collateral_ratio: Decimal::percent(200),
             end_price: None,
+            mint_end: None,
+            min_collateral_ratio_after_migration: None,
         }
     );
 
@@ -394,6 +398,8 @@ fn register_migration() {
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(100),
             end_price: Some(Decimal::percent(50)),
+            mint_end: None,
+            min_collateral_ratio_after_migration: None,
         }
     );
 }
@@ -2729,6 +2735,8 @@ fn pre_ipo_assets() {
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(100),
             end_price: Some(Decimal::percent(50)),
+            mint_end: None,
+            min_collateral_ratio_after_migration: None,
         }
     );
 

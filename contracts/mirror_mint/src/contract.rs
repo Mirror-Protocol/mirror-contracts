@@ -999,6 +999,8 @@ pub fn query_asset_config<S: Storage, A: Api, Q: Querier>(
         auction_discount: asset_config.auction_discount,
         min_collateral_ratio: asset_config.min_collateral_ratio,
         end_price: asset_config.end_price,
+        mint_end: asset_config.mint_end,
+        min_collateral_ratio_after_migration: asset_config.min_collateral_ratio_after_migration,
     };
 
     Ok(resp)
