@@ -117,16 +117,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             symbol,
             from_token,
             end_price,
-            min_collateral_ratio,
-        } => migrate_asset(
-            deps,
-            env,
-            name,
-            symbol,
-            from_token,
-            end_price,
-            min_collateral_ratio,
-        ),
+        } => migrate_asset(deps, env, name, symbol, from_token, end_price),
     }
 }
 
@@ -359,6 +350,8 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
                     auction_discount: params.auction_discount,
                     min_collateral_ratio: params.min_collateral_ratio,
                     mint_end,
+                    min_collateral_ratio_after_migration: params
+                        .min_collateral_ratio_after_migration,
                 })?,
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
@@ -567,7 +560,6 @@ pub fn migrate_asset<S: Storage, A: Api, Q: Querier>(
     symbol: String,
     asset_token: HumanAddr,
     end_price: Decimal,
-    new_min_cr: Option<Decimal>,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
     let asset_token_raw: CanonicalAddr = deps.api.canonical_address(&asset_token)?;
@@ -586,11 +578,12 @@ pub fn migrate_asset<S: Storage, A: Api, Q: Querier>(
     decrease_total_weight(&mut deps.storage, NORMAL_TOKEN_WEIGHT)?;
 
     let mint_contract = deps.api.human_address(&config.mint_contract)?;
-    let mint_config: (Decimal, Decimal) =
+    let mint_config: (Decimal, Decimal, Option<Decimal>) =
         load_mint_asset_config(&deps, &mint_contract, &asset_token_raw)?;
-    // If there is a new MCR given, update. Otherwise, import from previous
-    let min_cr = if let Some(new_min_cr) = new_min_cr {
-        new_min_cr
+
+    // check if the asset being migrated specifies a min CR after migration
+    let min_collateral_ratio = if let Some(min_collateral_ratio_after_migration) = mint_config.2 {
+        min_collateral_ratio_after_migration
     } else {
         mint_config.1
     };
@@ -599,9 +592,10 @@ pub fn migrate_asset<S: Storage, A: Api, Q: Querier>(
         &mut deps.storage,
         &Params {
             auction_discount: mint_config.0,
-            min_collateral_ratio: min_cr,
+            min_collateral_ratio,
             weight: Some(weight),
             mint_period: None,
+            min_collateral_ratio_after_migration: None,
         },
     )?;
 

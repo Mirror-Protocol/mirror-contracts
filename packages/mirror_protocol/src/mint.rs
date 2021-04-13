@@ -46,6 +46,7 @@ pub enum HandleMsg {
         auction_discount: Decimal,
         min_collateral_ratio: Decimal,
         mint_end: Option<u64>,
+        min_collateral_ratio_after_migration: Option<Decimal>,
     },
     RegisterMigration {
         asset_token: HumanAddr,
@@ -132,6 +133,8 @@ pub struct AssetConfigResponse {
     pub auction_discount: Decimal,
     pub min_collateral_ratio: Decimal,
     pub end_price: Option<Decimal>,
+    pub mint_end: Option<u64>,
+    pub min_collateral_ratio_after_migration: Option<Decimal>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
