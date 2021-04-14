@@ -145,7 +145,7 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
             start_after,
             limit,
             order_by,
-        } => to_binary(&query_prices(deps, start_after, limit, order_by)),
+        } => to_binary(&query_prices(deps, start_after, limit, order_by)?),
     }
 }
 
