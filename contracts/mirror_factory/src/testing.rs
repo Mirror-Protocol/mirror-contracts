@@ -836,8 +836,10 @@ fn test_distribute() {
 #[test]
 fn test_revocation() {
     let mut deps = mock_dependencies(20, &[]);
-    deps.querier
-        .with_terraswap_pairs(&[(&"uusdasset0000".to_string(), &HumanAddr::from("LP0000"))]);
+    deps.querier.with_terraswap_pairs(&[
+        (&"uusdasset0000".to_string(), &HumanAddr::from("LP0000")),
+        (&"uusdasset0001".to_string(), &HumanAddr::from("LP0001")),
+    ]);
 
     let msg = InitMsg {
         base_denom: BASE_DENOM.to_string(),
@@ -859,10 +861,10 @@ fn test_revocation() {
     };
     let _res = handle(&mut deps, env, msg).unwrap();
 
-    // whitelist first item with weight 1.5
+    // whitelist item 1
     let msg = HandleMsg::Whitelist {
-        name: "apple derivative".to_string(),
-        symbol: "mAPPL".to_string(),
+        name: "tesla derivative".to_string(),
+        symbol: "mTSLA".to_string(),
         oracle_feeder: HumanAddr::from("feeder0000"),
         params: Params {
             auction_discount: Decimal::percent(5),
@@ -885,18 +887,51 @@ fn test_revocation() {
     };
     let env = mock_env("terraswapfactory", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
+
+    // whitelist item 2
+    let msg = HandleMsg::Whitelist {
+        name: "apple derivative".to_string(),
+        symbol: "mAPPL".to_string(),
+        oracle_feeder: HumanAddr::from("feeder0000"),
+        params: Params {
+            auction_discount: Decimal::percent(5),
+            min_collateral_ratio: Decimal::percent(150),
+            weight: Some(100u32),
+            mint_period: None,
+        },
+    };
+    let env = mock_env("owner0000", &[]);
+    let _res = handle(&mut deps, env, msg).unwrap();
+
+    let msg = HandleMsg::TokenCreationHook {
+        oracle_feeder: HumanAddr::from("feeder0000"),
+    };
+    let env = mock_env("asset0001", &[]);
+    let _res = handle(&mut deps, env, msg).unwrap();
+
+    let msg = HandleMsg::TerraswapCreationHook {
+        asset_token: HumanAddr::from("asset0001"),
+    };
+    let env = mock_env("terraswapfactory", &[]);
+    let _res = handle(&mut deps, env, msg).unwrap();
     // register queriers
-    deps.querier.with_oracle_feeders(&[(
-        &HumanAddr::from("asset0000"),
-        &HumanAddr::from("feeder0000"),
-    )]);
+    deps.querier.with_oracle_feeders(&[
+        (
+            &HumanAddr::from("asset0000"),
+            &HumanAddr::from("feeder0000"),
+        ),
+        (
+            &HumanAddr::from("asset0001"),
+            &HumanAddr::from("feeder0000"),
+        ),
+    ]);
 
     // unauthorized revoke attempt
     let msg = HandleMsg::RevokeAsset {
         asset_token: HumanAddr::from("asset0000"),
         end_price: Decimal::from_ratio(2u128, 1u128),
     };
-    let env = mock_env("owner0000", &[]);
+    let env = mock_env("address0000", &[]);
     let res = handle(&mut deps, env, msg.clone()).unwrap_err();
 
     match res {
@@ -904,6 +939,7 @@ fn test_revocation() {
         _ => panic!("DO NOT ENTER HERE"),
     }
 
+    // SUCCESS - the feeder revokes item 1
     let env = mock_env("feeder0000", &[]);
     let res = handle(&mut deps, env, msg).unwrap();
     assert_eq!(
@@ -913,6 +949,26 @@ fn test_revocation() {
             send: vec![],
             msg: to_binary(&MintHandleMsg::RegisterMigration {
                 asset_token: HumanAddr::from("asset0000"),
+                end_price: Decimal::from_ratio(2u128, 1u128),
+            })
+            .unwrap(),
+        }),]
+    );
+
+    let msg = HandleMsg::RevokeAsset {
+        asset_token: HumanAddr::from("asset0001"),
+        end_price: Decimal::from_ratio(2u128, 1u128),
+    };
+    // SUCCESS - the owner revokes item 2
+    let env = mock_env("owner0000", &[]);
+    let res = handle(&mut deps, env, msg).unwrap();
+    assert_eq!(
+        res.messages,
+        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: HumanAddr::from("mint0000"),
+            send: vec![],
+            msg: to_binary(&MintHandleMsg::RegisterMigration {
+                asset_token: HumanAddr::from("asset0001"),
                 end_price: Decimal::from_ratio(2u128, 1u128),
             })
             .unwrap(),
