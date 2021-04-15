@@ -7,6 +7,7 @@ use crate::state::{read_config, store_config, Config};
 
 use cw20::Cw20HandleMsg;
 use mirror_protocol::collector::{ConfigResponse, HandleMsg, InitMsg, MigrateMsg, QueryMsg};
+use mirror_protocol::gov::Cw20HookMsg::DepositReward;
 use terraswap::asset::{Asset, AssetInfo, PairInfo};
 use terraswap::pair::{Cw20HookMsg as TerraswapCw20HookMsg, HandleMsg as TerraswapHandleMsg};
 use terraswap::querier::{query_balance, query_pair_info, query_token_balance};
@@ -139,9 +140,10 @@ pub fn distribute<S: Storage, A: Api, Q: Querier>(
     Ok(HandleResponse {
         messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps.api.human_address(&config.mirror_token)?,
-            msg: to_binary(&Cw20HandleMsg::Transfer {
-                recipient: deps.api.human_address(&config.distribution_contract)?,
+            msg: to_binary(&Cw20HandleMsg::Send {
+                contract: deps.api.human_address(&config.distribution_contract)?,
                 amount,
+                msg: Some(to_binary(&DepositReward {})?),
             })?,
             send: vec![],
         })],
