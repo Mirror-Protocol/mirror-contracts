@@ -15,6 +15,7 @@ pub struct InitMsg {
     pub effective_delay: u64,
     pub expiration_period: u64,
     pub proposal_deposit: Uint128,
+    pub voter_weight: Decimal,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -29,6 +30,7 @@ pub enum HandleMsg {
         effective_delay: Option<u64>,
         expiration_period: Option<u64>,
         proposal_deposit: Option<Uint128>,
+        voter_weight: Option<Decimal>,
     },
     CastVote {
         poll_id: u64,
@@ -38,6 +40,7 @@ pub enum HandleMsg {
     WithdrawVotingTokens {
         amount: Option<Uint128>,
     },
+    WithdrawVotingRewards {},
     EndPoll {
         poll_id: u64,
     },
@@ -62,6 +65,8 @@ pub enum Cw20HookMsg {
         link: Option<String>,
         execute_msg: Option<ExecuteMsg>,
     },
+    /// Deposit rewards to be distributed among stakers and voters
+    DepositReward {},
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -106,6 +111,7 @@ pub struct ConfigResponse {
     pub effective_delay: u64,
     pub expiration_period: u64,
     pub proposal_deposit: Uint128,
+    pub voter_weight: Decimal,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
@@ -113,6 +119,7 @@ pub struct StateResponse {
     pub poll_count: u64,
     pub total_share: Uint128,
     pub total_deposit: Uint128,
+    pub pending_voting_rewards: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema)]
@@ -128,7 +135,9 @@ pub struct PollResponse {
     pub execute_data: Option<ExecuteMsg>,
     pub yes_votes: Uint128, // balance
     pub no_votes: Uint128,  // balance
+    pub abstain_votes: Uint128, // balance
     pub total_balance_at_end_poll: Option<Uint128>,
+    pub voters_reward: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema)]
@@ -146,6 +155,7 @@ pub struct StakerResponse {
     pub balance: Uint128,
     pub share: Uint128,
     pub locked_balance: Vec<(u64, VoterInfo)>,
+    pub pending_voting_rewards: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema)]
@@ -191,14 +201,15 @@ impl fmt::Display for PollStatus {
 pub enum VoteOption {
     Yes,
     No,
+    Abstain,
 }
 
 impl fmt::Display for VoteOption {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if *self == VoteOption::Yes {
-            write!(f, "yes")
-        } else {
-            write!(f, "no")
+        match *self {
+            VoteOption::Yes => write!(f, "yes"),
+            VoteOption::No => write!(f, "no"),
+            VoteOption::Abstain => write!(f, "abstain"),
         }
     }
 }

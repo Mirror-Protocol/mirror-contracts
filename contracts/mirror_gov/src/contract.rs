@@ -784,17 +784,23 @@ fn query_voters<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-use crate::migrate::migrate_poll_indexer;
+use crate::migrate::{migrate_config, migrate_poll_indexer, migrate_polls, migrate_state};
 pub fn migrate<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     _env: Env,
     _msg: MigrateMsg,
 ) -> MigrateResult {
+    // comment for testnet
     migrate_poll_indexer(&mut deps.storage, &PollStatus::InProgress)?;
     migrate_poll_indexer(&mut deps.storage, &PollStatus::Passed)?;
     migrate_poll_indexer(&mut deps.storage, &PollStatus::Rejected)?;
     migrate_poll_indexer(&mut deps.storage, &PollStatus::Executed)?;
     migrate_poll_indexer(&mut deps.storage, &PollStatus::Expired)?;
+
+    // migrations for voting rewards and abstain votes
+    migrate_config(&mut deps.storage, Decimal::percent(50u64))?; // 50% rewards for voters
+    migrate_state(&mut deps.storage)?;
+    migrate_polls(&mut deps.storage)?;
 
     Ok(MigrateResponse::default())
 }
