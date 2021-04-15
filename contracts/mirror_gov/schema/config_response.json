@@ -10,6 +10,7 @@
     "proposal_deposit",
     "quorum",
     "threshold",
+    "voter_weight",
     "voting_period"
   ],
   "properties": {
@@ -36,6 +37,9 @@
       "$ref": "#/definitions/Decimal"
     },
     "threshold": {
+      "$ref": "#/definitions/Decimal"
+    },
+    "voter_weight": {
       "$ref": "#/definitions/Decimal"
     },
     "voting_period": {

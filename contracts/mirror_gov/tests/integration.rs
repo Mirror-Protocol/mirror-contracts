@@ -59,6 +59,7 @@ const DEFAULT_VOTING_PERIOD: u64 = 10000u64;
 const DEFAULT_EFFECTIVE_DELAY: u64 = 10000u64;
 const DEFAULT_EXPIRATION_PERIOD: u64 = 20000u64;
 const DEFAULT_PROPOSAL_DEPOSIT: u128 = 10000000000u128;
+const DEFAULT_VOTER_WEIGHT: u64 = 50u64;
 
 fn init_msg() -> InitMsg {
     InitMsg {
@@ -69,6 +70,7 @@ fn init_msg() -> InitMsg {
         effective_delay: DEFAULT_EFFECTIVE_DELAY,
         expiration_period: DEFAULT_EXPIRATION_PERIOD,
         proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+        voter_weight: Decimal::percent(DEFAULT_VOTER_WEIGHT),
     }
 }
 
@@ -106,6 +108,7 @@ fn proper_initialization() {
                 effective_delay: DEFAULT_EFFECTIVE_DELAY,
                 expiration_period: DEFAULT_EXPIRATION_PERIOD,
                 proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+                voter_weight: Decimal::percent(DEFAULT_VOTER_WEIGHT),
             }
         );
         Ok(())
@@ -134,6 +137,7 @@ fn update_config() {
         effective_delay: None,
         expiration_period: None,
         proposal_deposit: None,
+        voter_weight: None,
     };
 
     let res: HandleResponse = handle(&mut deps, env, msg).unwrap();
@@ -158,6 +162,7 @@ fn update_config() {
         effective_delay: Some(20000u64),
         expiration_period: Some(30000u64),
         proposal_deposit: Some(Uint128(123u128)),
+        voter_weight: None,
     };
 
     let res: HandleResponse = handle(&mut deps, env, msg).unwrap();
@@ -182,6 +187,7 @@ fn update_config() {
         effective_delay: None,
         expiration_period: None,
         proposal_deposit: None,
+        voter_weight: None,
     };
 
     let res: HandleResult = handle(&mut deps, env, msg);
