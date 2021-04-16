@@ -788,14 +788,20 @@ use crate::migrate::{migrate_config, migrate_poll_indexer, migrate_polls, migrat
 pub fn migrate<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     _env: Env,
-    _msg: MigrateMsg,
+    msg: MigrateMsg,
 ) -> MigrateResult {
-    // comment for testnet
-    migrate_poll_indexer(&mut deps.storage, &PollStatus::InProgress)?;
-    migrate_poll_indexer(&mut deps.storage, &PollStatus::Passed)?;
-    migrate_poll_indexer(&mut deps.storage, &PollStatus::Rejected)?;
-    migrate_poll_indexer(&mut deps.storage, &PollStatus::Executed)?;
-    migrate_poll_indexer(&mut deps.storage, &PollStatus::Expired)?;
+    // Currently support 2 migration processes
+    //      - version 1 migrates poll indexers, config, state, and polls
+    //      - version 2 migrates config, state and polls
+    if msg.version.eq(&1u64) {
+        migrate_poll_indexer(&mut deps.storage, &PollStatus::InProgress)?;
+        migrate_poll_indexer(&mut deps.storage, &PollStatus::Passed)?;
+        migrate_poll_indexer(&mut deps.storage, &PollStatus::Rejected)?;
+        migrate_poll_indexer(&mut deps.storage, &PollStatus::Executed)?;
+        migrate_poll_indexer(&mut deps.storage, &PollStatus::Expired)?;
+    } else if !msg.version.eq(&2u64) {
+        return Err(StdError::generic_err("Invalid migrate version number"))
+    }
 
     // migrations for voting rewards and abstain votes
     migrate_config(&mut deps.storage, Decimal::percent(50u64))?; // 50% rewards for voters

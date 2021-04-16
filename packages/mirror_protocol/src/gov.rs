@@ -170,9 +170,11 @@ pub struct VotersResponse {
     pub voters: Vec<VotersResponseItem>,
 }
 
-/// We currently take no arguments for migrations
+/// Migrates the contract state, currently taking a state version argument
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct MigrateMsg {}
+pub struct MigrateMsg {
+    pub version: u64, // current contract migration state version
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct VoterInfo {
