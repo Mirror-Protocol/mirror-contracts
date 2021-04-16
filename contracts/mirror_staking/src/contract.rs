@@ -1,20 +1,19 @@
 use cosmwasm_std::{
-    from_binary, log, to_binary, Api, Binary, CanonicalAddr, CosmosMsg, Decimal, Env, Extern,
-    HandleResponse, HandleResult, HumanAddr, InitResponse, MigrateResponse, MigrateResult, Order,
-    Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
+    from_binary, log, to_binary, Api, Binary, Decimal, Env, Extern, HandleResponse, HandleResult,
+    HumanAddr, InitResponse, MigrateResponse, MigrateResult, Querier, StdError, StdResult, Storage,
+    Uint128,
 };
 
 use mirror_protocol::staking::{
     ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrateMsg, PoolInfoResponse, QueryMsg,
-    RewardInfoResponse, RewardInfoResponseItem,
 };
 
-use crate::state::{
-    read_config, read_pool_info, rewards_read, rewards_store, store_config, store_pool_info,
-    Config, PoolInfo, RewardInfo,
-};
+use crate::migration::{migrate_config, migrate_pool_infos};
+use crate::rewards::{adjust_premium, deposit_reward, query_reward_info, withdraw_reward};
+use crate::staking::{bond, decrease_short_token, increase_short_token, unbond};
+use crate::state::{read_config, read_pool_info, store_config, store_pool_info, Config, PoolInfo};
 
-use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
+use cw20::Cw20ReceiveMsg;
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -26,6 +25,13 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         &Config {
             owner: deps.api.canonical_address(&msg.owner)?,
             mirror_token: deps.api.canonical_address(&msg.mirror_token)?,
+            mint_contract: deps.api.canonical_address(&msg.mint_contract)?,
+            oracle_contract: deps.api.canonical_address(&msg.oracle_contract)?,
+            terraswap_factory: deps.api.canonical_address(&msg.terraswap_factory)?,
+            base_denom: msg.base_denom,
+            premium_tolerance: msg.premium_tolerance,
+            short_reward_weight: msg.short_reward_weight,
+            premium_short_reward_weight: msg.premium_short_reward_weight,
         },
     )?;
 
@@ -39,16 +45,39 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<HandleResponse> {
     match msg {
         HandleMsg::Receive(msg) => receive_cw20(deps, env, msg),
-        HandleMsg::UpdateConfig { owner } => try_update_config(deps, env, owner),
+        HandleMsg::UpdateConfig {
+            owner,
+            premium_tolerance,
+            short_reward_weight,
+            premium_short_reward_weight,
+        } => update_config(
+            deps,
+            env,
+            owner,
+            premium_tolerance,
+            short_reward_weight,
+            premium_short_reward_weight,
+        ),
         HandleMsg::RegisterAsset {
             asset_token,
             staking_token,
-        } => try_register_asset(deps, env, asset_token, staking_token),
+        } => register_asset(deps, env, asset_token, staking_token),
         HandleMsg::Unbond {
             asset_token,
             amount,
-        } => try_unbond(deps, env, asset_token, amount),
-        HandleMsg::Withdraw { asset_token } => try_withdraw(deps, env, asset_token),
+        } => unbond(deps, env.message.sender, asset_token, amount),
+        HandleMsg::Withdraw { asset_token } => withdraw_reward(deps, env, asset_token),
+        HandleMsg::AdjustPremium { asset_tokens } => adjust_premium(deps, asset_tokens),
+        HandleMsg::IncreaseShortToken {
+            staker_addr,
+            asset_token,
+            amount,
+        } => increase_short_token(deps, env, staker_addr, asset_token, amount),
+        HandleMsg::DecreaseShortToken {
+            staker_addr,
+            asset_token,
+            amount,
+        } => decrease_short_token(deps, env, staker_addr, asset_token, amount),
     }
 }
 
@@ -70,15 +99,24 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
                     return Err(StdError::unauthorized());
                 }
 
-                try_bond(deps, env, cw20_msg.sender, asset_token, cw20_msg.amount)
+                bond(deps, env, cw20_msg.sender, asset_token, cw20_msg.amount)
             }
-            Cw20HookMsg::DepositReward { asset_token } => {
+            Cw20HookMsg::DepositReward { rewards } => {
                 // only reward token contract can execute this message
                 if config.mirror_token != deps.api.canonical_address(&env.message.sender)? {
                     return Err(StdError::unauthorized());
                 }
 
-                try_deposit_reward(deps, env, asset_token, cw20_msg.amount)
+                let mut rewards_amount = Uint128::zero();
+                for (_, amount) in rewards.iter() {
+                    rewards_amount += *amount;
+                }
+
+                if rewards_amount != cw20_msg.amount {
+                    return Err(StdError::generic_err("rewards amount miss matched"));
+                }
+
+                deposit_reward(deps, rewards, rewards_amount)
             }
         }
     } else {
@@ -86,10 +124,13 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
     }
 }
 
-pub fn try_update_config<S: Storage, A: Api, Q: Querier>(
+pub fn update_config<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     owner: Option<HumanAddr>,
+    premium_tolerance: Option<Decimal>,
+    short_reward_weight: Option<Decimal>,
+    premium_short_reward_weight: Option<Decimal>,
 ) -> StdResult<HandleResponse> {
     let mut config: Config = read_config(&deps.storage)?;
 
@@ -101,6 +142,18 @@ pub fn try_update_config<S: Storage, A: Api, Q: Querier>(
         config.owner = deps.api.canonical_address(&owner)?;
     }
 
+    if let Some(premium_tolerance) = premium_tolerance {
+        config.premium_tolerance = premium_tolerance;
+    }
+
+    if let Some(short_reward_weight) = short_reward_weight {
+        config.short_reward_weight = short_reward_weight;
+    }
+
+    if let Some(premium_short_reward_weight) = premium_short_reward_weight {
+        config.premium_short_reward_weight = premium_short_reward_weight;
+    }
+
     store_config(&mut deps.storage, &config)?;
     Ok(HandleResponse {
         messages: vec![],
@@ -109,7 +162,7 @@ pub fn try_update_config<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
+fn register_asset<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     asset_token: HumanAddr,
@@ -131,9 +184,13 @@ pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
         &asset_token_raw,
         &PoolInfo {
             staking_token: deps.api.canonical_address(&staking_token)?,
-            pending_reward: Uint128::zero(),
             total_bond_amount: Uint128::zero(),
+            total_short_amount: Uint128::zero(),
             reward_index: Decimal::zero(),
+            short_reward_index: Decimal::zero(),
+            pending_reward: Uint128::zero(),
+            short_pending_reward: Uint128::zero(),
+            premium_rate: Decimal::zero(),
         },
     )?;
 
@@ -147,216 +204,6 @@ pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-pub fn try_bond<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    _env: Env,
-    sender_addr: HumanAddr,
-    asset_token: HumanAddr,
-    amount: Uint128,
-) -> HandleResult {
-    let sender_addr_raw: CanonicalAddr = deps.api.canonical_address(&sender_addr)?;
-    let asset_token_raw: CanonicalAddr = deps.api.canonical_address(&asset_token)?;
-    let mut pool_info: PoolInfo = read_pool_info(&deps.storage, &asset_token_raw)?;
-    let mut reward_info: RewardInfo = rewards_read(&deps.storage, &sender_addr_raw)
-        .load(asset_token_raw.as_slice())
-        .unwrap_or_else(|_| RewardInfo {
-            index: Decimal::zero(),
-            bond_amount: Uint128::zero(),
-            pending_reward: Uint128::zero(),
-        });
-
-    // Withdraw reward to pending reward; before changing share
-    before_share_change(&pool_info, &mut reward_info)?;
-
-    // Increase bond_amount
-    increase_bond_amount(&mut pool_info, &mut reward_info, amount);
-
-    rewards_store(&mut deps.storage, &sender_addr_raw)
-        .save(&asset_token_raw.as_slice(), &reward_info)?;
-    store_pool_info(&mut deps.storage, &asset_token_raw, &pool_info)?;
-
-    Ok(HandleResponse {
-        messages: vec![],
-        log: vec![
-            log("action", "bond"),
-            log("asset_token", asset_token.as_str()),
-            log("amount", amount.to_string()),
-        ],
-        data: None,
-    })
-}
-
-pub fn try_unbond<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    asset_token: HumanAddr,
-    amount: Uint128,
-) -> HandleResult {
-    let sender_addr_raw: CanonicalAddr = deps.api.canonical_address(&env.message.sender)?;
-    let asset_token_raw: CanonicalAddr = deps.api.canonical_address(&asset_token)?;
-
-    let mut pool_info: PoolInfo = read_pool_info(&deps.storage, &asset_token_raw)?;
-    let mut reward_info: RewardInfo =
-        rewards_read(&deps.storage, &sender_addr_raw).load(asset_token_raw.as_slice())?;
-
-    if reward_info.bond_amount < amount {
-        return Err(StdError::generic_err("Cannot unbond more than bond amount"));
-    }
-
-    // Distribute reward to pending reward; before changing share
-    before_share_change(&pool_info, &mut reward_info)?;
-
-    // Decrease bond_amount
-    decrease_bond_amount(&mut pool_info, &mut reward_info, amount)?;
-
-    // Update rewards info
-    if reward_info.pending_reward.is_zero() && reward_info.bond_amount.is_zero() {
-        rewards_store(&mut deps.storage, &sender_addr_raw).remove(asset_token_raw.as_slice());
-    } else {
-        rewards_store(&mut deps.storage, &sender_addr_raw)
-            .save(asset_token_raw.as_slice(), &reward_info)?;
-    }
-
-    // Update pool info
-    store_pool_info(&mut deps.storage, &asset_token_raw, &pool_info)?;
-
-    Ok(HandleResponse {
-        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: deps.api.human_address(&pool_info.staking_token)?,
-            msg: to_binary(&Cw20HandleMsg::Transfer {
-                recipient: env.message.sender,
-                amount,
-            })?,
-            send: vec![],
-        })],
-        log: vec![
-            log("action", "unbond"),
-            log("asset_token", asset_token.as_str()),
-            log("amount", amount.to_string()),
-        ],
-        data: None,
-    })
-}
-
-// deposit reward must be from reward token contract
-pub fn try_deposit_reward<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    _env: Env,
-    asset_token: HumanAddr,
-    amount: Uint128,
-) -> HandleResult {
-    let asset_token_raw: CanonicalAddr = deps.api.canonical_address(&asset_token)?;
-    let mut pool_info: PoolInfo = read_pool_info(&deps.storage, &asset_token_raw)?;
-    if pool_info.total_bond_amount.is_zero() {
-        pool_info.pending_reward += amount;
-    } else {
-        let reward_per_bond = Decimal::from_ratio(
-            amount + pool_info.pending_reward,
-            pool_info.total_bond_amount,
-        );
-        pool_info.reward_index = pool_info.reward_index + reward_per_bond;
-        pool_info.pending_reward = Uint128::zero();
-    }
-
-    store_pool_info(&mut deps.storage, &asset_token_raw, &pool_info)?;
-
-    Ok(HandleResponse {
-        messages: vec![],
-        log: vec![
-            log("action", "deposit_reward"),
-            log("asset_token", asset_token.as_str()),
-            log("amount", amount.to_string()),
-        ],
-        data: None,
-    })
-}
-
-// withdraw all rewards or single reward depending on asset_token
-pub fn try_withdraw<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    asset_token: Option<HumanAddr>,
-) -> HandleResult {
-    let sender_addr_raw = deps.api.canonical_address(&env.message.sender)?;
-
-    let config: Config = read_config(&deps.storage)?;
-    let rewards_bucket = rewards_read(&deps.storage, &sender_addr_raw);
-
-    // single reward withdraw
-    let reward_pairs: Vec<(CanonicalAddr, RewardInfo)>;
-    if let Some(asset_token) = asset_token {
-        let asset_token_raw = deps.api.canonical_address(&asset_token)?;
-        let reward_info = rewards_bucket.load(asset_token_raw.as_slice())?;
-        reward_pairs = vec![(asset_token_raw, reward_info)];
-    } else {
-        reward_pairs = rewards_bucket
-            .range(None, None, Order::Ascending)
-            .map(|item| {
-                let (k, v) = item?;
-                Ok((CanonicalAddr::from(k), v))
-            })
-            .collect::<StdResult<Vec<(CanonicalAddr, RewardInfo)>>>()?;
-    }
-
-    let mut amount: Uint128 = Uint128::zero();
-    for reward_pair in reward_pairs {
-        let (asset_token_raw, mut reward_info) = reward_pair;
-        let pool_info: PoolInfo = read_pool_info(&deps.storage, &asset_token_raw)?;
-
-        // Withdraw reward to pending reward
-        before_share_change(&pool_info, &mut reward_info)?;
-
-        amount += reward_info.pending_reward;
-        reward_info.pending_reward = Uint128::zero();
-
-        // Update rewards info
-        if reward_info.pending_reward.is_zero() && reward_info.bond_amount.is_zero() {
-            rewards_store(&mut deps.storage, &sender_addr_raw).remove(asset_token_raw.as_slice());
-        } else {
-            rewards_store(&mut deps.storage, &sender_addr_raw)
-                .save(asset_token_raw.as_slice(), &reward_info)?;
-        }
-    }
-
-    Ok(HandleResponse {
-        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: deps.api.human_address(&config.mirror_token)?,
-            msg: to_binary(&Cw20HandleMsg::Transfer {
-                recipient: env.message.sender,
-                amount,
-            })?,
-            send: vec![],
-        })],
-        log: vec![log("action", "withdraw"), log("amount", amount.to_string())],
-        data: None,
-    })
-}
-
-fn increase_bond_amount(pool_info: &mut PoolInfo, reward_info: &mut RewardInfo, amount: Uint128) {
-    pool_info.total_bond_amount += amount;
-    reward_info.bond_amount += amount;
-}
-
-fn decrease_bond_amount(
-    pool_info: &mut PoolInfo,
-    reward_info: &mut RewardInfo,
-    amount: Uint128,
-) -> StdResult<()> {
-    pool_info.total_bond_amount = (pool_info.total_bond_amount - amount)?;
-    reward_info.bond_amount = (reward_info.bond_amount - amount)?;
-    Ok(())
-}
-
-// withdraw reward to pending reward
-fn before_share_change(pool_info: &PoolInfo, reward_info: &mut RewardInfo) -> StdResult<()> {
-    let pending_reward = (reward_info.bond_amount * pool_info.reward_index
-        - reward_info.bond_amount * reward_info.index)?;
-
-    reward_info.index = pool_info.reward_index;
-    reward_info.pending_reward += pending_reward;
-    Ok(())
-}
-
 pub fn query<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     msg: QueryMsg,
@@ -365,9 +212,9 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::PoolInfo { asset_token } => to_binary(&query_pool_info(deps, asset_token)?),
         QueryMsg::RewardInfo {
+            staker_addr,
             asset_token,
-            staker,
-        } => to_binary(&query_reward_info(deps, asset_token, staker)?),
+        } => to_binary(&query_reward_info(deps, staker_addr, asset_token)?),
     }
 }
 
@@ -378,6 +225,13 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
     let resp = ConfigResponse {
         owner: deps.api.human_address(&state.owner)?,
         mirror_token: deps.api.human_address(&state.mirror_token)?,
+        mint_contract: deps.api.human_address(&state.mint_contract)?,
+        oracle_contract: deps.api.human_address(&state.oracle_contract)?,
+        terraswap_factory: deps.api.human_address(&state.terraswap_factory)?,
+        base_denom: state.base_denom,
+        premium_tolerance: state.premium_tolerance,
+        short_reward_weight: state.short_reward_weight,
+        premium_short_reward_weight: state.premium_short_reward_weight,
     };
 
     Ok(resp)
@@ -393,55 +247,32 @@ pub fn query_pool_info<S: Storage, A: Api, Q: Querier>(
         asset_token,
         staking_token: deps.api.human_address(&pool_info.staking_token)?,
         total_bond_amount: pool_info.total_bond_amount,
+        total_short_amount: pool_info.total_short_amount,
         reward_index: pool_info.reward_index,
+        short_reward_index: pool_info.short_reward_index,
         pending_reward: pool_info.pending_reward,
-    })
-}
-
-pub fn query_reward_info<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    asset_token: Option<HumanAddr>,
-    staker: HumanAddr,
-) -> StdResult<RewardInfoResponse> {
-    let staker_raw = deps.api.canonical_address(&staker)?;
-
-    let rewards_bucket = rewards_read(&deps.storage, &staker_raw);
-    let reward_infos: Vec<RewardInfoResponseItem>;
-    if let Some(asset_token) = asset_token {
-        let asset_token_raw = deps.api.canonical_address(&asset_token)?;
-        let reward_info = rewards_bucket.load(asset_token_raw.as_slice())?;
-        reward_infos = vec![RewardInfoResponseItem {
-            asset_token,
-            index: reward_info.index,
-            bond_amount: reward_info.bond_amount,
-            pending_reward: reward_info.pending_reward,
-        }];
-    } else {
-        reward_infos = rewards_bucket
-            .range(None, None, Order::Ascending)
-            .map(|item| {
-                let (k, v) = item?;
-
-                Ok(RewardInfoResponseItem {
-                    asset_token: deps.api.human_address(&CanonicalAddr::from(k))?,
-                    index: v.index,
-                    bond_amount: v.bond_amount,
-                    pending_reward: v.pending_reward,
-                })
-            })
-            .collect::<StdResult<Vec<RewardInfoResponseItem>>>()?;
-    }
-
-    Ok(RewardInfoResponse {
-        staker,
-        reward_infos,
+        short_pending_reward: pool_info.short_pending_reward,
+        premium_rate: pool_info.premium_rate,
     })
 }
 
 pub fn migrate<S: Storage, A: Api, Q: Querier>(
-    _deps: &mut Extern<S, A, Q>,
+    deps: &mut Extern<S, A, Q>,
     _env: Env,
-    _msg: MigrateMsg,
+    msg: MigrateMsg,
 ) -> MigrateResult {
+    migrate_config(
+        &mut deps.storage,
+        deps.api.canonical_address(&msg.mint_contract)?,
+        deps.api.canonical_address(&msg.oracle_contract)?,
+        deps.api.canonical_address(&msg.terraswap_factory)?,
+        msg.base_denom,
+        msg.premium_tolerance,
+        msg.short_reward_weight,
+        msg.premium_short_reward_weight,
+    )?;
+
+    migrate_pool_infos(&mut deps.storage)?;
+
     Ok(MigrateResponse::default())
 }
