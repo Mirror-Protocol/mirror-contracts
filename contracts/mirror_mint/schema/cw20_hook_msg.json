@@ -20,6 +20,16 @@
             },
             "collateral_ratio": {
               "$ref": "#/definitions/Decimal"
+            },
+            "short_params": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/ShortParams"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             }
           }
         }
@@ -135,6 +145,31 @@
     },
     "HumanAddr": {
       "type": "string"
+    },
+    "ShortParams": {
+      "type": "object",
+      "properties": {
+        "belief_price": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Decimal"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max_spread": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Decimal"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
     },
     "Uint128": {
       "type": "string"

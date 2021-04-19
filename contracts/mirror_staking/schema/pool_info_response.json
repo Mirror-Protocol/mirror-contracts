@@ -5,9 +5,13 @@
   "required": [
     "asset_token",
     "pending_reward",
+    "premium_rate",
     "reward_index",
+    "short_pending_reward",
+    "short_reward_index",
     "staking_token",
-    "total_bond_amount"
+    "total_bond_amount",
+    "total_short_amount"
   ],
   "properties": {
     "asset_token": {
@@ -16,13 +20,25 @@
     "pending_reward": {
       "$ref": "#/definitions/Uint128"
     },
+    "premium_rate": {
+      "$ref": "#/definitions/Decimal"
+    },
     "reward_index": {
+      "$ref": "#/definitions/Decimal"
+    },
+    "short_pending_reward": {
+      "$ref": "#/definitions/Uint128"
+    },
+    "short_reward_index": {
       "$ref": "#/definitions/Decimal"
     },
     "staking_token": {
       "$ref": "#/definitions/HumanAddr"
     },
     "total_bond_amount": {
+      "$ref": "#/definitions/Uint128"
+    },
+    "total_short_amount": {
       "$ref": "#/definitions/Uint128"
     }
   },

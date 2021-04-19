@@ -6,6 +6,7 @@
     "asset",
     "collateral",
     "idx",
+    "is_short",
     "owner"
   ],
   "properties": {
@@ -17,6 +18,9 @@
     },
     "idx": {
       "$ref": "#/definitions/Uint128"
+    },
+    "is_short": {
+      "type": "boolean"
     },
     "owner": {
       "$ref": "#/definitions/HumanAddr"

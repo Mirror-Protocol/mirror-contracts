@@ -30,11 +30,24 @@
         "deposit_reward": {
           "type": "object",
           "required": [
-            "asset_token"
+            "rewards"
           ],
           "properties": {
-            "asset_token": {
-              "$ref": "#/definitions/HumanAddr"
+            "rewards": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": [
+                  {
+                    "$ref": "#/definitions/HumanAddr"
+                  },
+                  {
+                    "$ref": "#/definitions/Uint128"
+                  }
+                ],
+                "maxItems": 2,
+                "minItems": 2
+              }
             }
           }
         }
@@ -43,6 +56,9 @@
   ],
   "definitions": {
     "HumanAddr": {
+      "type": "string"
+    },
+    "Uint128": {
       "type": "string"
     }
   }
