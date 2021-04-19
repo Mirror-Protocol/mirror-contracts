@@ -99,6 +99,11 @@ pub fn store_short_position<S: Storage>(storage: &mut S, idx: Uint128) -> StdRes
     short_position_bucket.save(&idx.u128().to_be_bytes(), &true)
 }
 
+pub fn remove_short_position<S: Storage>(storage: &mut S, idx: Uint128) {
+    let mut short_position_bucket: Bucket<S, bool> = Bucket::new(PREFIX_SHORT_POSITION, storage);
+    short_position_bucket.remove(&idx.u128().to_be_bytes())
+}
+
 pub fn is_short_position<S: Storage>(storage: &S, idx: Uint128) -> StdResult<bool> {
     let short_position_bucket: ReadonlyBucket<S, bool> =
         ReadonlyBucket::new(PREFIX_SHORT_POSITION, storage);
@@ -153,15 +158,20 @@ pub fn remove_position<S: Storage>(storage: &mut S, idx: Uint128) -> StdResult<(
     let mut position_bucket: Bucket<S, Position> = Bucket::new(PREFIX_POSITION, storage);
     position_bucket.remove(&idx.u128().to_be_bytes());
 
+    // remove indexer
     let mut position_indexer_by_user: Bucket<S, bool> =
         Bucket::multilevel(&[PREFIX_INDEX_BY_USER, position.owner.as_slice()], storage);
     position_indexer_by_user.remove(&idx.u128().to_be_bytes());
 
+    // remove indexer
     let mut position_indexer_by_asset: Bucket<S, bool> = Bucket::multilevel(
         &[PREFIX_INDEX_BY_ASSET, position.asset.info.as_bytes()],
         storage,
     );
     position_indexer_by_asset.remove(&idx.u128().to_be_bytes());
+
+    // remove short position flag
+    remove_short_position(storage, idx);
 
     Ok(())
 }
