@@ -638,7 +638,6 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cosmwasm-storage",
- "cosmwasm-vm",
  "cw20",
  "mirror-protocol",
  "schemars",

@@ -4,12 +4,11 @@ use cosmwasm_std::{
     Querier, QuerierResult, QueryRequest, SystemError, Uint128, WasmQuery,
 };
 use cosmwasm_storage::to_length_prefixed;
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::{math::decimal_division, querier::OracleQueryMsg, querier::PriceResponse};
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
+use terraswap::{asset::PairInfo, factory::QueryMsg as TerraswapFactoryQueryMsg};
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
 /// this uses our CustomQuerier.
@@ -36,6 +35,7 @@ pub struct WasmMockQuerier {
     token_querier: TokenQuerier,
     tax_querier: TaxQuerier,
     oracle_price_querier: OraclePriceQuerier,
+    terraswap_pair_querier: TerraswapPairQuerier,
     canonical_length: usize,
 }
 
@@ -117,6 +117,32 @@ pub(crate) fn oracle_price_to_map(
     oracle_price_map
 }
 
+#[derive(Clone, Default)]
+pub struct TerraswapPairQuerier {
+    // this lets us iterate over all pairs that match the first string
+    pairs: HashMap<String, HumanAddr>,
+}
+
+impl TerraswapPairQuerier {
+    pub fn new(pairs: &[(&String, &String, &HumanAddr)]) -> Self {
+        TerraswapPairQuerier {
+            pairs: paris_to_map(pairs),
+        }
+    }
+}
+
+pub(crate) fn paris_to_map(pairs: &[(&String, &String, &HumanAddr)]) -> HashMap<String, HumanAddr> {
+    let mut pairs_map: HashMap<String, HumanAddr> = HashMap::new();
+    for (asset1, asset2, pair) in pairs.iter() {
+        pairs_map.insert(
+            (asset1.to_string() + &asset2.to_string()).clone(),
+            HumanAddr::from(pair),
+        );
+    }
+
+    pairs_map
+}
+
 impl Querier for WasmMockQuerier {
     fn raw_query(&self, bin_request: &[u8]) -> QuerierResult {
         // MockQuerier doesn't support Custom, so we ignore it completely here
@@ -131,12 +157,6 @@ impl Querier for WasmMockQuerier {
         };
         self.handle_query(&request)
     }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum MockQueryMsg {
-    Price {},
 }
 
 impl WasmMockQuerier {
@@ -170,11 +190,11 @@ impl WasmMockQuerier {
             QueryRequest::Wasm(WasmQuery::Smart {
                 contract_addr: _,
                 msg,
-            }) => match from_binary(&msg).unwrap() {
-                OracleQueryMsg::Price {
+            }) => match from_binary(&msg) {
+                Ok(OracleQueryMsg::Price {
                     base_asset,
                     quote_asset,
-                } => match self.oracle_price_querier.oracle_price.get(&base_asset) {
+                }) => match self.oracle_price_querier.oracle_price.get(&base_asset) {
                     Some(base_price) => {
                         match self.oracle_price_querier.oracle_price.get(&quote_asset) {
                             Some(quote_price) => Ok(to_binary(&PriceResponse {
@@ -192,6 +212,26 @@ impl WasmMockQuerier {
                         error: "No oracle price exists".to_string(),
                         request: msg.as_slice().into(),
                     }),
+                },
+                _ => match from_binary(&msg) {
+                    Ok(TerraswapFactoryQueryMsg::Pair { asset_infos }) => {
+                        match self
+                            .terraswap_pair_querier
+                            .pairs
+                            .get(&(asset_infos[0].to_string() + &asset_infos[1].to_string()))
+                        {
+                            Some(pair) => Ok(to_binary(&PairInfo {
+                                asset_infos,
+                                contract_addr: pair.clone(),
+                                liquidity_token: HumanAddr::from("liquidity"),
+                            })),
+                            None => Err(SystemError::InvalidRequest {
+                                error: "No pair exists".to_string(),
+                                request: msg.as_slice().into(),
+                            }),
+                        }
+                    }
+                    _ => panic!("DO NOT ENTER HERE"),
                 },
             },
             QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
@@ -258,6 +298,7 @@ impl WasmMockQuerier {
             token_querier: TokenQuerier::default(),
             tax_querier: TaxQuerier::default(),
             oracle_price_querier: OraclePriceQuerier::default(),
+            terraswap_pair_querier: TerraswapPairQuerier::default(),
             canonical_length,
         }
     }
@@ -275,5 +316,10 @@ impl WasmMockQuerier {
     // configure the oracle price mock querier
     pub fn with_oracle_price(&mut self, oracle_price: &[(&String, &Decimal)]) {
         self.oracle_price_querier = OraclePriceQuerier::new(oracle_price);
+    }
+
+    // configure the terraswap factory pair mock querier
+    pub fn with_terraswap_pair(&mut self, pairs: &[(&String, &String, &HumanAddr)]) {
+        self.terraswap_pair_querier = TerraswapPairQuerier::new(pairs);
     }
 }
