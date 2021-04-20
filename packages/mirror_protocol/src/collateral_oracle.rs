@@ -20,6 +20,11 @@ pub enum HandleMsg {
         query_request: Binary,
         collateral_premium: Decimal,
     },
+    UpdateCollateralAsset {
+        asset: AssetInfo,
+        query_request: Option<Binary>,    
+        collateral_premium: Option<Decimal>,
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -39,7 +44,6 @@ pub enum QueryMsg {
 pub struct ConfigResponse {
     pub owner: HumanAddr,
 }
-
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct CollateralPriceResponse {

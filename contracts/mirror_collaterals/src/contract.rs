@@ -37,16 +37,21 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     msg: HandleMsg,
 ) -> HandleResult {
     match msg {
-        HandleMsg::UpdateConfig { owner } => try_update_config(deps, env, owner),
+        HandleMsg::UpdateConfig { owner } => update_config(deps, env, owner),
         HandleMsg::RegisterCollateralAsset {
             asset,
             query_request,
             collateral_premium,
-        } => try_register_collateral(deps, env, asset, query_request, collateral_premium),
+        } => register_collateral(deps, env, asset, query_request, collateral_premium),
+        HandleMsg::UpdateCollateralAsset {
+            asset,
+            query_request,
+            collateral_premium,
+        } => update_collateral(deps, env, asset, query_request, collateral_premium),
     }
 }
 
-pub fn try_update_config<S: Storage, A: Api, Q: Querier>(
+pub fn update_config<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     owner: Option<HumanAddr>,
@@ -64,7 +69,7 @@ pub fn try_update_config<S: Storage, A: Api, Q: Querier>(
     Ok(HandleResponse::default())
 }
 
-pub fn try_register_collateral<S: Storage, A: Api, Q: Querier>(
+pub fn register_collateral<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     asset: AssetInfo,
@@ -100,6 +105,52 @@ pub fn try_register_collateral<S: Storage, A: Api, Q: Querier>(
             collateral_premium,
             query_request,
         },
+    )?;
+
+    Ok(HandleResponse::default())
+}
+
+pub fn update_collateral<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    asset: AssetInfo,
+    query_request: Option<Binary>,
+    collateral_premium: Option<Decimal>,
+) -> HandleResult {
+    let config: Config = read_config(&deps.storage)?;
+    // only contract onwner can update collaterals
+    if config.owner != deps.api.canonical_address(&env.message.sender)? {
+        return Err(StdError::unauthorized());
+    }
+
+    let collateral_id: String = match asset {
+        AssetInfo::NativeToken { denom } => denom,
+        AssetInfo::Token { contract_addr } => contract_addr.to_string(),
+    };
+
+    let mut collateral_info = if let Ok(collateral) = read_collateral_info(&deps.storage, &collateral_id) {
+        collateral
+    } else {
+        return Err(StdError::generic_err("Collateral not found"));
+    };
+
+    if let Some(query_request) = query_request {
+        // test the query request
+        if query_price(&deps, query_request.clone()).is_err() {
+            return Err(StdError::generic_err(
+                "The query request provided is not valid",
+            ));
+        }
+        collateral_info.query_request = query_request;
+    }
+
+    if let Some(collateral_premium) = collateral_premium {
+        collateral_info.collateral_premium = collateral_premium;
+    }
+
+    store_collateral_info(
+        &mut deps.storage,
+        &collateral_info,
     )?;
 
     Ok(HandleResponse::default())

@@ -120,6 +120,96 @@ fn register_collateral() {
 }
 
 #[test]
+fn update_collateral() {
+    let mut deps = mock_dependencies(20, &[]);
+    deps.querier.with_oracle_price(&[
+        (&"uusd".to_string(), &Decimal::one()),
+        (&"mTSLA".to_string(), &Decimal::percent(100)),
+    ]);
+
+    let msg = InitMsg {
+        owner: HumanAddr("owner0000".to_string()),
+    };
+
+    let env = mock_env("addr0000", &[]);
+    let _res = init(&mut deps, env, msg).unwrap();
+
+    let wasm_query: WasmQuery = WasmQuery::Smart {
+        contract_addr: HumanAddr::from("oracle0000"),
+        msg: to_binary(&OracleQueryMsg::Price {
+            base_asset: "uusd".to_string(),
+            quote_asset: "mTSLA".to_string(),
+        })
+        .unwrap(),
+    };
+    let query_request = to_binary(&wasm_query).unwrap();
+
+    let msg = HandleMsg::RegisterCollateralAsset {
+        asset: AssetInfo::Token {
+            contract_addr: HumanAddr::from("mTSLA"),
+        },
+        collateral_premium: Decimal::percent(50),
+        query_request: query_request.clone(),
+    };
+
+    // successfull attempt
+    let env = mock_env("owner0000", &[]);
+    let res = handle(&mut deps, env, msg).unwrap();
+    assert_eq!(0, res.messages.len());
+
+    // query collateral info
+    let query_res = query_collateral_info(&deps, "mTSLA".to_string()).unwrap();
+    assert_eq!(
+        query_res,
+        CollateralInfoResponse {
+            asset: "mTSLA".to_string(),
+            query_request: wasm_query,
+            collateral_premium: Decimal::percent(50),
+        }
+    );
+
+    let new_wasm_query: WasmQuery = WasmQuery::Smart {
+        contract_addr: HumanAddr::from("oracle0001"), // change contract_addr
+        msg: to_binary(&OracleQueryMsg::Price {
+            base_asset: "uusd".to_string(),
+            quote_asset: "mTSLA".to_string(),
+        })
+        .unwrap(),
+    };
+    let new_query_request = to_binary(&new_wasm_query).unwrap();
+
+    // update collateral
+    let msg = HandleMsg::UpdateCollateralAsset {
+        asset: AssetInfo::Token {
+            contract_addr: HumanAddr::from("mTSLA"),
+        },
+        collateral_premium: Some(Decimal::percent(60)),
+        query_request: Some(new_query_request.clone()),
+    };
+
+    // unauthorized attempt
+    let env = mock_env("addr0000", &[]);
+    let res = handle(&mut deps, env, msg.clone()).unwrap_err();
+    assert_eq!(res, StdError::unauthorized());
+
+    // successfull attempt
+    let env = mock_env("owner0000", &[]);
+    let res = handle(&mut deps, env, msg).unwrap();
+    assert_eq!(0, res.messages.len());
+
+    // query the updated collateral
+    let query_res = query_collateral_info(&deps, "mTSLA".to_string()).unwrap();
+    assert_eq!(
+        query_res,
+        CollateralInfoResponse {
+            asset: "mTSLA".to_string(),
+            query_request: new_wasm_query,
+            collateral_premium: Decimal::percent(60),
+        }
+    )
+}
+
+#[test]
 fn get_oracle_price() {
     let mut deps = mock_dependencies(20, &[]);
     deps.querier.with_oracle_price(&[
