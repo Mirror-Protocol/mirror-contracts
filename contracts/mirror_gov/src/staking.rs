@@ -155,6 +155,7 @@ pub fn deposit_reward<S: Storage, A: Api, Q: Querier>(
         None,
         None,
         None,
+        Some(true), // remove hard cap to get all polls
     )?;
 
     if config.voter_weight.is_zero() || polls_in_progress.is_empty() {
