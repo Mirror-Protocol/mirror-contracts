@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "QueryMsg",
+  "anyOf": [
+    {
+      "type": "object",
+      "required": [
+        "config"
+      ],
+      "properties": {
+        "config": {
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "collateral_price"
+      ],
+      "properties": {
+        "collateral_price": {
+          "type": "object",
+          "required": [
+            "asset"
+          ],
+          "properties": {
+            "asset": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "collateral_asset_info"
+      ],
+      "properties": {
+        "collateral_asset_info": {
+          "type": "object",
+          "required": [
+            "asset"
+          ],
+          "properties": {
+            "asset": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "collateral_asset_infos"
+      ],
+      "properties": {
+        "collateral_asset_infos": {
+          "type": "object"
+        }
+      }
+    }
+  ]
+}
