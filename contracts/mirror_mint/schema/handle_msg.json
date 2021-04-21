@@ -139,6 +139,16 @@
             "min_collateral_ratio": {
               "$ref": "#/definitions/Decimal"
             },
+            "min_collateral_ratio_after_migration": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Decimal"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "mint_end": {
               "type": [
                 "integer",

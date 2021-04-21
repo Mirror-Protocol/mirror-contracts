@@ -51,6 +51,7 @@ pub struct AssetConfig {
     pub min_collateral_ratio: Decimal,
     pub end_price: Option<Decimal>,
     pub mint_end: Option<u64>,
+    pub min_collateral_ratio_after_migration: Option<Decimal>,
 }
 
 pub fn store_asset_config<S: Storage>(

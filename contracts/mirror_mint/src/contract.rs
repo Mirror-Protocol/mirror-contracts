@@ -79,6 +79,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             auction_discount,
             min_collateral_ratio,
             mint_end,
+            min_collateral_ratio_after_migration,
         } => try_register_asset(
             deps,
             env,
@@ -86,6 +87,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             auction_discount,
             min_collateral_ratio,
             mint_end,
+            min_collateral_ratio_after_migration,
         ),
         HandleMsg::RegisterMigration {
             asset_token,
@@ -261,6 +263,7 @@ pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
     auction_discount: Decimal,
     min_collateral_ratio: Decimal,
     mint_end: Option<u64>,
+    min_collateral_ratio_after_migration: Option<Decimal>,
 ) -> StdResult<HandleResponse> {
     assert_auction_discount(auction_discount)?;
     assert_min_collateral_ratio(min_collateral_ratio)?;
@@ -287,6 +290,7 @@ pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
             min_collateral_ratio,
             end_price: None,
             mint_end,
+            min_collateral_ratio_after_migration,
         },
     )?;
 
@@ -995,6 +999,8 @@ pub fn query_asset_config<S: Storage, A: Api, Q: Querier>(
         auction_discount: asset_config.auction_discount,
         min_collateral_ratio: asset_config.min_collateral_ratio,
         end_price: asset_config.end_price,
+        mint_end: asset_config.mint_end,
+        min_collateral_ratio_after_migration: asset_config.min_collateral_ratio_after_migration,
     };
 
     Ok(resp)
@@ -1160,7 +1166,6 @@ pub fn migrate<S: Storage, A: Api, Q: Querier>(
     _env: Env,
     _msg: MigrateMsg,
 ) -> MigrateResult {
-
     // migrate all asset configurations to use new add mint_end parameter
     migrate_asset_configs(&mut deps.storage)?;
 
