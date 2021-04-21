@@ -25,6 +25,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         &mut deps.storage,
         &Config {
             owner: deps.api.canonical_address(&msg.owner)?,
+            base_denom: msg.base_denom,
         },
     )?;
 
@@ -37,7 +38,9 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     msg: HandleMsg,
 ) -> HandleResult {
     match msg {
-        HandleMsg::UpdateConfig { owner } => update_config(deps, env, owner),
+        HandleMsg::UpdateConfig { owner, base_denom } => {
+            update_config(deps, env, owner, base_denom)
+        }
         HandleMsg::RegisterCollateralAsset {
             asset,
             query_request,
@@ -55,6 +58,7 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     owner: Option<HumanAddr>,
+    base_denom: Option<String>,
 ) -> HandleResult {
     let mut config: Config = read_config(&deps.storage)?;
     if deps.api.canonical_address(&env.message.sender)? != config.owner {
@@ -63,6 +67,10 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
 
     if let Some(owner) = owner {
         config.owner = deps.api.canonical_address(&owner)?;
+    }
+
+    if let Some(base_denom) = base_denom {
+        config.base_denom = base_denom;
     }
 
     store_config(&mut deps.storage, &config)?;
@@ -92,7 +100,7 @@ pub fn register_collateral<S: Storage, A: Api, Q: Querier>(
     }
 
     // test the query_request
-    if query_price(&deps, query_request.clone()).is_err() {
+    if query_price(&deps, query_request.clone(), config.base_denom).is_err() {
         return Err(StdError::generic_err(
             "The query request provided is not valid",
         ));
@@ -128,15 +136,16 @@ pub fn update_collateral<S: Storage, A: Api, Q: Querier>(
         AssetInfo::Token { contract_addr } => contract_addr.to_string(),
     };
 
-    let mut collateral_info = if let Ok(collateral) = read_collateral_info(&deps.storage, &collateral_id) {
-        collateral
-    } else {
-        return Err(StdError::generic_err("Collateral not found"));
-    };
+    let mut collateral_info =
+        if let Ok(collateral) = read_collateral_info(&deps.storage, &collateral_id) {
+            collateral
+        } else {
+            return Err(StdError::generic_err("Collateral not found"));
+        };
 
     if let Some(query_request) = query_request {
         // test the query request
-        if query_price(&deps, query_request.clone()).is_err() {
+        if query_price(&deps, query_request.clone(), config.base_denom).is_err() {
             return Err(StdError::generic_err(
                 "The query request provided is not valid",
             ));
@@ -148,10 +157,7 @@ pub fn update_collateral<S: Storage, A: Api, Q: Querier>(
         collateral_info.collateral_premium = collateral_premium;
     }
 
-    store_collateral_info(
-        &mut deps.storage,
-        &collateral_info,
-    )?;
+    store_collateral_info(&mut deps.storage, &collateral_info)?;
 
     Ok(HandleResponse::default())
 }
@@ -171,9 +177,10 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
 pub fn query_config<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
 ) -> StdResult<ConfigResponse> {
-    let state = read_config(&deps.storage)?;
+    let config = read_config(&deps.storage)?;
     let resp = ConfigResponse {
-        owner: deps.api.human_address(&state.owner)?,
+        owner: deps.api.human_address(&config.owner)?,
+        base_denom: config.base_denom,
     };
 
     Ok(resp)
@@ -183,7 +190,7 @@ pub fn query_collateral_price<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     quote_asset: String,
 ) -> StdResult<CollateralPriceResponse> {
-    let _config: Config = read_config(&deps.storage)?;
+    let config: Config = read_config(&deps.storage)?;
 
     let collateral: CollateralAssetInfo =
         if let Ok(res) = read_collateral_info(&deps.storage, &quote_asset) {
@@ -192,7 +199,7 @@ pub fn query_collateral_price<S: Storage, A: Api, Q: Querier>(
             return Err(StdError::generic_err("Collateral asset not found"));
         };
 
-    let price: Decimal = query_price(deps, collateral.query_request)?;
+    let price: Decimal = query_price(deps, collateral.query_request, config.base_denom)?;
 
     Ok(CollateralPriceResponse {
         asset: collateral.asset,

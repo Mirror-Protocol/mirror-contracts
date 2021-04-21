@@ -7,6 +7,7 @@ use terraswap::asset::AssetInfo;
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
     pub owner: HumanAddr,
+    pub base_denom: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -14,6 +15,7 @@ pub struct InitMsg {
 pub enum HandleMsg {
     UpdateConfig {
         owner: Option<HumanAddr>,
+        base_denom: Option<String>,
     },
     RegisterCollateralAsset {
         asset: AssetInfo,
@@ -43,6 +45,7 @@ pub enum QueryMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ConfigResponse {
     pub owner: HumanAddr,
+    pub base_denom: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

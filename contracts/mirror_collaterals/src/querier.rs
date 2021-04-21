@@ -4,7 +4,7 @@ use cosmwasm_std::{
 };
 
 use serde::{Deserialize, Serialize};
-use terraswap::asset::Asset;
+use terraswap::asset::{Asset, AssetInfo};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct GenericPriceResponse {
@@ -17,6 +17,7 @@ pub struct GenericPriceResponse {
 pub fn query_price<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     query_request: Binary,
+    base_denom: String,
 ) -> StdResult<Decimal> {
     // try to deserialize wasm query
     let wasm_query: WasmQuery = from_binary(&query_request)?;
@@ -28,9 +29,21 @@ pub fn query_price<S: Storage, A: Api, Q: Querier>(
         Ok(rate)
     } else {
         if let Some(assets) = res.assets {
-            Ok(Decimal::from_ratio(assets[0].amount, assets[1].amount))
+            if assets[0].info.equal(&AssetInfo::NativeToken {
+                denom: base_denom.clone(),
+            }) {
+                Ok(Decimal::from_ratio(assets[0].amount, assets[1].amount))
+            } else if assets[1].info.equal(&AssetInfo::NativeToken {
+                denom: base_denom.clone(),
+            }) {
+                Ok(Decimal::from_ratio(assets[1].amount, assets[0].amount))
+            } else {
+                Err(StdError::generic_err("Invalid pool"))
+            }
         } else {
-            Err(StdError::generic_err("Collateral query_request returned unexpected response"))
+            Err(StdError::generic_err(
+                "Collateral query_request returned unexpected response",
+            ))
         }
     }
 }

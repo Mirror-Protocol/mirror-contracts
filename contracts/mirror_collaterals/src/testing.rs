@@ -16,6 +16,7 @@ fn proper_initialization() {
 
     let msg = InitMsg {
         owner: HumanAddr("owner0000".to_string()),
+        base_denom: "uusd".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -35,6 +36,7 @@ fn update_config() {
 
     let msg = InitMsg {
         owner: HumanAddr("owner0000".to_string()),
+        base_denom: "uusd".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -44,6 +46,7 @@ fn update_config() {
     let env = mock_env("owner0000", &[]);
     let msg = HandleMsg::UpdateConfig {
         owner: Some(HumanAddr("owner0001".to_string())),
+        base_denom: Some("uluna".to_string()),
     };
 
     let res = handle(&mut deps, env, msg).unwrap();
@@ -55,7 +58,10 @@ fn update_config() {
 
     // Unauthorized err
     let env = mock_env("owner0000", &[]);
-    let msg = HandleMsg::UpdateConfig { owner: None };
+    let msg = HandleMsg::UpdateConfig {
+        owner: None,
+        base_denom: None,
+    };
 
     let res = handle(&mut deps, env, msg);
     match res {
@@ -74,6 +80,7 @@ fn register_collateral() {
 
     let msg = InitMsg {
         owner: HumanAddr("owner0000".to_string()),
+        base_denom: "uusd".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -129,6 +136,7 @@ fn update_collateral() {
 
     let msg = InitMsg {
         owner: HumanAddr("owner0000".to_string()),
+        base_denom: "uusd".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -219,6 +227,7 @@ fn get_oracle_price() {
 
     let msg = InitMsg {
         owner: HumanAddr("owner0000".to_string()),
+        base_denom: "uusd".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -265,6 +274,7 @@ fn get_terraswap_price() {
 
     let msg = InitMsg {
         owner: HumanAddr("owner0000".to_string()),
+        base_denom: "uusd".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);
