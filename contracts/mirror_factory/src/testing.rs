@@ -788,44 +788,30 @@ fn test_distribute() {
         res.log,
         vec![
             log("action", "distribute"),
-            log("distributed_amount", "7200"),
+            log("distribution_amount", "7200"),
         ]
     );
 
     assert_eq!(
         res.messages,
-        vec![
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("mirror0000"),
-                msg: to_binary(&Cw20HandleMsg::Send {
-                    contract: HumanAddr::from("staking0000"),
-                    amount: Uint128(3600u128),
-                    msg: Some(
-                        to_binary(&StakingCw20HookMsg::DepositReward {
-                            asset_token: HumanAddr::from("asset0000"),
-                        })
-                        .unwrap()
-                    ),
-                })
-                .unwrap(),
-                send: vec![],
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("mirror0000"),
-                msg: to_binary(&Cw20HandleMsg::Send {
-                    contract: HumanAddr::from("staking0000"),
-                    amount: Uint128(3600u128),
-                    msg: Some(
-                        to_binary(&StakingCw20HookMsg::DepositReward {
-                            asset_token: HumanAddr::from("asset0001"),
-                        })
-                        .unwrap()
-                    ),
-                })
-                .unwrap(),
-                send: vec![],
-            }),
-        ],
+        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: HumanAddr::from("mirror0000"),
+            msg: to_binary(&Cw20HandleMsg::Send {
+                contract: HumanAddr::from("staking0000"),
+                amount: Uint128(7200u128),
+                msg: Some(
+                    to_binary(&StakingCw20HookMsg::DepositReward {
+                        rewards: vec![
+                            (HumanAddr::from("asset0000"), Uint128(3600u128)),
+                            (HumanAddr::from("asset0001"), Uint128(3600u128)),
+                        ],
+                    })
+                    .unwrap()
+                ),
+            })
+            .unwrap(),
+            send: vec![],
+        }),],
     );
 
     let res = query(&deps, QueryMsg::DistributionInfo {}).unwrap();

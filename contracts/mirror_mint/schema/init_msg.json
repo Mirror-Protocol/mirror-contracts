@@ -8,6 +8,8 @@
     "oracle",
     "owner",
     "protocol_fee_rate",
+    "staking",
+    "terraswap_factory",
     "token_code_id"
   ],
   "properties": {
@@ -25,6 +27,12 @@
     },
     "protocol_fee_rate": {
       "$ref": "#/definitions/Decimal"
+    },
+    "staking": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "terraswap_factory": {
+      "$ref": "#/definitions/HumanAddr"
     },
     "token_code_id": {
       "type": "integer",

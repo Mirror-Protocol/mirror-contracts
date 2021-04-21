@@ -10,12 +10,13 @@ use mirror_protocol::common::OrderBy;
 use std::convert::TryInto;
 use terraswap::asset::{AssetInfoRaw, AssetRaw};
 
-static PREFIX_ASSET_CONFIG: &[u8] = b"asset_config";
+pub static PREFIX_ASSET_CONFIG: &[u8] = b"asset_config";
 static PREFIX_POSITION: &[u8] = b"position";
 static PREFIX_INDEX_BY_USER: &[u8] = b"by_user";
 static PREFIX_INDEX_BY_ASSET: &[u8] = b"by_asset";
+static PREFIX_SHORT_POSITION: &[u8] = b"short_position";
 
-static KEY_CONFIG: &[u8] = b"config";
+pub static KEY_CONFIG: &[u8] = b"config";
 static KEY_POSITION_IDX: &[u8] = b"position_idx";
 
 pub fn store_position_idx<S: Storage>(storage: &mut S, position_idx: Uint128) -> StdResult<()> {
@@ -31,6 +32,8 @@ pub struct Config {
     pub owner: CanonicalAddr,
     pub oracle: CanonicalAddr,
     pub collector: CanonicalAddr,
+    pub staking: CanonicalAddr,
+    pub terraswap_factory: CanonicalAddr,
     pub base_denom: String,
     pub token_code_id: u64,
     pub protocol_fee_rate: Decimal,
@@ -91,6 +94,23 @@ pub fn read_end_price<S: Storage>(storage: &S, asset_info: &AssetInfoRaw) -> Opt
     }
 }
 
+pub fn store_short_position<S: Storage>(storage: &mut S, idx: Uint128) -> StdResult<()> {
+    let mut short_position_bucket: Bucket<S, bool> = Bucket::new(PREFIX_SHORT_POSITION, storage);
+    short_position_bucket.save(&idx.u128().to_be_bytes(), &true)
+}
+
+pub fn remove_short_position<S: Storage>(storage: &mut S, idx: Uint128) {
+    let mut short_position_bucket: Bucket<S, bool> = Bucket::new(PREFIX_SHORT_POSITION, storage);
+    short_position_bucket.remove(&idx.u128().to_be_bytes())
+}
+
+pub fn is_short_position<S: Storage>(storage: &S, idx: Uint128) -> StdResult<bool> {
+    let short_position_bucket: ReadonlyBucket<S, bool> =
+        ReadonlyBucket::new(PREFIX_SHORT_POSITION, storage);
+    let res = short_position_bucket.may_load(&idx.u128().to_be_bytes())?;
+    Ok(res.is_some())
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Position {
     pub idx: Uint128,
@@ -138,15 +158,20 @@ pub fn remove_position<S: Storage>(storage: &mut S, idx: Uint128) -> StdResult<(
     let mut position_bucket: Bucket<S, Position> = Bucket::new(PREFIX_POSITION, storage);
     position_bucket.remove(&idx.u128().to_be_bytes());
 
+    // remove indexer
     let mut position_indexer_by_user: Bucket<S, bool> =
         Bucket::multilevel(&[PREFIX_INDEX_BY_USER, position.owner.as_slice()], storage);
     position_indexer_by_user.remove(&idx.u128().to_be_bytes());
 
+    // remove indexer
     let mut position_indexer_by_asset: Bucket<S, bool> = Bucket::multilevel(
         &[PREFIX_INDEX_BY_ASSET, position.asset.info.as_bytes()],
         storage,
     );
     position_indexer_by_asset.remove(&idx.u128().to_be_bytes());
+
+    // remove short position flag
+    remove_short_position(storage, idx);
 
     Ok(())
 }
