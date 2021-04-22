@@ -55,6 +55,7 @@ fn proper_initialization() {
         owner: HumanAddr::from("owner0000"),
         oracle: HumanAddr::from("oracle0000"),
         collector: HumanAddr::from("collector0000"),
+        collateral_oracle: HumanAddr::from("collateraloracle0000"),
         base_denom: "uusd".to_string(),
         token_code_id: TOKEN_CODE_ID,
         protocol_fee_rate: Decimal::percent(1),
@@ -81,6 +82,7 @@ fn update_config() {
         owner: HumanAddr::from("owner0000"),
         oracle: HumanAddr::from("oracle0000"),
         collector: HumanAddr::from("collector0000"),
+        collateral_oracle: HumanAddr::from("collateraloracle0000"),
         base_denom: "uusd".to_string(),
         token_code_id: TOKEN_CODE_ID,
         protocol_fee_rate: Decimal::percent(1),
@@ -97,6 +99,7 @@ fn update_config() {
         owner: Some(HumanAddr("owner0001".to_string())),
         oracle: None,
         collector: None,
+        collateral_oracle: None,
         token_code_id: Some(100u64),
         protocol_fee_rate: None,
     };
@@ -116,6 +119,7 @@ fn update_config() {
         owner: None,
         oracle: None,
         collector: None,
+        collateral_oracle: None,
         token_code_id: None,
         protocol_fee_rate: None,
     };

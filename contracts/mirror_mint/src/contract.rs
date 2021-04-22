@@ -5,8 +5,8 @@ use cosmwasm_std::{
 };
 
 use crate::math::{decimal_division, decimal_subtraction, reverse_decimal};
-use crate::migration::migrate_asset_configs;
-use crate::querier::load_price;
+use crate::migration::{migrate_asset_configs, migrate_config};
+use crate::querier::{load_asset_price, load_collateral_info};
 use crate::state::{
     create_position, read_asset_config, read_config, read_position, read_position_idx,
     read_positions, read_positions_with_asset_indexer, read_positions_with_user_indexer,
@@ -31,6 +31,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         owner: deps.api.canonical_address(&msg.owner)?,
         oracle: deps.api.canonical_address(&msg.oracle)?,
         collector: deps.api.canonical_address(&msg.collector)?,
+        collateral_oracle: deps.api.canonical_address(&msg.collateral_oracle)?,
         base_denom: msg.base_denom,
         token_code_id: msg.token_code_id,
         protocol_fee_rate: msg.protocol_fee_rate,
@@ -52,6 +53,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             owner,
             oracle,
             collector,
+            collateral_oracle,
             token_code_id,
             protocol_fee_rate,
         } => try_update_config(
@@ -60,6 +62,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             owner,
             oracle,
             collector,
+            collateral_oracle,
             token_code_id,
             protocol_fee_rate,
         ),
@@ -186,6 +189,7 @@ pub fn try_update_config<S: Storage, A: Api, Q: Querier>(
     owner: Option<HumanAddr>,
     oracle: Option<HumanAddr>,
     collector: Option<HumanAddr>,
+    collateral_oracle: Option<HumanAddr>,
     token_code_id: Option<u64>,
     protocol_fee_rate: Option<Decimal>,
 ) -> StdResult<HandleResponse> {
@@ -205,6 +209,10 @@ pub fn try_update_config<S: Storage, A: Api, Q: Querier>(
 
     if let Some(collector) = collector {
         config.collector = deps.api.canonical_address(&collector)?;
+    }
+
+    if let Some(collateral_oracle) = collateral_oracle {
+        config.collateral_oracle = deps.api.canonical_address(&collateral_oracle)?;
     }
 
     if let Some(token_code_id) = token_code_id {
@@ -350,13 +358,26 @@ pub fn try_open_position<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::generic_err("Wrong collateral"));
     }
 
-    // assert collateral migrated
     let collateral_info_raw: AssetInfoRaw = collateral.info.to_raw(&deps)?;
+    // assert collateral migrated
     match collateral_info_raw.clone() {
         AssetInfoRaw::Token { contract_addr } => {
             assert_migrated_asset(&read_asset_config(&deps.storage, &contract_addr)?)?;
         }
         _ => {}
+    };
+
+    // query collateral info from collateral oracle
+    let config: Config = read_config(&deps.storage)?;
+    let collateral_oracle: HumanAddr = deps.api.human_address(&config.collateral_oracle)?;
+    let (collateral_price, collateral_premium) = if let Ok(response) =
+        load_collateral_info(deps, &collateral_oracle, &collateral_info_raw)
+    {
+        response
+    } else {
+        return Err(StdError::generic_err(
+            "The collateral asset provided is not valid",
+        ));
     };
 
     // assert asset migrated
@@ -372,24 +393,22 @@ pub fn try_open_position<S: Storage, A: Api, Q: Querier>(
     // for assets with limited minting period (preIPO assets), assert minting phase
     assert_mint_period(env.clone(), &asset_config)?;
 
-    if collateral_ratio < asset_config.min_collateral_ratio {
+    let min_collateral_ratio: Decimal = asset_config.min_collateral_ratio + collateral_premium;
+    if collateral_ratio < min_collateral_ratio {
         return Err(StdError::generic_err(
             "Can not open a position with low collateral ratio than minimum",
         ));
     }
 
-    let config: Config = read_config(&deps.storage)?;
     let oracle: HumanAddr = deps.api.human_address(&config.oracle)?;
-    let price: Decimal = load_price(
-        &deps,
-        &oracle,
-        &collateral_info_raw,
-        &asset_info_raw,
-        Some(env.block.time),
-    )?;
+    let asset_price: Decimal =
+        load_asset_price(&deps, &oracle, &asset_info_raw, Some(env.block.time))?;
+
+    let asset_price_in_collateral_asset = decimal_division(collateral_price, asset_price);
 
     // Convert collateral to asset unit
-    let mint_amount = collateral.amount * price * reverse_decimal(collateral_ratio);
+    let mint_amount =
+        collateral.amount * asset_price_in_collateral_asset * reverse_decimal(collateral_ratio);
     if mint_amount.is_zero() {
         return Err(StdError::generic_err("collateral is too small"));
     }
@@ -514,22 +533,24 @@ pub fn try_withdraw<S: Storage, A: Api, Q: Querier>(
 
     let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
     let oracle: HumanAddr = deps.api.human_address(&config.oracle)?;
-    let price: Decimal = load_price(
-        &deps,
-        &oracle,
-        &position.asset.info,
-        &position.collateral.info,
-        Some(env.block.time),
-    )?;
+    let asset_price: Decimal =
+        load_asset_price(&deps, &oracle, &position.asset.info, Some(env.block.time))?;
+
+    let collateral_oracle: HumanAddr = deps.api.human_address(&config.collateral_oracle)?;
+    let (collateral_price, collateral_premium) =
+        load_collateral_info(&deps, &collateral_oracle, &position.collateral.info)?;
 
     // Compute new collateral amount
     let collateral_amount: Uint128 = (position.collateral.amount - collateral.amount)?;
 
     // Convert asset to collateral unit
-    let asset_value_in_collateral_asset: Uint128 = position.asset.amount * price;
+    let asset_value_in_collateral_asset: Uint128 =
+        position.asset.amount * decimal_division(asset_price, collateral_price);
 
     // Check minimum collateral ratio is satisfied
-    if asset_value_in_collateral_asset * asset_config.min_collateral_ratio > collateral_amount {
+    if asset_value_in_collateral_asset * (asset_config.min_collateral_ratio + collateral_premium)
+        > collateral_amount
+    {
         return Err(StdError::generic_err(
             "Cannot withdraw collateral over than minimum collateral ratio",
         ));
@@ -615,22 +636,22 @@ pub fn try_mint<S: Storage, A: Api, Q: Querier>(
     assert_mint_period(env.clone(), &asset_config)?;
 
     let oracle: HumanAddr = deps.api.human_address(&config.oracle)?;
-    let price: Decimal = load_price(
-        &deps,
-        &oracle,
-        &position.asset.info,
-        &position.collateral.info,
-        Some(env.block.time),
-    )?;
+    let asset_price: Decimal =
+        load_asset_price(&deps, &oracle, &position.asset.info, Some(env.block.time))?;
+
+    let collateral_oracle: HumanAddr = deps.api.human_address(&config.collateral_oracle)?;
+    let (collateral_price, collateral_premium) =
+        load_collateral_info(&deps, &collateral_oracle, &position.collateral.info)?;
 
     // Compute new asset amount
     let asset_amount: Uint128 = asset.amount + position.asset.amount;
 
     // Convert asset to collateral unit
-    let asset_value_in_collateral_asset: Uint128 = asset_amount * price;
+    let asset_value_in_collateral_asset: Uint128 =
+        asset_amount * decimal_division(asset_price, collateral_price);
 
     // Check minimum collateral ratio is satisfied
-    if asset_value_in_collateral_asset * asset_config.min_collateral_ratio
+    if asset_value_in_collateral_asset * (asset_config.min_collateral_ratio + collateral_premium)
         > position.collateral.amount
     {
         return Err(StdError::generic_err(
@@ -698,20 +719,24 @@ pub fn try_burn<S: Storage, A: Api, Q: Querier>(
     // anyone can execute burn the asset to any position without permission
     if asset_config.end_price.is_some() {
         let oracle: HumanAddr = deps.api.human_address(&config.oracle)?;
-        let price: Decimal = load_price(
-            &deps,
-            &oracle,
-            &position.asset.info,
-            &position.collateral.info,
-            Some(env.block.time),
-        )?;
+        let asset_price: Decimal =
+            load_asset_price(&deps, &oracle, &position.asset.info, Some(env.block.time))?;
+
+        let collateral_oracle: HumanAddr = deps.api.human_address(&config.collateral_oracle)?;
+        let (collateral_price, _collateral_premium) =
+            load_collateral_info(&deps, &collateral_oracle, &position.collateral.info)?;
+
+        let collateral_price_in_asset = decimal_division(asset_price, collateral_price);
 
         // Burn deprecated asset to receive collaterals back
         let conversion_rate =
             Decimal::from_ratio(position.collateral.amount, position.asset.amount);
         let refund_collateral = Asset {
             info: collateral_info,
-            amount: std::cmp::min(asset.amount * price, asset.amount * conversion_rate),
+            amount: std::cmp::min(
+                asset.amount * collateral_price_in_asset,
+                asset.amount * conversion_rate,
+            ),
         };
 
         position.asset.amount = (position.asset.amount - asset.amount).unwrap();
@@ -801,17 +826,18 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
     }
 
     let oracle: HumanAddr = deps.api.human_address(&config.oracle)?;
-    let price: Decimal = load_price(
-        &deps,
-        &oracle,
-        &position.asset.info,
-        &position.collateral.info,
-        Some(env.block.time),
-    )?;
+    let asset_price: Decimal =
+        load_asset_price(&deps, &oracle, &position.asset.info, Some(env.block.time))?;
 
+    let collateral_oracle: HumanAddr = deps.api.human_address(&config.collateral_oracle)?;
+    let (collateral_price, _collateral_premium) =
+        load_collateral_info(&deps, &collateral_oracle, &position.collateral.info)?;
+
+    let collateral_price_in_asset: Decimal = decimal_division(asset_price, collateral_price);
     // Check the position is in auction state
     // asset_amount * price_to_collateral * auction_threshold > collateral_amount
-    let asset_value_in_collateral_asset: Uint128 = position.asset.amount * price;
+    let asset_value_in_collateral_asset: Uint128 =
+        position.asset.amount * collateral_price_in_asset;
     if asset_value_in_collateral_asset * asset_config.min_collateral_ratio
         < position.collateral.amount
     {
@@ -822,7 +848,7 @@ pub fn try_auction<S: Storage, A: Api, Q: Querier>(
 
     // Compute discounted price
     let discounted_price: Decimal = decimal_division(
-        price,
+        collateral_price_in_asset,
         decimal_subtraction(Decimal::one(), asset_config.auction_discount),
     );
 
@@ -979,6 +1005,7 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
         owner: deps.api.human_address(&state.owner)?,
         oracle: deps.api.human_address(&state.oracle)?,
         collector: deps.api.human_address(&state.collector)?,
+        collateral_oracle: deps.api.human_address(&state.collateral_oracle)?,
         base_denom: state.base_denom,
         token_code_id: state.token_code_id,
         protocol_fee_rate: Decimal::percent(1),
@@ -1164,10 +1191,13 @@ fn assert_burn_period(env: Env, asset_config: &AssetConfig) -> StdResult<()> {
 pub fn migrate<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     _env: Env,
-    _msg: MigrateMsg,
+    msg: MigrateMsg,
 ) -> MigrateResult {
     // migrate all asset configurations to use new add mint_end parameter
     migrate_asset_configs(&mut deps.storage)?;
+
+    // migrate config to add collateral oracle address
+    migrate_config(&mut deps.storage, &deps.api, msg.collateral_oracle)?;
 
     Ok(MigrateResponse::default())
 }

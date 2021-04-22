@@ -25,6 +25,7 @@ fn proper_initialization() {
         owner: HumanAddr::from("owner0000"),
         oracle: HumanAddr::from("oracle0000"),
         collector: HumanAddr::from("collector0000"),
+        collateral_oracle: HumanAddr::from("collateraloracle0000"),
         base_denom: "uusd".to_string(),
         token_code_id: TOKEN_CODE_ID,
         protocol_fee_rate: Decimal::percent(1),
@@ -54,6 +55,7 @@ fn update_config() {
         owner: HumanAddr::from("owner0000"),
         oracle: HumanAddr::from("oracle0000"),
         collector: HumanAddr::from("collector0000"),
+        collateral_oracle: HumanAddr::from("collateraloracle0000"),
         base_denom: "uusd".to_string(),
         token_code_id: TOKEN_CODE_ID,
         protocol_fee_rate: Decimal::percent(1),
@@ -68,6 +70,7 @@ fn update_config() {
         owner: Some(HumanAddr("owner0001".to_string())),
         oracle: None,
         collector: None,
+        collateral_oracle: None,
         token_code_id: Some(100u64),
         protocol_fee_rate: None,
     };
@@ -87,6 +90,7 @@ fn update_config() {
         owner: None,
         oracle: None,
         collector: None,
+        collateral_oracle: None,
         token_code_id: None,
         protocol_fee_rate: None,
     };
@@ -107,6 +111,7 @@ fn register_asset() {
         owner: HumanAddr::from("owner0000"),
         oracle: HumanAddr::from("oracle0000"),
         collector: HumanAddr::from("collector0000"),
+        collateral_oracle: HumanAddr::from("collateraloracle0000"),
         base_denom: base_denom.clone(),
         token_code_id: TOKEN_CODE_ID,
         protocol_fee_rate: Decimal::percent(1),
@@ -222,6 +227,7 @@ fn update_asset() {
         owner: HumanAddr::from("owner0000"),
         oracle: HumanAddr::from("oracle0000"),
         collector: HumanAddr::from("collector0000"),
+        collateral_oracle: HumanAddr::from("collateraloracle0000"),
         base_denom: base_denom.clone(),
         token_code_id: TOKEN_CODE_ID,
         protocol_fee_rate: Decimal::percent(1),
@@ -327,6 +333,7 @@ fn register_migration() {
         owner: HumanAddr::from("owner0000"),
         oracle: HumanAddr::from("oracle0000"),
         collector: HumanAddr::from("collector0000"),
+        collateral_oracle: HumanAddr::from("collateraloracle0000"),
         base_denom: base_denom.clone(),
         token_code_id: TOKEN_CODE_ID,
         protocol_fee_rate: Decimal::percent(1),
@@ -412,6 +419,11 @@ fn open_position() {
         (&"asset0000".to_string(), &Decimal::percent(100)),
         (&"asset0001".to_string(), &Decimal::percent(50)),
     ]);
+    deps.querier.with_collateral_infos(&[(
+        &"asset0001".to_string(),
+        &Decimal::percent(50),
+        &Decimal::zero(),
+    )]);
 
     let base_denom = "uusd".to_string();
 
@@ -419,6 +431,7 @@ fn open_position() {
         owner: HumanAddr::from("owner0000"),
         oracle: HumanAddr::from("oracle0000"),
         collector: HumanAddr::from("collector0000"),
+        collateral_oracle: HumanAddr::from("collateraloracle0000"),
         base_denom: base_denom.clone(),
         token_code_id: TOKEN_CODE_ID,
         protocol_fee_rate: Decimal::percent(1),
@@ -763,12 +776,16 @@ fn migrated_asset() {
             &Uint128::from(1000000u128),
         )],
     )]);
-
     deps.querier.with_oracle_price(&[
         (&"uusd".to_string(), &Decimal::one()),
         (&"asset0000".to_string(), &Decimal::percent(100)),
         (&"asset0001".to_string(), &Decimal::percent(50)),
     ]);
+    deps.querier.with_collateral_infos(&[(
+        &"asset0000".to_string(),
+        &Decimal::percent(100),
+        &Decimal::zero(),
+    )]);
 
     let base_denom = "uusd".to_string();
 
@@ -776,6 +793,7 @@ fn migrated_asset() {
         owner: HumanAddr::from("owner0000"),
         oracle: HumanAddr::from("oracle0000"),
         collector: HumanAddr::from("collector0000"),
+        collateral_oracle: HumanAddr::from("collateraloracle0000"),
         base_denom: base_denom.clone(),
         token_code_id: TOKEN_CODE_ID,
         protocol_fee_rate: Decimal::percent(1),
@@ -1123,12 +1141,16 @@ fn burn_migrated_asset_position() {
             &Uint128::from(1000000u128),
         )],
     )]);
-
     deps.querier.with_oracle_price(&[
         (&"uusd".to_string(), &Decimal::one()),
         (&"asset0000".to_string(), &Decimal::percent(100)),
         (&"asset0001".to_string(), &Decimal::percent(50)),
     ]);
+    deps.querier.with_collateral_infos(&[(
+        &"asset0000".to_string(),
+        &Decimal::percent(100),
+        &Decimal::zero(),
+    )]);
 
     let base_denom = "uusd".to_string();
 
@@ -1136,6 +1158,7 @@ fn burn_migrated_asset_position() {
         owner: HumanAddr::from("owner0000"),
         oracle: HumanAddr::from("oracle0000"),
         collector: HumanAddr::from("collector0000"),
+        collateral_oracle: HumanAddr::from("collateraloracle0000"),
         base_denom: base_denom.clone(),
         token_code_id: TOKEN_CODE_ID,
         protocol_fee_rate: Decimal::percent(1),
@@ -1332,6 +1355,11 @@ fn deposit() {
         (&"asset0000".to_string(), &Decimal::percent(100)),
         (&"asset0001".to_string(), &Decimal::percent(50)),
     ]);
+    deps.querier.with_collateral_infos(&[(
+        &"asset0001".to_string(),
+        &Decimal::percent(50),
+        &Decimal::zero(),
+    )]);
 
     let base_denom = "uusd".to_string();
 
@@ -1339,6 +1367,7 @@ fn deposit() {
         owner: HumanAddr::from("owner0000"),
         oracle: HumanAddr::from("oracle0000"),
         collector: HumanAddr::from("collector0000"),
+        collateral_oracle: HumanAddr::from("collateraloracle0000"),
         base_denom: base_denom.clone(),
         token_code_id: TOKEN_CODE_ID,
         protocol_fee_rate: Decimal::percent(1),
@@ -1530,6 +1559,11 @@ fn mint() {
             &Decimal::from_ratio(50u128, 1u128),
         ),
     ]);
+    deps.querier.with_collateral_infos(&[(
+        &"asset0001".to_string(),
+        &Decimal::from_ratio(50u128, 1u128),
+        &Decimal::zero(),
+    )]);
 
     let base_denom = "uusd".to_string();
 
@@ -1537,6 +1571,7 @@ fn mint() {
         owner: HumanAddr::from("owner0000"),
         oracle: HumanAddr::from("oracle0000"),
         collector: HumanAddr::from("collector0000"),
+        collateral_oracle: HumanAddr::from("collateraloracle0000"),
         base_denom: base_denom.clone(),
         token_code_id: TOKEN_CODE_ID,
         protocol_fee_rate: Decimal::percent(1),
@@ -1762,6 +1797,11 @@ fn burn() {
             &Decimal::from_ratio(50u128, 1u128),
         ),
     ]);
+    deps.querier.with_collateral_infos(&[(
+        &"asset0001".to_string(),
+        &Decimal::from_ratio(50u128, 1u128),
+        &Decimal::zero(),
+    )]);
 
     let base_denom = "uusd".to_string();
 
@@ -1769,6 +1809,7 @@ fn burn() {
         owner: HumanAddr::from("owner0000"),
         oracle: HumanAddr::from("oracle0000"),
         collector: HumanAddr::from("collector0000"),
+        collateral_oracle: HumanAddr::from("collateraloracle0000"),
         base_denom: base_denom.clone(),
         token_code_id: TOKEN_CODE_ID,
         protocol_fee_rate: Decimal::percent(1),
@@ -2005,7 +2046,6 @@ fn withdraw() {
         Decimal::percent(1),
         &[(&"uusd".to_string(), &Uint128(1000000u128))],
     );
-
     deps.querier.with_oracle_price(&[
         (&"uusd".to_string(), &Decimal::one()),
         (
@@ -2017,6 +2057,11 @@ fn withdraw() {
             &Decimal::from_ratio(50u128, 1u128),
         ),
     ]);
+    deps.querier.with_collateral_infos(&[(
+        &"asset0001".to_string(),
+        &Decimal::from_ratio(50u128, 1u128),
+        &Decimal::zero(),
+    )]);
 
     let base_denom = "uusd".to_string();
 
@@ -2024,6 +2069,7 @@ fn withdraw() {
         owner: HumanAddr::from("owner0000"),
         oracle: HumanAddr::from("oracle0000"),
         collector: HumanAddr::from("collector0000"),
+        collateral_oracle: HumanAddr::from("collateraloracle0000"),
         base_denom: base_denom.clone(),
         token_code_id: TOKEN_CODE_ID,
         protocol_fee_rate: Decimal::percent(1),
@@ -2188,7 +2234,6 @@ fn auction() {
         Decimal::percent(5u64),
         &[(&"uusd".to_string(), &Uint128(1000000u128))],
     );
-
     deps.querier.with_oracle_price(&[
         (&"uusd".to_string(), &Decimal::one()),
         (
@@ -2200,6 +2245,18 @@ fn auction() {
             &Decimal::from_ratio(50u128, 1u128),
         ),
     ]);
+    deps.querier.with_collateral_infos(&[
+        (
+            &"asset0000".to_string(),
+            &Decimal::from_ratio(100u128, 1u128),
+            &Decimal::zero(),
+        ),
+        (
+            &"asset0001".to_string(),
+            &Decimal::from_ratio(50u128, 1u128),
+            &Decimal::zero(),
+        ),
+    ]);
 
     let base_denom = "uusd".to_string();
 
@@ -2207,6 +2264,7 @@ fn auction() {
         owner: HumanAddr::from("owner0000"),
         oracle: HumanAddr::from("oracle0000"),
         collector: HumanAddr::from("collector0000"),
+        collateral_oracle: HumanAddr::from("collateraloracle0000"),
         base_denom: base_denom.clone(),
         token_code_id: TOKEN_CODE_ID,
         protocol_fee_rate: Decimal::percent(1),
@@ -2288,6 +2346,18 @@ fn auction() {
             &Decimal::from_ratio(50u128, 1u128),
         ),
     ]);
+    deps.querier.with_collateral_infos(&[
+        (
+            &"asset0000".to_string(),
+            &Decimal::from_ratio(115u128, 1u128),
+            &Decimal::zero(),
+        ),
+        (
+            &"asset0001".to_string(),
+            &Decimal::from_ratio(50u128, 1u128),
+            &Decimal::zero(),
+        ),
+    ]);
 
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         sender: HumanAddr::from("addr0001"),
@@ -2337,6 +2407,18 @@ fn auction() {
         (
             &"asset0001".to_string(),
             &Decimal::from_ratio(50u128, 1u128),
+        ),
+    ]);
+    deps.querier.with_collateral_infos(&[
+        (
+            &"asset0000".to_string(),
+            &Decimal::from_ratio(116u128, 1u128),
+            &Decimal::zero(),
+        ),
+        (
+            &"asset0001".to_string(),
+            &Decimal::from_ratio(50u128, 1u128),
+            &Decimal::zero(),
         ),
     ]);
 
@@ -2458,6 +2540,18 @@ fn auction() {
         (&"asset0000".to_string(), &Decimal::percent(200)),
         (&"asset0001".to_string(), &Decimal::percent(50)),
     ]);
+    deps.querier.with_collateral_infos(&[
+        (
+            &"asset0000".to_string(),
+            &Decimal::percent(200),
+            &Decimal::zero(),
+        ),
+        (
+            &"asset0001".to_string(),
+            &Decimal::percent(50),
+            &Decimal::zero(),
+        ),
+    ]);
 
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         sender: HumanAddr::from("addr0001"),
@@ -2546,6 +2640,7 @@ fn pre_ipo_assets() {
         owner: HumanAddr::from("owner0000"),
         oracle: HumanAddr::from("oracle0000"),
         collector: HumanAddr::from("collector0000"),
+        collateral_oracle: HumanAddr::from("collateraloracle0000"),
         base_denom: base_denom.clone(),
         token_code_id: TOKEN_CODE_ID,
         protocol_fee_rate: Decimal::percent(1),

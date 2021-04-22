@@ -8,7 +8,9 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::{math::decimal_division, querier::OracleQueryMsg, querier::PriceResponse};
+use crate::math::decimal_division;
+use mirror_protocol::collateral_oracle::CollateralPriceResponse;
+use mirror_protocol::oracle::PriceResponse;
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
@@ -36,6 +38,7 @@ pub struct WasmMockQuerier {
     token_querier: TokenQuerier,
     tax_querier: TaxQuerier,
     oracle_price_querier: OraclePriceQuerier,
+    collateral_oracle_querier: CollateralOracleQuerier,
     canonical_length: usize,
 }
 
@@ -117,6 +120,34 @@ pub(crate) fn oracle_price_to_map(
     oracle_price_map
 }
 
+#[derive(Clone, Default)]
+pub struct CollateralOracleQuerier {
+    // this lets us iterate over all pairs that match the first string
+    collateral_infos: HashMap<String, (Decimal, Decimal)>,
+}
+
+impl CollateralOracleQuerier {
+    pub fn new(collateral_infos: &[(&String, &Decimal, &Decimal)]) -> Self {
+        CollateralOracleQuerier {
+            collateral_infos: collateral_infos_to_map(collateral_infos),
+        }
+    }
+}
+
+pub(crate) fn collateral_infos_to_map(
+    collateral_infos: &[(&String, &Decimal, &Decimal)],
+) -> HashMap<String, (Decimal, Decimal)> {
+    let mut collateral_infos_map: HashMap<String, (Decimal, Decimal)> = HashMap::new();
+    for (collateral, collateral_price, collateral_premium) in collateral_infos.iter() {
+        collateral_infos_map.insert(
+            (*collateral).clone(),
+            (**collateral_price, **collateral_premium),
+        );
+    }
+
+    collateral_infos_map
+}
+
 impl Querier for WasmMockQuerier {
     fn raw_query(&self, bin_request: &[u8]) -> QuerierResult {
         // MockQuerier doesn't support Custom, so we ignore it completely here
@@ -136,7 +167,13 @@ impl Querier for WasmMockQuerier {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum MockQueryMsg {
-    Price {},
+    Price {
+        base_asset: String,
+        quote_asset: String,
+    },
+    CollateralPrice {
+        asset: String,
+    },
 }
 
 impl WasmMockQuerier {
@@ -171,7 +208,7 @@ impl WasmMockQuerier {
                 contract_addr: _,
                 msg,
             }) => match from_binary(&msg).unwrap() {
-                OracleQueryMsg::Price {
+                MockQueryMsg::Price {
                     base_asset,
                     quote_asset,
                 } => match self.oracle_price_querier.oracle_price.get(&base_asset) {
@@ -193,6 +230,19 @@ impl WasmMockQuerier {
                         request: msg.as_slice().into(),
                     }),
                 },
+                MockQueryMsg::CollateralPrice { asset } => {
+                    match self.collateral_oracle_querier.collateral_infos.get(&asset) {
+                        Some(collateral_info) => Ok(to_binary(&CollateralPriceResponse {
+                            asset,
+                            rate: collateral_info.0,
+                            collateral_premium: collateral_info.1,
+                        })),
+                        None => Err(SystemError::InvalidRequest {
+                            error: "Collateral info does not exist".to_string(),
+                            request: msg.as_slice().into(),
+                        }),
+                    }
+                }
             },
             QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
                 let key: &[u8] = key.as_slice();
@@ -258,6 +308,7 @@ impl WasmMockQuerier {
             token_querier: TokenQuerier::default(),
             tax_querier: TaxQuerier::default(),
             oracle_price_querier: OraclePriceQuerier::default(),
+            collateral_oracle_querier: CollateralOracleQuerier::default(),
             canonical_length,
         }
     }
@@ -275,5 +326,10 @@ impl WasmMockQuerier {
     // configure the oracle price mock querier
     pub fn with_oracle_price(&mut self, oracle_price: &[(&String, &Decimal)]) {
         self.oracle_price_querier = OraclePriceQuerier::new(oracle_price);
+    }
+
+    // configure the collateral oracle mock querier
+    pub fn with_collateral_infos(&mut self, collateral_infos: &[(&String, &Decimal, &Decimal)]) {
+        self.collateral_oracle_querier = CollateralOracleQuerier::new(collateral_infos);
     }
 }

@@ -1,72 +1,64 @@
-use serde::{Deserialize, Serialize};
-
 use cosmwasm_std::{
     to_binary, Api, Decimal, Extern, HumanAddr, Querier, QueryRequest, StdError, StdResult,
     Storage, WasmQuery,
 };
 
-use crate::math::decimal_division;
 use crate::state::{read_config, read_end_price, Config};
+use mirror_protocol::collateral_oracle::{
+    CollateralPriceResponse, QueryMsg as CollateralOracleQueryMsg,
+};
+use mirror_protocol::oracle::{PriceResponse, QueryMsg as OracleQueryMsg};
 use terraswap::asset::AssetInfoRaw;
 
 const PRICE_EXPIRE_TIME: u64 = 60;
 
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum OracleQueryMsg {
-    Price {
-        base_asset: String,
-        quote_asset: String,
-    },
-}
-
-// We define a custom struct for each query response
-#[derive(Serialize, Deserialize)]
-pub struct PriceResponse {
-    pub rate: Decimal,
-    pub last_updated_base: u64,
-    pub last_updated_quote: u64,
-}
-
-pub fn load_price<S: Storage, A: Api, Q: Querier>(
+pub fn load_asset_price<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     oracle: &HumanAddr,
-    base_asset: &AssetInfoRaw,
-    quote_asset: &AssetInfoRaw,
+    asset: &AssetInfoRaw,
     block_time: Option<u64>,
 ) -> StdResult<Decimal> {
     let config: Config = read_config(&deps.storage)?;
 
-    let base_end_price = read_end_price(&deps.storage, &base_asset);
-    let quote_end_price = read_end_price(&deps.storage, &quote_asset);
-    let base_asset = (base_asset.to_normal(&deps)?).to_string();
-    let quote_asset = (quote_asset.to_normal(&deps)?).to_string();
+    let end_price = read_end_price(&deps.storage, &asset);
+    let asset_denom: String = (asset.to_normal(&deps)?).to_string();
 
-    // load price form the oracle
-    let price: Decimal =
-        if let (Some(base_end_price), Some(quote_end_price)) = (base_end_price, quote_end_price) {
-            decimal_division(base_end_price, quote_end_price)
-        } else if let Some(base_end_price) = base_end_price {
-            let quote_price = if config.base_denom == quote_asset {
-                Decimal::one()
-            } else {
-                query_price(deps, oracle, config.base_denom, quote_asset, block_time)?
-            };
-
-            decimal_division(base_end_price, quote_price)
-        } else if let Some(quote_end_price) = quote_end_price {
-            let base_price = if config.base_denom == base_asset {
-                Decimal::one()
-            } else {
-                query_price(deps, oracle, config.base_denom, base_asset, block_time)?
-            };
-
-            decimal_division(base_price, quote_end_price)
+    let price: Decimal = if let Some(end_price) = end_price {
+        end_price
+    } else {
+        if asset_denom == config.base_denom {
+            Decimal::one()
         } else {
-            query_price(deps, oracle, base_asset, quote_asset, block_time)?
-        };
+            query_price(deps, oracle, asset_denom, config.base_denom, block_time)?
+        }
+    };
 
     Ok(price)
+}
+
+pub fn load_collateral_info<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    collateral_oracle: &HumanAddr,
+    collateral: &AssetInfoRaw,
+) -> StdResult<(Decimal, Decimal)> {
+    let config: Config = read_config(&deps.storage)?;
+
+    let end_price = read_end_price(&deps.storage, &collateral);
+    let collateral_denom: String = (collateral.to_normal(&deps)?).to_string();
+    if collateral_denom == config.base_denom {
+        return Ok((Decimal::one(), Decimal::zero()));
+    }
+
+    let (collateral_oracle_price, collateral_premium) =
+        query_collateral(deps, collateral_oracle, collateral_denom.clone())?;
+
+    let price = if let Some(end_price) = end_price {
+        end_price
+    } else {
+        collateral_oracle_price
+    };
+
+    Ok((price, collateral_premium))
 }
 
 pub fn query_price<S: Storage, A: Api, Q: Querier>(
@@ -93,4 +85,19 @@ pub fn query_price<S: Storage, A: Api, Q: Querier>(
     }
 
     Ok(res.rate)
+}
+
+// queries the collateral oracle to get the asset rate and collateral_premium
+pub fn query_collateral<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    collateral_oracle: &HumanAddr,
+    asset: String,
+) -> StdResult<(Decimal, Decimal)> {
+    let res: CollateralPriceResponse =
+        deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+            contract_addr: HumanAddr::from(collateral_oracle),
+            msg: to_binary(&CollateralOracleQueryMsg::CollateralPrice { asset })?,
+        }))?;
+
+    Ok((res.rate, res.collateral_premium))
 }

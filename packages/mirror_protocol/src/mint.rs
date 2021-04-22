@@ -12,6 +12,7 @@ pub struct InitMsg {
     pub owner: HumanAddr,
     pub oracle: HumanAddr,
     pub collector: HumanAddr,
+    pub collateral_oracle: HumanAddr,
     pub base_denom: String,
     pub token_code_id: u64,
     pub protocol_fee_rate: Decimal,
@@ -31,6 +32,7 @@ pub enum HandleMsg {
         owner: Option<HumanAddr>,
         oracle: Option<HumanAddr>,
         collector: Option<HumanAddr>,
+        collateral_oracle: Option<HumanAddr>,
         token_code_id: Option<u64>,
         protocol_fee_rate: Option<Decimal>,
     },
@@ -121,6 +123,7 @@ pub struct ConfigResponse {
     pub owner: HumanAddr,
     pub oracle: HumanAddr,
     pub collector: HumanAddr,
+    pub collateral_oracle: HumanAddr,
     pub base_denom: String,
     pub token_code_id: u64,
     pub protocol_fee_rate: Decimal,
@@ -155,6 +158,7 @@ pub struct NextPositionIdxResponse {
     pub next_position_idx: Uint128,
 }
 
-/// We currently take no arguments for migrations
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct MigrateMsg {}
+pub struct MigrateMsg {
+    pub collateral_oracle: HumanAddr,
+}

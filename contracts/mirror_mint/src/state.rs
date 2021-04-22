@@ -31,6 +31,7 @@ pub struct Config {
     pub owner: CanonicalAddr,
     pub oracle: CanonicalAddr,
     pub collector: CanonicalAddr,
+    pub collateral_oracle: CanonicalAddr,
     pub base_denom: String,
     pub token_code_id: u64,
     pub protocol_fee_rate: Decimal,
