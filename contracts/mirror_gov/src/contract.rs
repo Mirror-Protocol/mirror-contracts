@@ -1,5 +1,8 @@
 use crate::querier::load_token_balance;
-use crate::staking::{query_staker, stake_voting_tokens, withdraw_voting_tokens};
+use crate::staking::{
+    deposit_reward, query_staker, stake_voting_tokens, withdraw_voting_rewards,
+    withdraw_voting_tokens,
+};
 use crate::state::{
     bank_read, bank_store, config_read, config_store, poll_indexer_store, poll_read, poll_store,
     poll_voter_read, poll_voter_store, read_poll_voters, read_polls, state_read, state_store,
@@ -43,6 +46,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         effective_delay: msg.effective_delay,
         expiration_period: msg.expiration_period,
         proposal_deposit: msg.proposal_deposit,
+        voter_weight: msg.voter_weight,
     };
 
     let state = State {
@@ -50,6 +54,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         poll_count: 0,
         total_share: Uint128::zero(),
         total_deposit: Uint128::zero(),
+        pending_voting_rewards: Uint128::zero(),
     };
 
     config_store(&mut deps.storage).save(&config)?;
@@ -73,6 +78,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             effective_delay,
             expiration_period,
             proposal_deposit,
+            voter_weight,
         } => update_config(
             deps,
             env,
@@ -83,8 +89,10 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             effective_delay,
             expiration_period,
             proposal_deposit,
+            voter_weight,
         ),
         HandleMsg::WithdrawVotingTokens { amount } => withdraw_voting_tokens(deps, env, amount),
+        HandleMsg::WithdrawVotingRewards {} => withdraw_voting_rewards(deps, env),
         HandleMsg::CastVote {
             poll_id,
             vote,
@@ -127,6 +135,13 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
                 link,
                 execute_msg,
             ),
+            Cw20HookMsg::DepositReward {} => {
+                // only reward token contract can execute this message
+                if config.mirror_token != deps.api.canonical_address(&env.message.sender)? {
+                    return Err(StdError::unauthorized());
+                }
+                deposit_reward(deps, env, cw20_msg.sender, cw20_msg.amount)
+            }
         }
     } else {
         Err(StdError::generic_err("data should be given"))
@@ -144,6 +159,7 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     effective_delay: Option<u64>,
     expiration_period: Option<u64>,
     proposal_deposit: Option<Uint128>,
+    voter_weight: Option<Decimal>,
 ) -> HandleResult {
     let api = deps.api;
     config_store(&mut deps.storage).update(|mut config| {
@@ -177,6 +193,10 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
 
         if let Some(proposal_deposit) = proposal_deposit {
             config.proposal_deposit = proposal_deposit;
+        }
+
+        if let Some(voter_weight) = voter_weight {
+            config.voter_weight = voter_weight;
         }
 
         Ok(config)
@@ -288,6 +308,7 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
         status: PollStatus::InProgress,
         yes_votes: Uint128::zero(),
         no_votes: Uint128::zero(),
+        abstain_votes: Uint128::zero(),
         end_height: env.block.height + config.voting_period,
         title,
         description,
@@ -295,6 +316,7 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
         execute_data,
         deposit_amount,
         total_balance_at_end_poll: None,
+        voters_reward: Uint128::zero(),
     };
 
     poll_store(&mut deps.storage).save(&poll_id.to_be_bytes(), &new_poll)?;
@@ -339,8 +361,9 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
 
     let no = a_poll.no_votes.u128();
     let yes = a_poll.yes_votes.u128();
+    let abstain = a_poll.abstain_votes.u128();
 
-    let tallied_weight = yes + no;
+    let tallied_weight = yes + no + abstain;
 
     let mut poll_status = PollStatus::Rejected;
     let mut rejected_reason = "";
@@ -370,7 +393,7 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
         // period need to have participated in the vote.
         rejected_reason = "Quorum not reached";
     } else {
-        if Decimal::from_ratio(yes, tallied_weight) > config.threshold {
+        if Decimal::from_ratio(yes, yes + no) > config.threshold {
             //Threshold: More than 50% of the tokens that participated in the vote
             // (after excluding “Abstain” votes) need to have voted in favor of the proposal (“Yes”).
             poll_status = PollStatus::Passed;
@@ -553,10 +576,10 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
     }
 
     // update tally info
-    if VoteOption::Yes == vote {
-        a_poll.yes_votes += amount;
-    } else {
-        a_poll.no_votes += amount;
+    match vote {
+        VoteOption::Yes => a_poll.yes_votes += amount,
+        VoteOption::No => a_poll.no_votes += amount,
+        VoteOption::Abstain => a_poll.abstain_votes += amount,
     }
 
     let vote_info = VoterInfo {
@@ -627,6 +650,7 @@ fn query_config<S: Storage, A: Api, Q: Querier>(
         effective_delay: config.effective_delay,
         expiration_period: config.expiration_period,
         proposal_deposit: config.proposal_deposit,
+        voter_weight: config.voter_weight,
     })
 }
 
@@ -636,6 +660,7 @@ fn query_state<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>) -> StdRes
         poll_count: state.poll_count,
         total_share: state.total_share,
         total_deposit: state.total_deposit,
+        pending_voting_rewards: state.pending_voting_rewards,
     })
 }
 
@@ -668,7 +693,9 @@ fn query_poll<S: Storage, A: Api, Q: Querier>(
         },
         yes_votes: poll.yes_votes,
         no_votes: poll.no_votes,
+        abstain_votes: poll.abstain_votes,
         total_balance_at_end_poll: poll.total_balance_at_end_poll,
+        voters_reward: poll.voters_reward,
     })
 }
 
@@ -679,7 +706,7 @@ fn query_polls<S: Storage, A: Api, Q: Querier>(
     limit: Option<u32>,
     order_by: Option<OrderBy>,
 ) -> StdResult<PollsResponse> {
-    let polls = read_polls(&deps.storage, filter, start_after, limit, order_by)?;
+    let polls = read_polls(&deps.storage, filter, start_after, limit, order_by, None)?;
     let poll_responses: StdResult<Vec<PollResponse>> = polls
         .iter()
         .map(|poll| {
@@ -702,7 +729,9 @@ fn query_polls<S: Storage, A: Api, Q: Querier>(
                 },
                 yes_votes: poll.yes_votes,
                 no_votes: poll.no_votes,
+                abstain_votes: poll.abstain_votes,
                 total_balance_at_end_poll: poll.total_balance_at_end_poll,
+                voters_reward: poll.voters_reward,
             })
         })
         .collect();
@@ -755,17 +784,29 @@ fn query_voters<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-use crate::migrate::migrate_poll_indexer;
+use crate::migrate::{migrate_config, migrate_poll_indexer, migrate_polls, migrate_state};
 pub fn migrate<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     _env: Env,
-    _msg: MigrateMsg,
+    msg: MigrateMsg,
 ) -> MigrateResult {
-    migrate_poll_indexer(&mut deps.storage, &PollStatus::InProgress)?;
-    migrate_poll_indexer(&mut deps.storage, &PollStatus::Passed)?;
-    migrate_poll_indexer(&mut deps.storage, &PollStatus::Rejected)?;
-    migrate_poll_indexer(&mut deps.storage, &PollStatus::Executed)?;
-    migrate_poll_indexer(&mut deps.storage, &PollStatus::Expired)?;
+    // Currently support 2 migration processes
+    //      - version 1 migrates poll indexers, config, state, and polls
+    //      - version 2 migrates config, state and polls
+    if msg.version.eq(&1u64) {
+        migrate_poll_indexer(&mut deps.storage, &PollStatus::InProgress)?;
+        migrate_poll_indexer(&mut deps.storage, &PollStatus::Passed)?;
+        migrate_poll_indexer(&mut deps.storage, &PollStatus::Rejected)?;
+        migrate_poll_indexer(&mut deps.storage, &PollStatus::Executed)?;
+        migrate_poll_indexer(&mut deps.storage, &PollStatus::Expired)?;
+    } else if !msg.version.eq(&2u64) {
+        return Err(StdError::generic_err("Invalid migrate version number"))
+    }
+
+    // migrations for voting rewards and abstain votes
+    migrate_config(&mut deps.storage, Decimal::percent(50u64))?; // 50% rewards for voters
+    migrate_state(&mut deps.storage)?;
+    migrate_polls(&mut deps.storage)?;
 
     Ok(MigrateResponse::default())
 }

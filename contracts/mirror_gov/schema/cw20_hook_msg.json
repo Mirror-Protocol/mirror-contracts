@@ -53,6 +53,18 @@
           }
         }
       }
+    },
+    {
+      "description": "Deposit rewards to be distributed among stakers and voters",
+      "type": "object",
+      "required": [
+        "deposit_reward"
+      ],
+      "properties": {
+        "deposit_reward": {
+          "type": "object"
+        }
+      }
     }
   ],
   "definitions": {

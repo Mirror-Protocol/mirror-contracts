@@ -4,6 +4,7 @@ use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{to_binary, Coin, CosmosMsg, Decimal, HumanAddr, Uint128, WasmMsg};
 use cw20::Cw20HandleMsg;
 use mirror_protocol::collector::{ConfigResponse, HandleMsg, InitMsg};
+use mirror_protocol::gov::Cw20HookMsg::DepositReward;
 use terraswap::asset::{Asset, AssetInfo};
 use terraswap::pair::{Cw20HookMsg as TerraswapCw20HookMsg, HandleMsg as TerraswapHandleMsg};
 
@@ -151,9 +152,10 @@ fn test_send() {
         res.messages,
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: HumanAddr::from("mirror0000"),
-            msg: to_binary(&Cw20HandleMsg::Transfer {
-                recipient: HumanAddr::from("gov0000"),
+            msg: to_binary(&Cw20HandleMsg::Send {
+                contract: HumanAddr::from("gov0000"),
                 amount: Uint128(100u128),
+                msg: Some(to_binary(&DepositReward {}).unwrap()),
             })
             .unwrap(),
             send: vec![],

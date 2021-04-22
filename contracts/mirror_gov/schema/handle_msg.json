@@ -78,6 +78,16 @@
                 }
               ]
             },
+            "voter_weight": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Decimal"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "voting_period": {
               "type": [
                 "integer",
@@ -145,6 +155,17 @@
     {
       "type": "object",
       "required": [
+        "withdraw_voting_rewards"
+      ],
+      "properties": {
+        "withdraw_voting_rewards": {
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
         "end_poll"
       ],
       "properties": {
@@ -204,27 +225,6 @@
           }
         }
       }
-    },
-    {
-      "type": "object",
-      "required": [
-        "undo_expire_poll"
-      ],
-      "properties": {
-        "undo_expire_poll": {
-          "type": "object",
-          "required": [
-            "poll_id"
-          ],
-          "properties": {
-            "poll_id": {
-              "type": "integer",
-              "format": "uint64",
-              "minimum": 0.0
-            }
-          }
-        }
-      }
     }
   ],
   "definitions": {
@@ -259,7 +259,7 @@
       }
     },
     "Decimal": {
-      "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0 The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
+      "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0\n\nThe greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
       "type": "string"
     },
     "HumanAddr": {
@@ -272,7 +272,8 @@
       "type": "string",
       "enum": [
         "yes",
-        "no"
+        "no",
+        "abstain"
       ]
     }
   }

@@ -528,8 +528,10 @@ pub fn revoke_asset<S: Storage, A: Api, Q: Querier>(
         &deps.api.human_address(&config.oracle_contract)?,
         &asset_token_raw,
     )?)?;
+    let sender_raw = deps.api.canonical_address(&env.message.sender)?;
 
-    if oracle_feeder != env.message.sender {
+    // revoke asset can only be executed by the feeder or the owner (gov contract)
+    if oracle_feeder != env.message.sender && config.owner != sender_raw {
         return Err(StdError::unauthorized());
     }
 

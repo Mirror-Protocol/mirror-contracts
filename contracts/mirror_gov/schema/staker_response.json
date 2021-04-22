@@ -5,6 +5,7 @@
   "required": [
     "balance",
     "locked_balance",
+    "pending_voting_rewards",
     "share"
   ],
   "properties": {
@@ -29,6 +30,9 @@
         "minItems": 2
       }
     },
+    "pending_voting_rewards": {
+      "$ref": "#/definitions/Uint128"
+    },
     "share": {
       "$ref": "#/definitions/Uint128"
     }
@@ -41,7 +45,8 @@
       "type": "string",
       "enum": [
         "yes",
-        "no"
+        "no",
+        "abstain"
       ]
     },
     "VoterInfo": {
