@@ -16,6 +16,7 @@ pub struct InitMsg {
     pub expiration_period: u64,
     pub proposal_deposit: Uint128,
     pub voter_weight: Decimal,
+    pub snapshot_period: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -31,6 +32,7 @@ pub enum HandleMsg {
         expiration_period: Option<u64>,
         proposal_deposit: Option<Uint128>,
         voter_weight: Option<Decimal>,
+        snapshot_period: Option<u64>,
     },
     CastVote {
         poll_id: u64,
@@ -48,6 +50,9 @@ pub enum HandleMsg {
         poll_id: u64,
     },
     ExpirePoll {
+        poll_id: u64,
+    },
+    SnapshotPoll {
         poll_id: u64,
     },
 }
@@ -112,6 +117,7 @@ pub struct ConfigResponse {
     pub expiration_period: u64,
     pub proposal_deposit: Uint128,
     pub voter_weight: Decimal,
+    pub snapshot_period: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
@@ -138,6 +144,7 @@ pub struct PollResponse {
     pub abstain_votes: Uint128, // balance
     pub total_balance_at_end_poll: Option<Uint128>,
     pub voters_reward: Uint128,
+    pub staked_amount: Option<Uint128>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema)]
@@ -174,6 +181,8 @@ pub struct VotersResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct MigrateMsg {
     pub version: u64, // current contract migration state version
+    pub voter_weight: Decimal,
+    pub snapshot_period: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

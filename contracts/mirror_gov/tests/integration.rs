@@ -60,6 +60,7 @@ const DEFAULT_EFFECTIVE_DELAY: u64 = 10000u64;
 const DEFAULT_EXPIRATION_PERIOD: u64 = 20000u64;
 const DEFAULT_PROPOSAL_DEPOSIT: u128 = 10000000000u128;
 const DEFAULT_VOTER_WEIGHT: u64 = 50u64;
+const DEFAULT_SNAPSHOT_PERIOD: u64 = 100u64;
 
 fn init_msg() -> InitMsg {
     InitMsg {
@@ -71,6 +72,7 @@ fn init_msg() -> InitMsg {
         expiration_period: DEFAULT_EXPIRATION_PERIOD,
         proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
         voter_weight: Decimal::percent(DEFAULT_VOTER_WEIGHT),
+        snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
     }
 }
 
@@ -109,6 +111,7 @@ fn proper_initialization() {
                 expiration_period: DEFAULT_EXPIRATION_PERIOD,
                 proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
                 voter_weight: Decimal::percent(DEFAULT_VOTER_WEIGHT),
+                snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
             }
         );
         Ok(())
@@ -138,6 +141,7 @@ fn update_config() {
         expiration_period: None,
         proposal_deposit: None,
         voter_weight: None,
+        snapshot_period: None,
     };
 
     let res: HandleResponse = handle(&mut deps, env, msg).unwrap();
@@ -162,7 +166,8 @@ fn update_config() {
         effective_delay: Some(20000u64),
         expiration_period: Some(30000u64),
         proposal_deposit: Some(Uint128(123u128)),
-        voter_weight: None,
+        voter_weight: Some(Decimal::percent(30u64)),
+        snapshot_period: Some(110u64),
     };
 
     let res: HandleResponse = handle(&mut deps, env, msg).unwrap();
@@ -176,6 +181,8 @@ fn update_config() {
     assert_eq!(Decimal::percent(75), config.threshold);
     assert_eq!(20000u64, config.voting_period);
     assert_eq!(123u128, config.proposal_deposit.u128());
+    assert_eq!(Decimal::percent(30u64), config.voter_weight);
+    assert_eq!(110u64, config.snapshot_period);
 
     // Unauthorized err
     let env = mock_env(TEST_CREATOR, &[]);
@@ -188,6 +195,7 @@ fn update_config() {
         expiration_period: None,
         proposal_deposit: None,
         voter_weight: None,
+        snapshot_period: None,
     };
 
     let res: HandleResult = handle(&mut deps, env, msg);

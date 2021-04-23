@@ -68,6 +68,14 @@
                 }
               ]
             },
+            "snapshot_period": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            },
             "threshold": {
               "anyOf": [
                 {
@@ -212,6 +220,27 @@
       ],
       "properties": {
         "expire_poll": {
+          "type": "object",
+          "required": [
+            "poll_id"
+          ],
+          "properties": {
+            "poll_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "snapshot_poll"
+      ],
+      "properties": {
+        "snapshot_poll": {
           "type": "object",
           "required": [
             "poll_id"
