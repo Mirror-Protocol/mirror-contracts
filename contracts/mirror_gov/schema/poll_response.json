@@ -3,6 +3,7 @@
   "title": "PollResponse",
   "type": "object",
   "required": [
+    "abstain_votes",
     "creator",
     "deposit_amount",
     "description",
@@ -11,9 +12,13 @@
     "no_votes",
     "status",
     "title",
+    "voters_reward",
     "yes_votes"
   ],
   "properties": {
+    "abstain_votes": {
+      "$ref": "#/definitions/Uint128"
+    },
     "creator": {
       "$ref": "#/definitions/HumanAddr"
     },
@@ -52,6 +57,16 @@
     "no_votes": {
       "$ref": "#/definitions/Uint128"
     },
+    "staked_amount": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Uint128"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "status": {
       "$ref": "#/definitions/PollStatus"
     },
@@ -67,6 +82,9 @@
           "type": "null"
         }
       ]
+    },
+    "voters_reward": {
+      "$ref": "#/definitions/Uint128"
     },
     "yes_votes": {
       "$ref": "#/definitions/Uint128"

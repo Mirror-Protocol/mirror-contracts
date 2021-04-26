@@ -12,6 +12,7 @@ use crate::math::decimal_division;
 use mirror_protocol::collateral_oracle::CollateralPriceResponse;
 use mirror_protocol::oracle::PriceResponse;
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
+use terraswap::{asset::AssetInfo, asset::PairInfo};
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
 /// this uses our CustomQuerier.
@@ -39,6 +40,7 @@ pub struct WasmMockQuerier {
     tax_querier: TaxQuerier,
     oracle_price_querier: OraclePriceQuerier,
     collateral_oracle_querier: CollateralOracleQuerier,
+    terraswap_pair_querier: TerraswapPairQuerier,
     canonical_length: usize,
 }
 
@@ -148,6 +150,32 @@ pub(crate) fn collateral_infos_to_map(
     collateral_infos_map
 }
 
+#[derive(Clone, Default)]
+pub struct TerraswapPairQuerier {
+    // this lets us iterate over all pairs that match the first string
+    pairs: HashMap<String, HumanAddr>,
+}
+
+impl TerraswapPairQuerier {
+    pub fn new(pairs: &[(&String, &String, &HumanAddr)]) -> Self {
+        TerraswapPairQuerier {
+            pairs: paris_to_map(pairs),
+        }
+    }
+}
+
+pub(crate) fn paris_to_map(pairs: &[(&String, &String, &HumanAddr)]) -> HashMap<String, HumanAddr> {
+    let mut pairs_map: HashMap<String, HumanAddr> = HashMap::new();
+    for (asset1, asset2, pair) in pairs.iter() {
+        pairs_map.insert(
+            (asset1.to_string() + &asset2.to_string()).clone(),
+            HumanAddr::from(pair),
+        );
+    }
+
+    pairs_map
+}
+
 impl Querier for WasmMockQuerier {
     fn raw_query(&self, bin_request: &[u8]) -> QuerierResult {
         // MockQuerier doesn't support Custom, so we ignore it completely here
@@ -173,6 +201,9 @@ pub enum MockQueryMsg {
     },
     CollateralPrice {
         asset: String,
+    },
+    Pair {
+        asset_infos: [AssetInfo; 2],
     },
 }
 
@@ -243,6 +274,23 @@ impl WasmMockQuerier {
                         }),
                     }
                 }
+                MockQueryMsg::Pair { asset_infos } => {
+                    match self
+                        .terraswap_pair_querier
+                        .pairs
+                        .get(&(asset_infos[0].to_string() + &asset_infos[1].to_string()))
+                    {
+                        Some(pair) => Ok(to_binary(&PairInfo {
+                            asset_infos,
+                            contract_addr: pair.clone(),
+                            liquidity_token: HumanAddr::from("liquidity"),
+                        })),
+                        None => Err(SystemError::InvalidRequest {
+                            error: "No pair exists".to_string(),
+                            request: msg.as_slice().into(),
+                        }),
+                    }
+                }
             },
             QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
                 let key: &[u8] = key.as_slice();
@@ -309,6 +357,7 @@ impl WasmMockQuerier {
             tax_querier: TaxQuerier::default(),
             oracle_price_querier: OraclePriceQuerier::default(),
             collateral_oracle_querier: CollateralOracleQuerier::default(),
+            terraswap_pair_querier: TerraswapPairQuerier::default(),
             canonical_length,
         }
     }
@@ -331,5 +380,10 @@ impl WasmMockQuerier {
     // configure the collateral oracle mock querier
     pub fn with_collateral_infos(&mut self, collateral_infos: &[(&String, &Decimal, &Decimal)]) {
         self.collateral_oracle_querier = CollateralOracleQuerier::new(collateral_infos);
+    }
+
+    // configure the terraswap factory pair mock querier
+    pub fn with_terraswap_pair(&mut self, pairs: &[(&String, &String, &HumanAddr)]) {
+        self.terraswap_pair_querier = TerraswapPairQuerier::new(pairs);
     }
 }

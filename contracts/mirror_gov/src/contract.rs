@@ -1,5 +1,8 @@
 use crate::querier::load_token_balance;
-use crate::staking::{query_staker, stake_voting_tokens, withdraw_voting_tokens};
+use crate::staking::{
+    deposit_reward, query_staker, stake_voting_tokens, withdraw_voting_rewards,
+    withdraw_voting_tokens,
+};
 use crate::state::{
     bank_read, bank_store, config_read, config_store, poll_indexer_store, poll_read, poll_store,
     poll_voter_read, poll_voter_store, read_poll_voters, read_polls, state_read, state_store,
@@ -43,6 +46,8 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         effective_delay: msg.effective_delay,
         expiration_period: msg.expiration_period,
         proposal_deposit: msg.proposal_deposit,
+        voter_weight: msg.voter_weight,
+        snapshot_period: msg.snapshot_period,
     };
 
     let state = State {
@@ -50,6 +55,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         poll_count: 0,
         total_share: Uint128::zero(),
         total_deposit: Uint128::zero(),
+        pending_voting_rewards: Uint128::zero(),
     };
 
     config_store(&mut deps.storage).save(&config)?;
@@ -73,6 +79,8 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             effective_delay,
             expiration_period,
             proposal_deposit,
+            voter_weight,
+            snapshot_period,
         } => update_config(
             deps,
             env,
@@ -83,8 +91,11 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             effective_delay,
             expiration_period,
             proposal_deposit,
+            voter_weight,
+            snapshot_period,
         ),
         HandleMsg::WithdrawVotingTokens { amount } => withdraw_voting_tokens(deps, env, amount),
+        HandleMsg::WithdrawVotingRewards {} => withdraw_voting_rewards(deps, env),
         HandleMsg::CastVote {
             poll_id,
             vote,
@@ -93,6 +104,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::EndPoll { poll_id } => end_poll(deps, env, poll_id),
         HandleMsg::ExecutePoll { poll_id } => execute_poll(deps, env, poll_id),
         HandleMsg::ExpirePoll { poll_id } => expire_poll(deps, env, poll_id),
+        HandleMsg::SnapshotPoll { poll_id } => snapshot_poll(deps, env, poll_id),
     }
 }
 
@@ -127,6 +139,13 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
                 link,
                 execute_msg,
             ),
+            Cw20HookMsg::DepositReward {} => {
+                // only reward token contract can execute this message
+                if config.mirror_token != deps.api.canonical_address(&env.message.sender)? {
+                    return Err(StdError::unauthorized());
+                }
+                deposit_reward(deps, env, cw20_msg.sender, cw20_msg.amount)
+            }
         }
     } else {
         Err(StdError::generic_err("data should be given"))
@@ -144,6 +163,8 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     effective_delay: Option<u64>,
     expiration_period: Option<u64>,
     proposal_deposit: Option<Uint128>,
+    voter_weight: Option<Decimal>,
+    snapshot_period: Option<u64>,
 ) -> HandleResult {
     let api = deps.api;
     config_store(&mut deps.storage).update(|mut config| {
@@ -177,6 +198,14 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
 
         if let Some(proposal_deposit) = proposal_deposit {
             config.proposal_deposit = proposal_deposit;
+        }
+
+        if let Some(voter_weight) = voter_weight {
+            config.voter_weight = voter_weight;
+        }
+
+        if let Some(snapshot_period) = snapshot_period {
+            config.snapshot_period = snapshot_period;
         }
 
         Ok(config)
@@ -288,6 +317,7 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
         status: PollStatus::InProgress,
         yes_votes: Uint128::zero(),
         no_votes: Uint128::zero(),
+        abstain_votes: Uint128::zero(),
         end_height: env.block.height + config.voting_period,
         title,
         description,
@@ -295,6 +325,8 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
         execute_data,
         deposit_amount,
         total_balance_at_end_poll: None,
+        voters_reward: Uint128::zero(),
+        staked_amount: None,
     };
 
     poll_store(&mut deps.storage).save(&poll_id.to_be_bytes(), &new_poll)?;
@@ -339,8 +371,9 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
 
     let no = a_poll.no_votes.u128();
     let yes = a_poll.yes_votes.u128();
+    let abstain = a_poll.abstain_votes.u128();
 
-    let tallied_weight = yes + no;
+    let tallied_weight = yes + no + abstain;
 
     let mut poll_status = PollStatus::Rejected;
     let mut rejected_reason = "";
@@ -352,13 +385,18 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
 
     let (quorum, staked_weight) = if state.total_share.u128() == 0 {
         (Decimal::zero(), Uint128::zero())
+    } else if let Some(staked_amount) = a_poll.staked_amount {
+        (
+            Decimal::from_ratio(tallied_weight, staked_amount),
+            staked_amount,
+        )
     } else {
+        let total_locked_balance = state.total_deposit + state.pending_voting_rewards;
         let staked_weight = (load_token_balance(
             &deps,
             &deps.api.human_address(&config.mirror_token)?,
             &state.contract_addr,
-        )? - state.total_deposit)?;
-
+        )? - total_locked_balance)?;
         (
             Decimal::from_ratio(tallied_weight, staked_weight),
             staked_weight,
@@ -370,7 +408,7 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
         // period need to have participated in the vote.
         rejected_reason = "Quorum not reached";
     } else {
-        if Decimal::from_ratio(yes, tallied_weight) > config.threshold {
+        if Decimal::from_ratio(yes, yes + no) > config.threshold {
             //Threshold: More than 50% of the tokens that participated in the vote
             // (after excluding “Abstain” votes) need to have voted in favor of the proposal (“Yes”).
             poll_status = PollStatus::Passed;
@@ -536,11 +574,12 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
 
     // convert share to amount
     let total_share = state.total_share;
+    let total_locked_balance = state.total_deposit + state.pending_voting_rewards;
     let total_balance = (load_token_balance(
         &deps,
         &deps.api.human_address(&config.mirror_token)?,
         &state.contract_addr,
-    )? - state.total_deposit)?;
+    )? - total_locked_balance)?;
 
     if token_manager
         .share
@@ -553,10 +592,10 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
     }
 
     // update tally info
-    if VoteOption::Yes == vote {
-        a_poll.yes_votes += amount;
-    } else {
-        a_poll.no_votes += amount;
+    match vote {
+        VoteOption::Yes => a_poll.yes_votes += amount,
+        VoteOption::No => a_poll.no_votes += amount,
+        VoteOption::Abstain => a_poll.abstain_votes += amount,
     }
 
     let vote_info = VoterInfo {
@@ -572,6 +611,14 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
     // store poll voter && and update poll data
     poll_voter_store(&mut deps.storage, poll_id)
         .save(&sender_address_raw.as_slice(), &vote_info)?;
+
+    // processing snapshot
+    let time_to_end = a_poll.end_height - env.block.height;
+
+    if time_to_end < config.snapshot_period && a_poll.staked_amount.is_none() {
+        a_poll.staked_amount = Some(total_balance);
+    }
+
     poll_store(&mut deps.storage).save(&poll_id.to_be_bytes(), &a_poll)?;
 
     let log = vec![
@@ -588,6 +635,54 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
         data: None,
     };
     Ok(r)
+}
+
+/// SnapshotPoll is used to take a snapshot of the staked amount for quorum calculation
+pub fn snapshot_poll<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    poll_id: u64,
+) -> HandleResult {
+    let config: Config = config_read(&deps.storage).load()?;
+    let mut a_poll: Poll = poll_store(&mut deps.storage).load(&poll_id.to_be_bytes())?;
+
+    if a_poll.status != PollStatus::InProgress {
+        return Err(StdError::generic_err("Poll is not in progress"));
+    }
+
+    let time_to_end = a_poll.end_height - env.block.height;
+
+    if time_to_end > config.snapshot_period {
+        return Err(StdError::generic_err("Cannot snapshot at this height"));
+    }
+
+    if a_poll.staked_amount.is_some() {
+        return Err(StdError::generic_err("Snapshot has already occurred"));
+    }
+
+    // store the current staked amount for quorum calculation
+    let state: State = state_store(&mut deps.storage).load()?;
+
+    let total_locked_balance = state.total_deposit + state.pending_voting_rewards;
+    let staked_amount = (load_token_balance(
+        &deps,
+        &deps.api.human_address(&config.mirror_token)?,
+        &state.contract_addr,
+    )? - total_locked_balance)?;
+
+    a_poll.staked_amount = Some(staked_amount);
+
+    poll_store(&mut deps.storage).save(&poll_id.to_be_bytes(), &a_poll)?;
+
+    Ok(HandleResponse {
+        messages: vec![],
+        log: vec![
+            log("action", "snapshot_poll"),
+            log("poll_id", poll_id.to_string()),
+            log("staked_amount", staked_amount),
+        ],
+        data: None,
+    })
 }
 
 pub fn query<S: Storage, A: Api, Q: Querier>(
@@ -627,6 +722,8 @@ fn query_config<S: Storage, A: Api, Q: Querier>(
         effective_delay: config.effective_delay,
         expiration_period: config.expiration_period,
         proposal_deposit: config.proposal_deposit,
+        voter_weight: config.voter_weight,
+        snapshot_period: config.snapshot_period,
     })
 }
 
@@ -636,6 +733,7 @@ fn query_state<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>) -> StdRes
         poll_count: state.poll_count,
         total_share: state.total_share,
         total_deposit: state.total_deposit,
+        pending_voting_rewards: state.pending_voting_rewards,
     })
 }
 
@@ -668,7 +766,10 @@ fn query_poll<S: Storage, A: Api, Q: Querier>(
         },
         yes_votes: poll.yes_votes,
         no_votes: poll.no_votes,
+        abstain_votes: poll.abstain_votes,
         total_balance_at_end_poll: poll.total_balance_at_end_poll,
+        voters_reward: poll.voters_reward,
+        staked_amount: poll.staked_amount,
     })
 }
 
@@ -679,7 +780,7 @@ fn query_polls<S: Storage, A: Api, Q: Querier>(
     limit: Option<u32>,
     order_by: Option<OrderBy>,
 ) -> StdResult<PollsResponse> {
-    let polls = read_polls(&deps.storage, filter, start_after, limit, order_by)?;
+    let polls = read_polls(&deps.storage, filter, start_after, limit, order_by, None)?;
     let poll_responses: StdResult<Vec<PollResponse>> = polls
         .iter()
         .map(|poll| {
@@ -702,7 +803,10 @@ fn query_polls<S: Storage, A: Api, Q: Querier>(
                 },
                 yes_votes: poll.yes_votes,
                 no_votes: poll.no_votes,
+                abstain_votes: poll.abstain_votes,
                 total_balance_at_end_poll: poll.total_balance_at_end_poll,
+                voters_reward: poll.voters_reward,
+                staked_amount: poll.staked_amount,
             })
         })
         .collect();
@@ -755,17 +859,29 @@ fn query_voters<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-use crate::migrate::migrate_poll_indexer;
+use crate::migrate::{migrate_config, migrate_poll_indexer, migrate_polls, migrate_state};
 pub fn migrate<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     _env: Env,
-    _msg: MigrateMsg,
+    msg: MigrateMsg,
 ) -> MigrateResult {
-    migrate_poll_indexer(&mut deps.storage, &PollStatus::InProgress)?;
-    migrate_poll_indexer(&mut deps.storage, &PollStatus::Passed)?;
-    migrate_poll_indexer(&mut deps.storage, &PollStatus::Rejected)?;
-    migrate_poll_indexer(&mut deps.storage, &PollStatus::Executed)?;
-    migrate_poll_indexer(&mut deps.storage, &PollStatus::Expired)?;
+    // Currently support 2 migration processes
+    //      - version 1 migrates poll indexers, config, state, and polls
+    //      - version 2 migrates config, state and polls
+    if msg.version.eq(&1u64) {
+        migrate_poll_indexer(&mut deps.storage, &PollStatus::InProgress)?;
+        migrate_poll_indexer(&mut deps.storage, &PollStatus::Passed)?;
+        migrate_poll_indexer(&mut deps.storage, &PollStatus::Rejected)?;
+        migrate_poll_indexer(&mut deps.storage, &PollStatus::Executed)?;
+        migrate_poll_indexer(&mut deps.storage, &PollStatus::Expired)?;
+    } else if !msg.version.eq(&2u64) {
+        return Err(StdError::generic_err("Invalid migrate version number"));
+    }
+
+    // migrations for voting rewards and abstain votes
+    migrate_config(&mut deps.storage, msg.voter_weight, msg.snapshot_period)?;
+    migrate_state(&mut deps.storage)?;
+    migrate_polls(&mut deps.storage)?;
 
     Ok(MigrateResponse::default())
 }

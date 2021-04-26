@@ -41,7 +41,7 @@
         "reward_info": {
           "type": "object",
           "required": [
-            "staker"
+            "staker_addr"
           ],
           "properties": {
             "asset_token": {
@@ -54,7 +54,7 @@
                 }
               ]
             },
-            "staker": {
+            "staker_addr": {
               "$ref": "#/definitions/HumanAddr"
             }
           }

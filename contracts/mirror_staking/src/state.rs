@@ -1,23 +1,26 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{
-    from_slice, to_vec, CanonicalAddr, Decimal, ReadonlyStorage, StdError, StdResult, Storage,
-    Uint128,
-};
-use cosmwasm_storage::{
-    singleton, singleton_read, Bucket, PrefixedStorage, ReadonlyBucket, ReadonlyPrefixedStorage,
-};
+use cosmwasm_std::{CanonicalAddr, Decimal, ReadonlyStorage, StdResult, Storage, Uint128};
+use cosmwasm_storage::{singleton, singleton_read, Bucket, ReadonlyBucket};
 
-static KEY_CONFIG: &[u8] = b"config";
+pub static KEY_CONFIG: &[u8] = b"config";
+pub static PREFIX_POOL_INFO: &[u8] = b"pool_info";
 
-static PREFIX_POOL_INFO: &[u8] = b"pool_info";
 static PREFIX_REWARD: &[u8] = b"reward";
+static PREFIX_SHORT_REWARD: &[u8] = b"short_reward";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
     pub owner: CanonicalAddr,
     pub mirror_token: CanonicalAddr,
+    pub mint_contract: CanonicalAddr,
+    pub oracle_contract: CanonicalAddr,
+    pub terraswap_factory: CanonicalAddr,
+    pub base_denom: String,
+    pub premium_tolerance: Decimal,
+    pub short_reward_weight: Decimal,
+    pub premium_short_reward_weight: Decimal,
 }
 
 pub fn store_config<S: Storage>(storage: &mut S, config: &Config) -> StdResult<()> {
@@ -32,8 +35,12 @@ pub fn read_config<S: Storage>(storage: &S) -> StdResult<Config> {
 pub struct PoolInfo {
     pub staking_token: CanonicalAddr,
     pub pending_reward: Uint128, // not distributed amount due to zero bonding
+    pub short_pending_reward: Uint128, // not distributed amount due to zero bonding
     pub total_bond_amount: Uint128,
+    pub total_short_amount: Uint128,
     pub reward_index: Decimal,
+    pub short_reward_index: Decimal,
+    pub premium_rate: Decimal,
 }
 
 pub fn store_pool_info<S: Storage>(
@@ -41,17 +48,11 @@ pub fn store_pool_info<S: Storage>(
     asset_token: &CanonicalAddr,
     pool_info: &PoolInfo,
 ) -> StdResult<()> {
-    PrefixedStorage::new(PREFIX_POOL_INFO, storage)
-        .set(asset_token.as_slice(), &to_vec(&pool_info)?);
-    Ok(())
+    Bucket::new(PREFIX_POOL_INFO, storage).save(asset_token.as_slice(), pool_info)
 }
 
 pub fn read_pool_info<S: Storage>(storage: &S, asset_token: &CanonicalAddr) -> StdResult<PoolInfo> {
-    let res = ReadonlyPrefixedStorage::new(PREFIX_POOL_INFO, storage).get(asset_token.as_slice());
-    match res {
-        Some(data) => from_slice(&data),
-        None => Err(StdError::generic_err("no pool data stored")),
-    }
+    ReadonlyBucket::new(PREFIX_POOL_INFO, storage).load(asset_token.as_slice())
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -65,8 +66,13 @@ pub struct RewardInfo {
 pub fn rewards_store<'a, S: Storage>(
     storage: &'a mut S,
     owner: &CanonicalAddr,
+    is_short: bool,
 ) -> Bucket<'a, S, RewardInfo> {
-    Bucket::multilevel(&[PREFIX_REWARD, owner.as_slice()], storage)
+    if is_short {
+        Bucket::multilevel(&[PREFIX_SHORT_REWARD, owner.as_slice()], storage)
+    } else {
+        Bucket::multilevel(&[PREFIX_REWARD, owner.as_slice()], storage)
+    }
 }
 
 /// returns a bucket with all rewards owned by this owner (query it by owner)
@@ -74,6 +80,11 @@ pub fn rewards_store<'a, S: Storage>(
 pub fn rewards_read<'a, S: ReadonlyStorage>(
     storage: &'a S,
     owner: &CanonicalAddr,
+    is_short: bool,
 ) -> ReadonlyBucket<'a, S, RewardInfo> {
-    ReadonlyBucket::multilevel(&[PREFIX_REWARD, owner.as_slice()], storage)
+    if is_short {
+        ReadonlyBucket::multilevel(&[PREFIX_SHORT_REWARD, owner.as_slice()], storage)
+    } else {
+        ReadonlyBucket::multilevel(&[PREFIX_REWARD, owner.as_slice()], storage)
+    }
 }

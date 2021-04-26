@@ -396,7 +396,7 @@ pub fn terraswap_creation_hook<S: Storage, A: Api, Q: Querier>(
     asset_token: HumanAddr,
 ) -> HandleResult {
     // Now terraswap contract is already created,
-    // and liquidty token also created
+    // and liquidity token also created
     let config: Config = read_config(&deps.storage)?;
     let asset_token_raw = deps.api.canonical_address(&asset_token)?;
     let sender_raw = deps.api.canonical_address(&env.message.sender)?;
@@ -456,59 +456,60 @@ pub fn distribute<S: Storage, A: Api, Q: Querier>(
     let config: Config = read_config(&deps.storage)?;
     let time_elapsed = env.block.time - config.genesis_time;
     let last_time_elapsed = last_distributed - config.genesis_time;
-    let mut distributed_amount: Uint128 = Uint128::zero();
+    let mut target_distribution_amount: Uint128 = Uint128::zero();
     for s in config.distribution_schedule.iter() {
         if s.0 > time_elapsed || s.1 < last_time_elapsed {
             continue;
         }
 
-        // min(s.1, time_elpased) - max(s.0, last_time_elapsed)
+        // min(s.1, time_elapsed) - max(s.0, last_time_elapsed)
         let time_duration =
             std::cmp::min(s.1, time_elapsed) - std::cmp::max(s.0, last_time_elapsed);
 
         let time_slot = s.1 - s.0;
         let distribution_amount_per_sec: Decimal = Decimal::from_ratio(s.2, time_slot);
-        distributed_amount += distribution_amount_per_sec * Uint128(time_duration as u128);
+        target_distribution_amount += distribution_amount_per_sec * Uint128(time_duration as u128);
     }
 
     let staking_contract = deps.api.human_address(&config.staking_contract)?;
     let mirror_token = deps.api.human_address(&config.mirror_token)?;
 
     let total_weight: u32 = read_total_weight(&deps.storage)?;
+    let mut distribution_amount: Uint128 = Uint128::zero();
     let weights: Vec<(CanonicalAddr, u32)> = read_all_weight(&deps.storage)?;
-    let messages: Vec<CosmosMsg> = weights
+    let rewards: Vec<(HumanAddr, Uint128)> = weights
         .iter()
         .map(|w| {
             let amount =
-                distributed_amount * Decimal::from_ratio(w.1 as u128, total_weight as u128);
+                target_distribution_amount * Decimal::from_ratio(w.1 as u128, total_weight as u128);
+
             if amount.is_zero() {
                 return Err(StdError::generic_err("cannot distribute zero amount"));
             }
 
-            Ok(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: mirror_token.clone(),
-                msg: to_binary(&Cw20HandleMsg::Send {
-                    contract: staking_contract.clone(),
-                    amount,
-                    msg: Some(to_binary(&StakingCw20HookMsg::DepositReward {
-                        asset_token: deps.api.human_address(&w.0)?,
-                    })?),
-                })?,
-                send: vec![],
-            }))
+            distribution_amount += amount;
+            Ok((deps.api.human_address(&w.0)?, amount))
         })
         .filter(|m| m.is_ok())
-        .collect::<StdResult<Vec<CosmosMsg>>>()?;
+        .collect::<StdResult<Vec<(HumanAddr, Uint128)>>>()?;
 
     // store last distributed
     store_last_distributed(&mut deps.storage, env.block.time)?;
 
     // mint token to self and try send minted tokens to staking contract
     Ok(HandleResponse {
-        messages,
+        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: mirror_token.clone(),
+            msg: to_binary(&Cw20HandleMsg::Send {
+                contract: staking_contract.clone(),
+                amount: distribution_amount,
+                msg: Some(to_binary(&StakingCw20HookMsg::DepositReward { rewards })?),
+            })?,
+            send: vec![],
+        })],
         log: vec![
             log("action", "distribute"),
-            log("distributed_amount", distributed_amount.to_string()),
+            log("distribution_amount", distribution_amount.to_string()),
         ],
         data: None,
     })
@@ -527,8 +528,10 @@ pub fn revoke_asset<S: Storage, A: Api, Q: Querier>(
         &deps.api.human_address(&config.oracle_contract)?,
         &asset_token_raw,
     )?)?;
+    let sender_raw = deps.api.canonical_address(&env.message.sender)?;
 
-    if oracle_feeder != env.message.sender {
+    // revoke asset can only be executed by the feeder or the owner (gov contract)
+    if oracle_feeder != env.message.sender && config.owner != sender_raw {
         return Err(StdError::unauthorized());
     }
 
@@ -686,16 +689,9 @@ pub fn query_distribution_info<S: Storage, A: Api, Q: Querier>(
 }
 
 pub fn migrate<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+    _deps: &mut Extern<S, A, Q>,
     _env: Env,
     _msg: MigrateMsg,
 ) -> MigrateResult {
-    let weights = read_all_weight(&deps.storage)?;
-    for (asset_token, weight) in weights.iter() {
-        store_weight(&mut deps.storage, &asset_token, weight * 100)?;
-    }
-
-    let total_weight = read_total_weight(&deps.storage)?;
-    store_total_weight(&mut deps.storage, total_weight * 100)?;
     Ok(MigrateResponse::default())
 }

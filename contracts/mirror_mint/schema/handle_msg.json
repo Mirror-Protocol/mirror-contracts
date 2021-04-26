@@ -73,6 +73,16 @@
                 }
               ]
             },
+            "terraswap_factory": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "token_code_id": {
               "type": [
                 "integer",
@@ -217,6 +227,16 @@
             },
             "collateral_ratio": {
               "$ref": "#/definitions/Decimal"
+            },
+            "short_params": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/ShortParams"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             }
           }
         }
@@ -289,6 +309,16 @@
             },
             "position_idx": {
               "$ref": "#/definitions/Uint128"
+            },
+            "short_params": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/ShortParams"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             }
           }
         }
@@ -389,6 +419,31 @@
     },
     "HumanAddr": {
       "type": "string"
+    },
+    "ShortParams": {
+      "type": "object",
+      "properties": {
+        "belief_price": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Decimal"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max_spread": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Decimal"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
     },
     "Uint128": {
       "type": "string"

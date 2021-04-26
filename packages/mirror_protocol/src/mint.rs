@@ -13,6 +13,8 @@ pub struct InitMsg {
     pub oracle: HumanAddr,
     pub collector: HumanAddr,
     pub collateral_oracle: HumanAddr,
+    pub staking: HumanAddr,
+    pub terraswap_factory: HumanAddr,
     pub base_denom: String,
     pub token_code_id: u64,
     pub protocol_fee_rate: Decimal,
@@ -33,6 +35,7 @@ pub enum HandleMsg {
         oracle: Option<HumanAddr>,
         collector: Option<HumanAddr>,
         collateral_oracle: Option<HumanAddr>,
+        terraswap_factory: Option<HumanAddr>,
         token_code_id: Option<u64>,
         protocol_fee_rate: Option<Decimal>,
     },
@@ -63,6 +66,7 @@ pub enum HandleMsg {
         collateral: Asset,
         asset_info: AssetInfo,
         collateral_ratio: Decimal,
+        short_params: Option<ShortParams>,
     },
     /// Deposit more collateral
     Deposit {
@@ -78,7 +82,14 @@ pub enum HandleMsg {
     Mint {
         position_idx: Uint128,
         asset: Asset,
+        short_params: Option<ShortParams>,
     },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct ShortParams {
+    pub belief_price: Option<Decimal>,
+    pub max_spread: Option<Decimal>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -88,6 +99,7 @@ pub enum Cw20HookMsg {
     OpenPosition {
         asset_info: AssetInfo,
         collateral_ratio: Decimal,
+        short_params: Option<ShortParams>,
     },
     /// Deposit more collateral
     Deposit { position_idx: Uint128 },
@@ -124,6 +136,8 @@ pub struct ConfigResponse {
     pub oracle: HumanAddr,
     pub collector: HumanAddr,
     pub collateral_oracle: HumanAddr,
+    pub staking: HumanAddr,
+    pub terraswap_factory: HumanAddr,
     pub base_denom: String,
     pub token_code_id: u64,
     pub protocol_fee_rate: Decimal,
@@ -146,6 +160,7 @@ pub struct PositionResponse {
     pub owner: HumanAddr,
     pub collateral: Asset,
     pub asset: Asset,
+    pub is_short: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
@@ -161,4 +176,6 @@ pub struct NextPositionIdxResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct MigrateMsg {
     pub collateral_oracle: HumanAddr,
+    pub staking: HumanAddr,
+    pub terraswap_factory: HumanAddr,
 }

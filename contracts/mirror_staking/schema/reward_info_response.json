@@ -4,7 +4,7 @@
   "type": "object",
   "required": [
     "reward_infos",
-    "staker"
+    "staker_addr"
   ],
   "properties": {
     "reward_infos": {
@@ -13,15 +13,11 @@
         "$ref": "#/definitions/RewardInfoResponseItem"
       }
     },
-    "staker": {
+    "staker_addr": {
       "$ref": "#/definitions/HumanAddr"
     }
   },
   "definitions": {
-    "Decimal": {
-      "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0 The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
-      "type": "string"
-    },
     "HumanAddr": {
       "type": "string"
     },
@@ -30,7 +26,7 @@
       "required": [
         "asset_token",
         "bond_amount",
-        "index",
+        "is_short",
         "pending_reward"
       ],
       "properties": {
@@ -40,8 +36,8 @@
         "bond_amount": {
           "$ref": "#/definitions/Uint128"
         },
-        "index": {
-          "$ref": "#/definitions/Decimal"
+        "is_short": {
+          "type": "boolean"
         },
         "pending_reward": {
           "$ref": "#/definitions/Uint128"
