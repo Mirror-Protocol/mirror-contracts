@@ -894,6 +894,7 @@ fn test_revocation() {
             min_collateral_ratio: Decimal::percent(150),
             weight: Some(100u32),
             mint_period: None,
+            min_collateral_ratio_after_migration: None,
         },
     };
     let env = mock_env("owner0000", &[]);
