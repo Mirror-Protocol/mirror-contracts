@@ -45,6 +45,7 @@ mod tests {
             owner: HumanAddr::from("owner0000"),
             oracle: HumanAddr::from("oracle0000"),
             collector: HumanAddr::from("collector0000"),
+            collateral_oracle: HumanAddr::from("collateraloracle0000"),
             staking: HumanAddr::from("staking0000"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: base_denom.clone(),
@@ -133,12 +134,16 @@ mod tests {
                 &Uint128::from(1000000u128),
             )],
         )]);
-
         deps.querier.with_oracle_price(&[
             (&"uusd".to_string(), &Decimal::one()),
             (&"asset0000".to_string(), &Decimal::percent(100)),
             (&"asset0001".to_string(), &Decimal::percent(50)),
         ]);
+        deps.querier.with_collateral_infos(&[(
+            &"asset0000".to_string(),
+            &Decimal::percent(100),
+            &Decimal::zero(),
+        )]);
 
         let base_denom = "uusd".to_string();
 
@@ -146,6 +151,7 @@ mod tests {
             owner: HumanAddr::from("owner0000"),
             oracle: HumanAddr::from("oracle0000"),
             collector: HumanAddr::from("collector0000"),
+            collateral_oracle: HumanAddr::from("collateraloracle0000"),
             staking: HumanAddr::from("staking0000"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: base_denom.clone(),
@@ -502,12 +508,16 @@ mod tests {
                 &Uint128::from(1000000u128),
             )],
         )]);
-
         deps.querier.with_oracle_price(&[
             (&"uusd".to_string(), &Decimal::one()),
             (&"asset0000".to_string(), &Decimal::percent(100)),
             (&"asset0001".to_string(), &Decimal::percent(50)),
         ]);
+        deps.querier.with_collateral_infos(&[(
+            &"asset0000".to_string(),
+            &Decimal::percent(100),
+            &Decimal::zero(),
+        )]);
 
         let base_denom = "uusd".to_string();
 
@@ -515,6 +525,7 @@ mod tests {
             owner: HumanAddr::from("owner0000"),
             oracle: HumanAddr::from("oracle0000"),
             collector: HumanAddr::from("collector0000"),
+            collateral_oracle: HumanAddr::from("collateraloracle0000"),
             staking: HumanAddr::from("staking0000"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: base_denom.clone(),

@@ -42,6 +42,7 @@ mod tests {
             oracle: HumanAddr::from("oracle0000"),
             collector: HumanAddr::from("collector0000"),
             staking: HumanAddr::from("staking0000"),
+            collateral_oracle: HumanAddr::from("collateraloracle0000"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: base_denom.clone(),
             token_code_id: TOKEN_CODE_ID,

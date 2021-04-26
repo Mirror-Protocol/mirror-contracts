@@ -4,9 +4,10 @@ use serde::{Deserialize, Serialize};
 use cosmwasm_std::{CanonicalAddr, Decimal, Order, StdResult, Storage};
 use cosmwasm_storage::{singleton_read, ReadonlyBucket};
 
-use crate::state::{
-    store_asset_config, store_config, AssetConfig, Config, KEY_CONFIG, PREFIX_ASSET_CONFIG,
-};
+use crate::state::{store_asset_config, store_config, AssetConfig, Config};
+
+static PREFIX_ASSET_CONFIG: &[u8] = b"asset_config";
+static KEY_CONFIG: &[u8] = b"config";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct LegacyConfig {
@@ -18,6 +19,14 @@ pub struct LegacyConfig {
     pub protocol_fee_rate: Decimal,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct LegacyAssetConfig {
+    pub token: CanonicalAddr,
+    pub auction_discount: Decimal,
+    pub min_collateral_ratio: Decimal,
+    pub end_price: Option<Decimal>,
+}
+
 fn read_legacy_config<S: Storage>(storage: &S) -> StdResult<LegacyConfig> {
     singleton_read(storage, KEY_CONFIG).load()
 }
@@ -26,6 +35,7 @@ pub fn migrate_config<S: Storage>(
     storage: &mut S,
     staking: CanonicalAddr,
     terraswap_factory: CanonicalAddr,
+    collateral_oracle: CanonicalAddr,
 ) -> StdResult<()> {
     let legacy_config: LegacyConfig = read_legacy_config(storage)?;
     store_config(
@@ -33,6 +43,7 @@ pub fn migrate_config<S: Storage>(
         &Config {
             staking: staking,
             terraswap_factory,
+            collateral_oracle,
             owner: legacy_config.owner,
             oracle: legacy_config.oracle,
             collector: legacy_config.collector,
@@ -43,14 +54,6 @@ pub fn migrate_config<S: Storage>(
     )?;
 
     Ok(())
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct LegacyAssetConfig {
-    pub token: CanonicalAddr,
-    pub auction_discount: Decimal,
-    pub min_collateral_ratio: Decimal,
-    pub end_price: Option<Decimal>,
 }
 
 fn read_legacy_asset_configs<S: Storage>(storage: &S) -> StdResult<Vec<LegacyAssetConfig>> {
@@ -130,6 +133,10 @@ mod migrate_tests {
             .api
             .canonical_address(&HumanAddr::from("terraswap_factory"))
             .unwrap();
+        let collateral_oracle = deps
+            .api
+            .canonical_address(&HumanAddr::from("collateral_oracle"))
+            .unwrap();
         store_legacy_config(
             &mut deps.storage,
             &LegacyConfig {
@@ -147,6 +154,7 @@ mod migrate_tests {
             &mut deps.storage,
             staking.clone(),
             terraswap_factory.clone(),
+            collateral_oracle.clone(),
         )
         .unwrap();
         assert_eq!(
@@ -157,6 +165,7 @@ mod migrate_tests {
                 staking,
                 collector,
                 terraswap_factory,
+                collateral_oracle,
                 base_denom: "uusd".to_string(),
                 token_code_id: 10,
                 protocol_fee_rate: Decimal::percent(1),

@@ -556,6 +556,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "mirror-collateral-oracle"
+version = "1.1.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cosmwasm-storage",
+ "cosmwasm-vm",
+ "mirror-protocol",
+ "schemars",
+ "serde",
+ "terraswap",
+]
+
+[[package]]
 name = "mirror-collector"
 version = "1.1.0"
 dependencies = [

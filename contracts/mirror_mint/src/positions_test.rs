@@ -37,6 +37,11 @@ mod tests {
             (&"asset0000".to_string(), &Decimal::percent(100)),
             (&"asset0001".to_string(), &Decimal::percent(50)),
         ]);
+        deps.querier.with_collateral_infos(&[(
+            &"asset0001".to_string(),
+            &Decimal::percent(50),
+            &Decimal::zero(),
+        )]);
 
         let base_denom = "uusd".to_string();
 
@@ -44,6 +49,7 @@ mod tests {
             owner: HumanAddr::from("owner0000"),
             oracle: HumanAddr::from("oracle0000"),
             collector: HumanAddr::from("collector0000"),
+            collateral_oracle: HumanAddr::from("collateraloracle0000"),
             staking: HumanAddr::from("staking0000"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: base_denom.clone(),
@@ -400,6 +406,11 @@ mod tests {
             (&"asset0000".to_string(), &Decimal::percent(100)),
             (&"asset0001".to_string(), &Decimal::percent(50)),
         ]);
+        deps.querier.with_collateral_infos(&[(
+            &"asset0001".to_string(),
+            &Decimal::percent(50),
+            &Decimal::zero(),
+        )]);
 
         let base_denom = "uusd".to_string();
 
@@ -407,6 +418,7 @@ mod tests {
             owner: HumanAddr::from("owner0000"),
             oracle: HumanAddr::from("oracle0000"),
             collector: HumanAddr::from("collector0000"),
+            collateral_oracle: HumanAddr::from("collateraloracle0000"),
             staking: HumanAddr::from("staking0000"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: base_denom.clone(),
@@ -604,6 +616,11 @@ mod tests {
                 &Decimal::from_ratio(50u128, 1u128),
             ),
         ]);
+        deps.querier.with_collateral_infos(&[(
+            &"asset0001".to_string(),
+            &Decimal::from_ratio(50u128, 1u128),
+            &Decimal::zero(),
+        )]);
 
         let base_denom = "uusd".to_string();
 
@@ -611,6 +628,7 @@ mod tests {
             owner: HumanAddr::from("owner0000"),
             oracle: HumanAddr::from("oracle0000"),
             collector: HumanAddr::from("collector0000"),
+            collateral_oracle: HumanAddr::from("collateraloracle0000"),
             staking: HumanAddr::from("staking0000"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: base_denom.clone(),
@@ -844,6 +862,11 @@ mod tests {
                 &Decimal::from_ratio(50u128, 1u128),
             ),
         ]);
+        deps.querier.with_collateral_infos(&[(
+            &"asset0001".to_string(),
+            &Decimal::from_ratio(50u128, 1u128),
+            &Decimal::zero(),
+        )]);
 
         let base_denom = "uusd".to_string();
 
@@ -851,6 +874,7 @@ mod tests {
             owner: HumanAddr::from("owner0000"),
             oracle: HumanAddr::from("oracle0000"),
             collector: HumanAddr::from("collector0000"),
+            collateral_oracle: HumanAddr::from("collateraloracle0000"),
             staking: HumanAddr::from("staking0000"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: base_denom.clone(),
@@ -1097,7 +1121,6 @@ mod tests {
             Decimal::percent(1),
             &[(&"uusd".to_string(), &Uint128(1000000u128))],
         );
-
         deps.querier.with_oracle_price(&[
             (&"uusd".to_string(), &Decimal::one()),
             (
@@ -1109,6 +1132,11 @@ mod tests {
                 &Decimal::from_ratio(50u128, 1u128),
             ),
         ]);
+        deps.querier.with_collateral_infos(&[(
+            &"asset0001".to_string(),
+            &Decimal::from_ratio(50u128, 1u128),
+            &Decimal::zero(),
+        )]);
 
         let base_denom = "uusd".to_string();
 
@@ -1116,6 +1144,7 @@ mod tests {
             owner: HumanAddr::from("owner0000"),
             oracle: HumanAddr::from("oracle0000"),
             collector: HumanAddr::from("collector0000"),
+            collateral_oracle: HumanAddr::from("collateraloracle0000"),
             staking: HumanAddr::from("staking0000"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: base_denom.clone(),
@@ -1284,7 +1313,6 @@ mod tests {
             Decimal::percent(5u64),
             &[(&"uusd".to_string(), &Uint128(1000000u128))],
         );
-
         deps.querier.with_oracle_price(&[
             (&"uusd".to_string(), &Decimal::one()),
             (
@@ -1296,6 +1324,18 @@ mod tests {
                 &Decimal::from_ratio(50u128, 1u128),
             ),
         ]);
+        deps.querier.with_collateral_infos(&[
+            (
+                &"asset0000".to_string(),
+                &Decimal::from_ratio(100u128, 1u128),
+                &Decimal::zero(),
+            ),
+            (
+                &"asset0001".to_string(),
+                &Decimal::from_ratio(50u128, 1u128),
+                &Decimal::zero(),
+            ),
+        ]);
 
         let base_denom = "uusd".to_string();
 
@@ -1303,6 +1343,7 @@ mod tests {
             owner: HumanAddr::from("owner0000"),
             oracle: HumanAddr::from("oracle0000"),
             collector: HumanAddr::from("collector0000"),
+            collateral_oracle: HumanAddr::from("collateraloracle0000"),
             staking: HumanAddr::from("staking0000"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: base_denom.clone(),
@@ -1439,6 +1480,18 @@ mod tests {
                 &Decimal::from_ratio(50u128, 1u128),
             ),
         ]);
+        deps.querier.with_collateral_infos(&[
+            (
+                &"asset0000".to_string(),
+                &Decimal::from_ratio(116u128, 1u128),
+                &Decimal::zero(),
+            ),
+            (
+                &"asset0001".to_string(),
+                &Decimal::from_ratio(50u128, 1u128),
+                &Decimal::zero(),
+            ),
+        ]);
 
         // auction failed; liquidation amount is bigger than position amount
         let msg = HandleMsg::Receive(Cw20ReceiveMsg {
@@ -1557,6 +1610,18 @@ mod tests {
             (&"uusd".to_string(), &Decimal::one()),
             (&"asset0000".to_string(), &Decimal::percent(200)),
             (&"asset0001".to_string(), &Decimal::percent(50)),
+        ]);
+        deps.querier.with_collateral_infos(&[
+            (
+                &"asset0000".to_string(),
+                &Decimal::percent(200),
+                &Decimal::zero(),
+            ),
+            (
+                &"asset0001".to_string(),
+                &Decimal::percent(50),
+                &Decimal::zero(),
+            ),
         ]);
 
         let msg = HandleMsg::Receive(Cw20ReceiveMsg {
