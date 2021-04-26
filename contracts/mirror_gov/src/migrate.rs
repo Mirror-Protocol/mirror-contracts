@@ -114,7 +114,11 @@ fn bytes_to_u64(data: &[u8]) -> StdResult<u64> {
     }
 }
 
-pub fn migrate_config<S: Storage>(storage: &mut S, voter_weight: Decimal) -> StdResult<()> {
+pub fn migrate_config<S: Storage>(
+    storage: &mut S,
+    voter_weight: Decimal,
+    snapshot_period: u64,
+) -> StdResult<()> {
     let legacty_store: ReadonlySingleton<S, LegacyConfig> = singleton_read(storage, KEY_CONFIG);
     let legacy_config: LegacyConfig = legacty_store.load()?;
     let config = Config {
@@ -127,6 +131,7 @@ pub fn migrate_config<S: Storage>(storage: &mut S, voter_weight: Decimal) -> Std
         expiration_period: legacy_config.expiration_period,
         proposal_deposit: legacy_config.proposal_deposit,
         voter_weight: voter_weight,
+        snapshot_period: snapshot_period,
     };
     let mut store: Singleton<S, Config> = singleton(storage, KEY_CONFIG);
     store.save(&config)?;
@@ -179,6 +184,7 @@ pub fn migrate_polls<S: Storage>(storage: &mut S) -> StdResult<()> {
             deposit_amount: poll.deposit_amount,
             total_balance_at_end_poll: poll.total_balance_at_end_poll,
             voters_reward: Uint128::zero(),
+            staked_amount: None,
         };
         new_polls_bucket.save(&id.to_be_bytes(), new_poll)?;
     }
@@ -286,6 +292,7 @@ mod migrate_tests {
                 total_balance_at_end_poll: None,
                 abstain_votes: Uint128::zero(),
                 voters_reward: Uint128::zero(),
+                staked_amount: None,
             }
         );
         let poll2: Poll = poll_read(&mut deps.storage)
@@ -308,6 +315,7 @@ mod migrate_tests {
                 total_balance_at_end_poll: None,
                 abstain_votes: Uint128::zero(),
                 voters_reward: Uint128::zero(),
+                staked_amount: None,
             }
         );
     }
@@ -329,7 +337,7 @@ mod migrate_tests {
             })
             .unwrap();
 
-        migrate_config(&mut deps.storage, Decimal::percent(50u64)).unwrap();
+        migrate_config(&mut deps.storage, Decimal::percent(50u64), 50u64).unwrap();
 
         let config: Config = config_read(&deps.storage).load().unwrap();
         assert_eq!(
@@ -344,6 +352,7 @@ mod migrate_tests {
                 expiration_period: 100u64,
                 proposal_deposit: Uint128(100000u128),
                 voter_weight: Decimal::percent(50u64),
+                snapshot_period: 50u64,
             }
         )
     }

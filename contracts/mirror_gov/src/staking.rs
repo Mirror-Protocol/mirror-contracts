@@ -29,11 +29,12 @@ pub fn stake_voting_tokens<S: Storage, A: Api, Q: Querier>(
     let mut state: State = state_store(&mut deps.storage).load()?;
 
     // balance already increased, so subtract deposit amount
+    let total_locked_balance = state.total_deposit + state.pending_voting_rewards;
     let total_balance = (load_token_balance(
         &deps,
         &deps.api.human_address(&config.mirror_token)?,
         &state.contract_addr,
-    )? - (state.total_deposit + amount))?;
+    )? - (total_locked_balance + amount))?;
 
     let share = if total_balance.is_zero() || state.total_share.is_zero() {
         amount

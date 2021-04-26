@@ -57,6 +57,16 @@
     "no_votes": {
       "$ref": "#/definitions/Uint128"
     },
+    "staked_amount": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Uint128"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "status": {
       "$ref": "#/definitions/PollStatus"
     },
