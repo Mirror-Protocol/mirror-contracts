@@ -161,6 +161,47 @@
           }
         }
       }
+    },
+    {
+      "type": "object",
+      "required": [
+        "shares"
+      ],
+      "properties": {
+        "shares": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint32",
+              "minimum": 0.0
+            },
+            "order_by": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/OrderBy"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "start_after": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      }
     }
   ],
   "definitions": {

@@ -1,6 +1,6 @@
 use crate::querier::load_token_balance;
 use crate::staking::{
-    deposit_reward, query_staker, stake_voting_tokens, withdraw_voting_rewards,
+    deposit_reward, query_shares, query_staker, stake_voting_tokens, withdraw_voting_rewards,
     withdraw_voting_tokens,
 };
 use crate::state::{
@@ -634,6 +634,11 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
             limit,
             order_by,
         } => to_binary(&query_voters(deps, poll_id, start_after, limit, order_by)?),
+        QueryMsg::Shares {
+            start_after,
+            limit,
+            order_by,
+        } => to_binary(&query_shares(&deps, start_after, limit, order_by)?),
     }
 }
 
@@ -800,7 +805,7 @@ pub fn migrate<S: Storage, A: Api, Q: Querier>(
         migrate_poll_indexer(&mut deps.storage, &PollStatus::Executed)?;
         migrate_poll_indexer(&mut deps.storage, &PollStatus::Expired)?;
     } else if !msg.version.eq(&2u64) {
-        return Err(StdError::generic_err("Invalid migrate version number"))
+        return Err(StdError::generic_err("Invalid migrate version number"));
     }
 
     // migrations for voting rewards and abstain votes
