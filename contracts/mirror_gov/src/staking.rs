@@ -210,24 +210,11 @@ pub fn withdraw_voting_rewards<S: Storage, A: Api, Q: Querier>(
         .load(key)
         .or(Err(StdError::generic_err("Nothing staked")))?;
 
-    let w_polls: Vec<(Poll, VoterInfo)> =
-        get_withdrawable_polls(&deps.storage, &token_manager, &sender_address_raw);
-
-    let user_reward_amount: u128 = w_polls
-        .iter()
-        .map(|(poll, voting_info)| {
-            // remove voter info from the poll
-            poll_voter_store(&mut deps.storage, poll.id).remove(&sender_address_raw.as_slice());
-
-            // calculate reward share
-            let total_votes =
-                poll.no_votes.u128() + poll.yes_votes.u128() + poll.abstain_votes.u128();
-            let poll_voting_reward = poll
-                .voters_reward
-                .multiply_ratio(voting_info.balance, total_votes);
-            poll_voting_reward.u128()
-        })
-        .sum();
+    let user_reward_amount: u128 =
+        withdraw_user_voting_rewards(&mut deps.storage, &sender_address_raw, &token_manager);
+    if user_reward_amount.eq(&0u128) {
+        return Err(StdError::generic_err("Nothing to withdraw"));
+    }
 
     state_store(&mut deps.storage).update(|mut state| {
         state.pending_voting_rewards =
@@ -242,6 +229,84 @@ pub fn withdraw_voting_rewards<S: Storage, A: Api, Q: Querier>(
         user_reward_amount,
         "withdraw_voting_rewards",
     )
+}
+
+pub fn stake_voting_rewards<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+) -> HandleResult {
+    let config: Config = config_store(&mut deps.storage).load()?;
+    let mut state: State = state_store(&mut deps.storage).load()?;
+    let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
+    let key = sender_address_raw.as_slice();
+
+    let mut token_manager = bank_read(&deps.storage)
+        .load(key)
+        .or(Err(StdError::generic_err("Nothing staked")))?;
+
+    let user_reward_amount: u128 =
+        withdraw_user_voting_rewards(&mut deps.storage, &sender_address_raw, &token_manager);
+    if user_reward_amount.eq(&0u128) {
+        return Err(StdError::generic_err("Nothing to withdraw"));
+    }
+
+    // add the withdrawn rewards to stake pool and calculate share
+    let total_locked_balance = state.total_deposit + state.pending_voting_rewards;
+    let total_balance = (load_token_balance(
+        &deps,
+        &deps.api.human_address(&config.mirror_token)?,
+        &state.contract_addr,
+    )? - total_locked_balance)?;
+
+    state.pending_voting_rewards = (state.pending_voting_rewards - Uint128(user_reward_amount))?;
+
+    let share: Uint128 = if total_balance.is_zero() || state.total_share.is_zero() {
+        Uint128(user_reward_amount)
+    } else {
+        Uint128(user_reward_amount).multiply_ratio(state.total_share, total_balance)
+    };
+
+    token_manager.share += share;
+    state.total_share += share;
+
+    state_store(&mut deps.storage).save(&state)?;
+    bank_store(&mut deps.storage).save(key, &token_manager)?;
+
+    Ok(HandleResponse {
+        messages: vec![],
+        data: None,
+        log: vec![
+            log("action", "stake_voting_rewards"),
+            log("staker", env.message.sender.as_str()),
+            log("share", share.to_string()),
+            log("amount", user_reward_amount.to_string()),
+        ],
+    })
+}
+
+fn withdraw_user_voting_rewards<S: Storage>(
+    storage: &mut S,
+    user_address: &CanonicalAddr,
+    token_manager: &TokenManager,
+) -> u128 {
+    let w_polls: Vec<(Poll, VoterInfo)> =
+        get_withdrawable_polls(storage, token_manager, user_address);
+    let user_reward_amount: u128 = w_polls
+        .iter()
+        .map(|(poll, voting_info)| {
+            // remove voter info from the poll
+            poll_voter_store(storage, poll.id).remove(user_address.as_slice());
+
+            // calculate reward share
+            let total_votes =
+                poll.no_votes.u128() + poll.yes_votes.u128() + poll.abstain_votes.u128();
+            let poll_voting_reward = poll
+                .voters_reward
+                .multiply_ratio(voting_info.balance, total_votes);
+            poll_voting_reward.u128()
+        })
+        .sum();
+    user_reward_amount
 }
 
 fn get_withdrawable_polls<S: Storage>(
