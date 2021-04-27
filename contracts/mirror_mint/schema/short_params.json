@@ -1,21 +1,27 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "CollateralPriceResponse",
+  "title": "ShortParams",
   "type": "object",
-  "required": [
-    "asset",
-    "collateral_premium",
-    "rate"
-  ],
   "properties": {
-    "asset": {
-      "type": "string"
+    "belief_price": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Decimal"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
-    "collateral_premium": {
-      "$ref": "#/definitions/Decimal"
-    },
-    "rate": {
-      "$ref": "#/definitions/Decimal"
+    "max_spread": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Decimal"
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "definitions": {

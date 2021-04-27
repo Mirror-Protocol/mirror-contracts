@@ -1,16 +1,16 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "ConfigResponse",
+  "title": "FeederResponse",
   "type": "object",
   "required": [
-    "base_denom",
-    "owner"
+    "asset_token",
+    "feeder"
   ],
   "properties": {
-    "base_denom": {
-      "type": "string"
+    "asset_token": {
+      "$ref": "#/definitions/HumanAddr"
     },
-    "owner": {
+    "feeder": {
       "$ref": "#/definitions/HumanAddr"
     }
   },

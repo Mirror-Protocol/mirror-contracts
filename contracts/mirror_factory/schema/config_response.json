@@ -3,82 +3,19 @@
   "title": "ConfigResponse",
   "type": "object",
   "required": [
-    "base_denom",
-    "commission_collector",
-    "distribution_schedule",
-    "genesis_time",
-    "mint_contract",
-    "mirror_token",
-    "oracle_contract",
-    "owner",
-    "staking_contract",
-    "terraswap_factory",
-    "token_code_id"
+    "base_asset",
+    "owner"
   ],
   "properties": {
-    "base_denom": {
+    "base_asset": {
       "type": "string"
-    },
-    "commission_collector": {
-      "$ref": "#/definitions/HumanAddr"
-    },
-    "distribution_schedule": {
-      "type": "array",
-      "items": {
-        "type": "array",
-        "items": [
-          {
-            "type": "integer",
-            "format": "uint64",
-            "minimum": 0.0
-          },
-          {
-            "type": "integer",
-            "format": "uint64",
-            "minimum": 0.0
-          },
-          {
-            "$ref": "#/definitions/Uint128"
-          }
-        ],
-        "maxItems": 3,
-        "minItems": 3
-      }
-    },
-    "genesis_time": {
-      "type": "integer",
-      "format": "uint64",
-      "minimum": 0.0
-    },
-    "mint_contract": {
-      "$ref": "#/definitions/HumanAddr"
-    },
-    "mirror_token": {
-      "$ref": "#/definitions/HumanAddr"
-    },
-    "oracle_contract": {
-      "$ref": "#/definitions/HumanAddr"
     },
     "owner": {
       "$ref": "#/definitions/HumanAddr"
-    },
-    "staking_contract": {
-      "$ref": "#/definitions/HumanAddr"
-    },
-    "terraswap_factory": {
-      "$ref": "#/definitions/HumanAddr"
-    },
-    "token_code_id": {
-      "type": "integer",
-      "format": "uint64",
-      "minimum": 0.0
     }
   },
   "definitions": {
     "HumanAddr": {
-      "type": "string"
-    },
-    "Uint128": {
       "type": "string"
     }
   }

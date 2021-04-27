@@ -1,47 +1,38 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "ConfigResponse",
+  "title": "MigrateMsg",
+  "description": "We currently take no arguments for migrations",
   "type": "object",
   "required": [
     "base_denom",
-    "collateral_oracle",
-    "collector",
-    "oracle",
-    "owner",
-    "protocol_fee_rate",
-    "staking",
-    "terraswap_factory",
-    "token_code_id"
+    "mint_contract",
+    "oracle_contract",
+    "premium_short_reward_weight",
+    "premium_tolerance",
+    "short_reward_weight",
+    "terraswap_factory"
   ],
   "properties": {
     "base_denom": {
       "type": "string"
     },
-    "collateral_oracle": {
+    "mint_contract": {
       "$ref": "#/definitions/HumanAddr"
     },
-    "collector": {
+    "oracle_contract": {
       "$ref": "#/definitions/HumanAddr"
     },
-    "oracle": {
-      "$ref": "#/definitions/HumanAddr"
-    },
-    "owner": {
-      "$ref": "#/definitions/HumanAddr"
-    },
-    "protocol_fee_rate": {
+    "premium_short_reward_weight": {
       "$ref": "#/definitions/Decimal"
     },
-    "staking": {
-      "$ref": "#/definitions/HumanAddr"
+    "premium_tolerance": {
+      "$ref": "#/definitions/Decimal"
+    },
+    "short_reward_weight": {
+      "$ref": "#/definitions/Decimal"
     },
     "terraswap_factory": {
       "$ref": "#/definitions/HumanAddr"
-    },
-    "token_code_id": {
-      "type": "integer",
-      "format": "uint64",
-      "minimum": 0.0
     }
   },
   "definitions": {

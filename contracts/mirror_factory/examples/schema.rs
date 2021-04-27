@@ -3,7 +3,7 @@ use std::fs::create_dir_all;
 
 use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 use mirror_protocol::factory::{
-    ConfigResponse, DistributionInfoResponse, HandleMsg, InitMsg, QueryMsg,
+    ConfigResponse, DistributionInfoResponse, HandleMsg, InitMsg, MigrateMsg, QueryMsg,
 };
 
 fn main() {
@@ -15,6 +15,7 @@ fn main() {
     export_schema(&schema_for!(InitMsg), &out_dir);
     export_schema(&schema_for!(HandleMsg), &out_dir);
     export_schema(&schema_for!(QueryMsg), &out_dir);
+    export_schema(&schema_for!(MigrateMsg), &out_dir);
     export_schema(&schema_for!(ConfigResponse), &out_dir);
     export_schema(&schema_for!(DistributionInfoResponse), &out_dir);
 }

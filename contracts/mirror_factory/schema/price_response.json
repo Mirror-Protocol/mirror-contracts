@@ -1,25 +1,24 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "MigrateMsg",
-  "description": "Migrates the contract state, currently taking a state version argument",
+  "title": "PriceResponse",
   "type": "object",
   "required": [
-    "snapshot_period",
-    "version",
-    "voter_weight"
+    "last_updated_base",
+    "last_updated_quote",
+    "rate"
   ],
   "properties": {
-    "snapshot_period": {
+    "last_updated_base": {
       "type": "integer",
       "format": "uint64",
       "minimum": 0.0
     },
-    "version": {
+    "last_updated_quote": {
       "type": "integer",
       "format": "uint64",
       "minimum": 0.0
     },
-    "voter_weight": {
+    "rate": {
       "$ref": "#/definitions/Decimal"
     }
   },

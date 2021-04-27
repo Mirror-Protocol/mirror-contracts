@@ -1,0 +1,144 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PollsResponse",
+  "type": "object",
+  "required": [
+    "polls"
+  ],
+  "properties": {
+    "polls": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/PollResponse"
+      }
+    }
+  },
+  "definitions": {
+    "Binary": {
+      "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>",
+      "type": "string"
+    },
+    "ExecuteMsg": {
+      "type": "object",
+      "required": [
+        "contract",
+        "msg"
+      ],
+      "properties": {
+        "contract": {
+          "$ref": "#/definitions/HumanAddr"
+        },
+        "msg": {
+          "$ref": "#/definitions/Binary"
+        }
+      }
+    },
+    "HumanAddr": {
+      "type": "string"
+    },
+    "PollResponse": {
+      "type": "object",
+      "required": [
+        "abstain_votes",
+        "creator",
+        "deposit_amount",
+        "description",
+        "end_height",
+        "id",
+        "no_votes",
+        "status",
+        "title",
+        "voters_reward",
+        "yes_votes"
+      ],
+      "properties": {
+        "abstain_votes": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "creator": {
+          "$ref": "#/definitions/HumanAddr"
+        },
+        "deposit_amount": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "description": {
+          "type": "string"
+        },
+        "end_height": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "execute_data": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ExecuteMsg"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "link": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "no_votes": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "staked_amount": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Uint128"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "$ref": "#/definitions/PollStatus"
+        },
+        "title": {
+          "type": "string"
+        },
+        "total_balance_at_end_poll": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Uint128"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "voters_reward": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "yes_votes": {
+          "$ref": "#/definitions/Uint128"
+        }
+      }
+    },
+    "PollStatus": {
+      "type": "string",
+      "enum": [
+        "in_progress",
+        "passed",
+        "rejected",
+        "executed",
+        "expired"
+      ]
+    },
+    "Uint128": {
+      "type": "string"
+    }
+  }
+}

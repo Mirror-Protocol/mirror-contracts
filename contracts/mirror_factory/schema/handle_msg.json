@@ -3,50 +3,6 @@
   "title": "HandleMsg",
   "anyOf": [
     {
-      "description": "Owner Operations",
-      "type": "object",
-      "required": [
-        "post_initialize"
-      ],
-      "properties": {
-        "post_initialize": {
-          "type": "object",
-          "required": [
-            "commission_collector",
-            "mint_contract",
-            "mirror_token",
-            "oracle_contract",
-            "owner",
-            "staking_contract",
-            "terraswap_factory"
-          ],
-          "properties": {
-            "commission_collector": {
-              "$ref": "#/definitions/HumanAddr"
-            },
-            "mint_contract": {
-              "$ref": "#/definitions/HumanAddr"
-            },
-            "mirror_token": {
-              "$ref": "#/definitions/HumanAddr"
-            },
-            "oracle_contract": {
-              "$ref": "#/definitions/HumanAddr"
-            },
-            "owner": {
-              "$ref": "#/definitions/HumanAddr"
-            },
-            "staking_contract": {
-              "$ref": "#/definitions/HumanAddr"
-            },
-            "terraswap_factory": {
-              "$ref": "#/definitions/HumanAddr"
-            }
-          }
-        }
-      }
-    },
-    {
       "type": "object",
       "required": [
         "update_config"
@@ -55,32 +11,6 @@
         "update_config": {
           "type": "object",
           "properties": {
-            "distribution_schedule": {
-              "type": [
-                "array",
-                "null"
-              ],
-              "items": {
-                "type": "array",
-                "items": [
-                  {
-                    "type": "integer",
-                    "format": "uint64",
-                    "minimum": 0.0
-                  },
-                  {
-                    "type": "integer",
-                    "format": "uint64",
-                    "minimum": 0.0
-                  },
-                  {
-                    "$ref": "#/definitions/Uint128"
-                  }
-                ],
-                "maxItems": 3,
-                "minItems": 3
-              }
-            },
             "owner": {
               "anyOf": [
                 {
@@ -90,121 +20,29 @@
                   "type": "null"
                 }
               ]
-            },
-            "token_code_id": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint64",
-              "minimum": 0.0
             }
           }
         }
       }
     },
     {
+      "description": "Used to register new asset or to update feeder",
       "type": "object",
       "required": [
-        "update_weight"
+        "register_asset"
       ],
       "properties": {
-        "update_weight": {
+        "register_asset": {
           "type": "object",
           "required": [
             "asset_token",
-            "weight"
+            "feeder"
           ],
           "properties": {
             "asset_token": {
               "$ref": "#/definitions/HumanAddr"
             },
-            "weight": {
-              "type": "integer",
-              "format": "uint32",
-              "minimum": 0.0
-            }
-          }
-        }
-      }
-    },
-    {
-      "type": "object",
-      "required": [
-        "whitelist"
-      ],
-      "properties": {
-        "whitelist": {
-          "type": "object",
-          "required": [
-            "name",
-            "oracle_feeder",
-            "params",
-            "symbol"
-          ],
-          "properties": {
-            "name": {
-              "description": "asset name used to create token contract",
-              "type": "string"
-            },
-            "oracle_feeder": {
-              "description": "authorized asset oracle feeder",
-              "allOf": [
-                {
-                  "$ref": "#/definitions/HumanAddr"
-                }
-              ]
-            },
-            "params": {
-              "description": "used to create all necessary contract or register asset",
-              "allOf": [
-                {
-                  "$ref": "#/definitions/Params"
-                }
-              ]
-            },
-            "symbol": {
-              "description": "asset symbol used to create token contract",
-              "type": "string"
-            }
-          }
-        }
-      }
-    },
-    {
-      "description": "Internal use",
-      "type": "object",
-      "required": [
-        "token_creation_hook"
-      ],
-      "properties": {
-        "token_creation_hook": {
-          "type": "object",
-          "required": [
-            "oracle_feeder"
-          ],
-          "properties": {
-            "oracle_feeder": {
-              "$ref": "#/definitions/HumanAddr"
-            }
-          }
-        }
-      }
-    },
-    {
-      "description": "Internal use except MIR registration",
-      "type": "object",
-      "required": [
-        "terraswap_creation_hook"
-      ],
-      "properties": {
-        "terraswap_creation_hook": {
-          "type": "object",
-          "required": [
-            "asset_token"
-          ],
-          "properties": {
-            "asset_token": {
+            "feeder": {
               "$ref": "#/definitions/HumanAddr"
             }
           }
@@ -214,162 +52,42 @@
     {
       "type": "object",
       "required": [
-        "pass_command"
+        "feed_price"
       ],
       "properties": {
-        "pass_command": {
+        "feed_price": {
           "type": "object",
           "required": [
-            "contract_addr",
-            "msg"
+            "prices"
           ],
           "properties": {
-            "contract_addr": {
-              "$ref": "#/definitions/HumanAddr"
-            },
-            "msg": {
-              "$ref": "#/definitions/Binary"
+            "prices": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": [
+                  {
+                    "$ref": "#/definitions/HumanAddr"
+                  },
+                  {
+                    "$ref": "#/definitions/Decimal"
+                  }
+                ],
+                "maxItems": 2,
+                "minItems": 2
+              }
             }
           }
-        }
-      }
-    },
-    {
-      "description": "Feeder Operations ////////////////// Revoke asset from MIR rewards pool and register end_price to mint contract",
-      "type": "object",
-      "required": [
-        "revoke_asset"
-      ],
-      "properties": {
-        "revoke_asset": {
-          "type": "object",
-          "required": [
-            "asset_token",
-            "end_price"
-          ],
-          "properties": {
-            "asset_token": {
-              "$ref": "#/definitions/HumanAddr"
-            },
-            "end_price": {
-              "$ref": "#/definitions/Decimal"
-            }
-          }
-        }
-      }
-    },
-    {
-      "description": "Migrate asset to new asset by registering end_price to mint contract and add the new asset to MIR rewards pool",
-      "type": "object",
-      "required": [
-        "migrate_asset"
-      ],
-      "properties": {
-        "migrate_asset": {
-          "type": "object",
-          "required": [
-            "end_price",
-            "from_token",
-            "name",
-            "symbol"
-          ],
-          "properties": {
-            "end_price": {
-              "$ref": "#/definitions/Decimal"
-            },
-            "from_token": {
-              "$ref": "#/definitions/HumanAddr"
-            },
-            "name": {
-              "type": "string"
-            },
-            "symbol": {
-              "type": "string"
-            }
-          }
-        }
-      }
-    },
-    {
-      "description": "User Operations",
-      "type": "object",
-      "required": [
-        "distribute"
-      ],
-      "properties": {
-        "distribute": {
-          "type": "object"
         }
       }
     }
   ],
   "definitions": {
-    "Binary": {
-      "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>",
-      "type": "string"
-    },
     "Decimal": {
       "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0 The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
       "type": "string"
     },
     "HumanAddr": {
-      "type": "string"
-    },
-    "Params": {
-      "type": "object",
-      "required": [
-        "auction_discount",
-        "min_collateral_ratio"
-      ],
-      "properties": {
-        "auction_discount": {
-          "description": "Auction discount rate applied to asset mint",
-          "allOf": [
-            {
-              "$ref": "#/definitions/Decimal"
-            }
-          ]
-        },
-        "min_collateral_ratio": {
-          "description": "Minium collateral ratio applied to asset mint",
-          "allOf": [
-            {
-              "$ref": "#/definitions/Decimal"
-            }
-          ]
-        },
-        "min_collateral_ratio_after_migration": {
-          "description": "For pre-IPO assets, collateral ratio for the asset after migration",
-          "anyOf": [
-            {
-              "$ref": "#/definitions/Decimal"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "mint_period": {
-          "description": "For pre-IPO assets, time period after asset creation in which minting is enabled",
-          "type": [
-            "integer",
-            "null"
-          ],
-          "format": "uint64",
-          "minimum": 0.0
-        },
-        "weight": {
-          "description": "Distribution weight (default is 30, which is 1/10 of MIR distribution weight)",
-          "type": [
-            "integer",
-            "null"
-          ],
-          "format": "uint32",
-          "minimum": 0.0
-        }
-      }
-    },
-    "Uint128": {
       "type": "string"
     }
   }
