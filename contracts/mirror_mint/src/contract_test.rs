@@ -3,10 +3,15 @@ mod tests {
     use crate::contract::{handle, init, query};
     use crate::mock_querier::mock_dependencies;
     use cosmwasm_std::testing::mock_env;
-    use cosmwasm_std::{from_binary, Decimal, HumanAddr, StdError};
+    use cosmwasm_std::{
+        from_binary, to_binary, CosmosMsg, Decimal, HumanAddr, StdError, WasmMsg, WasmQuery,
+    };
+    use mirror_protocol::collateral_oracle::HandleMsg::RegisterCollateralAsset;
     use mirror_protocol::mint::{
         AssetConfigResponse, ConfigResponse, HandleMsg, InitMsg, QueryMsg,
     };
+    use mirror_protocol::oracle::QueryMsg::Price;
+    use terraswap::asset::AssetInfo;
 
     static TOKEN_CODE_ID: u64 = 10u64;
 
@@ -116,7 +121,30 @@ mod tests {
         };
         let env = mock_env("owner0000", &[]);
         let res = handle(&mut deps, env, msg).unwrap();
-        assert_eq!(res.messages, vec![],);
+        assert_eq!(
+            res.messages,
+            vec![CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from("collateraloracle0000"),
+                send: vec![],
+                msg: to_binary(&RegisterCollateralAsset {
+                    asset: AssetInfo::Token {
+                        contract_addr: HumanAddr::from("asset0000"),
+                    },
+                    collateral_premium: Decimal::zero(),
+                    query_request: to_binary(&WasmQuery::Smart {
+                        contract_addr: HumanAddr::from("oracle0000"),
+                        msg: to_binary(&Price {
+                            base_asset: "uusd".to_string(),
+                            quote_asset: "asset0000".to_string(),
+                        })
+                        .unwrap()
+                    })
+                    .unwrap(),
+                })
+                .unwrap(),
+            })]
+        );
+
         let res = query(
             &deps,
             QueryMsg::AssetConfig {

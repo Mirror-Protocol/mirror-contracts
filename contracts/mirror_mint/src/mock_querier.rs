@@ -125,11 +125,11 @@ pub(crate) fn oracle_price_to_map(
 #[derive(Clone, Default)]
 pub struct CollateralOracleQuerier {
     // this lets us iterate over all pairs that match the first string
-    collateral_infos: HashMap<String, (Decimal, Decimal)>,
+    collateral_infos: HashMap<String, (Decimal, Decimal, bool)>,
 }
 
 impl CollateralOracleQuerier {
-    pub fn new(collateral_infos: &[(&String, &Decimal, &Decimal)]) -> Self {
+    pub fn new(collateral_infos: &[(&String, &Decimal, &Decimal, &bool)]) -> Self {
         CollateralOracleQuerier {
             collateral_infos: collateral_infos_to_map(collateral_infos),
         }
@@ -137,13 +137,13 @@ impl CollateralOracleQuerier {
 }
 
 pub(crate) fn collateral_infos_to_map(
-    collateral_infos: &[(&String, &Decimal, &Decimal)],
-) -> HashMap<String, (Decimal, Decimal)> {
-    let mut collateral_infos_map: HashMap<String, (Decimal, Decimal)> = HashMap::new();
-    for (collateral, collateral_price, collateral_premium) in collateral_infos.iter() {
+    collateral_infos: &[(&String, &Decimal, &Decimal, &bool)],
+) -> HashMap<String, (Decimal, Decimal, bool)> {
+    let mut collateral_infos_map: HashMap<String, (Decimal, Decimal, bool)> = HashMap::new();
+    for (collateral, collateral_price, collateral_premium, is_revoked) in collateral_infos.iter() {
         collateral_infos_map.insert(
             (*collateral).clone(),
-            (**collateral_price, **collateral_premium),
+            (**collateral_price, **collateral_premium, **is_revoked),
         );
     }
 
@@ -267,6 +267,7 @@ impl WasmMockQuerier {
                             asset,
                             rate: collateral_info.0,
                             collateral_premium: collateral_info.1,
+                            is_revoked: collateral_info.2,
                         })),
                         None => Err(SystemError::InvalidRequest {
                             error: "Collateral info does not exist".to_string(),
@@ -378,7 +379,10 @@ impl WasmMockQuerier {
     }
 
     // configure the collateral oracle mock querier
-    pub fn with_collateral_infos(&mut self, collateral_infos: &[(&String, &Decimal, &Decimal)]) {
+    pub fn with_collateral_infos(
+        &mut self,
+        collateral_infos: &[(&String, &Decimal, &Decimal, &bool)],
+    ) {
         self.collateral_oracle_querier = CollateralOracleQuerier::new(collateral_infos);
     }
 
