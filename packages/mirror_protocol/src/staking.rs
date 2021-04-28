@@ -15,6 +15,7 @@ pub struct InitMsg {
     pub premium_tolerance: Decimal,
     pub short_reward_weight: Decimal,
     pub premium_short_reward_weight: Decimal,
+    pub premium_min_update_interval: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -30,6 +31,7 @@ pub enum HandleMsg {
         premium_tolerance: Option<Decimal>,
         short_reward_weight: Option<Decimal>,
         premium_short_reward_weight: Option<Decimal>,
+        premium_min_update_interval: Option<u64>,
     },
     RegisterAsset {
         asset_token: HumanAddr,
@@ -88,6 +90,7 @@ pub struct MigrateMsg {
     pub premium_tolerance: Decimal,
     pub short_reward_weight: Decimal,
     pub premium_short_reward_weight: Decimal,
+    pub premium_min_update_interval: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -115,6 +118,7 @@ pub struct ConfigResponse {
     pub premium_tolerance: Decimal,
     pub short_reward_weight: Decimal,
     pub premium_short_reward_weight: Decimal,
+    pub premium_min_update_interval: u64,
 }
 
 // We define a custom struct for each query response
@@ -129,6 +133,7 @@ pub struct PoolInfoResponse {
     pub pending_reward: Uint128,
     pub short_pending_reward: Uint128,
     pub premium_rate: Decimal,
+    pub premium_updated_time: u64,
 }
 
 // We define a custom struct for each query response

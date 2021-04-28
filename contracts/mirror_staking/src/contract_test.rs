@@ -23,6 +23,7 @@ mod tests {
             premium_tolerance: Decimal::percent(2),
             short_reward_weight: Decimal::percent(20),
             premium_short_reward_weight: Decimal::percent(40),
+            premium_min_update_interval: 3600,
         };
 
         let env = mock_env("addr", &[]);
@@ -44,6 +45,7 @@ mod tests {
                 premium_tolerance: Decimal::percent(2),
                 short_reward_weight: Decimal::percent(20),
                 premium_short_reward_weight: Decimal::percent(40),
+                premium_min_update_interval: 3600,
             },
             config
         );
@@ -63,6 +65,7 @@ mod tests {
             premium_tolerance: Decimal::percent(2),
             short_reward_weight: Decimal::percent(20),
             premium_short_reward_weight: Decimal::percent(40),
+            premium_min_update_interval: 3600,
         };
 
         let env = mock_env("addr", &[]);
@@ -75,6 +78,7 @@ mod tests {
             premium_tolerance: Some(Decimal::percent(5)),
             short_reward_weight: Some(Decimal::percent(30)),
             premium_short_reward_weight: Some(Decimal::percent(60)),
+            premium_min_update_interval: Some(7200),
         };
 
         let res = handle(&mut deps, env, msg).unwrap();
@@ -94,6 +98,7 @@ mod tests {
                 premium_tolerance: Decimal::percent(5),
                 short_reward_weight: Decimal::percent(30),
                 premium_short_reward_weight: Decimal::percent(60),
+                premium_min_update_interval: 7200,
             },
             config
         );
@@ -105,6 +110,7 @@ mod tests {
             premium_tolerance: Some(Decimal::percent(5)),
             short_reward_weight: Some(Decimal::percent(30)),
             premium_short_reward_weight: Some(Decimal::percent(60)),
+            premium_min_update_interval: Some(7200),
         };
 
         let res = handle(&mut deps, env, msg);
@@ -128,6 +134,7 @@ mod tests {
             premium_tolerance: Decimal::percent(2),
             short_reward_weight: Decimal::percent(20),
             premium_short_reward_weight: Decimal::percent(40),
+            premium_min_update_interval: 3600,
         };
 
         let env = mock_env("addr", &[]);
@@ -175,6 +182,7 @@ mod tests {
                 pending_reward: Uint128::zero(),
                 short_pending_reward: Uint128::zero(),
                 premium_rate: Decimal::zero(),
+                premium_updated_time: 0,
             }
         );
     }

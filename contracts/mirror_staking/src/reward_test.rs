@@ -7,7 +7,8 @@ mod tests {
     };
     use cosmwasm_std::{
         from_binary, from_slice, to_binary, Api, Coin, CosmosMsg, Decimal, Empty, Extern,
-        HumanAddr, Querier, QuerierResult, QueryRequest, SystemError, Uint128, WasmMsg, WasmQuery,
+        HumanAddr, Querier, QuerierResult, QueryRequest, StdError, SystemError, Uint128, WasmMsg,
+        WasmQuery,
     };
     use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
     use mirror_protocol::oracle::{PriceResponse, QueryMsg as OracleQueryMsg};
@@ -34,6 +35,7 @@ mod tests {
             premium_tolerance: Decimal::percent(2),
             short_reward_weight: Decimal::percent(20),
             premium_short_reward_weight: Decimal::percent(40),
+            premium_min_update_interval: 3600,
         };
 
         let env = mock_env("addr", &[]);
@@ -163,6 +165,7 @@ mod tests {
             premium_tolerance: Decimal::percent(2),
             short_reward_weight: Decimal::percent(20),
             premium_short_reward_weight: Decimal::percent(40),
+            premium_min_update_interval: 3600,
         };
 
         let env = mock_env("addr", &[]);
@@ -269,6 +272,7 @@ mod tests {
             premium_tolerance: Decimal::percent(2),
             short_reward_weight: Decimal::percent(20),
             premium_short_reward_weight: Decimal::percent(40),
+            premium_min_update_interval: 3600,
         };
 
         let env = mock_env("addr", &[]);
@@ -413,6 +417,7 @@ mod tests {
             premium_tolerance: Decimal::percent(2),
             short_reward_weight: Decimal::percent(20),
             premium_short_reward_weight: Decimal::percent(40),
+            premium_min_update_interval: 3600,
         };
 
         let env = mock_env("addr", &[]);
@@ -489,6 +494,7 @@ mod tests {
             premium_tolerance: Decimal::percent(2),
             short_reward_weight: Decimal::percent(20),
             premium_short_reward_weight: Decimal::percent(40),
+            premium_min_update_interval: 3600,
         };
 
         let env = mock_env("addr", &[]);
@@ -690,6 +696,7 @@ mod tests {
             premium_tolerance: Decimal::percent(2),
             short_reward_weight: Decimal::percent(20),
             premium_short_reward_weight: Decimal::percent(40),
+            premium_min_update_interval: 3600,
         };
 
         let env = mock_env("addr", &[]);
@@ -706,7 +713,7 @@ mod tests {
         let msg = HandleMsg::AdjustPremium {
             asset_tokens: vec![HumanAddr::from("asset")],
         };
-        let env = mock_env("addr", &[]);
+        let mut env = mock_env("addr", &[]);
         let _ = handle(&mut deps, env.clone(), msg.clone()).unwrap();
 
         // Check pool state
@@ -721,6 +728,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(res.premium_rate, Decimal::zero());
+        assert_eq!(res.premium_updated_time, env.block.time);
 
         // terraswap price = 90
         // premium rate = 0
@@ -739,6 +747,17 @@ mod tests {
             },
         ]);
 
+        // assert premium update interval
+        let res = handle(&mut deps, env.clone(), msg.clone());
+        match res {
+            Err(StdError::GenericErr { msg, .. }) => assert_eq!(
+                msg,
+                "cannot adjust premium before premium_min_update_interval passed"
+            ),
+            _ => panic!("DO NOT ENTER HERE"),
+        }
+
+        env.block.time += 3600;
         let _ = handle(&mut deps, env.clone(), msg.clone()).unwrap();
 
         // Check pool state
@@ -753,6 +772,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(res.premium_rate, Decimal::zero());
+        assert_eq!(res.premium_updated_time, env.block.time);
 
         // terraswap price = 105
         // premium rate = 5%
@@ -771,6 +791,7 @@ mod tests {
             },
         ]);
 
+        env.block.time += 3600;
         let _ = handle(&mut deps, env.clone(), msg.clone()).unwrap();
 
         // Check pool state
@@ -785,6 +806,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(res.premium_rate, Decimal::percent(5));
+        assert_eq!(res.premium_updated_time, env.block.time);
     }
 
     ////////////////////////////////////////////

@@ -55,6 +55,7 @@ mod tests {
             Decimal::percent(5),
             Decimal::percent(20),
             Decimal::percent(40),
+            7200,
         )
         .unwrap();
 
@@ -84,6 +85,7 @@ mod tests {
                 premium_tolerance: Decimal::percent(5),
                 short_reward_weight: Decimal::percent(20),
                 premium_short_reward_weight: Decimal::percent(40),
+                premium_min_update_interval: 7200,
             },
             read_config(&deps.storage).unwrap()
         );
@@ -143,6 +145,7 @@ mod tests {
                 total_short_amount: Uint128::zero(),
                 short_reward_index: Decimal::zero(),
                 premium_rate: Decimal::zero(),
+                premium_updated_time: 0,
             },
             read_pool_info(
                 &deps.storage,
@@ -167,6 +170,7 @@ mod tests {
                 total_short_amount: Uint128::zero(),
                 short_reward_index: Decimal::zero(),
                 premium_rate: Decimal::zero(),
+                premium_updated_time: 0,
             },
             read_pool_info(
                 &deps.storage,
