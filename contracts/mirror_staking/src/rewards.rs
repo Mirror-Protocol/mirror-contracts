@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     log, to_binary, Api, CanonicalAddr, CosmosMsg, Decimal, Env, Extern, HandleResponse,
-    HandleResult, HumanAddr, Order, Querier, StdResult, Storage, Uint128, WasmMsg,
+    HandleResult, HumanAddr, Order, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 
 use crate::querier::compute_premium_rate;
@@ -14,6 +14,7 @@ use cw20::Cw20HandleMsg;
 
 pub fn adjust_premium<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
+    env: Env,
     asset_tokens: Vec<HumanAddr>,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
@@ -29,12 +30,19 @@ pub fn adjust_premium<S: Storage, A: Api, Q: Querier>(
         )?;
 
         let asset_token_raw = deps.api.canonical_address(&asset_token)?;
-        let pool_info = read_pool_info(&deps.storage, &asset_token_raw)?;
+        let pool_info: PoolInfo = read_pool_info(&deps.storage, &asset_token_raw)?;
+        if env.block.time < pool_info.premium_updated_time + config.premium_min_update_interval {
+            return Err(StdError::generic_err(
+                "cannot adjust premium before premium_min_update_interval passed",
+            ));
+        }
+
         store_pool_info(
             &mut deps.storage,
             &asset_token_raw,
             &PoolInfo {
                 premium_rate,
+                premium_updated_time: env.block.time,
                 ..pool_info
             },
         )?;

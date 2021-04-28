@@ -6,6 +6,7 @@
     "asset_token",
     "pending_reward",
     "premium_rate",
+    "premium_updated_time",
     "reward_index",
     "short_pending_reward",
     "short_reward_index",
@@ -22,6 +23,11 @@
     },
     "premium_rate": {
       "$ref": "#/definitions/Decimal"
+    },
+    "premium_updated_time": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
     },
     "reward_index": {
       "$ref": "#/definitions/Decimal"

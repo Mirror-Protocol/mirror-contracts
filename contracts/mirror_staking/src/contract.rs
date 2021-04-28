@@ -32,6 +32,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
             premium_tolerance: msg.premium_tolerance,
             short_reward_weight: msg.short_reward_weight,
             premium_short_reward_weight: msg.premium_short_reward_weight,
+            premium_min_update_interval: msg.premium_min_update_interval,
         },
     )?;
 
@@ -50,6 +51,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             premium_tolerance,
             short_reward_weight,
             premium_short_reward_weight,
+            premium_min_update_interval,
         } => update_config(
             deps,
             env,
@@ -57,6 +59,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             premium_tolerance,
             short_reward_weight,
             premium_short_reward_weight,
+            premium_min_update_interval,
         ),
         HandleMsg::RegisterAsset {
             asset_token,
@@ -67,7 +70,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             amount,
         } => unbond(deps, env.message.sender, asset_token, amount),
         HandleMsg::Withdraw { asset_token } => withdraw_reward(deps, env, asset_token),
-        HandleMsg::AdjustPremium { asset_tokens } => adjust_premium(deps, asset_tokens),
+        HandleMsg::AdjustPremium { asset_tokens } => adjust_premium(deps, env, asset_tokens),
         HandleMsg::IncreaseShortToken {
             staker_addr,
             asset_token,
@@ -131,6 +134,7 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     premium_tolerance: Option<Decimal>,
     short_reward_weight: Option<Decimal>,
     premium_short_reward_weight: Option<Decimal>,
+    premium_min_update_interval: Option<u64>,
 ) -> StdResult<HandleResponse> {
     let mut config: Config = read_config(&deps.storage)?;
 
@@ -152,6 +156,10 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
 
     if let Some(premium_short_reward_weight) = premium_short_reward_weight {
         config.premium_short_reward_weight = premium_short_reward_weight;
+    }
+
+    if let Some(premium_min_update_interval) = premium_min_update_interval {
+        config.premium_min_update_interval = premium_min_update_interval;
     }
 
     store_config(&mut deps.storage, &config)?;
@@ -191,6 +199,7 @@ fn register_asset<S: Storage, A: Api, Q: Querier>(
             pending_reward: Uint128::zero(),
             short_pending_reward: Uint128::zero(),
             premium_rate: Decimal::zero(),
+            premium_updated_time: 0,
         },
     )?;
 
@@ -232,6 +241,7 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
         premium_tolerance: state.premium_tolerance,
         short_reward_weight: state.short_reward_weight,
         premium_short_reward_weight: state.premium_short_reward_weight,
+        premium_min_update_interval: state.premium_min_update_interval,
     };
 
     Ok(resp)
@@ -253,6 +263,7 @@ pub fn query_pool_info<S: Storage, A: Api, Q: Querier>(
         pending_reward: pool_info.pending_reward,
         short_pending_reward: pool_info.short_pending_reward,
         premium_rate: pool_info.premium_rate,
+        premium_updated_time: pool_info.premium_updated_time,
     })
 }
 
@@ -270,6 +281,7 @@ pub fn migrate<S: Storage, A: Api, Q: Querier>(
         msg.premium_tolerance,
         msg.short_reward_weight,
         msg.premium_short_reward_weight,
+        msg.premium_min_update_interval,
     )?;
 
     migrate_pool_infos(&mut deps.storage)?;

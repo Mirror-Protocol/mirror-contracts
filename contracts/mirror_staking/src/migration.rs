@@ -47,6 +47,7 @@ pub fn migrate_config<S: Storage>(
     premium_tolerance: Decimal,
     short_reward_weight: Decimal,
     premium_short_reward_weight: Decimal,
+    premium_min_update_interval: u64,
 ) -> StdResult<()> {
     let legacy_config = read_legacy_config(storage)?;
 
@@ -62,6 +63,7 @@ pub fn migrate_config<S: Storage>(
             premium_tolerance,
             short_reward_weight,
             premium_short_reward_weight,
+            premium_min_update_interval,
         },
     )
 }
@@ -81,6 +83,7 @@ pub fn migrate_pool_infos<S: Storage>(storage: &mut S) -> StdResult<()> {
                 total_short_amount: Uint128::zero(),
                 short_reward_index: Decimal::zero(),
                 premium_rate: Decimal::zero(),
+                premium_updated_time: 0,
             },
         )?;
     }
