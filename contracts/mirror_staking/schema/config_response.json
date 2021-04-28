@@ -8,6 +8,7 @@
     "mirror_token",
     "oracle_contract",
     "owner",
+    "premium_min_update_interval",
     "premium_short_reward_weight",
     "premium_tolerance",
     "short_reward_weight",
@@ -28,6 +29,11 @@
     },
     "owner": {
       "$ref": "#/definitions/HumanAddr"
+    },
+    "premium_min_update_interval": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
     },
     "premium_short_reward_weight": {
       "$ref": "#/definitions/Decimal"

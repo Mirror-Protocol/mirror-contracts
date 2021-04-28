@@ -7,6 +7,7 @@
     "base_denom",
     "mint_contract",
     "oracle_contract",
+    "premium_min_update_interval",
     "premium_short_reward_weight",
     "premium_tolerance",
     "short_reward_weight",
@@ -21,6 +22,11 @@
     },
     "oracle_contract": {
       "$ref": "#/definitions/HumanAddr"
+    },
+    "premium_min_update_interval": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
     },
     "premium_short_reward_weight": {
       "$ref": "#/definitions/Decimal"

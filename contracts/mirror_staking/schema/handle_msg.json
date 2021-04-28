@@ -33,6 +33,14 @@
                 }
               ]
             },
+            "premium_min_update_interval": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            },
             "premium_short_reward_weight": {
               "anyOf": [
                 {
