@@ -1,7 +1,7 @@
 use crate::querier::load_token_balance;
 use crate::staking::{
-    deposit_reward, query_staker, stake_voting_tokens, withdraw_voting_rewards,
-    withdraw_voting_tokens,
+    deposit_reward, query_staker, stake_voting_rewards, stake_voting_tokens,
+    withdraw_voting_rewards, withdraw_voting_tokens,
 };
 use crate::state::{
     bank_read, bank_store, config_read, config_store, poll_indexer_store, poll_read, poll_store,
@@ -96,6 +96,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         ),
         HandleMsg::WithdrawVotingTokens { amount } => withdraw_voting_tokens(deps, env, amount),
         HandleMsg::WithdrawVotingRewards {} => withdraw_voting_rewards(deps, env),
+        HandleMsg::StakeVotingRewards {} => stake_voting_rewards(deps, env),
         HandleMsg::CastVote {
             poll_id,
             vote,
