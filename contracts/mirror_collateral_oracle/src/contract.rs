@@ -117,12 +117,7 @@ pub fn register_collateral<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::unauthorized());
     }
 
-    let collateral_id: String = match asset {
-        AssetInfo::NativeToken { denom } => denom,
-        AssetInfo::Token { contract_addr } => contract_addr.to_string(),
-    };
-
-    if read_collateral_info(&deps.storage, &collateral_id).is_ok() {
+    if read_collateral_info(&deps.storage, &asset.to_string()).is_ok() {
         return Err(StdError::generic_err("Collateral was already registered"));
     }
 
@@ -136,7 +131,7 @@ pub fn register_collateral<S: Storage, A: Api, Q: Querier>(
     store_collateral_info(
         &mut deps.storage,
         &CollateralAssetInfo {
-            asset: collateral_id,
+            asset: asset.to_string(),
             collateral_premium,
             query_request,
             is_revoked: false,
@@ -158,13 +153,8 @@ pub fn revoke_collateral<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::unauthorized());
     }
 
-    let collateral_id: String = match asset {
-        AssetInfo::NativeToken { denom } => denom,
-        AssetInfo::Token { contract_addr } => contract_addr.to_string(),
-    };
-
-    let mut collateral_info =
-        if let Ok(collateral) = read_collateral_info(&deps.storage, &collateral_id) {
+    let mut collateral_info: CollateralAssetInfo =
+        if let Ok(collateral) = read_collateral_info(&deps.storage, &asset.to_string()) {
             collateral
         } else {
             return Err(StdError::generic_err("Collateral not found"));
@@ -190,13 +180,8 @@ pub fn update_collateral_query<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::unauthorized());
     }
 
-    let collateral_id: String = match asset {
-        AssetInfo::NativeToken { denom } => denom,
-        AssetInfo::Token { contract_addr } => contract_addr.to_string(),
-    };
-
-    let mut collateral_info =
-        if let Ok(collateral) = read_collateral_info(&deps.storage, &collateral_id) {
+    let mut collateral_info: CollateralAssetInfo =
+        if let Ok(collateral) = read_collateral_info(&deps.storage, &asset.to_string()) {
             collateral
         } else {
             return Err(StdError::generic_err("Collateral not found"));
@@ -228,13 +213,8 @@ pub fn update_collateral_premium<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::unauthorized());
     }
 
-    let collateral_id: String = match asset {
-        AssetInfo::NativeToken { denom } => denom,
-        AssetInfo::Token { contract_addr } => contract_addr.to_string(),
-    };
-
-    let mut collateral_info =
-        if let Ok(collateral) = read_collateral_info(&deps.storage, &collateral_id) {
+    let mut collateral_info: CollateralAssetInfo =
+        if let Ok(collateral) = read_collateral_info(&deps.storage, &asset.to_string()) {
             collateral
         } else {
             return Err(StdError::generic_err("Collateral not found"));
