@@ -44,9 +44,6 @@ pub fn migrate_config<S: Storage>(
     oracle_contract: CanonicalAddr,
     terraswap_factory: CanonicalAddr,
     base_denom: String,
-    premium_tolerance: Decimal,
-    short_reward_weight: Decimal,
-    premium_short_reward_weight: Decimal,
     premium_min_update_interval: u64,
 ) -> StdResult<()> {
     let legacy_config = read_legacy_config(storage)?;
@@ -60,9 +57,6 @@ pub fn migrate_config<S: Storage>(
             oracle_contract,
             terraswap_factory,
             base_denom,
-            premium_tolerance,
-            short_reward_weight,
-            premium_short_reward_weight,
             premium_min_update_interval,
         },
     )

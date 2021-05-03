@@ -20,9 +20,6 @@ mod tests {
             oracle_contract: HumanAddr::from("oracle"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
-            premium_tolerance: Decimal::percent(2),
-            short_reward_weight: Decimal::percent(20),
-            premium_short_reward_weight: Decimal::percent(40),
             premium_min_update_interval: 3600,
         };
 
@@ -42,9 +39,6 @@ mod tests {
                 oracle_contract: HumanAddr::from("oracle"),
                 terraswap_factory: HumanAddr::from("terraswap_factory"),
                 base_denom: "uusd".to_string(),
-                premium_tolerance: Decimal::percent(2),
-                short_reward_weight: Decimal::percent(20),
-                premium_short_reward_weight: Decimal::percent(40),
                 premium_min_update_interval: 3600,
             },
             config
@@ -62,9 +56,6 @@ mod tests {
             oracle_contract: HumanAddr::from("oracle"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
-            premium_tolerance: Decimal::percent(2),
-            short_reward_weight: Decimal::percent(20),
-            premium_short_reward_weight: Decimal::percent(40),
             premium_min_update_interval: 3600,
         };
 
@@ -75,9 +66,6 @@ mod tests {
         let env = mock_env("owner", &[]);
         let msg = HandleMsg::UpdateConfig {
             owner: Some(HumanAddr("owner2".to_string())),
-            premium_tolerance: Some(Decimal::percent(5)),
-            short_reward_weight: Some(Decimal::percent(30)),
-            premium_short_reward_weight: Some(Decimal::percent(60)),
             premium_min_update_interval: Some(7200),
         };
 
@@ -95,9 +83,6 @@ mod tests {
                 oracle_contract: HumanAddr::from("oracle"),
                 terraswap_factory: HumanAddr::from("terraswap_factory"),
                 base_denom: "uusd".to_string(),
-                premium_tolerance: Decimal::percent(5),
-                short_reward_weight: Decimal::percent(30),
-                premium_short_reward_weight: Decimal::percent(60),
                 premium_min_update_interval: 7200,
             },
             config
@@ -107,9 +92,6 @@ mod tests {
         let env = mock_env("owner", &[]);
         let msg = HandleMsg::UpdateConfig {
             owner: None,
-            premium_tolerance: Some(Decimal::percent(5)),
-            short_reward_weight: Some(Decimal::percent(30)),
-            premium_short_reward_weight: Some(Decimal::percent(60)),
             premium_min_update_interval: Some(7200),
         };
 
@@ -131,9 +113,6 @@ mod tests {
             oracle_contract: HumanAddr::from("oracle"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
-            premium_tolerance: Decimal::percent(2),
-            short_reward_weight: Decimal::percent(20),
-            premium_short_reward_weight: Decimal::percent(40),
             premium_min_update_interval: 3600,
         };
 

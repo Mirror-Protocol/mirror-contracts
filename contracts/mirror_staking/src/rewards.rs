@@ -3,6 +3,7 @@ use cosmwasm_std::{
     HandleResult, HumanAddr, Order, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 
+use crate::math::short_reward_weight;
 use crate::querier::compute_premium_rate;
 use crate::state::{
     read_config, read_pool_info, rewards_read, rewards_store, store_pool_info, Config, PoolInfo,
@@ -60,18 +61,16 @@ pub fn deposit_reward<S: Storage, A: Api, Q: Querier>(
     rewards: Vec<(HumanAddr, Uint128)>,
     rewards_amount: Uint128,
 ) -> HandleResult {
-    let config: Config = read_config(&deps.storage)?;
     for (asset_token, amount) in rewards.iter() {
         let asset_token_raw: CanonicalAddr = deps.api.canonical_address(&asset_token)?;
         let mut pool_info: PoolInfo = read_pool_info(&deps.storage, &asset_token_raw)?;
 
         // Depends on the last premium, apply different short_reward_weight
-        let short_reward_weight = if pool_info.premium_rate > config.premium_tolerance {
-            config.premium_short_reward_weight
-        } else {
-            config.short_reward_weight
-        };
+        let short_reward_weight = short_reward_weight(pool_info.premium_rate);
 
+        // Decimal::from_ratio(1, 5).mul()
+        // erf(pool_info.premium_rate.0)
+        // 3.0f64
         let total_reward = *amount;
         let mut short_reward = total_reward * short_reward_weight;
         let mut normal_reward = (total_reward - short_reward).unwrap();
