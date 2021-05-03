@@ -4,11 +4,15 @@
   "type": "object",
   "required": [
     "collateral_oracle",
+    "lock",
     "staking",
     "terraswap_factory"
   ],
   "properties": {
     "collateral_oracle": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "lock": {
       "$ref": "#/definitions/HumanAddr"
     },
     "staking": {

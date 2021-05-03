@@ -44,6 +44,7 @@ mod tests {
             staking: HumanAddr::from("staking0000"),
             collateral_oracle: HumanAddr::from("collateraloracle0000"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
+            lock: HumanAddr::from("lock0000"),
             base_denom: base_denom.clone(),
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),

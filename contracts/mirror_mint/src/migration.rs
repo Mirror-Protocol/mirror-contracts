@@ -36,14 +36,16 @@ pub fn migrate_config<S: Storage>(
     staking: CanonicalAddr,
     terraswap_factory: CanonicalAddr,
     collateral_oracle: CanonicalAddr,
+    lock: CanonicalAddr,
 ) -> StdResult<()> {
     let legacy_config: LegacyConfig = read_legacy_config(storage)?;
     store_config(
         storage,
         &Config {
-            staking: staking,
+            staking,
             terraswap_factory,
             collateral_oracle,
+            lock,
             owner: legacy_config.owner,
             oracle: legacy_config.oracle,
             collector: legacy_config.collector,
@@ -137,6 +139,10 @@ mod migrate_tests {
             .api
             .canonical_address(&HumanAddr::from("collateral_oracle"))
             .unwrap();
+        let lock = deps
+            .api
+            .canonical_address(&HumanAddr::from("lock0000"))
+            .unwrap();
         store_legacy_config(
             &mut deps.storage,
             &LegacyConfig {
@@ -155,6 +161,7 @@ mod migrate_tests {
             staking.clone(),
             terraswap_factory.clone(),
             collateral_oracle.clone(),
+            lock.clone(),
         )
         .unwrap();
         assert_eq!(
@@ -165,6 +172,7 @@ mod migrate_tests {
                 staking,
                 collector,
                 terraswap_factory,
+                lock,
                 collateral_oracle,
                 base_denom: "uusd".to_string(),
                 token_code_id: 10,

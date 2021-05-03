@@ -35,6 +35,7 @@ pub struct Config {
     pub collateral_oracle: CanonicalAddr,
     pub staking: CanonicalAddr,
     pub terraswap_factory: CanonicalAddr,
+    pub lock: CanonicalAddr,
     pub base_denom: String,
     pub token_code_id: u64,
     pub protocol_fee_rate: Decimal,
