@@ -41,6 +41,7 @@ mod tests {
             &"asset0001".to_string(),
             &Decimal::percent(50),
             &Decimal::zero(),
+            &false,
         )]);
 
         let base_denom = "uusd".to_string();
@@ -410,6 +411,7 @@ mod tests {
             &"asset0001".to_string(),
             &Decimal::percent(50),
             &Decimal::zero(),
+            &false,
         )]);
 
         let base_denom = "uusd".to_string();
@@ -620,6 +622,7 @@ mod tests {
             &"asset0001".to_string(),
             &Decimal::from_ratio(50u128, 1u128),
             &Decimal::zero(),
+            &false,
         )]);
 
         let base_denom = "uusd".to_string();
@@ -866,6 +869,7 @@ mod tests {
             &"asset0001".to_string(),
             &Decimal::from_ratio(50u128, 1u128),
             &Decimal::zero(),
+            &false,
         )]);
 
         let base_denom = "uusd".to_string();
@@ -1136,6 +1140,7 @@ mod tests {
             &"asset0001".to_string(),
             &Decimal::from_ratio(50u128, 1u128),
             &Decimal::zero(),
+            &false,
         )]);
 
         let base_denom = "uusd".to_string();
@@ -1329,11 +1334,13 @@ mod tests {
                 &"asset0000".to_string(),
                 &Decimal::from_ratio(100u128, 1u128),
                 &Decimal::zero(),
+                &false,
             ),
             (
                 &"asset0001".to_string(),
                 &Decimal::from_ratio(50u128, 1u128),
                 &Decimal::zero(),
+                &false,
             ),
         ]);
 
@@ -1485,11 +1492,13 @@ mod tests {
                 &"asset0000".to_string(),
                 &Decimal::from_ratio(116u128, 1u128),
                 &Decimal::zero(),
+                &false,
             ),
             (
                 &"asset0001".to_string(),
                 &Decimal::from_ratio(50u128, 1u128),
                 &Decimal::zero(),
+                &false,
             ),
         ]);
 
@@ -1616,11 +1625,13 @@ mod tests {
                 &"asset0000".to_string(),
                 &Decimal::percent(200),
                 &Decimal::zero(),
+                &false,
             ),
             (
                 &"asset0001".to_string(),
                 &Decimal::percent(50),
                 &Decimal::zero(),
+                &false,
             ),
         ]);
 

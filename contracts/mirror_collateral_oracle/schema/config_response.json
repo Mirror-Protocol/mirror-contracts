@@ -4,11 +4,19 @@
   "type": "object",
   "required": [
     "base_denom",
+    "factory_contract",
+    "mint_contract",
     "owner"
   ],
   "properties": {
     "base_denom": {
       "type": "string"
+    },
+    "factory_contract": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "mint_contract": {
+      "$ref": "#/definitions/HumanAddr"
     },
     "owner": {
       "$ref": "#/definitions/HumanAddr"

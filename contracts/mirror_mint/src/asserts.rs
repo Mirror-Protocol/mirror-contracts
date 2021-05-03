@@ -42,6 +42,18 @@ pub fn assert_migrated_asset(asset_config: &AssetConfig) -> StdResult<()> {
     Ok(())
 }
 
+pub fn assert_revoked_collateral(
+    load_collateral_res: (Decimal, Decimal, bool),
+) -> StdResult<(Decimal, Decimal)> {
+    if load_collateral_res.2 {
+        return Err(StdError::generic_err(
+            "The collateral asset provided is no longer valid",
+        ));
+    }
+
+    Ok((load_collateral_res.0, load_collateral_res.1))
+}
+
 pub fn assert_auction_discount(auction_discount: Decimal) -> StdResult<()> {
     if auction_discount > Decimal::one() {
         Err(StdError::generic_err(
