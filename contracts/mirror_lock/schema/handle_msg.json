@@ -1,0 +1,122 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "HandleMsg",
+  "anyOf": [
+    {
+      "type": "object",
+      "required": [
+        "update_config"
+      ],
+      "properties": {
+        "update_config": {
+          "type": "object",
+          "properties": {
+            "base_denom": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "lockup_period": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "mint_contract": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "owner": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "lock_position_funds_hook"
+      ],
+      "properties": {
+        "lock_position_funds_hook": {
+          "type": "object",
+          "required": [
+            "position_idx",
+            "receiver"
+          ],
+          "properties": {
+            "position_idx": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "receiver": {
+              "$ref": "#/definitions/HumanAddr"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "unlock_position_funds"
+      ],
+      "properties": {
+        "unlock_position_funds": {
+          "type": "object",
+          "required": [
+            "position_idx"
+          ],
+          "properties": {
+            "position_idx": {
+              "$ref": "#/definitions/Uint128"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "release_position_funds"
+      ],
+      "properties": {
+        "release_position_funds": {
+          "type": "object",
+          "required": [
+            "position_idx"
+          ],
+          "properties": {
+            "position_idx": {
+              "$ref": "#/definitions/Uint128"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "HumanAddr": {
+      "type": "string"
+    },
+    "Uint128": {
+      "type": "string"
+    }
+  }
+}
