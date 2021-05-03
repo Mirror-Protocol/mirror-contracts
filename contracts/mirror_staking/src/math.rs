@@ -23,15 +23,7 @@ pub fn reverse_decimal(decimal: Decimal) -> Decimal {
 }
 
 // p == premium * 100
-pub fn erf_plus_one(p: Decimal) -> Decimal {
-    if p >= Decimal::from_ratio(10u128, 1u128) {
-        return Decimal::from_ratio(2u128, 1u128);
-    }
-
-    if p <= Decimal::from_ratio(9u128, 10u128) {
-        return Decimal::zero();
-    }
-
+fn erf_plus_one(sign_x: Sign, x: Decimal) -> Decimal {
     let e6 = 1000000u128;
     let e10 = 10000000000u128;
     let a1 = Decimal::from_ratio(705230784u128, e10);
@@ -43,19 +35,6 @@ pub fn erf_plus_one(p: Decimal) -> Decimal {
 
     let one = Decimal::one();
     let two = one + one;
-    let three = two + one;
-    let sqrt_two = Decimal::from_ratio(14142135624u128, e10);
-    let (sign_x, x) = if p > three {
-        (
-            Sign::Positive,
-            decimal_division(decimal_subtraction(p, three), sqrt_two),
-        )
-    } else {
-        (
-            Sign::Negative,
-            decimal_division(decimal_subtraction(three, p), sqrt_two),
-        )
-    };
 
     // ((((((a6 * x) + a5) * x + a4 ) * x + a3) * x + a2) * x + a1) * x + 1
     let sign = sign_x.clone();
@@ -92,22 +71,35 @@ pub fn erf_plus_one(p: Decimal) -> Decimal {
 
 // (1 + erf(premium * 100)) / 5
 pub fn short_reward_weight(premium_rate: Decimal) -> Decimal {
-    if premium_rate >= Decimal::percent(10) {
+    if premium_rate > Decimal::percent(10) {
         return Decimal::percent(40);
     }
 
-    // if premium_rate < 0.9%; just return zero
-    if premium_rate <= Decimal::permille(9) {
+    // if premium_rate < 1%; just return zero
+    if premium_rate < Decimal::percent(1) {
         return Decimal::zero();
     }
 
-    return decimal_division(
-        erf_plus_one(decimal_multiplication(
-            premium_rate,
-            Decimal::from_ratio(100u128, 1u128),
-        )),
-        Decimal::from_ratio(5u128, 1u128),
-    );
+    let one = Decimal::one();
+    let two = one + one;
+    let three = two + one;
+    let e10 = 10000000000u128;
+    let sqrt_two = Decimal::from_ratio(14142135624u128, e10);
+
+    let p = decimal_multiplication(premium_rate, Decimal::from_ratio(100u128, 1u128));
+    let (sign_x, x) = if p > three {
+        (
+            Sign::Positive,
+            decimal_division(decimal_subtraction(p, three), sqrt_two),
+        )
+    } else {
+        (
+            Sign::Negative,
+            decimal_division(decimal_subtraction(three, p), sqrt_two),
+        )
+    };
+
+    return decimal_division(erf_plus_one(sign_x, x), Decimal::from_ratio(5u128, 1u128));
 }
 
 #[derive(PartialEq, Clone)]
@@ -147,4 +139,26 @@ fn sum_and_multiply_x(
             (Sign::Negative, val)
         }
     }
+}
+
+#[test]
+fn erf_plus_one_test() {
+    let e6 = 1000000u128;
+    let e10 = 10000000000u128;
+    assert_eq!(
+        erf_plus_one(Sign::Negative, Decimal::from_ratio(21213203435u128, e10)),
+        Decimal::zero()
+    );
+    assert_eq!(
+        erf_plus_one(Sign::Negative, Decimal::from_ratio(14142135623u128, e10)),
+        Decimal::from_ratio(013090u128, e6)
+    );
+    assert_eq!(
+        erf_plus_one(Sign::Positive, Decimal::zero()),
+        Decimal::from_ratio(1000000u128, e6)
+    );
+    assert_eq!(
+        erf_plus_one(Sign::Positive, Decimal::from_ratio(14142135623u128, e10)),
+        Decimal::from_ratio(1954499u128, e6)
+    );
 }
