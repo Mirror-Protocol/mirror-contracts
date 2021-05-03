@@ -56,7 +56,7 @@ mod tests {
             &mut deps.storage,
             &token_raw,
             &PoolInfo {
-                premium_rate: Decimal::percent(3),
+                premium_rate: Decimal::percent(2),
                 ..pool_info
             },
         )
@@ -199,7 +199,7 @@ mod tests {
             &mut deps.storage,
             &token_raw,
             &PoolInfo {
-                premium_rate: Decimal::percent(3),
+                premium_rate: Decimal::percent(2),
                 ..pool_info
             },
         )
@@ -319,7 +319,7 @@ mod tests {
             &mut deps.storage,
             &token_raw,
             &PoolInfo {
-                premium_rate: Decimal::percent(3),
+                premium_rate: Decimal::percent(2),
                 ..pool_info
             },
         )
@@ -477,7 +477,7 @@ mod tests {
             &mut deps.storage,
             &token_raw,
             &PoolInfo {
-                premium_rate: Decimal::percent(3),
+                premium_rate: Decimal::percent(2),
                 ..pool_info
             },
         )
@@ -575,7 +575,7 @@ mod tests {
             &mut deps.storage,
             &token_raw,
             &PoolInfo {
-                premium_rate: Decimal::percent(3),
+                premium_rate: Decimal::percent(2),
                 ..pool_info
             },
         )
@@ -591,7 +591,7 @@ mod tests {
             &mut deps.storage,
             &token_raw,
             &PoolInfo {
-                premium_rate: Decimal::percent(3),
+                premium_rate: Decimal::percent(2),
                 ..pool_info
             },
         )

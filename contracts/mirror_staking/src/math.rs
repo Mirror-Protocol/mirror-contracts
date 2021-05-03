@@ -71,31 +71,25 @@ fn erf_plus_one(sign_x: Sign, x: Decimal) -> Decimal {
 
 // (1 + erf(premium * 100)) / 5
 pub fn short_reward_weight(premium_rate: Decimal) -> Decimal {
-    if premium_rate > Decimal::percent(10) {
+    if premium_rate > Decimal::percent(7) {
         return Decimal::percent(40);
-    }
-
-    // if premium_rate < 1%; just return zero
-    if premium_rate < Decimal::percent(1) {
-        return Decimal::zero();
     }
 
     let one = Decimal::one();
     let two = one + one;
-    let three = two + one;
     let e10 = 10000000000u128;
     let sqrt_two = Decimal::from_ratio(14142135624u128, e10);
 
     let p = decimal_multiplication(premium_rate, Decimal::from_ratio(100u128, 1u128));
-    let (sign_x, x) = if p > three {
+    let (sign_x, x) = if p > two {
         (
             Sign::Positive,
-            decimal_division(decimal_subtraction(p, three), sqrt_two),
+            decimal_division(decimal_subtraction(p, two), sqrt_two),
         )
     } else {
         (
             Sign::Negative,
-            decimal_division(decimal_subtraction(three, p), sqrt_two),
+            decimal_division(decimal_subtraction(two, p), sqrt_two),
         )
     };
 
