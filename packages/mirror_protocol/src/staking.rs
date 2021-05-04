@@ -12,9 +12,6 @@ pub struct InitMsg {
     pub oracle_contract: HumanAddr,
     pub terraswap_factory: HumanAddr,
     pub base_denom: String,
-    pub premium_tolerance: Decimal,
-    pub short_reward_weight: Decimal,
-    pub premium_short_reward_weight: Decimal,
     pub premium_min_update_interval: u64,
 }
 
@@ -28,9 +25,6 @@ pub enum HandleMsg {
     ////////////////////////
     UpdateConfig {
         owner: Option<HumanAddr>,
-        premium_tolerance: Option<Decimal>,
-        short_reward_weight: Option<Decimal>,
-        premium_short_reward_weight: Option<Decimal>,
         premium_min_update_interval: Option<u64>,
     },
     RegisterAsset {
@@ -87,9 +81,6 @@ pub struct MigrateMsg {
     pub oracle_contract: HumanAddr,
     pub terraswap_factory: HumanAddr,
     pub base_denom: String,
-    pub premium_tolerance: Decimal,
-    pub short_reward_weight: Decimal,
-    pub premium_short_reward_weight: Decimal,
     pub premium_min_update_interval: u64,
 }
 
@@ -115,9 +106,6 @@ pub struct ConfigResponse {
     pub oracle_contract: HumanAddr,
     pub terraswap_factory: HumanAddr,
     pub base_denom: String,
-    pub premium_tolerance: Decimal,
-    pub short_reward_weight: Decimal,
-    pub premium_short_reward_weight: Decimal,
     pub premium_min_update_interval: u64,
 }
 

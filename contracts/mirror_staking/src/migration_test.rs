@@ -52,9 +52,6 @@ mod tests {
                 .canonical_address(&HumanAddr::from("terraswap_factory"))
                 .unwrap(),
             "uusd".to_string(),
-            Decimal::percent(5),
-            Decimal::percent(20),
-            Decimal::percent(40),
             7200,
         )
         .unwrap();
@@ -82,9 +79,6 @@ mod tests {
                     .canonical_address(&HumanAddr::from("terraswap_factory"))
                     .unwrap(),
                 base_denom: "uusd".to_string(),
-                premium_tolerance: Decimal::percent(5),
-                short_reward_weight: Decimal::percent(20),
-                premium_short_reward_weight: Decimal::percent(40),
                 premium_min_update_interval: 7200,
             },
             read_config(&deps.storage).unwrap()

@@ -32,9 +32,6 @@ mod tests {
             oracle_contract: HumanAddr::from("oracle"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
-            premium_tolerance: Decimal::percent(2),
-            short_reward_weight: Decimal::percent(20),
-            premium_short_reward_weight: Decimal::percent(40),
             premium_min_update_interval: 3600,
         };
 
@@ -48,6 +45,22 @@ mod tests {
 
         let env = mock_env("owner", &[]);
         let _res = handle(&mut deps, env, msg.clone()).unwrap();
+
+        // store 3% premium rate
+        let token_raw = deps
+            .api
+            .canonical_address(&HumanAddr::from("asset"))
+            .unwrap();
+        let pool_info = read_pool_info(&deps.storage, &token_raw).unwrap();
+        store_pool_info(
+            &mut deps.storage,
+            &token_raw,
+            &PoolInfo {
+                premium_rate: Decimal::percent(2),
+                ..pool_info
+            },
+        )
+        .unwrap();
 
         // bond 100 tokens
         let msg = HandleMsg::Receive(Cw20ReceiveMsg {
@@ -162,9 +175,6 @@ mod tests {
             oracle_contract: HumanAddr::from("oracle"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
-            premium_tolerance: Decimal::percent(2),
-            short_reward_weight: Decimal::percent(20),
-            premium_short_reward_weight: Decimal::percent(40),
             premium_min_update_interval: 3600,
         };
 
@@ -178,6 +188,22 @@ mod tests {
 
         let env = mock_env("owner", &[]);
         let _res = handle(&mut deps, env, msg.clone()).unwrap();
+
+        // store 3% premium rate
+        let token_raw = deps
+            .api
+            .canonical_address(&HumanAddr::from("asset"))
+            .unwrap();
+        let pool_info = read_pool_info(&deps.storage, &token_raw).unwrap();
+        store_pool_info(
+            &mut deps.storage,
+            &token_raw,
+            &PoolInfo {
+                premium_rate: Decimal::percent(2),
+                ..pool_info
+            },
+        )
+        .unwrap();
 
         // factory deposit 100 reward tokens
         // premium is 0, so rewards distributed 80:20
@@ -269,9 +295,6 @@ mod tests {
             oracle_contract: HumanAddr::from("oracle"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
-            premium_tolerance: Decimal::percent(2),
-            short_reward_weight: Decimal::percent(20),
-            premium_short_reward_weight: Decimal::percent(40),
             premium_min_update_interval: 3600,
         };
 
@@ -285,6 +308,22 @@ mod tests {
 
         let env = mock_env("owner", &[]);
         let _res = handle(&mut deps, env, msg.clone()).unwrap();
+
+        // store 3% premium rate
+        let token_raw = deps
+            .api
+            .canonical_address(&HumanAddr::from("asset"))
+            .unwrap();
+        let pool_info = read_pool_info(&deps.storage, &token_raw).unwrap();
+        store_pool_info(
+            &mut deps.storage,
+            &token_raw,
+            &PoolInfo {
+                premium_rate: Decimal::percent(2),
+                ..pool_info
+            },
+        )
+        .unwrap();
 
         // bond 100 tokens
         let msg = HandleMsg::Receive(Cw20ReceiveMsg {
@@ -414,9 +453,6 @@ mod tests {
             oracle_contract: HumanAddr::from("oracle"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
-            premium_tolerance: Decimal::percent(2),
-            short_reward_weight: Decimal::percent(20),
-            premium_short_reward_weight: Decimal::percent(40),
             premium_min_update_interval: 3600,
         };
 
@@ -430,6 +466,22 @@ mod tests {
 
         let env = mock_env("owner", &[]);
         let _res = handle(&mut deps, env, msg.clone()).unwrap();
+
+        // store 3% premium rate
+        let token_raw = deps
+            .api
+            .canonical_address(&HumanAddr::from("asset"))
+            .unwrap();
+        let pool_info = read_pool_info(&deps.storage, &token_raw).unwrap();
+        store_pool_info(
+            &mut deps.storage,
+            &token_raw,
+            &PoolInfo {
+                premium_rate: Decimal::percent(2),
+                ..pool_info
+            },
+        )
+        .unwrap();
 
         // bond 100 tokens
         let msg = HandleMsg::Receive(Cw20ReceiveMsg {
@@ -491,9 +543,6 @@ mod tests {
             oracle_contract: HumanAddr::from("oracle"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
-            premium_tolerance: Decimal::percent(2),
-            short_reward_weight: Decimal::percent(20),
-            premium_short_reward_weight: Decimal::percent(40),
             premium_min_update_interval: 3600,
         };
 
@@ -515,6 +564,38 @@ mod tests {
 
         let env = mock_env("owner", &[]);
         let _res = handle(&mut deps, env, msg.clone()).unwrap();
+
+        // store 3% premium rate
+        let token_raw = deps
+            .api
+            .canonical_address(&HumanAddr::from("asset"))
+            .unwrap();
+        let pool_info = read_pool_info(&deps.storage, &token_raw).unwrap();
+        store_pool_info(
+            &mut deps.storage,
+            &token_raw,
+            &PoolInfo {
+                premium_rate: Decimal::percent(2),
+                ..pool_info
+            },
+        )
+        .unwrap();
+
+        // store 3% premium rate for asset2
+        let token_raw = deps
+            .api
+            .canonical_address(&HumanAddr::from("asset2"))
+            .unwrap();
+        let pool_info = read_pool_info(&deps.storage, &token_raw).unwrap();
+        store_pool_info(
+            &mut deps.storage,
+            &token_raw,
+            &PoolInfo {
+                premium_rate: Decimal::percent(2),
+                ..pool_info
+            },
+        )
+        .unwrap();
 
         // bond 100 tokens
         let msg = HandleMsg::Receive(Cw20ReceiveMsg {
@@ -693,9 +774,6 @@ mod tests {
             oracle_contract: HumanAddr::from("oracle"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
-            premium_tolerance: Decimal::percent(2),
-            short_reward_weight: Decimal::percent(20),
-            premium_short_reward_weight: Decimal::percent(40),
             premium_min_update_interval: 3600,
         };
 

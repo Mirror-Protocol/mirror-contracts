@@ -18,9 +18,6 @@ pub struct Config {
     pub oracle_contract: CanonicalAddr,
     pub terraswap_factory: CanonicalAddr,
     pub base_denom: String,
-    pub premium_tolerance: Decimal,
-    pub short_reward_weight: Decimal,
-    pub premium_short_reward_weight: Decimal,
     pub premium_min_update_interval: u64,
 }
 

@@ -29,9 +29,6 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
             oracle_contract: deps.api.canonical_address(&msg.oracle_contract)?,
             terraswap_factory: deps.api.canonical_address(&msg.terraswap_factory)?,
             base_denom: msg.base_denom,
-            premium_tolerance: msg.premium_tolerance,
-            short_reward_weight: msg.short_reward_weight,
-            premium_short_reward_weight: msg.premium_short_reward_weight,
             premium_min_update_interval: msg.premium_min_update_interval,
         },
     )?;
@@ -48,19 +45,8 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::Receive(msg) => receive_cw20(deps, env, msg),
         HandleMsg::UpdateConfig {
             owner,
-            premium_tolerance,
-            short_reward_weight,
-            premium_short_reward_weight,
             premium_min_update_interval,
-        } => update_config(
-            deps,
-            env,
-            owner,
-            premium_tolerance,
-            short_reward_weight,
-            premium_short_reward_weight,
-            premium_min_update_interval,
-        ),
+        } => update_config(deps, env, owner, premium_min_update_interval),
         HandleMsg::RegisterAsset {
             asset_token,
             staking_token,
@@ -131,9 +117,6 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     owner: Option<HumanAddr>,
-    premium_tolerance: Option<Decimal>,
-    short_reward_weight: Option<Decimal>,
-    premium_short_reward_weight: Option<Decimal>,
     premium_min_update_interval: Option<u64>,
 ) -> StdResult<HandleResponse> {
     let mut config: Config = read_config(&deps.storage)?;
@@ -144,18 +127,6 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
 
     if let Some(owner) = owner {
         config.owner = deps.api.canonical_address(&owner)?;
-    }
-
-    if let Some(premium_tolerance) = premium_tolerance {
-        config.premium_tolerance = premium_tolerance;
-    }
-
-    if let Some(short_reward_weight) = short_reward_weight {
-        config.short_reward_weight = short_reward_weight;
-    }
-
-    if let Some(premium_short_reward_weight) = premium_short_reward_weight {
-        config.premium_short_reward_weight = premium_short_reward_weight;
     }
 
     if let Some(premium_min_update_interval) = premium_min_update_interval {
@@ -238,9 +209,6 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
         oracle_contract: deps.api.human_address(&state.oracle_contract)?,
         terraswap_factory: deps.api.human_address(&state.terraswap_factory)?,
         base_denom: state.base_denom,
-        premium_tolerance: state.premium_tolerance,
-        short_reward_weight: state.short_reward_weight,
-        premium_short_reward_weight: state.premium_short_reward_weight,
         premium_min_update_interval: state.premium_min_update_interval,
     };
 
@@ -278,9 +246,6 @@ pub fn migrate<S: Storage, A: Api, Q: Querier>(
         deps.api.canonical_address(&msg.oracle_contract)?,
         deps.api.canonical_address(&msg.terraswap_factory)?,
         msg.base_denom,
-        msg.premium_tolerance,
-        msg.short_reward_weight,
-        msg.premium_short_reward_weight,
         msg.premium_min_update_interval,
     )?;
 
