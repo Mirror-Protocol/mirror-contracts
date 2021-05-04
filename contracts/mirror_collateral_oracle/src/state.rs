@@ -14,6 +14,8 @@ static KEY_CONFIG: &[u8] = b"config";
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
     pub owner: CanonicalAddr,
+    pub mint_contract: CanonicalAddr,
+    pub factory_contract: CanonicalAddr,
     pub base_denom: String,
 }
 
@@ -30,6 +32,7 @@ pub struct CollateralAssetInfo {
     pub asset: String,
     pub query_request: Binary,
     pub collateral_premium: Decimal,
+    pub is_revoked: bool,
 }
 
 pub fn store_collateral_info<S: Storage>(
@@ -63,6 +66,7 @@ pub fn read_collateral_infos<S: Storage>(storage: &S) -> StdResult<Vec<Collatera
                 asset: v.asset,
                 query_request: wasm_query,
                 collateral_premium: v.collateral_premium,
+                is_revoked: v.is_revoked,
             })
         })
         .collect()

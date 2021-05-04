@@ -1,7 +1,7 @@
 use cosmwasm_std::{
-    from_binary, log, to_binary, Api, Binary, Decimal, Env, Extern, HandleResponse, HandleResult,
-    HumanAddr, InitResponse, MigrateResponse, MigrateResult, Querier, StdError, StdResult, Storage,
-    Uint128,
+    from_binary, log, to_binary, Api, Binary, CosmosMsg, Decimal, Env, Extern, HandleResponse,
+    HandleResult, HumanAddr, InitResponse, MigrateResponse, MigrateResult, Querier, StdError,
+    StdResult, Storage, Uint128, WasmMsg, WasmQuery,
 };
 
 use crate::{
@@ -18,9 +18,11 @@ use crate::{
 };
 
 use cw20::Cw20ReceiveMsg;
+use mirror_protocol::collateral_oracle::HandleMsg as CollateralOracleHandleMsg;
 use mirror_protocol::mint::{
     AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrateMsg, QueryMsg,
 };
+use mirror_protocol::oracle::QueryMsg as OracleQueryMsg;
 use terraswap::asset::{Asset, AssetInfo};
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
@@ -325,8 +327,25 @@ pub fn register_asset<S: Storage, A: Api, Q: Querier>(
         },
     )?;
 
+    // register the new asset as collateral in collateral oracle
     Ok(HandleResponse {
-        messages: vec![],
+        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: deps.api.human_address(&config.collateral_oracle)?,
+            send: vec![],
+            msg: to_binary(&CollateralOracleHandleMsg::RegisterCollateralAsset {
+                asset: AssetInfo::Token {
+                    contract_addr: asset_token.clone(),
+                },
+                collateral_premium: Decimal::zero(), // default collateral premium for new mAssets
+                query_request: to_binary(&WasmQuery::Smart {
+                    contract_addr: deps.api.human_address(&config.oracle)?,
+                    msg: to_binary(&OracleQueryMsg::Price {
+                        base_asset: config.base_denom,
+                        quote_asset: asset_token.to_string(),
+                    })?,
+                })?,
+            })?,
+        })],
         log: vec![log("action", "register"), log("asset_token", asset_token)],
         data: None,
     })
@@ -358,8 +377,17 @@ pub fn register_migration<S: Storage, A: Api, Q: Querier>(
         },
     )?;
 
+    // flag asset as revoked in the collateral oracle
     Ok(HandleResponse {
-        messages: vec![],
+        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: deps.api.human_address(&config.collateral_oracle)?,
+            send: vec![],
+            msg: to_binary(&CollateralOracleHandleMsg::RevokeCollateralAsset {
+                asset: AssetInfo::Token {
+                    contract_addr: asset_token.clone(),
+                },
+            })?,
+        })],
         log: vec![
             log("action", "migrate_asset"),
             log("asset_token", asset_token.as_str()),

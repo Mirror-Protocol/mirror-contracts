@@ -40,25 +40,33 @@ pub fn load_collateral_info<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     collateral_oracle: &HumanAddr,
     collateral: &AssetInfoRaw,
-) -> StdResult<(Decimal, Decimal)> {
+) -> StdResult<(Decimal, Decimal, bool)> {
     let config: Config = read_config(&deps.storage)?;
-
-    let end_price = read_end_price(&deps.storage, &collateral);
     let collateral_denom: String = (collateral.to_normal(&deps)?).to_string();
+
+    // base collateral
     if collateral_denom == config.base_denom {
-        return Ok((Decimal::one(), Decimal::zero()));
+        return Ok((Decimal::one(), Decimal::zero(), false));
     }
 
-    let (collateral_oracle_price, collateral_premium) =
-        query_collateral(deps, collateral_oracle, collateral_denom.clone())?;
+    // load collateral info from collateral oracle
+    let (collateral_oracle_price, collateral_premium, is_revoked) =
+        if let Ok(response) = query_collateral(deps, collateral_oracle, collateral_denom.clone()) {
+            response
+        } else {
+            return Err(StdError::generic_err(
+                "Collateral asset information not found",
+            ));
+        };
 
-    let price = if let Some(end_price) = end_price {
-        end_price
+    // check if the collateral is a revoked mAsset
+    let end_price = read_end_price(&deps.storage, &collateral);
+
+    if let Some(end_price) = end_price {
+        Ok((end_price, collateral_premium, true))
     } else {
-        collateral_oracle_price
-    };
-
-    Ok((price, collateral_premium))
+        Ok((collateral_oracle_price, collateral_premium, is_revoked))
+    }
 }
 
 pub fn query_price<S: Storage, A: Api, Q: Querier>(
@@ -92,12 +100,12 @@ pub fn query_collateral<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     collateral_oracle: &HumanAddr,
     asset: String,
-) -> StdResult<(Decimal, Decimal)> {
+) -> StdResult<(Decimal, Decimal, bool)> {
     let res: CollateralPriceResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
             contract_addr: HumanAddr::from(collateral_oracle),
             msg: to_binary(&CollateralOracleQueryMsg::CollateralPrice { asset })?,
         }))?;
 
-    Ok((res.rate, res.collateral_premium))
+    Ok((res.rate, res.collateral_premium, res.is_revoked))
 }

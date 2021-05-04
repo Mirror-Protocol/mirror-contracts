@@ -8,6 +8,7 @@ mod tests {
         StdError, Uint128, WasmMsg,
     };
     use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
+    use mirror_protocol::collateral_oracle::HandleMsg::RevokeCollateralAsset;
     use mirror_protocol::mint::{
         AssetConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, PositionResponse, PositionsResponse,
         QueryMsg,
@@ -104,6 +105,19 @@ mod tests {
                 log("end_price", "0.5"),
             ]
         );
+        assert_eq!(
+            res.messages,
+            vec![CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from("collateraloracle0000"),
+                send: vec![],
+                msg: to_binary(&RevokeCollateralAsset {
+                    asset: AssetInfo::Token {
+                        contract_addr: HumanAddr::from("asset0000"),
+                    },
+                })
+                .unwrap(),
+            })]
+        );
 
         let res = query(
             &deps,
@@ -144,6 +158,7 @@ mod tests {
             &"asset0000".to_string(),
             &Decimal::percent(100),
             &Decimal::zero(),
+            &false,
         )]);
 
         let base_denom = "uusd".to_string();
@@ -253,27 +268,33 @@ mod tests {
         let res = handle(&mut deps, env, msg).unwrap_err();
         match res {
             StdError::GenericErr { msg, .. } => {
-                assert_eq!(msg, "Operation is not allowed for the deprecated asset")
+                assert_eq!(msg, "The collateral asset provided is no longer valid")
             }
             _ => panic!("DO NOT ENTER HERE"),
         }
 
         // cannot open a deprecated asset position
-        let msg = HandleMsg::Receive(Cw20ReceiveMsg {
-            msg: Some(
-                to_binary(&Cw20HookMsg::OpenPosition {
-                    asset_info: AssetInfo::Token {
-                        contract_addr: HumanAddr::from("asset0000"),
-                    },
-                    collateral_ratio: Decimal::percent(150),
-                    short_params: None,
-                })
-                .unwrap(),
-            ),
-            sender: HumanAddr::from("addr0001"),
-            amount: Uint128(1000000u128),
-        });
-        let env = mock_env_with_block_time("asset0000", &[], 1000);
+        let msg = HandleMsg::OpenPosition {
+            collateral: Asset {
+                info: AssetInfo::NativeToken {
+                    denom: "uusd".to_string(),
+                },
+                amount: Uint128(100u128),
+            },
+            asset_info: AssetInfo::Token {
+                contract_addr: HumanAddr::from("asset0000"),
+            },
+            collateral_ratio: Decimal::percent(150),
+            short_params: None,
+        };
+        let env = mock_env_with_block_time(
+            "addr0000",
+            &[Coin {
+                amount: Uint128(100u128),
+                denom: "uusd".to_string(),
+            }],
+            1000,
+        );
         let res = handle(&mut deps, env, msg).unwrap_err();
         match res {
             StdError::GenericErr { msg, .. } => {
@@ -307,7 +328,7 @@ mod tests {
             _ => panic!("DO NOT ENTER HERE"),
         }
 
-        // cannot do deposit more collateral to the deprecated asset position
+        // cannot deposit more collateral to the deprecated collateral position
         let msg = HandleMsg::Receive(Cw20ReceiveMsg {
             msg: Some(
                 to_binary(&Cw20HookMsg::Deposit {
@@ -322,7 +343,7 @@ mod tests {
         let res = handle(&mut deps, env, msg).unwrap_err();
         match res {
             StdError::GenericErr { msg, .. } => {
-                assert_eq!(msg, "Operation is not allowed for the deprecated asset")
+                assert_eq!(msg, "The collateral asset provided is no longer valid")
             }
             _ => panic!("DO NOT ENTER HERE"),
         }
@@ -347,7 +368,7 @@ mod tests {
             _ => panic!("DO NOT ENTER HERE"),
         }
 
-        // cannot mint more the asset with deprecated position
+        // cannot mint more asset with deprecated collateral
         let msg = HandleMsg::Mint {
             position_idx: Uint128(2u128),
             asset: Asset {
@@ -362,7 +383,7 @@ mod tests {
         let res = handle(&mut deps, env, msg).unwrap_err();
         match res {
             StdError::GenericErr { msg, .. } => {
-                assert_eq!(msg, "Operation is not allowed for the deprecated asset")
+                assert_eq!(msg, "The collateral asset provided is no longer valid")
             }
             _ => panic!("DO NOT ENTER HERE"),
         }
@@ -519,6 +540,7 @@ mod tests {
             &"asset0000".to_string(),
             &Decimal::percent(100),
             &Decimal::zero(),
+            &false,
         )]);
 
         let base_denom = "uusd".to_string();
@@ -719,5 +741,185 @@ mod tests {
         .unwrap();
         let positions: PositionsResponse = from_binary(&res).unwrap();
         assert_eq!(positions, PositionsResponse { positions: vec![] });
+    }
+
+    #[test]
+    fn revoked_collateral() {
+        let mut deps = mock_dependencies(20, &[]);
+        deps.querier.with_token_balances(&[(
+            &HumanAddr::from("asset000"),
+            &[(
+                &HumanAddr::from(MOCK_CONTRACT_ADDR),
+                &Uint128::from(1000000u128),
+            )],
+        )]);
+        deps.querier.with_oracle_price(&[
+            (&"uusd".to_string(), &Decimal::one()),
+            (&"asset0000".to_string(), &Decimal::percent(100)),
+        ]);
+        deps.querier.with_collateral_infos(&[(
+            &"uluna".to_string(),
+            &Decimal::percent(10),
+            &Decimal::percent(50),
+            &false,
+        )]);
+
+        let base_denom = "uusd".to_string();
+
+        let msg = InitMsg {
+            owner: HumanAddr::from("owner0000"),
+            oracle: HumanAddr::from("oracle0000"),
+            collector: HumanAddr::from("collector0000"),
+            collateral_oracle: HumanAddr::from("collateraloracle0000"),
+            staking: HumanAddr::from("staking0000"),
+            terraswap_factory: HumanAddr::from("terraswap_factory"),
+            base_denom: base_denom.clone(),
+            token_code_id: TOKEN_CODE_ID,
+            protocol_fee_rate: Decimal::percent(1),
+        };
+
+        let env = mock_env("addr0000", &[]);
+        let _res = init(&mut deps, env, msg).unwrap();
+
+        let msg = HandleMsg::RegisterAsset {
+            asset_token: HumanAddr::from("asset0000"),
+            auction_discount: Decimal::percent(20),
+            min_collateral_ratio: Decimal::percent(150),
+            mint_end: None,
+            min_collateral_ratio_after_migration: None,
+        };
+        let env = mock_env("owner0000", &[]);
+        let _res = handle(&mut deps, env, msg).unwrap();
+
+        // Open uluna:asset0000 position
+        let msg = HandleMsg::OpenPosition {
+            collateral: Asset {
+                info: AssetInfo::NativeToken {
+                    denom: "uluna".to_string(),
+                },
+                amount: Uint128(1000u128),
+            },
+            asset_info: AssetInfo::Token {
+                contract_addr: HumanAddr::from("asset0000"),
+            },
+            collateral_ratio: Decimal::percent(200),
+            short_params: None,
+        };
+        let env = mock_env_with_block_time(
+            "addr0000",
+            &[Coin {
+                amount: Uint128(1000u128),
+                denom: "uluna".to_string(),
+            }],
+            1000,
+        );
+        let _res = handle(&mut deps, env, msg.clone()).unwrap();
+
+        // collateral is revoked
+        deps.querier.with_collateral_infos(&[(
+            &"uluna".to_string(),
+            &Decimal::percent(100),
+            &Decimal::percent(50),
+            &true,
+        )]);
+
+        // open position fails
+        let env = mock_env_with_block_time(
+            "addr0000",
+            &[Coin {
+                amount: Uint128(1000u128),
+                denom: "uluna".to_string(),
+            }],
+            1000,
+        );
+        let res = handle(&mut deps, env, msg.clone()).unwrap_err();
+        assert_eq!(
+            res,
+            StdError::generic_err("The collateral asset provided is no longer valid")
+        );
+
+        // minting to previously open position fails
+        let msg = HandleMsg::Mint {
+            position_idx: Uint128(1u128),
+            asset: Asset {
+                info: AssetInfo::Token {
+                    contract_addr: HumanAddr::from("asset0000"),
+                },
+                amount: Uint128(1u128),
+            },
+            short_params: None,
+        };
+        let env = mock_env("addr0000", &[]);
+        let res = handle(&mut deps, env, msg.clone()).unwrap_err();
+        assert_eq!(
+            res,
+            StdError::generic_err("The collateral asset provided is no longer valid")
+        );
+
+        // deposit fails
+        let msg = HandleMsg::Deposit {
+            position_idx: Uint128(1u128),
+            collateral: Asset {
+                info: AssetInfo::NativeToken {
+                    denom: "uluna".to_string(),
+                },
+                amount: Uint128(2u128),
+            },
+        };
+        let env = mock_env_with_block_time(
+            "addr0000",
+            &[Coin {
+                amount: Uint128(2u128),
+                denom: "uluna".to_string(),
+            }],
+            1000,
+        );
+        let res = handle(&mut deps, env, msg.clone()).unwrap_err();
+        assert_eq!(
+            res,
+            StdError::generic_err("The collateral asset provided is no longer valid")
+        );
+
+        // burn against revoked collateral is enabled
+        // fail attempt, only owner can burn
+        let msg = HandleMsg::Receive(Cw20ReceiveMsg {
+            sender: HumanAddr::from("addr0001"),
+            amount: Uint128::from(10u128),
+            msg: Some(
+                to_binary(&Cw20HookMsg::Burn {
+                    position_idx: Uint128(1u128),
+                })
+                .unwrap(),
+            ),
+        });
+        let env = mock_env("asset0000", &[]);
+        let res = handle(&mut deps, env, msg).unwrap_err();
+        assert_eq!(res, StdError::unauthorized());
+        // sucessful attempt
+        let msg = HandleMsg::Receive(Cw20ReceiveMsg {
+            sender: HumanAddr::from("addr0000"),
+            amount: Uint128::from(10u128),
+            msg: Some(
+                to_binary(&Cw20HookMsg::Burn {
+                    position_idx: Uint128(1u128),
+                })
+                .unwrap(),
+            ),
+        });
+        let env = mock_env("asset0000", &[]);
+        let _res = handle(&mut deps, env, msg).unwrap();
+
+        // owner can withdraw revoked collateral
+        let msg = HandleMsg::Withdraw {
+            position_idx: Uint128(1u128),
+            collateral: Asset {
+                info: AssetInfo::NativeToken {
+                    denom: "uluna".to_string(),
+                },
+                amount: Uint128(2u128),
+            },
+        };
+        let env = mock_env_with_block_time("addr0000", &[], 1000);
+        let _res = handle(&mut deps, env, msg.clone()).unwrap();
     }
 }

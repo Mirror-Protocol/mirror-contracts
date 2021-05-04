@@ -6,7 +6,7 @@ use cosmwasm_std::{
 use crate::{
     asserts::{
         assert_asset, assert_burn_period, assert_collateral, assert_migrated_asset,
-        assert_mint_period,
+        assert_mint_period, assert_revoked_collateral,
     },
     math::{decimal_division, decimal_subtraction, reverse_decimal},
     querier::{load_asset_price, load_collateral_info},
@@ -40,31 +40,19 @@ pub fn open_position<S: Storage, A: Api, Q: Querier>(
     collateral_ratio: Decimal,
     short_params: Option<ShortParams>,
 ) -> StdResult<HandleResponse> {
+    let config: Config = read_config(&deps.storage)?;
     if collateral.amount.is_zero() {
         return Err(StdError::generic_err("Wrong collateral"));
     }
 
-    // assert collateral migrated
+    // assert the collateral is listed and has not been migrated/revoked
     let collateral_info_raw: AssetInfoRaw = collateral.info.to_raw(&deps)?;
-    match collateral_info_raw.clone() {
-        AssetInfoRaw::Token { contract_addr } => {
-            assert_migrated_asset(&read_asset_config(&deps.storage, &contract_addr)?)?;
-        }
-        _ => {}
-    };
-
-    // query collateral info from collateral oracle
-    let config: Config = read_config(&deps.storage)?;
     let collateral_oracle: HumanAddr = deps.api.human_address(&config.collateral_oracle)?;
-    let (collateral_price, collateral_premium) = if let Ok(response) =
-        load_collateral_info(deps, &collateral_oracle, &collateral_info_raw)
-    {
-        response
-    } else {
-        return Err(StdError::generic_err(
-            "The collateral asset provided is not valid",
-        ));
-    };
+    let (collateral_price, collateral_premium) = assert_revoked_collateral(load_collateral_info(
+        &deps,
+        &collateral_oracle,
+        &collateral_info_raw,
+    )?)?;
 
     // assert asset migrated
     let asset_info_raw: AssetInfoRaw = asset_info.to_raw(&deps)?;
@@ -221,6 +209,7 @@ pub fn deposit<S: Storage, A: Api, Q: Querier>(
     position_idx: Uint128,
     collateral: Asset,
 ) -> HandleResult {
+    let config: Config = read_config(&deps.storage)?;
     let mut position: Position = read_position(&deps.storage, position_idx)?;
     let position_owner = deps.api.human_address(&position.owner)?;
     if sender != position_owner {
@@ -232,13 +221,13 @@ pub fn deposit<S: Storage, A: Api, Q: Querier>(
     // also Check the collateral amount is non-zero
     assert_collateral(deps, &position, &collateral)?;
 
-    // assert collateral migrated
-    match position.collateral.info.clone() {
-        AssetInfoRaw::Token { contract_addr } => {
-            assert_migrated_asset(&read_asset_config(&deps.storage, &contract_addr)?)?;
-        }
-        _ => {}
-    };
+    // assert the collateral is listed and has not been migrated/revoked
+    let collateral_oracle: HumanAddr = deps.api.human_address(&config.collateral_oracle)?;
+    assert_revoked_collateral(load_collateral_info(
+        &deps,
+        &collateral_oracle,
+        &position.collateral.info,
+    )?)?;
 
     // assert asset migrated
     match position.asset.info.clone() {
@@ -269,6 +258,7 @@ pub fn withdraw<S: Storage, A: Api, Q: Querier>(
     position_idx: Uint128,
     collateral: Asset,
 ) -> HandleResult {
+    let config: Config = read_config(&deps.storage)?;
     let mut position: Position = read_position(&deps.storage, position_idx)?;
     let position_owner = deps.api.human_address(&position.owner)?;
     if env.message.sender != position_owner {
@@ -286,7 +276,6 @@ pub fn withdraw<S: Storage, A: Api, Q: Querier>(
         ));
     }
 
-    let config: Config = read_config(&deps.storage)?;
     let asset_token_raw = match position.asset.info.clone() {
         AssetInfoRaw::Token { contract_addr } => contract_addr,
         _ => panic!("DO NOT ENTER HERE"),
@@ -297,8 +286,9 @@ pub fn withdraw<S: Storage, A: Api, Q: Querier>(
     let asset_price: Decimal =
         load_asset_price(&deps, &oracle, &position.asset.info, Some(env.block.time))?;
 
+    // Fetch collateral info from collateral oracle
     let collateral_oracle: HumanAddr = deps.api.human_address(&config.collateral_oracle)?;
-    let (collateral_price, collateral_premium) =
+    let (collateral_price, collateral_premium, _collateral_is_revoked) =
         load_collateral_info(&deps, &collateral_oracle, &position.collateral.info)?;
 
     // Compute new collateral amount
@@ -383,6 +373,7 @@ pub fn mint<S: Storage, A: Api, Q: Querier>(
     asset: Asset,
     short_params: Option<ShortParams>,
 ) -> HandleResult {
+    let config: Config = read_config(&deps.storage)?;
     let mint_amount = asset.amount;
     let sender = env.message.sender.clone();
 
@@ -394,15 +385,6 @@ pub fn mint<S: Storage, A: Api, Q: Querier>(
 
     assert_asset(&deps, &position, &asset)?;
 
-    // assert the collateral migrated
-    match position.collateral.info.clone() {
-        AssetInfoRaw::Token { contract_addr } => {
-            assert_migrated_asset(&read_asset_config(&deps.storage, &contract_addr)?)?;
-        }
-        _ => {}
-    };
-
-    let config: Config = read_config(&deps.storage)?;
     let asset_token_raw = match position.asset.info.clone() {
         AssetInfoRaw::Token { contract_addr } => contract_addr,
         _ => panic!("DO NOT ENTER HERE"),
@@ -412,16 +394,20 @@ pub fn mint<S: Storage, A: Api, Q: Querier>(
     let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
     assert_migrated_asset(&asset_config)?;
 
+    // assert the collateral is listed and has not been migrated/revoked
+    let collateral_oracle: HumanAddr = deps.api.human_address(&config.collateral_oracle)?;
+    let (collateral_price, collateral_premium) = assert_revoked_collateral(load_collateral_info(
+        &deps,
+        &collateral_oracle,
+        &position.collateral.info,
+    )?)?;
+
     // for assets with limited minting period (preIPO assets), assert minting phase
     assert_mint_period(&env, &asset_config)?;
 
     let oracle: HumanAddr = deps.api.human_address(&config.oracle)?;
     let asset_price: Decimal =
         load_asset_price(&deps, &oracle, &position.asset.info, Some(env.block.time))?;
-
-    let collateral_oracle: HumanAddr = deps.api.human_address(&config.collateral_oracle)?;
-    let (collateral_price, collateral_premium) =
-        load_collateral_info(&deps, &collateral_oracle, &position.collateral.info)?;
 
     // Compute new asset amount
     let asset_amount: Uint128 = mint_amount + position.asset.amount;
@@ -587,8 +573,9 @@ pub fn burn<S: Storage, A: Api, Q: Querier>(
         let asset_price: Decimal =
             load_asset_price(&deps, &oracle, &position.asset.info, Some(env.block.time))?;
 
+        // fetch collateral info from collateral oracle
         let collateral_oracle: HumanAddr = deps.api.human_address(&config.collateral_oracle)?;
-        let (collateral_price, _collateral_premium) =
+        let (collateral_price, _collateral_premium, _collateral_is_revoked) =
             load_collateral_info(&deps, &collateral_oracle, &position.collateral.info)?;
 
         let collateral_price_in_asset = decimal_division(asset_price, collateral_price);
@@ -692,11 +679,11 @@ pub fn auction<S: Storage, A: Api, Q: Querier>(
     position_idx: Uint128,
     asset: Asset,
 ) -> StdResult<HandleResponse> {
+    let config: Config = read_config(&deps.storage)?;
     let mut position: Position = read_position(&deps.storage, position_idx)?;
     let position_owner = deps.api.human_address(&position.owner)?;
     assert_asset(&deps, &position, &asset)?;
 
-    let config: Config = read_config(&deps.storage)?;
     let asset_token_raw = match position.asset.info.clone() {
         AssetInfoRaw::Token { contract_addr } => contract_addr,
         _ => panic!("DO NOT ENTER HERE"),
@@ -718,8 +705,9 @@ pub fn auction<S: Storage, A: Api, Q: Querier>(
     let asset_price: Decimal =
         load_asset_price(&deps, &oracle, &position.asset.info, Some(env.block.time))?;
 
+    // fetch collateral info from collateral oracle
     let collateral_oracle: HumanAddr = deps.api.human_address(&config.collateral_oracle)?;
-    let (collateral_price, _collateral_premium) =
+    let (collateral_price, _collateral_premium, _collateral_is_revoked) =
         load_collateral_info(&deps, &collateral_oracle, &position.collateral.info)?;
 
     let collateral_price_in_asset: Decimal = decimal_division(asset_price, collateral_price);

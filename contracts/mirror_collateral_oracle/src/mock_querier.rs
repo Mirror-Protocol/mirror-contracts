@@ -1,6 +1,6 @@
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Api, Coin, Decimal, Empty, Extern, HumanAddr, Querier,
+    from_binary, from_slice, to_binary, Coin, Decimal, Empty, Extern, HumanAddr, Querier,
     QuerierResult, QueryRequest, SystemError, Uint128, WasmQuery,
 };
 use schemars::JsonSchema;
@@ -19,11 +19,8 @@ pub fn mock_dependencies(
     contract_balance: &[Coin],
 ) -> Extern<MockStorage, MockApi, WasmMockQuerier> {
     let contract_addr = HumanAddr::from(MOCK_CONTRACT_ADDR);
-    let custom_querier: WasmMockQuerier = WasmMockQuerier::new(
-        MockQuerier::new(&[(&contract_addr, contract_balance)]),
-        MockApi::new(canonical_length),
-        canonical_length,
-    );
+    let custom_querier: WasmMockQuerier =
+        WasmMockQuerier::new(MockQuerier::new(&[(&contract_addr, contract_balance)]));
 
     Extern {
         storage: MockStorage::default(),
@@ -36,7 +33,6 @@ pub struct WasmMockQuerier {
     base: MockQuerier<Empty>,
     oracle_price_querier: OraclePriceQuerier,
     terraswap_pools_querier: TerraswapPoolsQuerier,
-    canonical_length: usize,
 }
 
 #[derive(Clone, Default)]
@@ -171,12 +167,11 @@ impl WasmMockQuerier {
 }
 
 impl WasmMockQuerier {
-    pub fn new<A: Api>(base: MockQuerier<Empty>, _api: A, canonical_length: usize) -> Self {
+    pub fn new(base: MockQuerier<Empty>) -> Self {
         WasmMockQuerier {
             base,
             oracle_price_querier: OraclePriceQuerier::default(),
             terraswap_pools_querier: TerraswapPoolsQuerier::default(),
-            canonical_length,
         }
     }
 

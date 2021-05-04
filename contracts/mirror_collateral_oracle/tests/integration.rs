@@ -28,7 +28,7 @@ use mirror_protocol::collateral_oracle::{ConfigResponse, HandleMsg, InitMsg, Que
 
 // This line will test the output of cargo wasm
 static WASM: &[u8] =
-    include_bytes!("../../../target/wasm32-unknown-unknown/release/mirror_collaterals.wasm");
+    include_bytes!("../../../target/wasm32-unknown-unknown/release/mirror_collateral_oracle.wasm");
 // You can uncomment this line instead to test productionified build from rust-optimizer
 // static WASM: &[u8] = include_bytes!("../contract.wasm");
 
@@ -51,6 +51,9 @@ fn proper_initialization() {
 
     let msg = InitMsg {
         owner: HumanAddr::from("owner0000"),
+        mint_contract: HumanAddr("mint0000".to_string()),
+        factory_contract: HumanAddr("factory0000".to_string()),
+        base_denom: "uusd".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -69,7 +72,10 @@ fn proper_initialization() {
 fn update_owner() {
     let mut deps = mock_instance(WASM, &[]);
     let msg = InitMsg {
-        owner: HumanAddr("owner0000".to_string()),
+        owner: HumanAddr::from("owner0000"),
+        mint_contract: HumanAddr("mint0000".to_string()),
+        factory_contract: HumanAddr("factory0000".to_string()),
+        base_denom: "uusd".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -80,6 +86,9 @@ fn update_owner() {
     let env = mock_env("owner0000", &[]);
     let msg = HandleMsg::UpdateConfig {
         owner: Some(HumanAddr("owner0001".to_string())),
+        mint_contract: Some(HumanAddr("mint0000".to_string())),
+        factory_contract: Some(HumanAddr("factory0000".to_string())),
+        base_denom: Some("uusd".to_string()),
     };
 
     let res: HandleResponse = handle(&mut deps, env, msg).unwrap();
@@ -89,10 +98,18 @@ fn update_owner() {
     let query_result = query(&mut deps, QueryMsg::Config {}).unwrap();
     let value: ConfigResponse = from_binary(&query_result).unwrap();
     assert_eq!("owner0001", value.owner.as_str());
+    assert_eq!("mint0000", value.mint_contract.as_str());
+    assert_eq!("factory0000", value.factory_contract.as_str());
+    assert_eq!("uusd", value.base_denom.as_str());
 
     // Unauthorzied err
     let env = mock_env("addr0000", &[]);
-    let msg = HandleMsg::UpdateConfig { owner: None };
+    let msg = HandleMsg::UpdateConfig {
+        owner: None,
+        mint_contract: None,
+        factory_contract: None,
+        base_denom: None,
+    };
 
     let res: HandleResult = handle(&mut deps, env, msg);
     match res.unwrap_err() {
