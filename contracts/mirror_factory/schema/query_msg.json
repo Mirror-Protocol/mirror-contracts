@@ -16,97 +16,13 @@
     {
       "type": "object",
       "required": [
-        "feeder"
+        "distribution_info"
       ],
       "properties": {
-        "feeder": {
-          "type": "object",
-          "required": [
-            "asset_token"
-          ],
-          "properties": {
-            "asset_token": {
-              "$ref": "#/definitions/HumanAddr"
-            }
-          }
-        }
-      }
-    },
-    {
-      "type": "object",
-      "required": [
-        "price"
-      ],
-      "properties": {
-        "price": {
-          "type": "object",
-          "required": [
-            "base_asset",
-            "quote_asset"
-          ],
-          "properties": {
-            "base_asset": {
-              "type": "string"
-            },
-            "quote_asset": {
-              "type": "string"
-            }
-          }
-        }
-      }
-    },
-    {
-      "type": "object",
-      "required": [
-        "prices"
-      ],
-      "properties": {
-        "prices": {
-          "type": "object",
-          "properties": {
-            "limit": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint32",
-              "minimum": 0.0
-            },
-            "order_by": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/OrderBy"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "start_after": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/HumanAddr"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            }
-          }
+        "distribution_info": {
+          "type": "object"
         }
       }
     }
-  ],
-  "definitions": {
-    "HumanAddr": {
-      "type": "string"
-    },
-    "OrderBy": {
-      "type": "string",
-      "enum": [
-        "asc",
-        "desc"
-      ]
-    }
-  }
+  ]
 }

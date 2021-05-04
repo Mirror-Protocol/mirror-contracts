@@ -3,19 +3,45 @@
   "title": "InitMsg",
   "type": "object",
   "required": [
-    "base_asset",
-    "owner"
+    "base_denom",
+    "distribution_schedule",
+    "token_code_id"
   ],
   "properties": {
-    "base_asset": {
+    "base_denom": {
       "type": "string"
     },
-    "owner": {
-      "$ref": "#/definitions/HumanAddr"
+    "distribution_schedule": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": [
+          {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0.0
+          },
+          {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0.0
+          },
+          {
+            "$ref": "#/definitions/Uint128"
+          }
+        ],
+        "maxItems": 3,
+        "minItems": 3
+      }
+    },
+    "token_code_id": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
     }
   },
   "definitions": {
-    "HumanAddr": {
+    "Uint128": {
       "type": "string"
     }
   }
