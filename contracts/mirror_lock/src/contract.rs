@@ -136,7 +136,7 @@ pub fn lock_position_funds_hook<S: Storage, A: Api, Q: Querier>(
 
     lock_info
         .locked_funds
-        .push((env.block.height, position_locked_amount));
+        .push((env.block.time, position_locked_amount));
 
     store_position_lock_info(&mut deps.storage, &lock_info)?;
     total_locked_funds_store(&mut deps.storage).save(&current_balance)?;
@@ -149,7 +149,7 @@ pub fn lock_position_funds_hook<S: Storage, A: Api, Q: Querier>(
                 "locked_amount",
                 position_locked_amount.to_string() + &config.base_denom,
             ),
-            log("height", env.block.height),
+            log("lock_time", env.block.time),
         ],
         messages: vec![],
         data: None,
@@ -183,7 +183,7 @@ pub fn unlock_position_funds<S: Storage, A: Api, Q: Querier>(
         lock_info
             .locked_funds
             .iter()
-            .partition(|(lock_height, _)| env.block.height >= lock_height + config.lockup_period)
+            .partition(|(lock_time, _)| env.block.time >= lock_time + config.lockup_period)
     } else {
         // only mint contract can force claim all funds, without checking lock period
         if sender_addr_raw != config.mint_contract {
@@ -228,9 +228,9 @@ pub fn unlock_position_funds<S: Storage, A: Api, Q: Querier>(
             log("unlocked_amount", unlock_asset.to_string()),
             log("tax_amount", tax_amount.to_string() + &config.base_denom),
         ],
-        messages: vec![unlock_asset.clone().into_msg(
+        messages: vec![unlock_asset.into_msg(
             &deps,
-            env.contract.address.clone(),
+            env.contract.address,
             deps.api.human_address(&lock_info.receiver)?,
         )?],
         data: None,
