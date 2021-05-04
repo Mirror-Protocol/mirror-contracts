@@ -37,6 +37,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         collateral_oracle: deps.api.canonical_address(&msg.collateral_oracle)?,
         staking: deps.api.canonical_address(&msg.staking)?,
         terraswap_factory: deps.api.canonical_address(&msg.terraswap_factory)?,
+        lock: deps.api.canonical_address(&msg.lock)?,
         base_denom: msg.base_denom,
         token_code_id: msg.token_code_id,
         protocol_fee_rate: msg.protocol_fee_rate,
@@ -60,6 +61,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             collector,
             collateral_oracle,
             terraswap_factory,
+            lock,
             token_code_id,
             protocol_fee_rate,
         } => update_config(
@@ -70,6 +72,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             collector,
             collateral_oracle,
             terraswap_factory,
+            lock,
             token_code_id,
             protocol_fee_rate,
         ),
@@ -203,6 +206,7 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     collector: Option<HumanAddr>,
     collateral_oracle: Option<HumanAddr>,
     terraswap_factory: Option<HumanAddr>,
+    lock: Option<HumanAddr>,
     token_code_id: Option<u64>,
     protocol_fee_rate: Option<Decimal>,
 ) -> StdResult<HandleResponse> {
@@ -230,6 +234,10 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
 
     if let Some(terraswap_factory) = terraswap_factory {
         config.terraswap_factory = deps.api.canonical_address(&terraswap_factory)?;
+    }
+
+    if let Some(lock) = lock {
+        config.lock = deps.api.canonical_address(&lock)?;
     }
 
     if let Some(token_code_id) = token_code_id {
@@ -426,6 +434,7 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
         collector: deps.api.human_address(&state.collector)?,
         collateral_oracle: deps.api.human_address(&state.collateral_oracle)?,
         terraswap_factory: deps.api.human_address(&state.terraswap_factory)?,
+        lock: deps.api.human_address(&state.lock)?,
         base_denom: state.base_denom,
         token_code_id: state.token_code_id,
         protocol_fee_rate: Decimal::percent(1),
@@ -464,6 +473,7 @@ pub fn migrate<S: Storage, A: Api, Q: Querier>(
         deps.api.canonical_address(&msg.staking)?,
         deps.api.canonical_address(&msg.terraswap_factory)?,
         deps.api.canonical_address(&msg.collateral_oracle)?,
+        deps.api.canonical_address(&msg.lock)?,
     )?;
 
     // migrate all asset configurations to use new add mint_end parameter

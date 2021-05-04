@@ -1,24 +1,26 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "MigrateMsg",
+  "title": "InitMsg",
   "type": "object",
   "required": [
-    "collateral_oracle",
-    "lock",
-    "staking",
-    "terraswap_factory"
+    "base_denom",
+    "lockup_period",
+    "mint_contract",
+    "owner"
   ],
   "properties": {
-    "collateral_oracle": {
+    "base_denom": {
+      "type": "string"
+    },
+    "lockup_period": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    },
+    "mint_contract": {
       "$ref": "#/definitions/HumanAddr"
     },
-    "lock": {
-      "$ref": "#/definitions/HumanAddr"
-    },
-    "staking": {
-      "$ref": "#/definitions/HumanAddr"
-    },
-    "terraswap_factory": {
+    "owner": {
       "$ref": "#/definitions/HumanAddr"
     }
   },

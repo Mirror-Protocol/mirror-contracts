@@ -21,6 +21,7 @@ use crate::{
 use cw20::Cw20HandleMsg;
 use mirror_protocol::{
     common::OrderBy,
+    lock::HandleMsg as LockHandleMsg,
     mint::{NextPositionIdxResponse, PositionResponse, PositionsResponse, ShortParams},
     staking::HandleMsg as StakingHandleMsg,
 };
@@ -129,8 +130,10 @@ pub fn open_position<S: Storage, A: Api, Q: Querier>(
         )?;
 
         // 1. Mint token to itself
-        // 2. Swap token and send to sender
-        // 3. Increase short token in staking contract
+        // 2. Swap token and send to lock contract
+        // 3. Call lock hook on lock contract
+        // 4. Increase short token in staking contract
+        let lock_contract = deps.api.human_address(&config.lock)?;
         vec![
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: asset_token.clone(),
@@ -149,8 +152,16 @@ pub fn open_position<S: Storage, A: Api, Q: Querier>(
                     msg: Some(to_binary(&PairCw20HookMsg::Swap {
                         belief_price: short_params.belief_price,
                         max_spread: short_params.max_spread,
-                        to: Some(sender.clone()),
+                        to: Some(lock_contract.clone()),
                     })?),
+                })?,
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: lock_contract,
+                send: vec![],
+                msg: to_binary(&LockHandleMsg::LockPositionFundsHook {
+                    position_idx,
+                    receiver: sender.clone(),
                 })?,
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
@@ -296,8 +307,18 @@ pub fn withdraw<S: Storage, A: Api, Q: Querier>(
         ));
     }
 
+    let mut messages: Vec<CosmosMsg> = vec![];
+
     position.collateral.amount = collateral_amount;
     if position.collateral.amount == Uint128::zero() && position.asset.amount == Uint128::zero() {
+        // if it is a short position, release locked funds
+        if is_short_position(&deps.storage, position_idx)? {
+            messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: deps.api.human_address(&config.lock)?,
+                send: vec![],
+                msg: to_binary(&LockHandleMsg::ReleasePositionFunds { position_idx })?,
+            }));
+        }
         remove_position(&mut deps.storage, position_idx)?;
     } else {
         store_position(&mut deps.storage, position_idx, &position)?;
@@ -318,15 +339,19 @@ pub fn withdraw<S: Storage, A: Api, Q: Querier>(
 
     Ok(HandleResponse {
         messages: vec![
-            collateral
-                .clone()
-                .into_msg(&deps, env.contract.address.clone(), position_owner)?,
-            protocol_fee.clone().into_msg(
-                &deps,
-                env.contract.address,
-                deps.api.human_address(&config.collector)?,
-            )?,
-        ],
+            vec![
+                collateral
+                    .clone()
+                    .into_msg(&deps, env.contract.address.clone(), position_owner)?,
+                protocol_fee.clone().into_msg(
+                    &deps,
+                    env.contract.address,
+                    deps.api.human_address(&config.collector)?,
+                )?,
+            ],
+            messages,
+        ]
+        .concat(),
         log: vec![
             log("action", "withdraw"),
             log("position_idx", position_idx.to_string()),
@@ -423,8 +448,10 @@ pub fn mint<S: Storage, A: Api, Q: Querier>(
         )?;
 
         // 1. Mint token to itself
-        // 2. Swap token and send to position_owner
-        // 3. Increase short token in staking contract
+        // 2. Swap token and send to lock contract
+        // 3. Call lock hook on lock contract
+        // 4. Increase short token in staking contract
+        let lock_contract = deps.api.human_address(&config.lock)?;
         vec![
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: asset_token.clone(),
@@ -445,16 +472,24 @@ pub fn mint<S: Storage, A: Api, Q: Querier>(
                             PairCw20HookMsg::Swap {
                                 belief_price: short_params.belief_price,
                                 max_spread: short_params.max_spread,
-                                to: Some(position_owner.clone()),
+                                to: Some(lock_contract.clone()),
                             }
                         } else {
                             PairCw20HookMsg::Swap {
                                 belief_price: None,
                                 max_spread: None,
-                                to: Some(position_owner.clone()),
+                                to: Some(lock_contract.clone()),
                             }
                         }),
                     )?),
+                })?,
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: lock_contract,
+                send: vec![],
+                msg: to_binary(&LockHandleMsg::LockPositionFundsHook {
+                    position_idx,
+                    receiver: position_owner.clone(),
                 })?,
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
@@ -527,8 +562,12 @@ pub fn burn<S: Storage, A: Api, Q: Querier>(
     // Burning is enabled again after asset migration (IPO event), when mint_end is reset to None
     assert_burn_period(&env, &asset_config)?;
 
+    // Check if it is a short position
+    let is_short_position: bool = is_short_position(&deps.storage, position_idx)?;
+
     // If the collateral is default denom asset and the asset is deprecated,
     // anyone can execute burn the asset to any position without permission
+    let mut close_position: bool = false;
     if asset_config.end_price.is_some() {
         let oracle: HumanAddr = deps.api.human_address(&config.oracle)?;
         let asset_price: Decimal =
@@ -559,6 +598,7 @@ pub fn burn<S: Storage, A: Api, Q: Querier>(
         // due to rounding, include 1
         if position.collateral.amount <= Uint128(1u128) && position.asset.amount == Uint128::zero()
         {
+            close_position = true;
             remove_position(&mut deps.storage, position_idx)?;
         } else {
             store_position(&mut deps.storage, position_idx, &position)?;
@@ -588,7 +628,7 @@ pub fn burn<S: Storage, A: Api, Q: Querier>(
     // If the position is flagged as short position.
     // decrease short token amount from the staking contract
     let asset_token = deps.api.human_address(&asset_config.token)?;
-    if is_short_position(&deps.storage, position_idx)? {
+    if is_short_position {
         messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps.api.human_address(&config.staking)?,
             msg: to_binary(&StakingHandleMsg::DecreaseShortToken {
@@ -598,6 +638,13 @@ pub fn burn<S: Storage, A: Api, Q: Querier>(
             })?,
             send: vec![],
         }));
+        if close_position {
+            messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: deps.api.human_address(&config.lock)?,
+                send: vec![],
+                msg: to_binary(&LockHandleMsg::ReleasePositionFunds { position_idx })?,
+            }));
+        }
     }
 
     Ok(HandleResponse {
@@ -717,11 +764,17 @@ pub fn auction<S: Storage, A: Api, Q: Querier>(
     let left_asset_amount = (position.asset.amount - liquidated_asset_amount).unwrap();
     let left_collateral_amount = (position.collateral.amount - return_collateral_amount).unwrap();
 
+    // Check if it is a short position
+    let is_short_position: bool = is_short_position(&deps.storage, position_idx)?;
+
+    let mut close_position: bool = false;
     if left_collateral_amount.is_zero() {
         // all collaterals are sold out
+        close_position = true;
         remove_position(&mut deps.storage, position_idx)?;
     } else if left_asset_amount.is_zero() {
         // all assets are paid
+        close_position = true;
         remove_position(&mut deps.storage, position_idx)?;
 
         // refunds left collaterals to position owner
@@ -777,7 +830,7 @@ pub fn auction<S: Storage, A: Api, Q: Querier>(
 
     // If the position is flagged as short position.
     // decrease short token amount from the staking contract
-    if is_short_position(&deps.storage, position_idx)? {
+    if is_short_position {
         messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps.api.human_address(&config.staking)?,
             msg: to_binary(&StakingHandleMsg::DecreaseShortToken {
@@ -787,6 +840,13 @@ pub fn auction<S: Storage, A: Api, Q: Querier>(
             })?,
             send: vec![],
         }));
+        if close_position {
+            messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: deps.api.human_address(&config.lock)?,
+                send: vec![],
+                msg: to_binary(&LockHandleMsg::ReleasePositionFunds { position_idx })?,
+            }));
+        }
     }
 
     let collateral_info_str = collateral_info.to_string();

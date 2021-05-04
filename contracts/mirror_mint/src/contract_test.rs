@@ -25,6 +25,7 @@ mod tests {
             collateral_oracle: HumanAddr::from("collateraloracle0000"),
             staking: HumanAddr::from("staking0000"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
+            lock: HumanAddr::from("lock0000"),
             base_denom: "uusd".to_string(),
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
@@ -41,6 +42,7 @@ mod tests {
         assert_eq!("staking0000", config.staking.as_str());
         assert_eq!("collector0000", config.collector.as_str());
         assert_eq!("terraswap_factory", config.terraswap_factory.as_str());
+        assert_eq!("lock0000", config.lock.as_str());
         assert_eq!(TOKEN_CODE_ID, config.token_code_id);
         assert_eq!(Decimal::percent(1), config.protocol_fee_rate);
     }
@@ -54,6 +56,7 @@ mod tests {
             collateral_oracle: HumanAddr::from("collateraloracle0000"),
             staking: HumanAddr::from("staking0000"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
+            lock: HumanAddr::from("lock0000"),
             base_denom: "uusd".to_string(),
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
@@ -67,6 +70,7 @@ mod tests {
             oracle: None,
             collector: None,
             terraswap_factory: None,
+            lock: None,
             token_code_id: Some(100u64),
             protocol_fee_rate: None,
             collateral_oracle: None,
@@ -85,6 +89,7 @@ mod tests {
             oracle: None,
             collector: None,
             terraswap_factory: None,
+            lock: None,
             token_code_id: None,
             protocol_fee_rate: None,
             collateral_oracle: None,
@@ -106,6 +111,7 @@ mod tests {
             collateral_oracle: HumanAddr::from("collateraloracle0000"),
             staking: HumanAddr::from("staking0000"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
+            lock: HumanAddr::from("lock0000"),
             base_denom: base_denom.clone(),
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
@@ -236,6 +242,7 @@ mod tests {
             collateral_oracle: HumanAddr::from("collateraloracle0000"),
             staking: HumanAddr::from("staking0000"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
+            lock: HumanAddr::from("lock0000"),
             base_denom: base_denom.clone(),
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
