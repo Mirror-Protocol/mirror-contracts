@@ -36,6 +36,7 @@ pub enum HandleMsg {
         oracle: Option<HumanAddr>,
         collector: Option<HumanAddr>,
         collateral_oracle: Option<HumanAddr>,
+        staking: Option<HumanAddr>,
         terraswap_factory: Option<HumanAddr>,
         lock: Option<HumanAddr>,
         token_code_id: Option<u64>,

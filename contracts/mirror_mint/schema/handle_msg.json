@@ -83,6 +83,16 @@
                 }
               ]
             },
+            "staking": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "terraswap_factory": {
               "anyOf": [
                 {
