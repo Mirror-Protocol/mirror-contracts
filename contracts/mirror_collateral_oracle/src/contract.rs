@@ -121,13 +121,6 @@ pub fn register_collateral<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::generic_err("Collateral was already registered"));
     }
 
-    // test the query_request
-    if query_price(&deps, query_request.clone(), config.base_denom).is_err() {
-        return Err(StdError::generic_err(
-            "The query request provided is not valid",
-        ));
-    }
-
     store_collateral_info(
         &mut deps.storage,
         &CollateralAssetInfo {
