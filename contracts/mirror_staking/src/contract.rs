@@ -10,7 +10,9 @@ use mirror_protocol::staking::{
 
 use crate::migration::{migrate_config, migrate_pool_infos};
 use crate::rewards::{adjust_premium, deposit_reward, query_reward_info, withdraw_reward};
-use crate::staking::{bond, decrease_short_token, increase_short_token, unbond};
+use crate::staking::{
+    auto_stake, auto_stake_hook, bond, decrease_short_token, increase_short_token, unbond,
+};
 use crate::state::{read_config, read_pool_info, store_config, store_pool_info, Config, PoolInfo};
 
 use cw20::Cw20ReceiveMsg;
@@ -67,6 +69,15 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             asset_token,
             amount,
         } => decrease_short_token(deps, env, staker_addr, asset_token, amount),
+        HandleMsg::AutoStake {
+            assets,
+            slippage_tolerance,
+        } => auto_stake(deps, env, assets, slippage_tolerance),
+        HandleMsg::AutoStakeHook {
+            asset_token,
+            staking_token,
+            staker_addr,
+        } => auto_stake_hook(deps, env, asset_token, staking_token, staker_addr),
     }
 }
 

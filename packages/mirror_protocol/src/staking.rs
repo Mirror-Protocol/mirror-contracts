@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{Decimal, HumanAddr, Uint128};
 use cw20::Cw20ReceiveMsg;
+use terraswap::asset::Asset;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
@@ -43,6 +44,17 @@ pub enum HandleMsg {
     Withdraw {
         // If the asset token is not given, then all rewards are withdrawn
         asset_token: Option<HumanAddr>,
+    },
+    /// Provides liquidity and automatically stakes the LP tokens
+    AutoStake {
+        assets: [Asset; 2],
+        slippage_tolerance: Option<Decimal>,
+    },
+    /// Hook to stake the minted LP tokens
+    AutoStakeHook {
+        asset_token: HumanAddr,
+        staking_token: HumanAddr,
+        staker_addr: HumanAddr,
     },
 
     //////////////////////////////////
