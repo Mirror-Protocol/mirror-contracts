@@ -152,7 +152,7 @@
       }
     },
     {
-      "description": "Hook to stake the obtain LP tokens",
+      "description": "Hook to stake the minted LP tokens",
       "type": "object",
       "required": [
         "auto_stake_hook"

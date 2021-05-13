@@ -22,14 +22,6 @@ pub fn adjust_premium<S: Storage, A: Api, Q: Querier>(
     let oracle_contract = deps.api.human_address(&config.oracle_contract)?;
     let terraswap_factory = deps.api.human_address(&config.terraswap_factory)?;
     for asset_token in asset_tokens.iter() {
-        let premium_rate = compute_premium_rate(
-            deps,
-            &oracle_contract,
-            &terraswap_factory,
-            asset_token,
-            config.base_denom.to_string(),
-        )?;
-
         let asset_token_raw = deps.api.canonical_address(&asset_token)?;
         let pool_info: PoolInfo = read_pool_info(&deps.storage, &asset_token_raw)?;
         if env.block.time < pool_info.premium_updated_time + config.premium_min_update_interval {
@@ -38,11 +30,21 @@ pub fn adjust_premium<S: Storage, A: Api, Q: Querier>(
             ));
         }
 
+        let premium_rate = compute_premium_rate(
+            deps,
+            &oracle_contract,
+            &terraswap_factory,
+            asset_token,
+            config.base_denom.to_string(),
+        )?;
+        let short_reward_weight = short_reward_weight(premium_rate);
+
         store_pool_info(
             &mut deps.storage,
             &asset_token_raw,
             &PoolInfo {
                 premium_rate,
+                short_reward_weight,
                 premium_updated_time: env.block.time,
                 ..pool_info
             },
@@ -65,14 +67,11 @@ pub fn deposit_reward<S: Storage, A: Api, Q: Querier>(
         let asset_token_raw: CanonicalAddr = deps.api.canonical_address(&asset_token)?;
         let mut pool_info: PoolInfo = read_pool_info(&deps.storage, &asset_token_raw)?;
 
-        // Depends on the last premium, apply different short_reward_weight
-        let short_reward_weight = short_reward_weight(pool_info.premium_rate);
-
         // Decimal::from_ratio(1, 5).mul()
         // erf(pool_info.premium_rate.0)
         // 3.0f64
         let total_reward = *amount;
-        let mut short_reward = total_reward * short_reward_weight;
+        let mut short_reward = total_reward * pool_info.short_reward_weight;
         let mut normal_reward = (total_reward - short_reward).unwrap();
 
         if pool_info.total_bond_amount.is_zero() {

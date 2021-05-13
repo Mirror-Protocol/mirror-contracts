@@ -39,6 +39,7 @@ pub struct PoolInfo {
     pub reward_index: Decimal,
     pub short_reward_index: Decimal,
     pub premium_rate: Decimal,
+    pub short_reward_weight: Decimal,
     pub premium_updated_time: u64,
 }
 

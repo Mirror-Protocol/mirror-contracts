@@ -181,6 +181,7 @@ fn register_asset<S: Storage, A: Api, Q: Querier>(
             pending_reward: Uint128::zero(),
             short_pending_reward: Uint128::zero(),
             premium_rate: Decimal::zero(),
+            short_reward_weight: Decimal::zero(),
             premium_updated_time: 0,
         },
     )?;
@@ -242,6 +243,7 @@ pub fn query_pool_info<S: Storage, A: Api, Q: Querier>(
         pending_reward: pool_info.pending_reward,
         short_pending_reward: pool_info.short_pending_reward,
         premium_rate: pool_info.premium_rate,
+        short_reward_weight: pool_info.short_reward_weight,
         premium_updated_time: pool_info.premium_updated_time,
     })
 }

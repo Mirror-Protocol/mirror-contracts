@@ -133,6 +133,7 @@ pub struct PoolInfoResponse {
     pub pending_reward: Uint128,
     pub short_pending_reward: Uint128,
     pub premium_rate: Decimal,
+    pub short_reward_weight: Decimal,
     pub premium_updated_time: u64,
 }
 
