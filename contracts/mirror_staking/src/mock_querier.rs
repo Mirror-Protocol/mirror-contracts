@@ -1,21 +1,23 @@
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Api, Coin, Decimal, Empty, Extern, HumanAddr, Querier,
+    from_binary, from_slice, to_binary, Api, Coin, Decimal, Extern, HumanAddr, Querier,
     QuerierResult, QueryRequest, SystemError, Uint128, WasmQuery,
 };
 use cosmwasm_storage::to_length_prefixed;
 use mirror_protocol::oracle::{PriceResponse, QueryMsg as OracleQueryMsg};
+use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 use terraswap::{
     asset::Asset, asset::AssetInfo, asset::PairInfo, factory::QueryMsg as FactoryQueryMsg,
     pair::PoolResponse, pair::QueryMsg as PairQueryMsg,
 };
 
 pub struct WasmMockQuerier {
-    base: MockQuerier,
+    base: MockQuerier<TerraQueryWrapper>,
     pair_addr: HumanAddr,
     pool_assets: [Asset; 2],
     oracle_price: Decimal,
     token_balance: Uint128,
+    tax: (Decimal, Uint128),
 }
 
 pub fn mock_dependencies_with_querier(
@@ -39,7 +41,7 @@ pub fn mock_dependencies_with_querier(
 impl Querier for WasmMockQuerier {
     fn raw_query(&self, bin_request: &[u8]) -> QuerierResult {
         // MockQuerier doesn't support Custom, so we ignore it completely here
-        let request: QueryRequest<Empty> = match from_slice(bin_request) {
+        let request: QueryRequest<TerraQueryWrapper> = match from_slice(bin_request) {
             Ok(v) => v,
             Err(e) => {
                 return Err(SystemError::InvalidRequest {
@@ -53,8 +55,25 @@ impl Querier for WasmMockQuerier {
 }
 
 impl WasmMockQuerier {
-    pub fn handle_query(&self, request: &QueryRequest<Empty>) -> QuerierResult {
+    pub fn handle_query(&self, request: &QueryRequest<TerraQueryWrapper>) -> QuerierResult {
         match &request {
+            QueryRequest::Custom(TerraQueryWrapper { route, query_data }) => {
+                if route == &TerraRoute::Treasury {
+                    match query_data {
+                        TerraQuery::TaxRate {} => {
+                            let res = TaxRateResponse { rate: self.tax.0 };
+                            Ok(to_binary(&res))
+                        }
+                        TerraQuery::TaxCap { .. } => {
+                            let res = TaxCapResponse { cap: self.tax.1 };
+                            Ok(to_binary(&res))
+                        }
+                        _ => panic!("DO NOT ENTER HERE"),
+                    }
+                } else {
+                    panic!("DO NOT ENTER HERE")
+                }
+            }
             QueryRequest::Wasm(WasmQuery::Smart {
                 contract_addr: _,
                 msg,
@@ -100,7 +119,11 @@ impl WasmMockQuerier {
 }
 
 impl WasmMockQuerier {
-    pub fn new<A: Api>(base: MockQuerier<Empty>, _api: A, _canonical_length: usize) -> Self {
+    pub fn new<A: Api>(
+        base: MockQuerier<TerraQueryWrapper>,
+        _api: A,
+        _canonical_length: usize,
+    ) -> Self {
         WasmMockQuerier {
             base,
             pair_addr: HumanAddr::default(),
@@ -120,6 +143,7 @@ impl WasmMockQuerier {
             ],
             oracle_price: Decimal::zero(),
             token_balance: Uint128::zero(),
+            tax: (Decimal::percent(1), Uint128(1000000)),
         }
     }
 

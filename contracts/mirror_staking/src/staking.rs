@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    log, to_binary, Api, CanonicalAddr, Coin, CosmosMsg, Decimal, Env, Extern, HandleResponse,
+    log, to_binary, Api, CanonicalAddr, CosmosMsg, Decimal, Env, Extern, HandleResponse,
     HandleResult, HumanAddr, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 
@@ -161,24 +161,26 @@ pub fn auto_stake<S: Storage, A: Api, Q: Querier>(
     let config: Config = read_config(&deps.storage)?;
     let terraswap_factory: HumanAddr = deps.api.human_address(&config.terraswap_factory)?;
 
-    let mut native_op: Option<(String, Uint128)> = None;
-    let mut token_op: Option<(HumanAddr, Uint128)> = None;
+    let mut native_asset_op: Option<Asset> = None;
+    let mut token_info_op: Option<(HumanAddr, Uint128)> = None;
     for asset in assets.iter() {
         match asset.info.clone() {
-            AssetInfo::NativeToken { denom } => {
+            AssetInfo::NativeToken { .. } => {
                 asset.assert_sent_native_token_balance(&env)?;
-                native_op = Some((denom, asset.amount))
+                native_asset_op = Some(asset.clone())
             }
-            AssetInfo::Token { contract_addr } => token_op = Some((contract_addr, asset.amount)),
+            AssetInfo::Token { contract_addr } => {
+                token_info_op = Some((contract_addr, asset.amount))
+            }
         }
     }
 
     // will fail if one of them is missing
-    let (native_denom, native_amount) = match native_op {
+    let native_asset: Asset = match native_asset_op {
         Some(v) => v,
         None => return Err(StdError::generic_err("Missing native asset")),
     };
-    let (token_addr, token_amount) = match token_op {
+    let (token_addr, token_amount) = match token_info_op {
         Some(v) => v,
         None => return Err(StdError::generic_err("Missing token asset")),
     };
@@ -186,6 +188,9 @@ pub fn auto_stake<S: Storage, A: Api, Q: Querier>(
     // query pair info to obtain pair contract address
     let asset_infos: [AssetInfo; 2] = [assets[0].info.clone(), assets[1].info.clone()];
     let terraswap_pair: PairInfo = query_pair_info(deps, &terraswap_factory, &asset_infos)?;
+
+    // compute tax
+    let tax_amount: Uint128 = native_asset.compute_tax(deps)?;
 
     // 1. Transfer token asset to staking contract
     // 2. Increase allowance of token for pair contract
@@ -214,13 +219,21 @@ pub fn auto_stake<S: Storage, A: Api, Q: Querier>(
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: terraswap_pair.contract_addr,
                 msg: to_binary(&PairHandleMsg::ProvideLiquidity {
-                    assets,
+                    assets: [
+                        Asset {
+                            amount: (native_asset.amount.clone() - tax_amount)?,
+                            info: native_asset.info.clone(),
+                        },
+                        Asset {
+                            amount: token_amount,
+                            info: AssetInfo::Token {
+                                contract_addr: token_addr.clone(),
+                            },
+                        },
+                    ],
                     slippage_tolerance,
                 })?,
-                send: vec![Coin {
-                    denom: native_denom,
-                    amount: native_amount,
-                }],
+                send: vec![native_asset.deduct_tax(deps)?],
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: env.contract.address,
@@ -235,6 +248,7 @@ pub fn auto_stake<S: Storage, A: Api, Q: Querier>(
         log: vec![
             log("action", "auto_stake"),
             log("asset_token", token_addr.to_string()),
+            log("tax_amount", tax_amount.to_string()),
         ],
         data: None,
     })
@@ -261,7 +275,7 @@ pub fn auto_stake_hook<S: Storage, A: Api, Q: Querier>(
     }
 
     // stake all lp tokens received
-    let staking_token_amount = query_token_balance(&deps, &asset_token, &env.contract.address)?;
+    let staking_token_amount = query_token_balance(&deps, &staking_token, &env.contract.address)?;
 
     bond(deps, env, staker_addr, asset_token, staking_token_amount)
 }

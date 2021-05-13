@@ -629,7 +629,7 @@ mod tests {
                                 info: AssetInfo::NativeToken {
                                     denom: "uusd".to_string()
                                 },
-                                amount: Uint128(100u128),
+                                amount: Uint128(99u128),
                             },
                             Asset {
                                 info: AssetInfo::Token {
@@ -643,7 +643,7 @@ mod tests {
                     .unwrap(),
                     send: vec![Coin {
                         denom: "uusd".to_string(),
-                        amount: Uint128(100u128),
+                        amount: Uint128(99u128), // 1% tax
                     }],
                 }),
                 CosmosMsg::Wasm(WasmMsg::Execute {

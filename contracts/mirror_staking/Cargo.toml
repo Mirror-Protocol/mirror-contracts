@@ -43,4 +43,5 @@ schemars = "0.7"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 
 [dev-dependencies]
+terra-cosmwasm = { version = "1.2.2" }
 cosmwasm-schema = "0.10.1"
