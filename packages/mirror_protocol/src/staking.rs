@@ -55,6 +55,7 @@ pub enum HandleMsg {
         asset_token: HumanAddr,
         staking_token: HumanAddr,
         staker_addr: HumanAddr,
+        prev_staking_token_amount: Uint128,
     },
 
     //////////////////////////////////

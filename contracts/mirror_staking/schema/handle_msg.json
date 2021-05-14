@@ -162,12 +162,16 @@
           "type": "object",
           "required": [
             "asset_token",
+            "prev_staking_token_amount",
             "staker_addr",
             "staking_token"
           ],
           "properties": {
             "asset_token": {
               "$ref": "#/definitions/HumanAddr"
+            },
+            "prev_staking_token_amount": {
+              "$ref": "#/definitions/Uint128"
             },
             "staker_addr": {
               "$ref": "#/definitions/HumanAddr"

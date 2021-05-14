@@ -651,7 +651,8 @@ mod tests {
                     msg: to_binary(&HandleMsg::AutoStakeHook {
                         asset_token: HumanAddr::from("asset"),
                         staking_token: HumanAddr::from("lptoken"),
-                        staker_addr: HumanAddr::from("addr0000")
+                        staker_addr: HumanAddr::from("addr0000"),
+                        prev_staking_token_amount: Uint128(0),
                     })
                     .unwrap(),
                     send: vec![],
@@ -661,29 +662,22 @@ mod tests {
 
         deps.querier.with_token_balance(Uint128(100u128)); // recive 100 lptoken
 
-        // wrong staking token
-        let msg = HandleMsg::AutoStakeHook {
-            asset_token: HumanAddr::from("asset"),
-            staking_token: HumanAddr::from("lptoken1111111"),
-            staker_addr: HumanAddr::from("addr0000"),
-        };
-        let env = mock_env(MOCK_CONTRACT_ADDR, &[]);
-        let res = handle(&mut deps, env.clone(), msg).unwrap_err();
-        assert_eq!(res, StdError::generic_err("Invalid staking token"));
-
         // wrong asset
         let msg = HandleMsg::AutoStakeHook {
             asset_token: HumanAddr::from("asset1"),
             staking_token: HumanAddr::from("lptoken"),
             staker_addr: HumanAddr::from("addr0000"),
+            prev_staking_token_amount: Uint128(0),
         };
-        let _res = handle(&mut deps, env, msg).unwrap_err();
+        let env = mock_env(MOCK_CONTRACT_ADDR, &[]);
+        let _res = handle(&mut deps, env, msg).unwrap_err(); // pool not found error
 
         // valid msg
         let msg = HandleMsg::AutoStakeHook {
             asset_token: HumanAddr::from("asset"),
             staking_token: HumanAddr::from("lptoken"),
             staker_addr: HumanAddr::from("addr0000"),
+            prev_staking_token_amount: Uint128(0),
         };
 
         // unauthorized attempt

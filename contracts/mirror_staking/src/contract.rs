@@ -77,7 +77,15 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             asset_token,
             staking_token,
             staker_addr,
-        } => auto_stake_hook(deps, env, asset_token, staking_token, staker_addr),
+            prev_staking_token_amount,
+        } => auto_stake_hook(
+            deps,
+            env,
+            asset_token,
+            staking_token,
+            staker_addr,
+            prev_staking_token_amount,
+        ),
     }
 }
 

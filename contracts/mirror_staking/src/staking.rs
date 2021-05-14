@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    log, to_binary, Api, CanonicalAddr, CosmosMsg, Decimal, Env, Extern, HandleResponse,
+    log, to_binary, Api, CanonicalAddr, Coin, CosmosMsg, Decimal, Env, Extern, HandleResponse,
     HandleResult, HumanAddr, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 
@@ -189,6 +189,25 @@ pub fn auto_stake<S: Storage, A: Api, Q: Querier>(
     let asset_infos: [AssetInfo; 2] = [assets[0].info.clone(), assets[1].info.clone()];
     let terraswap_pair: PairInfo = query_pair_info(deps, &terraswap_factory, &asset_infos)?;
 
+    // assert the token and lp token match with pool info
+    let pool_info: PoolInfo =
+        read_pool_info(&deps.storage, &deps.api.canonical_address(&token_addr)?)?;
+
+    if pool_info.staking_token
+        != deps
+            .api
+            .canonical_address(&terraswap_pair.liquidity_token)?
+    {
+        return Err(StdError::generic_err("Invalid staking token"));
+    }
+
+    // get current lp token amount to later compute the recived amount
+    let prev_staking_token_amount = query_token_balance(
+        &deps,
+        &terraswap_pair.liquidity_token,
+        &env.contract.address,
+    )?;
+
     // compute tax
     let tax_amount: Uint128 = native_asset.compute_tax(deps)?;
 
@@ -233,7 +252,10 @@ pub fn auto_stake<S: Storage, A: Api, Q: Querier>(
                     ],
                     slippage_tolerance,
                 })?,
-                send: vec![native_asset.deduct_tax(deps)?],
+                send: vec![Coin {
+                    denom: native_asset.info.to_string(),
+                    amount: (native_asset.amount - tax_amount)?,
+                }],
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: env.contract.address,
@@ -241,6 +263,7 @@ pub fn auto_stake<S: Storage, A: Api, Q: Querier>(
                     asset_token: token_addr.clone(),
                     staking_token: terraswap_pair.liquidity_token,
                     staker_addr: env.message.sender,
+                    prev_staking_token_amount,
                 })?,
                 send: vec![],
             }),
@@ -260,24 +283,19 @@ pub fn auto_stake_hook<S: Storage, A: Api, Q: Querier>(
     asset_token: HumanAddr,
     staking_token: HumanAddr,
     staker_addr: HumanAddr,
+    prev_staking_token_amount: Uint128,
 ) -> HandleResult {
     // only can be called by itself
     if env.message.sender != env.contract.address {
         return Err(StdError::unauthorized());
     }
 
-    // assert staking token
-    let pool_info: PoolInfo =
-        read_pool_info(&deps.storage, &deps.api.canonical_address(&asset_token)?)?;
+    // stake all lp tokens received, compare with staking token amount before liquidity provision was executed
+    let current_staking_token_amount =
+        query_token_balance(&deps, &staking_token, &env.contract.address)?;
+    let amount_to_stake = (current_staking_token_amount - prev_staking_token_amount)?;
 
-    if pool_info.staking_token != deps.api.canonical_address(&staking_token)? {
-        return Err(StdError::generic_err("Invalid staking token"));
-    }
-
-    // stake all lp tokens received
-    let staking_token_amount = query_token_balance(&deps, &staking_token, &env.contract.address)?;
-
-    bond(deps, env, staker_addr, asset_token, staking_token_amount)
+    bond(deps, env, staker_addr, asset_token, amount_to_stake)
 }
 
 fn _increase_bond_amount<S: Storage>(
