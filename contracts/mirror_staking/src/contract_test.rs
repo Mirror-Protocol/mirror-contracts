@@ -161,6 +161,7 @@ mod tests {
                 pending_reward: Uint128::zero(),
                 short_pending_reward: Uint128::zero(),
                 premium_rate: Decimal::zero(),
+                short_reward_weight: Decimal::zero(),
                 premium_updated_time: 0,
             }
         );

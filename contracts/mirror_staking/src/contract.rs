@@ -10,7 +10,9 @@ use mirror_protocol::staking::{
 
 use crate::migration::{migrate_config, migrate_pool_infos};
 use crate::rewards::{adjust_premium, deposit_reward, query_reward_info, withdraw_reward};
-use crate::staking::{bond, decrease_short_token, increase_short_token, unbond};
+use crate::staking::{
+    auto_stake, auto_stake_hook, bond, decrease_short_token, increase_short_token, unbond,
+};
 use crate::state::{read_config, read_pool_info, store_config, store_pool_info, Config, PoolInfo};
 
 use cw20::Cw20ReceiveMsg;
@@ -67,6 +69,23 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             asset_token,
             amount,
         } => decrease_short_token(deps, env, staker_addr, asset_token, amount),
+        HandleMsg::AutoStake {
+            assets,
+            slippage_tolerance,
+        } => auto_stake(deps, env, assets, slippage_tolerance),
+        HandleMsg::AutoStakeHook {
+            asset_token,
+            staking_token,
+            staker_addr,
+            prev_staking_token_amount,
+        } => auto_stake_hook(
+            deps,
+            env,
+            asset_token,
+            staking_token,
+            staker_addr,
+            prev_staking_token_amount,
+        ),
     }
 }
 
@@ -170,6 +189,7 @@ fn register_asset<S: Storage, A: Api, Q: Querier>(
             pending_reward: Uint128::zero(),
             short_pending_reward: Uint128::zero(),
             premium_rate: Decimal::zero(),
+            short_reward_weight: Decimal::zero(),
             premium_updated_time: 0,
         },
     )?;
@@ -231,6 +251,7 @@ pub fn query_pool_info<S: Storage, A: Api, Q: Querier>(
         pending_reward: pool_info.pending_reward,
         short_pending_reward: pool_info.short_pending_reward,
         premium_rate: pool_info.premium_rate,
+        short_reward_weight: pool_info.short_reward_weight,
         premium_updated_time: pool_info.premium_updated_time,
     })
 }

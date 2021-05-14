@@ -77,6 +77,7 @@ pub fn migrate_pool_infos<S: Storage>(storage: &mut S) -> StdResult<()> {
                 total_short_amount: Uint128::zero(),
                 short_reward_index: Decimal::zero(),
                 premium_rate: Decimal::zero(),
+                short_reward_weight: Decimal::zero(),
                 premium_updated_time: 0,
             },
         )?;
