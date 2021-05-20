@@ -1,7 +1,9 @@
+use std::fmt;
+
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Decimal, HumanAddr, Binary, WasmQuery};
+use cosmwasm_std::{Decimal, HumanAddr, Binary};
 use terraswap::asset::AssetInfo;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -23,15 +25,15 @@ pub enum HandleMsg {
     },
     RegisterCollateralAsset {
         asset: AssetInfo,
-        query_request: Binary,
+        price_source: SourceType,
         collateral_premium: Decimal,
     },
     RevokeCollateralAsset {
         asset: AssetInfo,
     },
-    UpdateCollateralQuery {
+    UpdateCollateralPriceSource {
         asset: AssetInfo,
-        query_request: Binary,
+        price_source: SourceType,
     },
     UpdateCollateralPremium {
         asset: AssetInfo,
@@ -72,7 +74,7 @@ pub struct CollateralPriceResponse {
 pub struct CollateralInfoResponse {
     pub asset: String,
     pub collateral_premium: Decimal,
-    pub query_request: WasmQuery,
+    pub source_type: String,
     pub is_revoked: bool,
 }
 
@@ -84,3 +86,31 @@ pub struct CollateralInfosResponse {
 /// We currently take no arguments for migrations
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct MigrateMsg {}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceType {
+    TerraOracle {
+        query_request: Binary,
+    },
+    BandOracle {
+        query_request: Binary,
+    },
+    FixedPrice {
+        price: Decimal,
+    },
+    Terraswap {
+        query_request: Binary,
+    }
+} 
+
+impl fmt::Display for SourceType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            SourceType::TerraOracle{..} => write!(f, "terra_oracle"),
+            SourceType::BandOracle{..} => write!(f, "band_oracle"),
+            SourceType::FixedPrice{..} => write!(f, "fixed_price"),
+            SourceType::Terraswap{..} => write!(f, "terraswap"),
+        }
+    }
+}

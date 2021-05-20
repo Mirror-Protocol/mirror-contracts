@@ -1,12 +1,10 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{
-    from_binary, Binary, CanonicalAddr, Decimal, Order, StdResult, Storage, WasmQuery,
-};
+use cosmwasm_std::{CanonicalAddr, Decimal, Order, StdResult, Storage};
 use cosmwasm_storage::{singleton, singleton_read, Bucket, ReadonlyBucket};
 
-use mirror_protocol::collateral_oracle::CollateralInfoResponse;
+use mirror_protocol::collateral_oracle::{CollateralInfoResponse, SourceType};
 
 static PREFIX_COLLATERAL_ASSET_INFO: &[u8] = b"collateral_asset_info";
 static KEY_CONFIG: &[u8] = b"config";
@@ -30,7 +28,7 @@ pub fn read_config<S: Storage>(storage: &S) -> StdResult<Config> {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct CollateralAssetInfo {
     pub asset: String,
-    pub query_request: Binary,
+    pub price_source: SourceType,
     pub collateral_premium: Decimal,
     pub is_revoked: bool,
 }
@@ -61,10 +59,9 @@ pub fn read_collateral_infos<S: Storage>(storage: &S) -> StdResult<Vec<Collatera
         .range(None, None, Order::Ascending)
         .map(|item| {
             let (_, v) = item?;
-            let wasm_query: WasmQuery = from_binary(&v.query_request)?;
             Ok(CollateralInfoResponse {
                 asset: v.asset,
-                query_request: wasm_query,
+                source_type: v.price_source.to_string(),
                 collateral_premium: v.collateral_premium,
                 is_revoked: v.is_revoked,
             })

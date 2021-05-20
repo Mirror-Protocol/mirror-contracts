@@ -1,34 +1,53 @@
 use cosmwasm_std::{
-    from_binary, Api, Binary, Decimal, Extern, Querier, QueryRequest, StdError, StdResult, Storage,
-    WasmQuery,
+    from_binary, Api, Decimal, Extern, Querier, QueryRequest, StdError, StdResult, Storage,
+    Uint128, WasmQuery,
 };
+use std::str::FromStr;
 
+use mirror_protocol::collateral_oracle::SourceType;
 use serde::{Deserialize, Serialize};
 use terraswap::asset::{Asset, AssetInfo};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct GenericPriceResponse {
+pub struct TerraOracleResponse {
     // oracle queries returns rate
-    pub rate: Option<Decimal>,
+    pub rate: Decimal,
+}
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct TerraswapResponse {
     // terraswap queries return pool assets
-    pub assets: Option<[Asset; 2]>,
+    pub assets: [Asset; 2],
+}
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct BandOracleResponse {
+    // band oracle queries returns rate (uint128)
+    pub rate: Uint128,
 }
 
 pub fn query_price<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
-    query_request: Binary,
+    price_source: SourceType,
     base_denom: String,
 ) -> StdResult<Decimal> {
-    // try to deserialize wasm query
-    let wasm_query: WasmQuery = from_binary(&query_request)?;
+    match price_source {
+        SourceType::BandOracle { query_request } => {
+            let wasm_query: WasmQuery = from_binary(&query_request)?;
+            let res: BandOracleResponse = deps.querier.query(&QueryRequest::Wasm(wasm_query))?;
 
-    // execute generic query
-    let res: GenericPriceResponse = deps.querier.query(&QueryRequest::Wasm(wasm_query))?;
+            parse_band_rate(res.rate)
+        }
+        SourceType::FixedPrice { price } => return Ok(price),
+        SourceType::TerraOracle { query_request } => {
+            let wasm_query: WasmQuery = from_binary(&query_request)?;
+            let res: TerraOracleResponse = deps.querier.query(&QueryRequest::Wasm(wasm_query))?;
 
-    if let Some(rate) = res.rate {
-        Ok(rate)
-    } else {
-        if let Some(assets) = res.assets {
+            Ok(res.rate)
+        }
+        SourceType::Terraswap { query_request } => {
+            let wasm_query: WasmQuery = from_binary(&query_request)?;
+            let res: TerraswapResponse = deps.querier.query(&QueryRequest::Wasm(wasm_query))?;
+            let assets: [Asset; 2] = res.assets;
+
             if assets[0].info.equal(&AssetInfo::NativeToken {
                 denom: base_denom.clone(),
             }) {
@@ -40,10 +59,53 @@ pub fn query_price<S: Storage, A: Api, Q: Querier>(
             } else {
                 Err(StdError::generic_err("Invalid pool"))
             }
-        } else {
-            Err(StdError::generic_err(
-                "Collateral query_request returned unexpected response",
-            ))
         }
+    }
+}
+
+/// Parses a uint that contains the price multiplied by 1e18
+fn parse_band_rate(uint_rate: Uint128) -> StdResult<Decimal> {
+    // manipulate the uint as a string to prevent overflow
+    let mut rate_uint_string: String = uint_rate.to_string();
+
+    let uint_len = rate_uint_string.len();
+    if uint_len > 18 {
+        let dec_point = rate_uint_string.len() - 18;
+        rate_uint_string.insert(dec_point, '.');
+    } else {
+        let mut prefix: String = "0.".to_owned();
+        let dec_zeros = 18 - uint_len;
+        for _ in 0..dec_zeros {
+            prefix.push('0');
+        }
+        rate_uint_string = prefix + rate_uint_string.as_str();
+    }
+
+    Decimal::from_str(rate_uint_string.as_str())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_band_rate() {
+        let rate_dec_1: Decimal = parse_band_rate(Uint128(3493968700000000000000u128)).unwrap();
+        assert_eq!(
+            rate_dec_1,
+            Decimal::from_str("3493.968700000000000000").unwrap()
+        );
+
+        let rate_dec_2: Decimal = parse_band_rate(Uint128(1234u128)).unwrap();
+        assert_eq!(
+            rate_dec_2,
+            Decimal::from_str("0.000000000000001234").unwrap()
+        );
+
+        let rate_dec_3: Decimal = parse_band_rate(Uint128(100000000000000001u128)).unwrap();
+        assert_eq!(
+            rate_dec_3,
+            Decimal::from_str("0.100000000000000001").unwrap()
+        );
     }
 }

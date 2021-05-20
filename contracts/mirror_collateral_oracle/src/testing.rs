@@ -1,12 +1,12 @@
+use crate::contract::{handle, init, query_collateral_info, query_collateral_price, query_config};
+use crate::mock_querier::{mock_dependencies, QueryMsg as MockQueryMsg};
 use cosmwasm_std::testing::mock_env;
 use cosmwasm_std::{to_binary, Decimal, HumanAddr, StdError, Uint128, WasmQuery};
-
-use crate::contract::{handle, init, query_collateral_info, query_collateral_price, query_config};
-use crate::mock_querier::mock_dependencies;
 use mirror_protocol::collateral_oracle::{
-    CollateralInfoResponse, CollateralPriceResponse, HandleMsg, InitMsg,
+    CollateralInfoResponse, CollateralPriceResponse, HandleMsg, InitMsg, SourceType,
 };
 use mirror_protocol::oracle::QueryMsg as OracleQueryMsg;
+use std::str::FromStr;
 use terraswap::asset::AssetInfo;
 use terraswap::pair::QueryMsg as TerraswapPairQueryMsg;
 
@@ -117,7 +117,7 @@ fn register_collateral() {
             contract_addr: HumanAddr::from("mTSLA"),
         },
         collateral_premium: Decimal::percent(50),
-        query_request: query_request.clone(),
+        price_source: SourceType::TerraOracle { query_request },
     };
 
     // unauthorized attempt
@@ -136,7 +136,7 @@ fn register_collateral() {
         query_res,
         CollateralInfoResponse {
             asset: "mTSLA".to_string(),
-            query_request: wasm_query,
+            source_type: "terra_oracle".to_string(),
             collateral_premium: Decimal::percent(50),
             is_revoked: false,
         }
@@ -176,7 +176,7 @@ fn update_collateral() {
             contract_addr: HumanAddr::from("mTSLA"),
         },
         collateral_premium: Decimal::percent(50),
-        query_request: query_request.clone(),
+        price_source: SourceType::TerraOracle { query_request },
     };
 
     // successfull attempt
@@ -190,28 +190,20 @@ fn update_collateral() {
         query_res,
         CollateralInfoResponse {
             asset: "mTSLA".to_string(),
-            query_request: wasm_query,
+            source_type: "terra_oracle".to_string(),
             collateral_premium: Decimal::percent(50),
             is_revoked: false,
         }
     );
 
-    let new_wasm_query: WasmQuery = WasmQuery::Smart {
-        contract_addr: HumanAddr::from("oracle0001"), // change contract_addr
-        msg: to_binary(&OracleQueryMsg::Price {
-            base_asset: "uusd".to_string(),
-            quote_asset: "mTSLA".to_string(),
-        })
-        .unwrap(),
-    };
-    let new_query_request = to_binary(&new_wasm_query).unwrap();
-
     // update collateral query
-    let msg = HandleMsg::UpdateCollateralQuery {
+    let msg = HandleMsg::UpdateCollateralPriceSource {
         asset: AssetInfo::Token {
             contract_addr: HumanAddr::from("mTSLA"),
         },
-        query_request: new_query_request.clone(),
+        price_source: SourceType::FixedPrice {
+            price: Decimal::zero(),
+        },
     };
 
     // unauthorized attempt
@@ -230,7 +222,7 @@ fn update_collateral() {
         query_res,
         CollateralInfoResponse {
             asset: "mTSLA".to_string(),
-            query_request: new_wasm_query.clone(),
+            source_type: "fixed_price".to_string(),
             collateral_premium: Decimal::percent(50),
             is_revoked: false,
         }
@@ -260,7 +252,7 @@ fn update_collateral() {
         query_res,
         CollateralInfoResponse {
             asset: "mTSLA".to_string(),
-            query_request: new_wasm_query,
+            source_type: "fixed_price".to_string(),
             collateral_premium: Decimal::percent(60),
             is_revoked: false,
         }
@@ -290,15 +282,17 @@ fn get_oracle_price() {
             contract_addr: HumanAddr::from("mTSLA"),
         },
         collateral_premium: Decimal::percent(50),
-        query_request: to_binary(&WasmQuery::Smart {
-            contract_addr: HumanAddr::from("oracle0000"),
-            msg: to_binary(&OracleQueryMsg::Price {
-                base_asset: "uusd".to_string(),
-                quote_asset: "mTSLA".to_string(),
+        price_source: SourceType::TerraOracle {
+            query_request: to_binary(&WasmQuery::Smart {
+                contract_addr: HumanAddr::from("oracle0000"),
+                msg: to_binary(&OracleQueryMsg::Price {
+                    base_asset: "uusd".to_string(),
+                    quote_asset: "mTSLA".to_string(),
+                })
+                .unwrap(),
             })
             .unwrap(),
-        })
-        .unwrap(),
+        },
     };
 
     let env = mock_env("owner0000", &[]);
@@ -340,11 +334,13 @@ fn get_terraswap_price() {
             contract_addr: HumanAddr::from("anc"),
         },
         collateral_premium: Decimal::percent(50),
-        query_request: to_binary(&WasmQuery::Smart {
-            contract_addr: HumanAddr::from("ustancpair0000"),
-            msg: to_binary(&TerraswapPairQueryMsg::Pool {}).unwrap(),
-        })
-        .unwrap(),
+        price_source: SourceType::Terraswap {
+            query_request: to_binary(&WasmQuery::Smart {
+                contract_addr: HumanAddr::from("ustancpair0000"),
+                msg: to_binary(&TerraswapPairQueryMsg::Pool {}).unwrap(),
+            })
+            .unwrap(),
+        },
     };
 
     let env = mock_env("owner0000", &[]);
@@ -357,6 +353,94 @@ fn get_terraswap_price() {
         CollateralPriceResponse {
             asset: "anc".to_string(),
             rate: Decimal::from_ratio(1u128, 100u128),
+            collateral_premium: Decimal::percent(50),
+            is_revoked: false,
+        }
+    );
+}
+
+#[test]
+fn get_fixed_price() {
+    let mut deps = mock_dependencies(20, &[]);
+
+    let msg = InitMsg {
+        owner: HumanAddr("owner0000".to_string()),
+        mint_contract: HumanAddr("mint0000".to_string()),
+        factory_contract: HumanAddr("factory0000".to_string()),
+        base_denom: "uusd".to_string(),
+    };
+
+    let env = mock_env("addr0000", &[]);
+    let _res = init(&mut deps, env, msg).unwrap();
+
+    let msg = HandleMsg::RegisterCollateralAsset {
+        asset: AssetInfo::Token {
+            contract_addr: HumanAddr::from("aUST"),
+        },
+        collateral_premium: Decimal::percent(50),
+        price_source: SourceType::FixedPrice {
+            price: Decimal::from_ratio(1u128, 2u128),
+        },
+    };
+
+    let env = mock_env("owner0000", &[]);
+    let _res = handle(&mut deps, env, msg).unwrap();
+
+    // attempt to query price
+    let query_res = query_collateral_price(&deps, "aUST".to_string()).unwrap();
+    assert_eq!(
+        query_res,
+        CollateralPriceResponse {
+            asset: "aUST".to_string(),
+            rate: Decimal::from_ratio(1u128, 2u128),
+            collateral_premium: Decimal::percent(50),
+            is_revoked: false,
+        }
+    );
+}
+
+#[test]
+fn get_band_oracle_price() {
+    let mut deps = mock_dependencies(20, &[]);
+
+    let msg = InitMsg {
+        owner: HumanAddr("owner0000".to_string()),
+        mint_contract: HumanAddr("mint0000".to_string()),
+        factory_contract: HumanAddr("factory0000".to_string()),
+        base_denom: "uusd".to_string(),
+    };
+
+    let env = mock_env("addr0000", &[]);
+    let _res = init(&mut deps, env, msg).unwrap();
+
+    let msg = HandleMsg::RegisterCollateralAsset {
+        asset: AssetInfo::NativeToken {
+            denom: "uluna".to_string(),
+        },
+        collateral_premium: Decimal::percent(50),
+        price_source: SourceType::BandOracle {
+            query_request: to_binary(&WasmQuery::Smart {
+                contract_addr: HumanAddr::from("bandoracle0000"),
+                msg: to_binary(&MockQueryMsg::GetReferenceData {
+                    base_symbol: "LUNA".to_string(),
+                    quote_symbol: "USD".to_string(),
+                })
+                .unwrap(),
+            })
+            .unwrap(),
+        },
+    };
+
+    let env = mock_env("owner0000", &[]);
+    let _res = handle(&mut deps, env, msg).unwrap();
+
+    // attempt to query price
+    let query_res = query_collateral_price(&deps, "uluna".to_string()).unwrap();
+    assert_eq!(
+        query_res,
+        CollateralPriceResponse {
+            asset: "uluna".to_string(),
+            rate: Decimal::from_str("3465.211050000000000000").unwrap(),
             collateral_premium: Decimal::percent(50),
             is_revoked: false,
         }
@@ -381,21 +465,14 @@ fn revoke_collateral() {
     let env = mock_env("addr0000", &[]);
     let _res = init(&mut deps, env, msg).unwrap();
 
-    let wasm_query: WasmQuery = WasmQuery::Smart {
-        contract_addr: HumanAddr::from("oracle0000"),
-        msg: to_binary(&OracleQueryMsg::Price {
-            base_asset: "uusd".to_string(),
-            quote_asset: "mTSLA".to_string(),
-        })
-        .unwrap(),
-    };
-
     let msg = HandleMsg::RegisterCollateralAsset {
         asset: AssetInfo::Token {
             contract_addr: HumanAddr::from("mTSLA"),
         },
         collateral_premium: Decimal::percent(50),
-        query_request: to_binary(&wasm_query).unwrap(),
+        price_source: SourceType::FixedPrice {
+            price: Decimal::one(),
+        },
     };
 
     let env = mock_env("owner0000", &[]);
@@ -407,7 +484,7 @@ fn revoke_collateral() {
         query_res,
         CollateralPriceResponse {
             asset: "mTSLA".to_string(),
-            rate: Decimal::percent(100),
+            rate: Decimal::one(),
             collateral_premium: Decimal::percent(50),
             is_revoked: false,
         }
@@ -436,7 +513,7 @@ fn revoke_collateral() {
         query_res,
         CollateralInfoResponse {
             asset: "mTSLA".to_string(),
-            query_request: wasm_query,
+            source_type: "fixed_price".to_string(),
             collateral_premium: Decimal::percent(50),
             is_revoked: true,
         }
@@ -448,7 +525,7 @@ fn revoke_collateral() {
         query_res,
         CollateralPriceResponse {
             asset: "mTSLA".to_string(),
-            rate: Decimal::percent(100),
+            rate: Decimal::one(),
             collateral_premium: Decimal::percent(50),
             is_revoked: true,
         }
