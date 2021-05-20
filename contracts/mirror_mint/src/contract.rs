@@ -345,7 +345,7 @@ pub fn register_asset<S: Storage, A: Api, Q: Querier>(
                 },
                 collateral_premium: Decimal::zero(), // default collateral premium for new mAssets
                 price_source: SourceType::TerraOracle {
-                    query_request: to_binary(&WasmQuery::Smart {
+                    terra_oracle_query: to_binary(&WasmQuery::Smart {
                         contract_addr: deps.api.human_address(&config.oracle)?,
                         msg: to_binary(&OracleQueryMsg::Price {
                             base_asset: config.base_denom,

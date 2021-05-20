@@ -91,16 +91,16 @@ pub struct MigrateMsg {}
 #[serde(rename_all = "snake_case")]
 pub enum SourceType {
     TerraOracle {
-        query_request: Binary,
+        terra_oracle_query: Binary,
     },
     BandOracle {
-        query_request: Binary,
+        band_oracle_query: Binary,
     },
     FixedPrice {
         price: Decimal,
     },
     Terraswap {
-        query_request: Binary,
+        terraswap_query: Binary,
     }
 } 
 

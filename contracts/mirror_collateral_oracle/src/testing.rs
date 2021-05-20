@@ -110,14 +110,14 @@ fn register_collateral() {
         })
         .unwrap(),
     };
-    let query_request = to_binary(&wasm_query).unwrap();
+    let terra_oracle_query = to_binary(&wasm_query).unwrap();
 
     let msg = HandleMsg::RegisterCollateralAsset {
         asset: AssetInfo::Token {
             contract_addr: HumanAddr::from("mTSLA"),
         },
         collateral_premium: Decimal::percent(50),
-        price_source: SourceType::TerraOracle { query_request },
+        price_source: SourceType::TerraOracle { terra_oracle_query },
     };
 
     // unauthorized attempt
@@ -169,14 +169,14 @@ fn update_collateral() {
         })
         .unwrap(),
     };
-    let query_request = to_binary(&wasm_query).unwrap();
+    let terra_oracle_query = to_binary(&wasm_query).unwrap();
 
     let msg = HandleMsg::RegisterCollateralAsset {
         asset: AssetInfo::Token {
             contract_addr: HumanAddr::from("mTSLA"),
         },
         collateral_premium: Decimal::percent(50),
-        price_source: SourceType::TerraOracle { query_request },
+        price_source: SourceType::TerraOracle { terra_oracle_query },
     };
 
     // successfull attempt
@@ -283,7 +283,7 @@ fn get_oracle_price() {
         },
         collateral_premium: Decimal::percent(50),
         price_source: SourceType::TerraOracle {
-            query_request: to_binary(&WasmQuery::Smart {
+            terra_oracle_query: to_binary(&WasmQuery::Smart {
                 contract_addr: HumanAddr::from("oracle0000"),
                 msg: to_binary(&OracleQueryMsg::Price {
                     base_asset: "uusd".to_string(),
@@ -335,7 +335,7 @@ fn get_terraswap_price() {
         },
         collateral_premium: Decimal::percent(50),
         price_source: SourceType::Terraswap {
-            query_request: to_binary(&WasmQuery::Smart {
+            terraswap_query: to_binary(&WasmQuery::Smart {
                 contract_addr: HumanAddr::from("ustancpair0000"),
                 msg: to_binary(&TerraswapPairQueryMsg::Pool {}).unwrap(),
             })
@@ -419,7 +419,7 @@ fn get_band_oracle_price() {
         },
         collateral_premium: Decimal::percent(50),
         price_source: SourceType::BandOracle {
-            query_request: to_binary(&WasmQuery::Smart {
+            band_oracle_query: to_binary(&WasmQuery::Smart {
                 contract_addr: HumanAddr::from("bandoracle0000"),
                 msg: to_binary(&MockQueryMsg::GetReferenceData {
                     base_symbol: "LUNA".to_string(),

@@ -30,21 +30,21 @@ pub fn query_price<S: Storage, A: Api, Q: Querier>(
     base_denom: String,
 ) -> StdResult<Decimal> {
     match price_source {
-        SourceType::BandOracle { query_request } => {
-            let wasm_query: WasmQuery = from_binary(&query_request)?;
+        SourceType::BandOracle { band_oracle_query } => {
+            let wasm_query: WasmQuery = from_binary(&band_oracle_query)?;
             let res: BandOracleResponse = deps.querier.query(&QueryRequest::Wasm(wasm_query))?;
 
             parse_band_rate(res.rate)
         }
         SourceType::FixedPrice { price } => return Ok(price),
-        SourceType::TerraOracle { query_request } => {
-            let wasm_query: WasmQuery = from_binary(&query_request)?;
+        SourceType::TerraOracle { terra_oracle_query } => {
+            let wasm_query: WasmQuery = from_binary(&terra_oracle_query)?;
             let res: TerraOracleResponse = deps.querier.query(&QueryRequest::Wasm(wasm_query))?;
 
             Ok(res.rate)
         }
-        SourceType::Terraswap { query_request } => {
-            let wasm_query: WasmQuery = from_binary(&query_request)?;
+        SourceType::Terraswap { terraswap_query } => {
+            let wasm_query: WasmQuery = from_binary(&terraswap_query)?;
             let res: TerraswapResponse = deps.querier.query(&QueryRequest::Wasm(wasm_query))?;
             let assets: [Asset; 2] = res.assets;
 

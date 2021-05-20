@@ -209,10 +209,10 @@
             "terra_oracle": {
               "type": "object",
               "required": [
-                "query_request"
+                "terra_oracle_query"
               ],
               "properties": {
-                "query_request": {
+                "terra_oracle_query": {
                   "$ref": "#/definitions/Binary"
                 }
               }
@@ -228,10 +228,10 @@
             "band_oracle": {
               "type": "object",
               "required": [
-                "query_request"
+                "band_oracle_query"
               ],
               "properties": {
-                "query_request": {
+                "band_oracle_query": {
                   "$ref": "#/definitions/Binary"
                 }
               }
@@ -266,10 +266,10 @@
             "terraswap": {
               "type": "object",
               "required": [
-                "query_request"
+                "terraswap_query"
               ],
               "properties": {
-                "query_request": {
+                "terraswap_query": {
                   "$ref": "#/definitions/Binary"
                 }
               }

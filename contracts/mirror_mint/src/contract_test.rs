@@ -140,7 +140,7 @@ mod tests {
                     },
                     collateral_premium: Decimal::zero(),
                     price_source: SourceType::TerraOracle {
-                        query_request: to_binary(&WasmQuery::Smart {
+                        terra_oracle_query: to_binary(&WasmQuery::Smart {
                             contract_addr: HumanAddr::from("oracle0000"),
                             msg: to_binary(&Price {
                                 base_asset: "uusd".to_string(),
