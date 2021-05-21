@@ -66,6 +66,7 @@ pub struct ConfigResponse {
 pub struct CollateralPriceResponse {
     pub asset: String,
     pub rate: Decimal,
+    pub last_updated: u64,
     pub collateral_premium: Decimal,
     pub is_revoked: bool,
 }

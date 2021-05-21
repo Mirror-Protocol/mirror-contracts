@@ -251,11 +251,13 @@ pub fn query_collateral_price<S: Storage, A: Api, Q: Querier>(
             return Err(StdError::generic_err("Collateral asset not found"));
         };
 
-    let price: Decimal = query_price(deps, collateral.price_source, config.base_denom)?;
+    let (price, last_updated): (Decimal, u64) =
+        query_price(deps, collateral.price_source, config.base_denom)?;
 
     Ok(CollateralPriceResponse {
         asset: collateral.asset,
         rate: price,
+        last_updated,
         collateral_premium: collateral.collateral_premium,
         is_revoked: collateral.is_revoked,
     })

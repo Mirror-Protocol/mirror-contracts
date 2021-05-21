@@ -12,6 +12,7 @@ use terraswap::asset::{Asset, AssetInfo};
 pub struct TerraOracleResponse {
     // oracle queries returns rate
     pub rate: Decimal,
+    pub last_updated_base: u64,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct TerraswapResponse {
@@ -22,43 +23,47 @@ pub struct TerraswapResponse {
 pub struct BandOracleResponse {
     // band oracle queries returns rate (uint128)
     pub rate: Uint128,
+    pub last_updated_base: u64,
 }
 
 pub fn query_price<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     price_source: SourceType,
     base_denom: String,
-) -> StdResult<Decimal> {
+) -> StdResult<(Decimal, u64)> {
     match price_source {
         SourceType::BandOracle { band_oracle_query } => {
             let wasm_query: WasmQuery = from_binary(&band_oracle_query)?;
             let res: BandOracleResponse = deps.querier.query(&QueryRequest::Wasm(wasm_query))?;
+            let rate: Decimal = parse_band_rate(res.rate)?;
 
-            parse_band_rate(res.rate)
+            Ok((rate, res.last_updated_base))
         }
-        SourceType::FixedPrice { price } => return Ok(price),
+        SourceType::FixedPrice { price } => return Ok((price, u64::MAX)),
         SourceType::TerraOracle { terra_oracle_query } => {
             let wasm_query: WasmQuery = from_binary(&terra_oracle_query)?;
             let res: TerraOracleResponse = deps.querier.query(&QueryRequest::Wasm(wasm_query))?;
 
-            Ok(res.rate)
+            Ok((res.rate, res.last_updated_base))
         }
         SourceType::Terraswap { terraswap_query } => {
             let wasm_query: WasmQuery = from_binary(&terraswap_query)?;
             let res: TerraswapResponse = deps.querier.query(&QueryRequest::Wasm(wasm_query))?;
             let assets: [Asset; 2] = res.assets;
 
-            if assets[0].info.equal(&AssetInfo::NativeToken {
+            let rate: Decimal = if assets[0].info.equal(&AssetInfo::NativeToken {
                 denom: base_denom.clone(),
             }) {
-                Ok(Decimal::from_ratio(assets[0].amount, assets[1].amount))
+                Decimal::from_ratio(assets[0].amount, assets[1].amount)
             } else if assets[1].info.equal(&AssetInfo::NativeToken {
                 denom: base_denom.clone(),
             }) {
-                Ok(Decimal::from_ratio(assets[1].amount, assets[0].amount))
+                Decimal::from_ratio(assets[1].amount, assets[0].amount)
             } else {
-                Err(StdError::generic_err("Invalid pool"))
-            }
+                return Err(StdError::generic_err("Invalid pool"));
+            };
+
+            Ok((rate, u64::MAX))
         }
     }
 }

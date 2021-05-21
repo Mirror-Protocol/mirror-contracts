@@ -6,6 +6,7 @@
     "asset",
     "collateral_premium",
     "is_revoked",
+    "last_updated",
     "rate"
   ],
   "properties": {
@@ -17,6 +18,11 @@
     },
     "is_revoked": {
       "type": "boolean"
+    },
+    "last_updated": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
     },
     "rate": {
       "$ref": "#/definitions/Decimal"

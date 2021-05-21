@@ -305,6 +305,7 @@ fn get_oracle_price() {
         CollateralPriceResponse {
             asset: "mTSLA".to_string(),
             rate: Decimal::percent(100),
+            last_updated: 1000u64,
             collateral_premium: Decimal::percent(50),
             is_revoked: false,
         }
@@ -353,6 +354,7 @@ fn get_terraswap_price() {
         CollateralPriceResponse {
             asset: "anc".to_string(),
             rate: Decimal::from_ratio(1u128, 100u128),
+            last_updated: u64::MAX,
             collateral_premium: Decimal::percent(50),
             is_revoked: false,
         }
@@ -393,6 +395,7 @@ fn get_fixed_price() {
         CollateralPriceResponse {
             asset: "aUST".to_string(),
             rate: Decimal::from_ratio(1u128, 2u128),
+            last_updated: u64::MAX,
             collateral_premium: Decimal::percent(50),
             is_revoked: false,
         }
@@ -441,6 +444,7 @@ fn get_band_oracle_price() {
         CollateralPriceResponse {
             asset: "uluna".to_string(),
             rate: Decimal::from_str("3465.211050000000000000").unwrap(),
+            last_updated: 100u64,
             collateral_premium: Decimal::percent(50),
             is_revoked: false,
         }
@@ -450,10 +454,6 @@ fn get_band_oracle_price() {
 #[test]
 fn revoke_collateral() {
     let mut deps = mock_dependencies(20, &[]);
-    deps.querier.with_oracle_price(&[
-        (&"uusd".to_string(), &Decimal::one()),
-        (&"mTSLA".to_string(), &Decimal::percent(100)),
-    ]);
 
     let msg = InitMsg {
         owner: HumanAddr("owner0000".to_string()),
@@ -467,7 +467,7 @@ fn revoke_collateral() {
 
     let msg = HandleMsg::RegisterCollateralAsset {
         asset: AssetInfo::Token {
-            contract_addr: HumanAddr::from("mTSLA"),
+            contract_addr: HumanAddr::from("aUST"),
         },
         collateral_premium: Decimal::percent(50),
         price_source: SourceType::FixedPrice {
@@ -479,12 +479,13 @@ fn revoke_collateral() {
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // attempt to query price
-    let query_res = query_collateral_price(&deps, "mTSLA".to_string()).unwrap();
+    let query_res = query_collateral_price(&deps, "aUST".to_string()).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
-            asset: "mTSLA".to_string(),
+            asset: "aUST".to_string(),
             rate: Decimal::one(),
+            last_updated: u64::MAX,
             collateral_premium: Decimal::percent(50),
             is_revoked: false,
         }
@@ -493,7 +494,7 @@ fn revoke_collateral() {
     // revoke the asset
     let msg = HandleMsg::RevokeCollateralAsset {
         asset: AssetInfo::Token {
-            contract_addr: HumanAddr::from("mTSLA"),
+            contract_addr: HumanAddr::from("aUST"),
         },
     };
 
@@ -508,11 +509,11 @@ fn revoke_collateral() {
     assert_eq!(0, res.messages.len());
 
     // query the revoked collateral
-    let query_res = query_collateral_info(&deps, "mTSLA".to_string()).unwrap();
+    let query_res = query_collateral_info(&deps, "aUST".to_string()).unwrap();
     assert_eq!(
         query_res,
         CollateralInfoResponse {
-            asset: "mTSLA".to_string(),
+            asset: "aUST".to_string(),
             source_type: "fixed_price".to_string(),
             collateral_premium: Decimal::percent(50),
             is_revoked: true,
@@ -520,12 +521,13 @@ fn revoke_collateral() {
     );
 
     // attempt to query price of revoked asset
-    let query_res = query_collateral_price(&deps, "mTSLA".to_string()).unwrap();
+    let query_res = query_collateral_price(&deps, "aUST".to_string()).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
-            asset: "mTSLA".to_string(),
+            asset: "aUST".to_string(),
             rate: Decimal::one(),
+            last_updated: u64::MAX,
             collateral_premium: Decimal::percent(50),
             is_revoked: true,
         }
