@@ -1,16 +1,16 @@
 use crate::state::{AssetConfig, Position};
-use cosmwasm_std::{Api, Decimal, Env, Extern, Querier, StdError, StdResult, Storage};
+use cosmwasm_std::{Decimal, Deps, Env, StdError, StdResult};
 use terraswap::asset::Asset;
 
 // Check zero balance & same collateral with position
-pub fn assert_collateral<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
+pub fn assert_collateral(
+    deps: Deps,
     position: &Position,
     collateral: &Asset,
 ) -> StdResult<()> {
     if !collateral
         .info
-        .equal(&position.collateral.info.to_normal(&deps)?)
+        .equal(&position.collateral.info.to_normal(deps.api)?)
         || collateral.amount.is_zero()
     {
         return Err(StdError::generic_err("Wrong collateral"));
@@ -20,12 +20,12 @@ pub fn assert_collateral<S: Storage, A: Api, Q: Querier>(
 }
 
 // Check zero balance & same asset with position
-pub fn assert_asset<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
+pub fn assert_asset(
+    deps: Deps,
     position: &Position,
     asset: &Asset,
 ) -> StdResult<()> {
-    if !asset.info.equal(&position.asset.info.to_normal(&deps)?) || asset.amount.is_zero() {
+    if !asset.info.equal(&position.asset.info.to_normal(deps.api)?) || asset.amount.is_zero() {
         return Err(StdError::generic_err("Wrong asset"));
     }
 
@@ -76,7 +76,7 @@ pub fn assert_min_collateral_ratio(min_collateral_ratio: Decimal) -> StdResult<(
 
 pub fn assert_mint_period(env: &Env, asset_config: &AssetConfig) -> StdResult<()> {
     if let Some(ipo_params) = asset_config.ipo_params.clone() {
-        if ipo_params.mint_end < env.block.time {
+        if ipo_params.mint_end < env.block.time.nanos() / 1_000_000_000 {
             return Err(StdError::generic_err(format!(
                 "The minting period for this asset ended at time {}",
                 ipo_params.mint_end
@@ -88,7 +88,7 @@ pub fn assert_mint_period(env: &Env, asset_config: &AssetConfig) -> StdResult<()
 
 pub fn assert_burn_period(env: &Env, asset_config: &AssetConfig) -> StdResult<()> {
     if let Some(ipo_params) = asset_config.ipo_params.clone() {
-        if ipo_params.mint_end < env.block.time {
+        if ipo_params.mint_end < env.block.time.nanos() / 1_000_000_000 {
             return Err(StdError::generic_err(format!(
                 "Burning is disabled for assets with limitied minting time. Mint period ended at time {}",
                 ipo_params.mint_end

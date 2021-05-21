@@ -1,20 +1,18 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::HumanAddr;
-
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct InitMsg {
-    pub distribution_contract: HumanAddr, // collected rewards receiver
-    pub terraswap_factory: HumanAddr,
-    pub mirror_token: HumanAddr,
+pub struct InstantiateMsg {
+    pub distribution_contract: String, // collected rewards receiver
+    pub terraswap_factory: String,
+    pub mirror_token: String,
     pub base_denom: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum HandleMsg {
-    Convert { asset_token: HumanAddr },
+pub enum ExecuteMsg {
+    Convert { asset_token: String },
     Distribute {},
 }
 
@@ -27,9 +25,9 @@ pub enum QueryMsg {
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ConfigResponse {
-    pub distribution_contract: HumanAddr, // collected rewards receiver
-    pub terraswap_factory: HumanAddr,
-    pub mirror_token: HumanAddr,
+    pub distribution_contract: String, // collected rewards receiver
+    pub terraswap_factory: String,
+    pub mirror_token: String,
     pub base_denom: String,
 }
 

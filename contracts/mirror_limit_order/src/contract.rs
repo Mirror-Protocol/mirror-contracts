@@ -1,6 +1,9 @@
+#[cfg(not(feature = "library"))]
+use cosmwasm_std::entry_point;
+
 use cosmwasm_std::{
-    from_binary, to_binary, Api, Binary, Env, Extern, HandleResponse, HandleResult, InitResponse,
-    InitResult, MigrateResponse, MigrateResult, Querier, StdError, StdResult, Storage,
+    from_binary, to_binary, Binary, Deps, DepsMut, Env, MessageInfo,
+    Response, StdError, StdResult,
 };
 
 use crate::order::{
@@ -9,26 +12,30 @@ use crate::order::{
 use crate::state::init_last_order_id;
 
 use cw20::Cw20ReceiveMsg;
-use mirror_protocol::limit_order::{Cw20HookMsg, HandleMsg, InitMsg, MigrateMsg, QueryMsg};
+use mirror_protocol::limit_order::{Cw20HookMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use terraswap::asset::{Asset, AssetInfo};
 
-pub fn init<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn instantiate(
+    deps: DepsMut,
     _env: Env,
-    _msg: InitMsg,
-) -> InitResult {
-    init_last_order_id(&mut deps.storage)?;
-    Ok(InitResponse::default())
+    _info: MessageInfo,
+    _msg: InstantiateMsg,
+) -> StdResult<Response> {
+    init_last_order_id(deps.storage)?;
+    Ok(Response::default())
 }
 
-pub fn handle<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    msg: HandleMsg,
-) -> StdResult<HandleResponse> {
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn execute(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    msg: ExecuteMsg,
+) -> StdResult<Response> {
     match msg {
-        HandleMsg::Receive(msg) => receive_cw20(deps, env, msg),
-        HandleMsg::SubmitOrder {
+        ExecuteMsg::Receive(msg) => receive_cw20(deps, info, msg),
+        ExecuteMsg::SubmitOrder {
             offer_asset,
             ask_asset,
         } => {
@@ -36,11 +43,11 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
                 return Err(StdError::generic_err("must provide native token"));
             }
 
-            offer_asset.assert_sent_native_token_balance(&env)?;
-            submit_order(deps, env.message.sender, offer_asset, ask_asset)
+            offer_asset.assert_sent_native_token_balance(&info)?;
+            submit_order(deps, info.sender, offer_asset, ask_asset)
         }
-        HandleMsg::CancelOrder { order_id } => cancel_order(deps, env, order_id),
-        HandleMsg::ExecuteOrder {
+        ExecuteMsg::CancelOrder { order_id } => cancel_order(deps, info, order_id),
+        ExecuteMsg::ExecuteOrder {
             execute_asset,
             order_id,
         } => {
@@ -48,11 +55,10 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
                 return Err(StdError::generic_err("must provide native token"));
             }
 
-            execute_asset.assert_sent_native_token_balance(&env)?;
+            execute_asset.assert_sent_native_token_balance(&info)?;
             execute_order(
                 deps,
-                env.message.sender,
-                env.contract.address,
+                info.sender,
                 execute_asset,
                 order_id,
             )
@@ -60,38 +66,42 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     }
 }
 
-pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
+pub fn receive_cw20(
+    deps: DepsMut,
+    info: MessageInfo,
     cw20_msg: Cw20ReceiveMsg,
-) -> HandleResult {
-    if let Some(msg) = cw20_msg.msg {
-        let provided_asset = Asset {
-            info: AssetInfo::Token {
-                contract_addr: env.message.sender,
-            },
-            amount: cw20_msg.amount,
-        };
+) -> StdResult<Response> {
 
-        match from_binary(&msg)? {
-            Cw20HookMsg::SubmitOrder { ask_asset } => {
-                submit_order(deps, cw20_msg.sender, provided_asset, ask_asset)
-            }
-            Cw20HookMsg::ExecuteOrder { order_id } => execute_order(
-                deps,
-                cw20_msg.sender,
-                env.contract.address,
-                provided_asset,
-                order_id,
-            ),
-        }
-    } else {
-        Err(StdError::generic_err("data should be given"))
+    let sender = deps.api.addr_validate(cw20_msg.sender.as_str())?;
+
+    let provided_asset = Asset {
+        info: AssetInfo::Token {
+            contract_addr: info.sender,
+        },
+        amount: cw20_msg.amount,
+    };
+
+    match from_binary(&cw20_msg.msg) {
+        Ok(Cw20HookMsg::SubmitOrder { ask_asset }) => submit_order(
+            deps, 
+            sender, 
+            provided_asset,
+            ask_asset
+        ),
+        Ok(Cw20HookMsg::ExecuteOrder { order_id }) => execute_order(
+            deps,
+            sender,
+            provided_asset,
+            order_id,
+        ),
+        Err(_) => Err(StdError::generic_err("data should be given")),
     }
 }
 
-pub fn query<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn query(
+    deps: Deps,
+    _env: Env,
     msg: QueryMsg,
 ) -> StdResult<Binary> {
     match msg {
@@ -112,10 +122,11 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
     }
 }
 
-pub fn migrate<S: Storage, A: Api, Q: Querier>(
-    _deps: &mut Extern<S, A, Q>,
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(
+    _deps: DepsMut,
     _env: Env,
     _msg: MigrateMsg,
-) -> MigrateResult {
-    Ok(MigrateResponse::default())
+) -> StdResult<Response> {
+    Ok(Response::default())
 }

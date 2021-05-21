@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{CanonicalAddr, ReadonlyStorage, StdError, StdResult, Storage, Uint128};
+use cosmwasm_std::{CanonicalAddr, StdError, StdResult, Storage, Uint128};
 use cosmwasm_storage::{singleton, singleton_read, Bucket, ReadonlyBucket};
 
 use mirror_protocol::common::OrderBy;
@@ -13,15 +13,15 @@ static KEY_LAST_ORDER_ID: &[u8] = b"last_order_id";
 static PREFIX_ORDER: &[u8] = b"order";
 static PREFIX_ORDER_BY_BIDDER: &[u8] = b"order_by_bidder";
 
-pub fn init_last_order_id<S: Storage>(storage: &mut S) -> StdResult<()> {
+pub fn init_last_order_id(storage: &mut dyn Storage) -> StdResult<()> {
     singleton(storage, KEY_LAST_ORDER_ID).save(&0u64)
 }
 
-pub fn increase_last_order_id<S: Storage>(storage: &mut S) -> StdResult<u64> {
+pub fn increase_last_order_id(storage: &mut dyn Storage) -> StdResult<u64> {
     singleton(storage, KEY_LAST_ORDER_ID).update(|v| Ok(v + 1))
 }
 
-pub fn read_last_order_id<S: ReadonlyStorage>(storage: &S) -> StdResult<u64> {
+pub fn read_last_order_id(storage: &dyn Storage) -> StdResult<u64> {
     singleton_read(storage, KEY_LAST_ORDER_ID).load()
 }
 
@@ -35,39 +35,39 @@ pub struct Order {
     pub filled_ask_amount: Uint128,
 }
 
-pub fn store_order<S: Storage>(storage: &mut S, order: &Order) -> StdResult<()> {
-    Bucket::new(PREFIX_ORDER, storage).save(&order.order_id.to_be_bytes(), order)?;
+pub fn store_order(storage: &mut dyn Storage, order: &Order) -> StdResult<()> {
+    Bucket::new(storage, PREFIX_ORDER).save(&order.order_id.to_be_bytes(), order)?;
     Bucket::multilevel(
-        &[PREFIX_ORDER_BY_BIDDER, order.bidder_addr.as_slice()],
         storage,
+        &[PREFIX_ORDER_BY_BIDDER, order.bidder_addr.as_slice()],
     )
     .save(&order.order_id.to_be_bytes(), &true)?;
 
     Ok(())
 }
 
-pub fn remove_order<S: Storage>(storage: &mut S, order: &Order) {
-    Bucket::<S, Order>::new(PREFIX_ORDER, storage).remove(&order.order_id.to_be_bytes());
-    Bucket::<S, Order>::multilevel(
-        &[PREFIX_ORDER_BY_BIDDER, order.bidder_addr.as_slice()],
+pub fn remove_order(storage: &mut dyn Storage, order: &Order) {
+    Bucket::<Order>::new(storage, PREFIX_ORDER).remove(&order.order_id.to_be_bytes());
+    Bucket::<Order>::multilevel(
         storage,
+        &[PREFIX_ORDER_BY_BIDDER, order.bidder_addr.as_slice()],
     )
     .remove(&order.order_id.to_be_bytes());
 }
 
-pub fn read_order<S: ReadonlyStorage>(storage: &S, order_id: u64) -> StdResult<Order> {
-    ReadonlyBucket::new(PREFIX_ORDER, storage).load(&order_id.to_be_bytes())
+pub fn read_order(storage: &dyn Storage, order_id: u64) -> StdResult<Order> {
+    ReadonlyBucket::new(storage, PREFIX_ORDER).load(&order_id.to_be_bytes())
 }
 
-pub fn read_orders_with_bidder_indexer<S: ReadonlyStorage>(
-    storage: &S,
+pub fn read_orders_with_bidder_indexer(
+    storage: &dyn Storage,
     bidder_addr: &CanonicalAddr,
     start_after: Option<u64>,
     limit: Option<u32>,
     order_by: Option<OrderBy>,
 ) -> StdResult<Vec<Order>> {
-    let position_indexer: ReadonlyBucket<S, bool> =
-        ReadonlyBucket::multilevel(&[PREFIX_ORDER_BY_BIDDER, bidder_addr.as_slice()], storage);
+    let position_indexer: ReadonlyBucket<bool> =
+        ReadonlyBucket::multilevel(storage, &[PREFIX_ORDER_BY_BIDDER, bidder_addr.as_slice()]);
 
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
     let (start, end, order_by) = match order_by {
@@ -88,13 +88,13 @@ pub fn read_orders_with_bidder_indexer<S: ReadonlyStorage>(
 // settings for pagination
 const MAX_LIMIT: u32 = 30;
 const DEFAULT_LIMIT: u32 = 10;
-pub fn read_orders<S: ReadonlyStorage>(
-    storage: &S,
+pub fn read_orders(
+    storage: &dyn Storage,
     start_after: Option<u64>,
     limit: Option<u32>,
     order_by: Option<OrderBy>,
 ) -> StdResult<Vec<Order>> {
-    let position_bucket: ReadonlyBucket<S, Order> = ReadonlyBucket::new(PREFIX_ORDER, storage);
+    let position_bucket: ReadonlyBucket<Order> = ReadonlyBucket::new(storage, PREFIX_ORDER);
 
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
     let (start, end, order_by) = match order_by {

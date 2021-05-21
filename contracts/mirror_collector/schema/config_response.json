@@ -13,17 +13,12 @@
       "type": "string"
     },
     "distribution_contract": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "mirror_token": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "terraswap_factory": {
-      "$ref": "#/definitions/HumanAddr"
-    }
-  },
-  "definitions": {
-    "HumanAddr": {
       "type": "string"
     }
   }

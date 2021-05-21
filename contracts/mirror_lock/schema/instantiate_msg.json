@@ -1,10 +1,10 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "InitMsg",
+  "title": "InstantiateMsg",
   "type": "object",
   "required": [
     "base_denom",
-    "factory_contract",
+    "lockup_period",
     "mint_contract",
     "owner"
   ],
@@ -12,18 +12,15 @@
     "base_denom": {
       "type": "string"
     },
-    "factory_contract": {
-      "$ref": "#/definitions/HumanAddr"
+    "lockup_period": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
     },
     "mint_contract": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "owner": {
-      "$ref": "#/definitions/HumanAddr"
-    }
-  },
-  "definitions": {
-    "HumanAddr": {
       "type": "string"
     }
   }

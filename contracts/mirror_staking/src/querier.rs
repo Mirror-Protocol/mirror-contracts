@@ -1,6 +1,5 @@
 use cosmwasm_std::{
-    to_binary, Api, Decimal, Extern, HumanAddr, Querier, QueryRequest, StdResult, Storage,
-    WasmQuery,
+    to_binary, Addr, Decimal, Deps, QueryRequest, StdResult, WasmQuery,
 };
 
 use terraswap::{
@@ -12,16 +11,16 @@ use crate::math::{decimal_division, decimal_subtraction};
 
 use mirror_protocol::{oracle::PriceResponse, oracle::QueryMsg as OracleQueryMsg};
 
-pub fn compute_premium_rate<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    oracle_contract: &HumanAddr,
-    factory_contract: &HumanAddr,
-    asset_token: &HumanAddr,
+pub fn compute_premium_rate(
+    deps: Deps,
+    oracle_contract: Addr,
+    factory_contract: Addr,
+    asset_token: Addr,
     base_denom: String,
 ) -> StdResult<Decimal> {
     let pair_info: PairInfo = query_pair_info(
-        deps,
-        &factory_contract,
+        &deps.querier,
+        factory_contract.clone(),
         &[
             AssetInfo::NativeToken {
                 denom: base_denom.to_string(),
@@ -33,7 +32,7 @@ pub fn compute_premium_rate<S: Storage, A: Api, Q: Querier>(
     )?;
 
     let pool: PoolResponse = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-        contract_addr: pair_info.contract_addr,
+        contract_addr: pair_info.contract_addr.to_string(),
         msg: to_binary(&PairQueryMsg::Pool {})?,
     }))?;
 
@@ -55,14 +54,14 @@ pub fn compute_premium_rate<S: Storage, A: Api, Q: Querier>(
     }
 }
 
-pub fn query_price<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    oracle: &HumanAddr,
+pub fn query_price(
+    deps: Deps,
+    oracle: Addr,
     base_asset: String,
     quote_asset: String,
 ) -> StdResult<Decimal> {
     let res: PriceResponse = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-        contract_addr: HumanAddr::from(oracle),
+        contract_addr: oracle.to_string(),
         msg: to_binary(&OracleQueryMsg::Price {
             base_asset,
             quote_asset,

@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    log, to_binary, Api, CosmosMsg, Decimal, Env, Extern, HandleResponse, HandleResult, HumanAddr,
-    LogAttribute, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
+    attr, to_binary, Addr, Attribute, CosmosMsg, Decimal, Deps, DepsMut, Env, 
+    Response, StdError, StdResult, Uint128, WasmMsg,
 };
 
 use crate::{
@@ -18,12 +18,12 @@ use crate::{
     },
 };
 
-use cw20::Cw20HandleMsg;
+use cw20::Cw20ExecuteMsg;
 use mirror_protocol::{
     common::OrderBy,
-    lock::HandleMsg as LockHandleMsg,
+    lock::ExecuteMsg as LockExecuteMsg,
     mint::{NextPositionIdxResponse, PositionResponse, PositionsResponse, ShortParams},
-    staking::HandleMsg as StakingHandleMsg,
+    staking::ExecuteMsg as StakingExecuteMsg,
 };
 use terraswap::{
     asset::{Asset, AssetInfo, AssetInfoRaw, AssetRaw},
@@ -31,39 +31,39 @@ use terraswap::{
     querier::query_pair_info,
 };
 
-pub fn open_position<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn open_position(
+    deps: DepsMut,
     env: Env,
-    sender: HumanAddr,
+    sender: Addr,
     collateral: Asset,
     asset_info: AssetInfo,
     collateral_ratio: Decimal,
     short_params: Option<ShortParams>,
-) -> StdResult<HandleResponse> {
-    let config: Config = read_config(&deps.storage)?;
+) -> StdResult<Response> {
+    let config: Config = read_config(deps.storage)?;
     if collateral.amount.is_zero() {
         return Err(StdError::generic_err("Wrong collateral"));
     }
 
     // assert the collateral is listed and has not been migrated/revoked
-    let collateral_info_raw: AssetInfoRaw = collateral.info.to_raw(&deps)?;
-    let collateral_oracle: HumanAddr = deps.api.human_address(&config.collateral_oracle)?;
+    let collateral_info_raw: AssetInfoRaw = collateral.info.to_raw(deps.api)?;
+    let collateral_oracle: Addr = deps.api.addr_humanize(&config.collateral_oracle)?;
     let (collateral_price, collateral_multiplier) =
         assert_revoked_collateral(load_collateral_info(
-            &deps,
-            &collateral_oracle,
+            deps.as_ref(),
+            collateral_oracle,
             &collateral_info_raw,
-            Some(env.block.time),
+            Some(env.block.time.nanos() / 1_000_000_000),
         )?)?;
 
     // assert asset migrated
-    let asset_info_raw: AssetInfoRaw = asset_info.to_raw(&deps)?;
+    let asset_info_raw: AssetInfoRaw = asset_info.to_raw(deps.api)?;
     let asset_token_raw = match asset_info_raw.clone() {
         AssetInfoRaw::Token { contract_addr } => contract_addr,
         _ => panic!("DO NOT ENTER HERE"),
     };
 
-    let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
+    let asset_config: AssetConfig = read_asset_config(deps.storage, &asset_token_raw)?;
     assert_migrated_asset(&asset_config)?;
 
     // for assets with limited minting period (preIPO assets), assert minting phase
@@ -75,9 +75,9 @@ pub fn open_position<S: Storage, A: Api, Q: Querier>(
         ));
     }
 
-    let oracle: HumanAddr = deps.api.human_address(&config.oracle)?;
+    let oracle: Addr = deps.api.addr_humanize(&config.oracle)?;
     let asset_price: Decimal =
-        load_asset_price(&deps, &oracle, &asset_info_raw, Some(env.block.time))?;
+        load_asset_price(deps.as_ref(), oracle, &asset_info_raw, Some(env.block.time.nanos() / 1_000_000_000))?;
 
     let asset_price_in_collateral_asset = decimal_division(collateral_price, asset_price);
 
@@ -91,15 +91,15 @@ pub fn open_position<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::generic_err("collateral is too small"));
     }
 
-    let position_idx = read_position_idx(&deps.storage)?;
-    let asset_info_raw = asset_info.to_raw(&deps)?;
+    let position_idx = read_position_idx(deps.storage)?;
+    let asset_info_raw = asset_info.to_raw(deps.api)?;
 
     create_position(
-        &mut deps.storage,
+        deps.storage,
         position_idx,
         &Position {
             idx: position_idx,
-            owner: deps.api.canonical_address(&sender)?,
+            owner: deps.api.addr_canonicalize(sender.as_str())?,
             collateral: AssetRaw {
                 amount: collateral.amount,
                 info: collateral_info_raw,
@@ -115,16 +115,16 @@ pub fn open_position<S: Storage, A: Api, Q: Querier>(
     // flagged as short position. so if want to make short position,
     // the one must pass at least empty {} as short_params
     let is_short: bool;
-    let asset_token = deps.api.human_address(&asset_config.token)?;
+    let asset_token = deps.api.addr_humanize(&asset_config.token)?.to_string();
     let messages: Vec<CosmosMsg> = if let Some(short_params) = short_params {
         is_short = true;
-        store_short_position(&mut deps.storage, position_idx)?;
+        store_short_position(deps.storage, position_idx)?;
 
         // need to sell the tokens to terraswap
         // load pair contract address
         let pair_info = query_pair_info(
-            &deps,
-            &deps.api.human_address(&config.terraswap_factory)?,
+            &deps.querier,
+            deps.api.addr_humanize(&config.terraswap_factory)?,
             &[
                 AssetInfo::NativeToken {
                     denom: config.base_denom,
@@ -137,21 +137,21 @@ pub fn open_position<S: Storage, A: Api, Q: Querier>(
         // 2. Swap token and send to lock contract
         // 3. Call lock hook on lock contract
         // 4. Increase short token in staking contract
-        let lock_contract = deps.api.human_address(&config.lock)?;
+        let lock_contract = deps.api.addr_humanize(&config.lock)?.to_string();
         vec![
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: asset_token.clone(),
                 send: vec![],
-                msg: to_binary(&Cw20HandleMsg::Mint {
-                    recipient: env.contract.address,
+                msg: to_binary(&Cw20ExecuteMsg::Mint {
+                    recipient: env.contract.address.to_string(),
                     amount: mint_amount,
                 })?,
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: asset_token.clone(),
                 send: vec![],
-                msg: to_binary(&Cw20HandleMsg::Send {
-                    contract: pair_info.contract_addr,
+                msg: to_binary(&Cw20ExecuteMsg::Send {
+                    contract: pair_info.contract_addr.to_string(),
                     amount: mint_amount,
                     msg: Some(to_binary(&PairCw20HookMsg::Swap {
                         belief_price: short_params.belief_price,
@@ -163,17 +163,17 @@ pub fn open_position<S: Storage, A: Api, Q: Querier>(
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: lock_contract,
                 send: vec![],
-                msg: to_binary(&LockHandleMsg::LockPositionFundsHook {
+                msg: to_binary(&LockExecuteMsg::LockPositionFundsHook {
                     position_idx,
-                    receiver: sender.clone(),
+                    receiver: sender.to_string(),
                 })?,
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: deps.api.human_address(&config.staking)?,
+                contract_addr: deps.api.addr_humanize(&config.staking)?.to_string(),
                 send: vec![],
-                msg: to_binary(&StakingHandleMsg::IncreaseShortToken {
+                msg: to_binary(&StakingExecuteMsg::IncreaseShortToken {
                     asset_token,
-                    staker_addr: sender,
+                    staker_addr: sender.to_string(),
                     amount: mint_amount,
                 })?,
             }),
@@ -183,53 +183,54 @@ pub fn open_position<S: Storage, A: Api, Q: Querier>(
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: asset_token,
             send: vec![],
-            msg: to_binary(&Cw20HandleMsg::Mint {
-                recipient: sender,
+            msg: to_binary(&Cw20ExecuteMsg::Mint {
+                recipient: sender.to_string(),
                 amount: mint_amount,
             })?,
         })]
     };
 
-    store_position_idx(&mut deps.storage, position_idx + Uint128(1u128))?;
-    Ok(HandleResponse {
+    store_position_idx(deps.storage, position_idx + Uint128(1u128))?;
+    Ok(Response {
         messages,
-        log: vec![
-            log("action", "open_position"),
-            log("position_idx", position_idx.to_string()),
-            log(
+        submessages: vec![],
+        attributes: vec![
+            attr("action", "open_position"),
+            attr("position_idx", position_idx.to_string()),
+            attr(
                 "mint_amount",
                 mint_amount.to_string() + &asset_info.to_string(),
             ),
-            log("collateral_amount", collateral.to_string()),
-            log("is_short", is_short),
+            attr("collateral_amount", collateral.to_string()),
+            attr("is_short", is_short),
         ],
         data: None,
     })
 }
 
-pub fn deposit<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    sender: HumanAddr,
+pub fn deposit(
+    deps: DepsMut,
+    sender: Addr,
     position_idx: Uint128,
     collateral: Asset,
-) -> HandleResult {
-    let config: Config = read_config(&deps.storage)?;
-    let mut position: Position = read_position(&deps.storage, position_idx)?;
-    let position_owner = deps.api.human_address(&position.owner)?;
+) -> StdResult<Response> {
+    let config: Config = read_config(deps.storage)?;
+    let mut position: Position = read_position(deps.storage, position_idx)?;
+    let position_owner = deps.api.addr_humanize(&position.owner)?;
     if sender != position_owner {
-        return Err(StdError::unauthorized());
+        return Err(StdError::generic_err("unauthorized"));
     }
 
     // Check the given collateral has same asset info
     // with position's collateral token
     // also Check the collateral amount is non-zero
-    assert_collateral(deps, &position, &collateral)?;
+    assert_collateral(deps.as_ref(), &position, &collateral)?;
 
     // assert the collateral is listed and has not been migrated/revoked
-    let collateral_oracle: HumanAddr = deps.api.human_address(&config.collateral_oracle)?;
+    let collateral_oracle: Addr = deps.api.addr_humanize(&config.collateral_oracle)?;
     assert_revoked_collateral(load_collateral_info(
-        &deps,
-        &collateral_oracle,
+        deps.as_ref(),
+        collateral_oracle,
         &position.collateral.info,
         None,
     )?)?;
@@ -237,43 +238,45 @@ pub fn deposit<S: Storage, A: Api, Q: Querier>(
     // assert asset migrated
     match position.asset.info.clone() {
         AssetInfoRaw::Token { contract_addr } => {
-            assert_migrated_asset(&read_asset_config(&deps.storage, &contract_addr)?)?
+            assert_migrated_asset(&read_asset_config(deps.storage, &contract_addr)?)?
         }
         _ => panic!("DO NOT ENTER HERE"),
     };
 
     // Increase collateral amount
     position.collateral.amount += collateral.amount;
-    store_position(&mut deps.storage, position_idx, &position)?;
+    store_position(deps.storage, position_idx, &position)?;
 
-    Ok(HandleResponse {
+    Ok(Response {
         messages: vec![],
-        log: vec![
-            log("action", "deposit"),
-            log("position_idx", position_idx.to_string()),
-            log("deposit_amount", collateral.to_string()),
+        submessages: vec![],
+        attributes: vec![
+            attr("action", "deposit"),
+            attr("position_idx", position_idx.to_string()),
+            attr("deposit_amount", collateral.to_string()),
         ],
         data: None,
     })
 }
 
-pub fn withdraw<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn withdraw(
+    deps: DepsMut,
     env: Env,
+    sender: Addr,
     position_idx: Uint128,
     collateral: Asset,
-) -> HandleResult {
-    let config: Config = read_config(&deps.storage)?;
-    let mut position: Position = read_position(&deps.storage, position_idx)?;
-    let position_owner = deps.api.human_address(&position.owner)?;
-    if env.message.sender != position_owner {
-        return Err(StdError::unauthorized());
+) -> StdResult<Response> {
+    let config: Config = read_config(deps.storage)?;
+    let mut position: Position = read_position(deps.storage, position_idx)?;
+    let position_owner = deps.api.addr_humanize(&position.owner)?;
+    if sender != position_owner {
+        return Err(StdError::generic_err("unauthorized"));
     }
 
     // Check the given collateral has same asset info
     // with position's collateral token
     // also Check the collateral amount is non-zero
-    assert_collateral(deps, &position, &collateral)?;
+    assert_collateral(deps.as_ref(), &position, &collateral)?;
 
     if position.collateral.amount < collateral.amount {
         return Err(StdError::generic_err(
@@ -286,22 +289,22 @@ pub fn withdraw<S: Storage, A: Api, Q: Querier>(
         _ => panic!("DO NOT ENTER HERE"),
     };
 
-    let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
-    let oracle: HumanAddr = deps.api.human_address(&config.oracle)?;
+    let asset_config: AssetConfig = read_asset_config(deps.storage, &asset_token_raw)?;
+    let oracle: Addr = deps.api.addr_humanize(&config.oracle)?;
     let asset_price: Decimal =
-        load_asset_price(&deps, &oracle, &position.asset.info, Some(env.block.time))?;
+        load_asset_price(deps.as_ref(), oracle, &position.asset.info, Some(env.block.time.nanos() / 1_000_000_000))?;
 
     // Fetch collateral info from collateral oracle
-    let collateral_oracle: HumanAddr = deps.api.human_address(&config.collateral_oracle)?;
+    let collateral_oracle: Addr = deps.api.addr_humanize(&config.collateral_oracle)?;
     let (collateral_price, collateral_multiplier, _collateral_is_revoked) = load_collateral_info(
-        &deps,
-        &collateral_oracle,
+        deps.as_ref(),
+        collateral_oracle,
         &position.collateral.info,
-        Some(env.block.time),
+        Some(env.block.time.nanos() / 1_000_000_000),
     )?;
 
     // Compute new collateral amount
-    let collateral_amount: Uint128 = (position.collateral.amount - collateral.amount)?;
+    let collateral_amount: Uint128 = position.collateral.amount.checked_sub(collateral.amount)?;
 
     // Convert asset to collateral unit
     let asset_value_in_collateral_asset: Uint128 =
@@ -321,16 +324,16 @@ pub fn withdraw<S: Storage, A: Api, Q: Querier>(
     position.collateral.amount = collateral_amount;
     if position.collateral.amount == Uint128::zero() && position.asset.amount == Uint128::zero() {
         // if it is a short position, release locked funds
-        if is_short_position(&deps.storage, position_idx)? {
+        if is_short_position(deps.storage, position_idx)? {
             messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: deps.api.human_address(&config.lock)?,
+                contract_addr: deps.api.addr_humanize(&config.lock)?.to_string(),
                 send: vec![],
-                msg: to_binary(&LockHandleMsg::ReleasePositionFunds { position_idx })?,
+                msg: to_binary(&LockExecuteMsg::ReleasePositionFunds { position_idx })?,
             }));
         }
-        remove_position(&mut deps.storage, position_idx)?;
+        remove_position(deps.storage, position_idx)?;
     } else {
-        store_position(&mut deps.storage, position_idx, &position)?;
+        store_position(deps.storage, position_idx, &position)?;
     }
 
     let mut collateral = collateral;
@@ -341,59 +344,59 @@ pub fn withdraw<S: Storage, A: Api, Q: Querier>(
         amount: collateral.amount * config.protocol_fee_rate,
     };
 
-    collateral.amount = (collateral.amount - protocol_fee.amount)?;
+    collateral.amount = collateral.amount.checked_sub(protocol_fee.amount)?;
 
     // Compute tax amount
-    let tax_amount = collateral.compute_tax(&deps)?;
+    let tax_amount = collateral.compute_tax(&deps.querier)?;
 
     if !protocol_fee.amount.is_zero() {
         messages.push(protocol_fee.clone().into_msg(
-            &deps,
-            env.contract.address.clone(),
-            deps.api.human_address(&config.collector)?,
+            &deps.querier,
+            deps.api.addr_humanize(&config.collector)?,
         )?);
     }
 
-    Ok(HandleResponse {
+    Ok(Response {
         messages: vec![
             vec![collateral
                 .clone()
-                .into_msg(&deps, env.contract.address, position_owner)?],
+                .into_msg(&deps.querier, position_owner)?],
             messages,
         ]
         .concat(),
-        log: vec![
-            log("action", "withdraw"),
-            log("position_idx", position_idx.to_string()),
-            log("withdraw_amount", collateral.to_string()),
-            log(
+        submessages: vec![],
+        attributes: vec![
+            attr("action", "withdraw"),
+            attr("position_idx", position_idx.to_string()),
+            attr("withdraw_amount", collateral.to_string()),
+            attr(
                 "tax_amount",
                 tax_amount.to_string() + &collateral.info.to_string(),
             ),
-            log("protocol_fee", protocol_fee.to_string()),
+            attr("protocol_fee", protocol_fee.to_string()),
         ],
         data: None,
     })
 }
 
-pub fn mint<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn mint(
+    deps: DepsMut,
     env: Env,
+    sender: Addr,
     position_idx: Uint128,
     asset: Asset,
     short_params: Option<ShortParams>,
-) -> HandleResult {
-    let config: Config = read_config(&deps.storage)?;
+) -> StdResult<Response> {
+    let config: Config = read_config(deps.storage)?;
     let mint_amount = asset.amount;
-    let sender = env.message.sender.clone();
 
-    let mut position: Position = read_position(&deps.storage, position_idx)?;
-    let position_owner = deps.api.human_address(&position.owner)?;
+    let mut position: Position = read_position(deps.storage, position_idx)?;
+    let position_owner = deps.api.addr_humanize(&position.owner)?;
     if sender != position_owner {
-        return Err(StdError::unauthorized());
+        return Err(StdError::generic_err("unauthorized"));
     }
 
-    assert_asset(&deps, &position, &asset)?;
+    assert_asset(deps.as_ref(), &position, &asset)?;
 
     let asset_token_raw = match position.asset.info.clone() {
         AssetInfoRaw::Token { contract_addr } => contract_addr,
@@ -401,25 +404,25 @@ pub fn mint<S: Storage, A: Api, Q: Querier>(
     };
 
     // assert the asset migrated
-    let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
+    let asset_config: AssetConfig = read_asset_config(deps.storage, &asset_token_raw)?;
     assert_migrated_asset(&asset_config)?;
 
     // assert the collateral is listed and has not been migrated/revoked
-    let collateral_oracle: HumanAddr = deps.api.human_address(&config.collateral_oracle)?;
+    let collateral_oracle: Addr = deps.api.addr_humanize(&config.collateral_oracle)?;
     let (collateral_price, collateral_multiplier) =
         assert_revoked_collateral(load_collateral_info(
-            &deps,
-            &collateral_oracle,
+            deps.as_ref(),
+            collateral_oracle,
             &position.collateral.info,
-            Some(env.block.time),
+            Some(env.block.time.nanos() / 1_000_000_000),
         )?)?;
 
     // for assets with limited minting period (preIPO assets), assert minting phase
     assert_mint_period(&env, &asset_config)?;
 
-    let oracle: HumanAddr = deps.api.human_address(&config.oracle)?;
+    let oracle: Addr = deps.api.addr_humanize(&config.oracle)?;
     let asset_price: Decimal =
-        load_asset_price(&deps, &oracle, &position.asset.info, Some(env.block.time))?;
+        load_asset_price(deps.as_ref(), oracle, &position.asset.info, Some(env.block.time.nanos() / 1_000_000_000))?;
 
     // Compute new asset amount
     let asset_amount: Uint128 = mint_amount + position.asset.amount;
@@ -438,19 +441,19 @@ pub fn mint<S: Storage, A: Api, Q: Querier>(
     }
 
     position.asset.amount += mint_amount;
-    store_position(&mut deps.storage, position_idx, &position)?;
+    store_position(deps.storage, position_idx, &position)?;
 
-    let asset_token = deps.api.human_address(&asset_config.token)?;
+    let asset_token = deps.api.addr_humanize(&asset_config.token)?;
 
     // If the position is flagged as short position.
     // immediately sell the token to terraswap
     // and execute staking short token
-    let messages: Vec<CosmosMsg> = if is_short_position(&deps.storage, position_idx)? {
+    let messages: Vec<CosmosMsg> = if is_short_position(deps.storage, position_idx)? {
         // need to sell the tokens to terraswap
         // load pair contract address
         let pair_info = query_pair_info(
-            &deps,
-            &deps.api.human_address(&config.terraswap_factory)?,
+            &deps.querier,
+            deps.api.addr_humanize(&config.terraswap_factory)?,
             &[
                 AssetInfo::NativeToken {
                     denom: config.base_denom,
@@ -463,103 +466,104 @@ pub fn mint<S: Storage, A: Api, Q: Querier>(
         // 2. Swap token and send to lock contract
         // 3. Call lock hook on lock contract
         // 4. Increase short token in staking contract
-        let lock_contract = deps.api.human_address(&config.lock)?;
+        let lock_contract = deps.api.addr_humanize(&config.lock)?;
         vec![
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: asset_token.clone(),
+                contract_addr: asset_token.to_string(),
                 send: vec![],
-                msg: to_binary(&Cw20HandleMsg::Mint {
-                    recipient: env.contract.address,
+                msg: to_binary(&Cw20ExecuteMsg::Mint {
+                    recipient: env.contract.address.to_string(),
                     amount: mint_amount,
                 })?,
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: asset_token.clone(),
+                contract_addr: asset_token.to_string(),
                 send: vec![],
-                msg: to_binary(&Cw20HandleMsg::Send {
-                    contract: pair_info.contract_addr,
+                msg: to_binary(&Cw20ExecuteMsg::Send {
+                    contract: pair_info.contract_addr.to_string(),
                     amount: mint_amount,
                     msg: Some(to_binary(
                         &(if let Some(short_params) = short_params {
                             PairCw20HookMsg::Swap {
                                 belief_price: short_params.belief_price,
                                 max_spread: short_params.max_spread,
-                                to: Some(lock_contract.clone()),
+                                to: Some(lock_contract.to_string()),
                             }
                         } else {
                             PairCw20HookMsg::Swap {
                                 belief_price: None,
                                 max_spread: None,
-                                to: Some(lock_contract.clone()),
+                                to: Some(lock_contract.to_string()),
                             }
                         }),
                     )?),
                 })?,
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: lock_contract,
+                contract_addr: lock_contract.to_string(),
                 send: vec![],
-                msg: to_binary(&LockHandleMsg::LockPositionFundsHook {
+                msg: to_binary(&LockExecuteMsg::LockPositionFundsHook {
                     position_idx,
-                    receiver: position_owner.clone(),
+                    receiver: position_owner.to_string(),
                 })?,
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: deps.api.human_address(&config.staking)?,
+                contract_addr: deps.api.addr_humanize(&config.staking)?.to_string(),
                 send: vec![],
-                msg: to_binary(&StakingHandleMsg::IncreaseShortToken {
-                    asset_token,
-                    staker_addr: position_owner,
+                msg: to_binary(&StakingExecuteMsg::IncreaseShortToken {
+                    asset_token: asset_token.to_string(),
+                    staker_addr: position_owner.to_string(),
                     amount: mint_amount,
                 })?,
             }),
         ]
     } else {
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: deps.api.human_address(&asset_config.token)?,
-            msg: to_binary(&Cw20HandleMsg::Mint {
+            contract_addr: deps.api.addr_humanize(&asset_config.token)?.to_string(),
+            msg: to_binary(&Cw20ExecuteMsg::Mint {
                 amount: mint_amount,
-                recipient: position_owner,
+                recipient: position_owner.to_string(),
             })?,
             send: vec![],
         })]
     };
 
-    Ok(HandleResponse {
+    Ok(Response {
         messages,
-        log: vec![
-            log("action", "mint"),
-            log("position_idx", position_idx.to_string()),
-            log("mint_amount", asset.to_string()),
+        submessages: vec![],
+        attributes: vec![
+            attr("action", "mint"),
+            attr("position_idx", position_idx.to_string()),
+            attr("mint_amount", asset.to_string()),
         ],
         data: None,
     })
 }
 
-pub fn burn<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn burn(
+    deps: DepsMut,
     env: Env,
-    sender: HumanAddr,
+    sender: Addr,
     position_idx: Uint128,
     asset: Asset,
-) -> StdResult<HandleResponse> {
+) -> StdResult<Response> {
     let burn_amount = asset.amount;
 
-    let config: Config = read_config(&deps.storage)?;
-    let mut position: Position = read_position(&deps.storage, position_idx)?;
-    let position_owner = deps.api.human_address(&position.owner)?;
-    let collateral_info: AssetInfo = position.collateral.info.to_normal(&deps)?;
+    let config: Config = read_config(deps.storage)?;
+    let mut position: Position = read_position(deps.storage, position_idx)?;
+    let position_owner = deps.api.addr_humanize(&position.owner)?;
+    let collateral_info: AssetInfo = position.collateral.info.to_normal(deps.api)?;
 
     // Check the asset has same token with position asset
     // also Check burn amount is non-zero
-    assert_asset(deps, &position, &asset)?;
+    assert_asset(deps.as_ref(), &position, &asset)?;
 
     let asset_token_raw = match position.asset.info.clone() {
         AssetInfoRaw::Token { contract_addr } => contract_addr,
         _ => panic!("DO NOT ENTER HERE"),
     };
 
-    let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
+    let asset_config: AssetConfig = read_asset_config(deps.storage, &asset_token_raw)?;
     if position.asset.amount < burn_amount {
         return Err(StdError::generic_err(
             "Cannot burn asset more than you mint",
@@ -567,29 +571,30 @@ pub fn burn<S: Storage, A: Api, Q: Querier>(
     }
 
     let mut messages: Vec<CosmosMsg> = vec![];
-    let mut logs: Vec<LogAttribute> = vec![];
+    let mut attributes: Vec<Attribute> = vec![];
 
     // For preIPO assets, burning should be disabled after the minting period is over.
     // Burning is enabled again after IPO event is triggered, when ipo_params are set to None
     assert_burn_period(&env, &asset_config)?;
 
     // Check if it is a short position
-    let is_short_position: bool = is_short_position(&deps.storage, position_idx)?;
+    let is_short_position: bool = is_short_position(deps.storage, position_idx)?;
 
     // If the collateral is default denom asset and the asset is deprecated,
     // anyone can execute burn the asset to any position without permission
     let mut close_position: bool = false;
+
     if let Some(end_price) = asset_config.end_price {
         let asset_price: Decimal = end_price;
 
         // fetch collateral info from collateral oracle
-        let collateral_oracle: HumanAddr = deps.api.human_address(&config.collateral_oracle)?;
+        let collateral_oracle: Addr = deps.api.addr_humanize(&config.collateral_oracle)?;
         let (collateral_price, _collateral_multiplier, _collateral_is_revoked) =
             load_collateral_info(
-                &deps,
-                &collateral_oracle,
+                deps.as_ref(),
+                collateral_oracle,
                 &position.collateral.info,
-                Some(env.block.time),
+                Some(env.block.time.nanos() / 1_000_000_000),
             )?;
 
         let collateral_price_in_asset = decimal_division(asset_price, collateral_price);
@@ -605,67 +610,67 @@ pub fn burn<S: Storage, A: Api, Q: Querier>(
             ),
         };
 
-        position.asset.amount = (position.asset.amount - burn_amount).unwrap();
+        position.asset.amount = position.asset.amount.checked_sub(burn_amount).unwrap();
         position.collateral.amount =
-            (position.collateral.amount - refund_collateral.amount).unwrap();
+            position.collateral.amount.checked_sub(refund_collateral.amount).unwrap();
 
         // due to rounding, include 1
         if position.collateral.amount <= Uint128(1u128) && position.asset.amount == Uint128::zero()
         {
             close_position = true;
-            remove_position(&mut deps.storage, position_idx)?;
+            remove_position(deps.storage, position_idx)?;
         } else {
-            store_position(&mut deps.storage, position_idx, &position)?;
+            store_position(deps.storage, position_idx, &position)?;
         }
 
         // Refund collateral msg
         messages.push(
             refund_collateral
                 .clone()
-                .into_msg(&deps, env.contract.address, sender)?,
+                .into_msg(&deps.querier, sender)?,
         );
 
-        logs.push(log(
+        attributes.push(attr(
             "refund_collateral_amount",
             refund_collateral.to_string(),
         ));
     } else {
         if sender != position_owner {
-            return Err(StdError::unauthorized());
+            return Err(StdError::generic_err("unauthorized"));
         }
 
         // Update asset amount
-        position.asset.amount = (position.asset.amount - burn_amount).unwrap();
-        store_position(&mut deps.storage, position_idx, &position)?;
+        position.asset.amount = position.asset.amount.checked_sub(burn_amount).unwrap();
+        store_position(deps.storage, position_idx, &position)?;
     }
 
     // If the position is flagged as short position.
     // decrease short token amount from the staking contract
-    let asset_token = deps.api.human_address(&asset_config.token)?;
+    let asset_token = deps.api.addr_humanize(&asset_config.token)?;
     if is_short_position {
         messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: deps.api.human_address(&config.staking)?,
-            msg: to_binary(&StakingHandleMsg::DecreaseShortToken {
-                asset_token: asset_token.clone(),
-                staker_addr: position_owner,
+            contract_addr: deps.api.addr_humanize(&config.staking)?.to_string(),
+            msg: to_binary(&StakingExecuteMsg::DecreaseShortToken {
+                asset_token: asset_token.to_string(),
+                staker_addr: position_owner.to_string(),
                 amount: burn_amount,
             })?,
             send: vec![],
         }));
         if close_position {
             messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: deps.api.human_address(&config.lock)?,
+                contract_addr: deps.api.addr_humanize(&config.lock)?.to_string(),
                 send: vec![],
-                msg: to_binary(&LockHandleMsg::ReleasePositionFunds { position_idx })?,
+                msg: to_binary(&LockExecuteMsg::ReleasePositionFunds { position_idx })?,
             }));
         }
     }
 
-    Ok(HandleResponse {
+    Ok(Response {
         messages: vec![
             vec![CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: asset_token,
-                msg: to_binary(&Cw20HandleMsg::Burn {
+                contract_addr: asset_token.to_string(),
+                msg: to_binary(&Cw20ExecuteMsg::Burn {
                     amount: burn_amount,
                 })?,
                 send: vec![],
@@ -673,41 +678,42 @@ pub fn burn<S: Storage, A: Api, Q: Querier>(
             messages,
         ]
         .concat(),
-        log: vec![
+        submessages: vec![],
+        attributes: vec![
             vec![
-                log("action", "burn"),
-                log("position_idx", position_idx.to_string()),
-                log("burn_amount", asset.to_string()),
+                attr("action", "burn"),
+                attr("position_idx", position_idx.to_string()),
+                attr("burn_amount", asset.to_string()),
             ],
-            logs,
+            attributes,
         ]
         .concat(),
         data: None,
     })
 }
 
-pub fn auction<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn auction(
+    deps: DepsMut,
     env: Env,
-    sender: HumanAddr,
+    sender: Addr,
     position_idx: Uint128,
     asset: Asset,
-) -> StdResult<HandleResponse> {
-    let config: Config = read_config(&deps.storage)?;
-    let mut position: Position = read_position(&deps.storage, position_idx)?;
-    let position_owner = deps.api.human_address(&position.owner)?;
-    assert_asset(&deps, &position, &asset)?;
+) -> StdResult<Response> {
+    let config: Config = read_config(deps.storage)?;
+    let mut position: Position = read_position(deps.storage, position_idx)?;
+    let position_owner = deps.api.addr_humanize(&position.owner)?;
+    assert_asset(deps.as_ref(), &position, &asset)?;
 
     let asset_token_raw = match position.asset.info.clone() {
         AssetInfoRaw::Token { contract_addr } => contract_addr,
         _ => panic!("DO NOT ENTER HERE"),
     };
 
-    let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
+    let asset_config: AssetConfig = read_asset_config(deps.storage, &asset_token_raw)?;
     assert_migrated_asset(&asset_config)?;
 
-    let asset_token = deps.api.human_address(&asset_config.token)?;
-    let collateral_info = position.collateral.info.to_normal(&deps)?;
+    let asset_token = deps.api.addr_humanize(&asset_config.token)?;
+    let collateral_info = position.collateral.info.to_normal(deps.api)?;
 
     if asset.amount > position.asset.amount {
         return Err(StdError::generic_err(
@@ -715,17 +721,17 @@ pub fn auction<S: Storage, A: Api, Q: Querier>(
         ));
     }
 
-    let oracle: HumanAddr = deps.api.human_address(&config.oracle)?;
+    let oracle: Addr = deps.api.addr_humanize(&config.oracle)?;
     let asset_price: Decimal =
-        load_asset_price(&deps, &oracle, &position.asset.info, Some(env.block.time))?;
+        load_asset_price(deps.as_ref(), oracle, &position.asset.info, Some(env.block.time.nanos() / 1_000_000_000))?;
 
     // fetch collateral info from collateral oracle
-    let collateral_oracle: HumanAddr = deps.api.human_address(&config.collateral_oracle)?;
+    let collateral_oracle: Addr = deps.api.addr_humanize(&config.collateral_oracle)?;
     let (collateral_price, collateral_multiplier, _collateral_is_revoked) = load_collateral_info(
-        &deps,
-        &collateral_oracle,
+        deps.as_ref(),
+        collateral_oracle,
         &position.collateral.info,
-        Some(env.block.time),
+        Some(env.block.time.nanos() / 1_000_000_000),
     )?;
 
     // Compute collateral price in asset unit
@@ -761,7 +767,7 @@ pub fn auction<S: Storage, A: Api, Q: Querier>(
         if asset_value_in_collateral_asset > position.collateral.amount {
             // refunds left asset to position liquidator
             let refund_asset_amount =
-                (asset_value_in_collateral_asset - position.collateral.amount).unwrap()
+                asset_value_in_collateral_asset.checked_sub(position.collateral.amount).unwrap()
                     * reverse_decimal(discounted_price);
 
             let refund_asset: Asset = Asset {
@@ -770,8 +776,7 @@ pub fn auction<S: Storage, A: Api, Q: Querier>(
             };
 
             messages.push(refund_asset.into_msg(
-                &deps,
-                env.contract.address.clone(),
+                &deps.querier,
                 sender.clone(),
             )?);
 
@@ -780,22 +785,22 @@ pub fn auction<S: Storage, A: Api, Q: Querier>(
             (asset_value_in_collateral_asset, Uint128::zero())
         };
 
-    let liquidated_asset_amount = (asset.amount - refund_asset_amount).unwrap();
-    let left_asset_amount = (position.asset.amount - liquidated_asset_amount).unwrap();
-    let left_collateral_amount = (position.collateral.amount - return_collateral_amount).unwrap();
+    let liquidated_asset_amount = asset.amount.checked_sub(refund_asset_amount).unwrap();
+    let left_asset_amount = position.asset.amount.checked_sub(liquidated_asset_amount).unwrap();
+    let left_collateral_amount = position.collateral.amount.checked_sub(return_collateral_amount).unwrap();
 
     // Check if it is a short position
-    let is_short_position: bool = is_short_position(&deps.storage, position_idx)?;
+    let is_short_position: bool = is_short_position(deps.storage, position_idx)?;
 
     let mut close_position: bool = false;
     if left_collateral_amount.is_zero() {
         // all collaterals are sold out
         close_position = true;
-        remove_position(&mut deps.storage, position_idx)?;
+        remove_position(deps.storage, position_idx)?;
     } else if left_asset_amount.is_zero() {
         // all assets are paid
         close_position = true;
-        remove_position(&mut deps.storage, position_idx)?;
+        remove_position(deps.storage, position_idx)?;
 
         // refunds left collaterals to position owner
         let refund_collateral: Asset = Asset {
@@ -804,21 +809,20 @@ pub fn auction<S: Storage, A: Api, Q: Querier>(
         };
 
         messages.push(refund_collateral.into_msg(
-            &deps,
-            env.contract.address.clone(),
+            &deps.querier,
             position_owner.clone(),
         )?);
     } else {
         position.collateral.amount = left_collateral_amount;
         position.asset.amount = left_asset_amount;
 
-        store_position(&mut deps.storage, position_idx, &position)?;
+        store_position(deps.storage, position_idx, &position)?;
     }
 
     // token burn message
     messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: asset_token.clone(),
-        msg: to_binary(&Cw20HandleMsg::Burn {
+        contract_addr: asset_token.to_string(),
+        msg: to_binary(&Cw20ExecuteMsg::Burn {
             amount: liquidated_asset_amount,
         })?,
         send: vec![],
@@ -826,15 +830,15 @@ pub fn auction<S: Storage, A: Api, Q: Querier>(
 
     // Deduct protocol fee
     let protocol_fee = return_collateral_amount * config.protocol_fee_rate;
-    let return_collateral_amount = (return_collateral_amount - protocol_fee).unwrap();
+    let return_collateral_amount = return_collateral_amount.checked_sub(protocol_fee).unwrap();
 
     // return collateral to liquidation initiator(sender)
     let return_collateral_asset = Asset {
         info: collateral_info.clone(),
         amount: return_collateral_amount,
     };
-    let tax_amount = return_collateral_asset.compute_tax(&deps)?;
-    messages.push(return_collateral_asset.into_msg(&deps, env.contract.address.clone(), sender)?);
+    let tax_amount = return_collateral_asset.compute_tax(&deps.querier)?;
+    messages.push(return_collateral_asset.into_msg(&deps.querier, sender)?);
 
     // protocol fee sent to collector
     let protocol_fee_asset = Asset {
@@ -844,9 +848,8 @@ pub fn auction<S: Storage, A: Api, Q: Querier>(
 
     if !protocol_fee_asset.amount.is_zero() {
         messages.push(protocol_fee_asset.into_msg(
-            &deps,
-            env.contract.address,
-            deps.api.human_address(&config.collector)?,
+            &deps.querier,
+            deps.api.addr_humanize(&config.collector)?,
         )?);
     }
 
@@ -854,91 +857,92 @@ pub fn auction<S: Storage, A: Api, Q: Querier>(
     // decrease short token amount from the staking contract
     if is_short_position {
         messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: deps.api.human_address(&config.staking)?,
-            msg: to_binary(&StakingHandleMsg::DecreaseShortToken {
-                asset_token: asset_token,
-                staker_addr: position_owner.clone(),
+            contract_addr: deps.api.addr_humanize(&config.staking)?.to_string(),
+            msg: to_binary(&StakingExecuteMsg::DecreaseShortToken {
+                asset_token: asset_token.to_string(),
+                staker_addr: position_owner.to_string(),
                 amount: liquidated_asset_amount,
             })?,
             send: vec![],
         }));
         if close_position {
             messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: deps.api.human_address(&config.lock)?,
+                contract_addr: deps.api.addr_humanize(&config.lock)?.to_string(),
                 send: vec![],
-                msg: to_binary(&LockHandleMsg::ReleasePositionFunds { position_idx })?,
+                msg: to_binary(&LockExecuteMsg::ReleasePositionFunds { position_idx })?,
             }));
         }
     }
 
     let collateral_info_str = collateral_info.to_string();
     let asset_info_str = asset.info.to_string();
-    Ok(HandleResponse {
-        log: vec![
-            log("action", "auction"),
-            log("position_idx", position_idx.to_string()),
-            log("owner", position_owner.as_str()),
-            log(
+    Ok(Response {
+        attributes: vec![
+            attr("action", "auction"),
+            attr("position_idx", position_idx.to_string()),
+            attr("owner", position_owner.as_str()),
+            attr(
                 "return_collateral_amount",
                 return_collateral_amount.to_string() + &collateral_info_str,
             ),
-            log(
+            attr(
                 "liquidated_amount",
                 liquidated_asset_amount.to_string() + &asset_info_str,
             ),
-            log("tax_amount", tax_amount.to_string() + &collateral_info_str),
-            log(
+            attr("tax_amount", tax_amount.to_string() + &collateral_info_str),
+            attr(
                 "protocol_fee",
                 protocol_fee.to_string() + &collateral_info_str,
             ),
         ],
         messages,
+        submessages: vec![],
         data: None,
     })
 }
 
-pub fn query_position<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
+pub fn query_position(
+    deps: Deps,
     position_idx: Uint128,
 ) -> StdResult<PositionResponse> {
-    let position: Position = read_position(&deps.storage, position_idx)?;
+    let position: Position = read_position(deps.storage, position_idx)?;
     let resp = PositionResponse {
         idx: position.idx,
-        owner: deps.api.human_address(&position.owner)?,
-        collateral: position.collateral.to_normal(&deps)?,
-        asset: position.asset.to_normal(&deps)?,
-        is_short: is_short_position(&deps.storage, position.idx)?,
+        owner: deps.api.addr_humanize(&position.owner)?.to_string(),
+        collateral: position.collateral.to_normal(deps.api)?,
+        asset: position.asset.to_normal(deps.api)?,
+        is_short: is_short_position(deps.storage, position.idx)?,
     };
 
     Ok(resp)
 }
 
-pub fn query_positions<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    owner_addr: Option<HumanAddr>,
-    asset_token: Option<HumanAddr>,
+pub fn query_positions(
+    deps: Deps,
+    owner_addr: Option<String>,
+    asset_token: Option<String>,
     start_after: Option<Uint128>,
     limit: Option<u32>,
     order_by: Option<OrderBy>,
 ) -> StdResult<PositionsResponse> {
     let positions: Vec<Position> = if let Some(owner_addr) = owner_addr {
         read_positions_with_user_indexer(
-            &deps.storage,
-            &deps.api.canonical_address(&owner_addr)?,
+            deps.storage,
+            &deps.api.addr_canonicalize(&owner_addr)?,
             start_after,
             limit,
             order_by,
         )?
     } else if let Some(asset_token) = asset_token {
         read_positions_with_asset_indexer(
-            &deps.storage,
-            &deps.api.canonical_address(&asset_token)?,
+            deps.storage,
+            &deps.api.addr_canonicalize(&asset_token)?,
             start_after,
             limit,
             order_by,
         )?
     } else {
-        read_positions(&deps.storage, start_after, limit, order_by)?
+        read_positions(deps.storage, start_after, limit, order_by)?
     };
 
     let position_responses: StdResult<Vec<PositionResponse>> = positions
@@ -946,10 +950,10 @@ pub fn query_positions<S: Storage, A: Api, Q: Querier>(
         .map(|position| {
             Ok(PositionResponse {
                 idx: position.idx,
-                owner: deps.api.human_address(&position.owner)?,
-                collateral: position.collateral.to_normal(&deps)?,
-                asset: position.asset.to_normal(&deps)?,
-                is_short: is_short_position(&deps.storage, position.idx)?,
+                owner: deps.api.addr_humanize(&position.owner)?.to_string(),
+                collateral: position.collateral.to_normal(deps.api)?,
+                asset: position.asset.to_normal(deps.api)?,
+                is_short: is_short_position(deps.storage, position.idx)?,
             })
         })
         .collect();
@@ -959,10 +963,10 @@ pub fn query_positions<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-pub fn query_next_position_idx<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
+pub fn query_next_position_idx(
+    deps: Deps,
 ) -> StdResult<NextPositionIdxResponse> {
-    let idx = read_position_idx(&deps.storage)?;
+    let idx = read_position_idx(deps.storage)?;
     let resp = NextPositionIdxResponse {
         next_position_idx: idx,
     };

@@ -27,12 +27,12 @@ pub struct LegacyAssetConfig {
     pub end_price: Option<Decimal>,
 }
 
-fn read_legacy_config<S: Storage>(storage: &S) -> StdResult<LegacyConfig> {
+fn read_legacy_config(storage: &dyn Storage) -> StdResult<LegacyConfig> {
     singleton_read(storage, KEY_CONFIG).load()
 }
 
-pub fn migrate_config<S: Storage>(
-    storage: &mut S,
+pub fn migrate_config(
+    storage: &mut dyn Storage,
     staking: CanonicalAddr,
     terraswap_factory: CanonicalAddr,
     collateral_oracle: CanonicalAddr,
@@ -58,9 +58,9 @@ pub fn migrate_config<S: Storage>(
     Ok(())
 }
 
-fn read_legacy_asset_configs<S: Storage>(storage: &S) -> StdResult<Vec<LegacyAssetConfig>> {
-    let asset_config_bucket: ReadonlyBucket<S, LegacyAssetConfig> =
-        ReadonlyBucket::new(PREFIX_ASSET_CONFIG, storage);
+fn read_legacy_asset_configs(storage: &dyn Storage) -> StdResult<Vec<LegacyAssetConfig>> {
+    let asset_config_bucket: ReadonlyBucket<LegacyAssetConfig> =
+        ReadonlyBucket::new(storage, PREFIX_ASSET_CONFIG);
     asset_config_bucket
         .range(None, None, Order::Ascending)
         .map(|item| {
@@ -70,7 +70,7 @@ fn read_legacy_asset_configs<S: Storage>(storage: &S) -> StdResult<Vec<LegacyAss
         .collect()
 }
 
-pub fn migrate_asset_configs<S: Storage>(storage: &mut S) -> StdResult<()> {
+pub fn migrate_asset_configs(storage: &mut dyn Storage) -> StdResult<()> {
     let legacy_asset_configs: Vec<LegacyAssetConfig> = read_legacy_asset_configs(storage)?;
 
     for legacy_config in legacy_asset_configs {
@@ -94,17 +94,17 @@ mod migrate_tests {
     use super::*;
     use crate::state::{read_asset_config, read_config};
     use cosmwasm_std::testing::mock_dependencies;
-    use cosmwasm_std::{Api, HumanAddr};
+    use cosmwasm_std::{Api};
     use cosmwasm_storage::{singleton, Bucket};
 
-    pub fn asset_config_old_store<'a, S: Storage>(
-        storage: &'a mut S,
-    ) -> Bucket<'a, S, LegacyAssetConfig> {
-        Bucket::new(PREFIX_ASSET_CONFIG, storage)
+    pub fn asset_config_old_store<'a>(
+        storage: &'a mut dyn Storage,
+    ) -> Bucket<'a, LegacyAssetConfig> {
+        Bucket::new(storage, PREFIX_ASSET_CONFIG)
     }
 
-    pub fn store_legacy_config<S: Storage>(
-        storage: &mut S,
+    pub fn store_legacy_config(
+        storage: &mut dyn Storage,
         config: &LegacyConfig,
     ) -> StdResult<()> {
         singleton(storage, KEY_CONFIG).save(config)
@@ -112,35 +112,35 @@ mod migrate_tests {
 
     #[test]
     fn test_config_migration() {
-        let mut deps = mock_dependencies(20, &[]);
+        let mut deps = mock_dependencies(&[]);
 
         let owner = deps
             .api
-            .canonical_address(&HumanAddr::from("owner0000"))
+            .addr_canonicalize("owner0000")
             .unwrap();
         let oracle = deps
             .api
-            .canonical_address(&HumanAddr::from("oracle0000"))
+            .addr_canonicalize("oracle0000")
             .unwrap();
         let collector = deps
             .api
-            .canonical_address(&HumanAddr::from("collector0000"))
+            .addr_canonicalize("collector0000")
             .unwrap();
         let staking = deps
             .api
-            .canonical_address(&HumanAddr::from("staking0000"))
+            .addr_canonicalize("staking0000")
             .unwrap();
         let terraswap_factory = deps
             .api
-            .canonical_address(&HumanAddr::from("terraswap_factory"))
+            .addr_canonicalize("terraswap_factory")
             .unwrap();
         let collateral_oracle = deps
             .api
-            .canonical_address(&HumanAddr::from("collateral_oracle"))
+            .addr_canonicalize("collateral_oracle")
             .unwrap();
         let lock = deps
             .api
-            .canonical_address(&HumanAddr::from("lock0000"))
+            .addr_canonicalize("lock0000")
             .unwrap();
         store_legacy_config(
             &mut deps.storage,
@@ -182,11 +182,11 @@ mod migrate_tests {
 
     #[test]
     fn test_asset_config_migration() {
-        let mut deps = mock_dependencies(20, &[]);
+        let mut deps = mock_dependencies(&[]);
 
         let asset_token = deps
             .api
-            .canonical_address(&HumanAddr::from("token0001"))
+            .addr_canonicalize("token0001")
             .unwrap();
         let legacy_asset_config = LegacyAssetConfig {
             token: asset_token.clone(),
@@ -196,7 +196,7 @@ mod migrate_tests {
         };
         let asset_token_2 = deps
             .api
-            .canonical_address(&HumanAddr::from("token0002"))
+            .addr_canonicalize("token0002")
             .unwrap();
         let legacy_asset_config_2 = LegacyAssetConfig {
             token: asset_token_2.clone(),

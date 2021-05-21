@@ -13,17 +13,12 @@
       "type": "string"
     },
     "factory_contract": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "mint_contract": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "owner": {
-      "$ref": "#/definitions/HumanAddr"
-    }
-  },
-  "definitions": {
-    "HumanAddr": {
       "type": "string"
     }
   }

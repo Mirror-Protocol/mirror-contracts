@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    from_binary, Api, Decimal, Extern, Querier, QueryRequest, StdError, StdResult, Storage,
+    from_binary, Decimal, Deps, QueryRequest, QuerierWrapper, StdError, StdResult,
     Uint128, WasmQuery,
 };
 use std::str::FromStr;
@@ -34,8 +34,8 @@ pub struct AnchorMarketResponse {
     pub exchange_rate: Decimal256,
 }
 
-pub fn query_price<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
+pub fn query_price(
+    deps: Deps,
     price_source: SourceType,
     base_denom: String,
 ) -> StdResult<(Decimal, u64)> {
@@ -130,8 +130,8 @@ fn parse_band_rate(uint_rate: Uint128) -> StdResult<Decimal> {
     Decimal::from_str(rate_uint_string.as_str())
 }
 
-fn query_native_rate<Q: Querier>(
-    querier: &Q,
+fn query_native_rate(
+    querier: &QuerierWrapper,
     base_denom: String,
     quote_denom: String,
 ) -> StdResult<Decimal> {

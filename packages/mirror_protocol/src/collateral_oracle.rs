@@ -3,24 +3,24 @@ use std::fmt;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Decimal, HumanAddr, Binary};
+use cosmwasm_std::{Decimal, Binary};
 use terraswap::asset::AssetInfo;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct InitMsg {
-    pub owner: HumanAddr,
-    pub mint_contract: HumanAddr,
-    pub factory_contract: HumanAddr,
+pub struct InstantiateMsg {
+    pub owner: String,
+    pub mint_contract: String,
+    pub factory_contract: String,
     pub base_denom: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum HandleMsg {
+pub enum ExecuteMsg {
     UpdateConfig {
-        owner: Option<HumanAddr>,
-        mint_contract: Option<HumanAddr>,
-        factory_contract: Option<HumanAddr>,
+        owner: Option<String>,
+        mint_contract: Option<String>,
+        factory_contract: Option<String>,
         base_denom: Option<String>,
     },
     RegisterCollateralAsset {
@@ -56,9 +56,9 @@ pub enum QueryMsg {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ConfigResponse {
-    pub owner: HumanAddr,
-    pub mint_contract: HumanAddr,
-    pub factory_contract: HumanAddr,
+    pub owner: String,
+    pub mint_contract: String,
+    pub factory_contract: String,
     pub base_denom: String,
 }
 
@@ -110,7 +110,7 @@ pub enum SourceType {
     Native {
         native_denom: String,
     },
-} 
+}
 
 impl fmt::Display for SourceType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

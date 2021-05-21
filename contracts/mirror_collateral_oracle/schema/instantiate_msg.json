@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "InstantiateMsg",
+  "type": "object",
+  "required": [
+    "base_denom",
+    "factory_contract",
+    "mint_contract",
+    "owner"
+  ],
+  "properties": {
+    "base_denom": {
+      "type": "string"
+    },
+    "factory_contract": {
+      "type": "string"
+    },
+    "mint_contract": {
+      "type": "string"
+    },
+    "owner": {
+      "type": "string"
+    }
+  }
+}

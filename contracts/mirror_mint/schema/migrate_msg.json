@@ -10,20 +10,15 @@
   ],
   "properties": {
     "collateral_oracle": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "lock": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "staking": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "terraswap_factory": {
-      "$ref": "#/definitions/HumanAddr"
-    }
-  },
-  "definitions": {
-    "HumanAddr": {
       "type": "string"
     }
   }

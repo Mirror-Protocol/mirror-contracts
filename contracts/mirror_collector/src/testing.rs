@@ -1,31 +1,31 @@
-use crate::contract::{handle, init, query_config};
+use crate::contract::{execute, instantiate, query_config};
 use crate::mock_querier::mock_dependencies;
-use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
-use cosmwasm_std::{to_binary, Coin, CosmosMsg, Decimal, HumanAddr, Uint128, WasmMsg};
-use cw20::Cw20HandleMsg;
-use mirror_protocol::collector::{ConfigResponse, HandleMsg, InitMsg};
+use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
+use cosmwasm_std::{to_binary, Coin, CosmosMsg, Decimal, Uint128, WasmMsg};
+use cw20::Cw20ExecuteMsg;
+use mirror_protocol::collector::{ConfigResponse, ExecuteMsg, InstantiateMsg};
 use mirror_protocol::gov::Cw20HookMsg::DepositReward;
 use terraswap::asset::{Asset, AssetInfo};
-use terraswap::pair::{Cw20HookMsg as TerraswapCw20HookMsg, HandleMsg as TerraswapHandleMsg};
+use terraswap::pair::{Cw20HookMsg as TerraswapCw20HookMsg, ExecuteMsg as TerraswapExecuteMsg};
 
 #[test]
 fn proper_initialization() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(&[]);
 
-    let msg = InitMsg {
-        terraswap_factory: HumanAddr("terraswapfactory".to_string()),
-        distribution_contract: HumanAddr("gov0000".to_string()),
-        mirror_token: HumanAddr("mirror0000".to_string()),
+    let msg = InstantiateMsg {
+        terraswap_factory: "terraswapfactory".to_string(),
+        distribution_contract: "gov0000".to_string(),
+        mirror_token: "mirror0000".to_string(),
         base_denom: "uusd".to_string(),
     };
 
-    let env = mock_env("addr0000", &[]);
+    let info = mock_info("addr0000", &[]);
 
     // we can just call .unwrap() to assert this was a success
-    let _res = init(&mut deps, env, msg).unwrap();
-
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+    
     // it worked, let's query the state
-    let config: ConfigResponse = query_config(&deps).unwrap();
+    let config: ConfigResponse = query_config(deps.as_ref()).unwrap();
     assert_eq!("terraswapfactory", config.terraswap_factory.as_str());
     assert_eq!("uusd", config.base_denom.as_str());
 }
@@ -33,15 +33,14 @@ fn proper_initialization() {
 #[test]
 fn test_convert() {
     let mut deps = mock_dependencies(
-        20,
         &[Coin {
             denom: "uusd".to_string(),
             amount: Uint128(100u128),
         }],
     );
     deps.querier.with_token_balances(&[(
-        &HumanAddr::from("tokenAPPL"),
-        &[(&HumanAddr::from(MOCK_CONTRACT_ADDR), &Uint128(100u128))],
+        &"tokenAPPL".to_string(),
+        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128(100u128))],
     )]);
 
     deps.querier.with_tax(
@@ -50,35 +49,36 @@ fn test_convert() {
     );
 
     deps.querier.with_terraswap_pairs(&[
-        (&"uusdtokenAPPL".to_string(), &HumanAddr::from("pairAPPL")),
+        (&"uusdtokenAPPL".to_string(), &"pairAPPL".to_string()),
         (
             &"uusdtokenMIRROR".to_string(),
-            &HumanAddr::from("pairMIRROR"),
+            &"pairMIRROR".to_string(),
         ),
     ]);
 
-    let msg = InitMsg {
-        terraswap_factory: HumanAddr("terraswapfactory".to_string()),
-        distribution_contract: HumanAddr("gov0000".to_string()),
-        mirror_token: HumanAddr("tokenMIRROR".to_string()),
+    let msg = InstantiateMsg {
+        terraswap_factory: "terraswapfactory".to_string(),
+        distribution_contract: "gov0000".to_string(),
+        mirror_token: "tokenMIRROR".to_string(),
         base_denom: "uusd".to_string(),
     };
 
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env, msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    let msg = HandleMsg::Convert {
-        asset_token: HumanAddr::from("tokenAPPL"),
+    let msg = ExecuteMsg::Convert {
+        asset_token: "tokenAPPL".to_string(),
     };
 
-    let env = mock_env("addr0000", &[]);
-    let res = handle(&mut deps, env, msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
     assert_eq!(
         res.messages,
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: HumanAddr::from("tokenAPPL"),
-            msg: to_binary(&Cw20HandleMsg::Send {
-                contract: HumanAddr::from("pairAPPL"),
+            contract_addr: "tokenAPPL".to_string(),
+            msg: to_binary(&Cw20ExecuteMsg::Send {
+                contract: "pairAPPL".to_string(),
                 amount: Uint128(100u128),
                 msg: Some(
                     to_binary(&TerraswapCw20HookMsg::Swap {
@@ -94,19 +94,19 @@ fn test_convert() {
         })]
     );
 
-    let msg = HandleMsg::Convert {
-        asset_token: HumanAddr::from("tokenMIRROR"),
+    let msg = ExecuteMsg::Convert {
+        asset_token: "tokenMIRROR".to_string(),
     };
 
-    let env = mock_env("addr0000", &[]);
-    let res = handle(&mut deps, env, msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // tax deduct 100 => 99
     assert_eq!(
         res.messages,
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: HumanAddr::from("pairMIRROR"),
-            msg: to_binary(&TerraswapHandleMsg::Swap {
+            contract_addr: "pairMIRROR".to_string(),
+            msg: to_binary(&TerraswapExecuteMsg::Swap {
                 offer_asset: Asset {
                     info: AssetInfo::NativeToken {
                         denom: "uusd".to_string()
@@ -128,32 +128,32 @@ fn test_convert() {
 
 #[test]
 fn test_send() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(&[]);
     deps.querier.with_token_balances(&[(
-        &HumanAddr::from("mirror0000"),
-        &[(&HumanAddr::from(MOCK_CONTRACT_ADDR), &Uint128(100u128))],
+        &"mirror0000".to_string(),
+        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128(100u128))],
     )]);
 
-    let msg = InitMsg {
-        terraswap_factory: HumanAddr("terraswapfactory".to_string()),
-        distribution_contract: HumanAddr("gov0000".to_string()),
-        mirror_token: HumanAddr("mirror0000".to_string()),
+    let msg = InstantiateMsg {
+        terraswap_factory: "terraswapfactory".to_string(),
+        distribution_contract: "gov0000".to_string(),
+        mirror_token: "mirror0000".to_string(),
         base_denom: "uusd".to_string(),
     };
 
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env, msg).unwrap();
-    let msg = HandleMsg::Distribute {};
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+    let msg = ExecuteMsg::Distribute {};
 
-    let env = mock_env("addr0000", &[]);
-    let res = handle(&mut deps, env, msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     assert_eq!(
         res.messages,
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: HumanAddr::from("mirror0000"),
-            msg: to_binary(&Cw20HandleMsg::Send {
-                contract: HumanAddr::from("gov0000"),
+            contract_addr: "mirror0000".to_string(),
+            msg: to_binary(&Cw20ExecuteMsg::Send {
+                contract: "gov0000".to_string(),
                 amount: Uint128(100u128),
                 msg: Some(to_binary(&DepositReward {}).unwrap()),
             })

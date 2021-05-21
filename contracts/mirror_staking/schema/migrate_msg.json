@@ -15,10 +15,10 @@
       "type": "string"
     },
     "mint_contract": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "oracle_contract": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "premium_min_update_interval": {
       "type": "integer",
@@ -26,11 +26,6 @@
       "minimum": 0.0
     },
     "terraswap_factory": {
-      "$ref": "#/definitions/HumanAddr"
-    }
-  },
-  "definitions": {
-    "HumanAddr": {
       "type": "string"
     }
   }

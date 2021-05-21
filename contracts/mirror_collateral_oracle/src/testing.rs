@@ -1,9 +1,9 @@
-use crate::contract::{handle, init, query_collateral_info, query_collateral_price, query_config};
+use crate::contract::{execute, instantiate, query_collateral_info, query_collateral_price, query_config};
 use crate::mock_querier::{mock_dependencies, QueryMsg as MockQueryMsg};
-use cosmwasm_std::testing::mock_env;
-use cosmwasm_std::{to_binary, Decimal, HumanAddr, StdError, Uint128, WasmQuery};
+use cosmwasm_std::testing::{mock_env, mock_info};
+use cosmwasm_std::{to_binary, Addr, Decimal, StdError, Uint128, WasmQuery};
 use mirror_protocol::collateral_oracle::{
-    CollateralInfoResponse, CollateralPriceResponse, HandleMsg, InitMsg, SourceType,
+    CollateralInfoResponse, CollateralPriceResponse, ExecuteMsg, InstantiateMsg, SourceType,
 };
 use mirror_protocol::oracle::QueryMsg as OracleQueryMsg;
 use std::str::FromStr;
@@ -12,23 +12,23 @@ use terraswap::pair::QueryMsg as TerraswapPairQueryMsg;
 
 #[test]
 fn proper_initialization() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(&[]);
 
-    let msg = InitMsg {
-        owner: HumanAddr("owner0000".to_string()),
-        mint_contract: HumanAddr("mint0000".to_string()),
-        factory_contract: HumanAddr("factory0000".to_string()),
+    let msg = InstantiateMsg {
+        owner: "owner0000".to_string(),
+        mint_contract: "mint0000".to_string(),
+        factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
     };
 
-    let env = mock_env("addr0000", &[]);
+    let info = mock_info("addr0000", &[]);
 
     // we can just call .unwrap() to assert this was a success
-    let res = init(&mut deps, env, msg).unwrap();
+    let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(0, res.messages.len());
 
     // it worked, let's query the state
-    let value = query_config(&deps).unwrap();
+    let value = query_config(deps.as_ref()).unwrap();
     assert_eq!("owner0000", value.owner.as_str());
     assert_eq!("mint0000", value.mint_contract.as_str());
     assert_eq!("factory0000", value.factory_contract.as_str());
@@ -37,73 +37,73 @@ fn proper_initialization() {
 
 #[test]
 fn update_config() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(&[]);
 
-    let msg = InitMsg {
-        owner: HumanAddr("owner0000".to_string()),
-        mint_contract: HumanAddr("mint0000".to_string()),
-        factory_contract: HumanAddr("factory0000".to_string()),
+    let msg = InstantiateMsg {
+        owner: "owner0000".to_string(),
+        mint_contract: "mint0000".to_string(),
+        factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
     };
 
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env, msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // update owner
-    let env = mock_env("owner0000", &[]);
-    let msg = HandleMsg::UpdateConfig {
-        owner: Some(HumanAddr("owner0001".to_string())),
-        mint_contract: Some(HumanAddr("mint0001".to_string())),
-        factory_contract: Some(HumanAddr("factory0001".to_string())),
+    let info = mock_info("owner0000", &[]);
+    let msg = ExecuteMsg::UpdateConfig {
+        owner: Some("owner0001".to_string()),
+        mint_contract: Some("mint0001".to_string()),
+        factory_contract: Some("factory0001".to_string()),
         base_denom: Some("uluna".to_string()),
     };
 
-    let res = handle(&mut deps, env, msg).unwrap();
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(0, res.messages.len());
 
     // it worked, let's query the state
-    let value = query_config(&deps).unwrap();
+    let value = query_config(deps.as_ref()).unwrap();
     assert_eq!("owner0001", value.owner.as_str());
     assert_eq!("mint0001", value.mint_contract.as_str());
     assert_eq!("factory0001", value.factory_contract.as_str());
     assert_eq!("uluna", value.base_denom.as_str());
 
     // Unauthorized err
-    let env = mock_env("owner0000", &[]);
-    let msg = HandleMsg::UpdateConfig {
+    let info = mock_info("owner0000", &[]);
+    let msg = ExecuteMsg::UpdateConfig {
         owner: None,
         mint_contract: None,
         factory_contract: None,
         base_denom: None,
     };
 
-    let res = handle(&mut deps, env, msg);
+    let res = execute(deps.as_mut(), mock_env(), info, msg);
     match res {
-        Err(StdError::Unauthorized { .. }) => {}
+        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
         _ => panic!("Must return unauthorized error"),
     }
 }
 
 #[test]
 fn register_collateral() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(&[]);
     deps.querier.with_oracle_price(&[
         (&"uusd".to_string(), &Decimal::one()),
         (&"mTSLA".to_string(), &Decimal::percent(100)),
     ]);
 
-    let msg = InitMsg {
-        owner: HumanAddr("owner0000".to_string()),
-        mint_contract: HumanAddr("mint0000".to_string()),
-        factory_contract: HumanAddr("factory0000".to_string()),
+    let msg = InstantiateMsg {
+        owner: "owner0000".to_string(),
+        mint_contract: "mint0000".to_string(),
+        factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
     };
 
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env, msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     let wasm_query: WasmQuery = WasmQuery::Smart {
-        contract_addr: HumanAddr::from("oracle0000"),
+        contract_addr: "oracle0000".to_string(),
         msg: to_binary(&OracleQueryMsg::Price {
             base_asset: "uusd".to_string(),
             quote_asset: "mTSLA".to_string(),
@@ -112,26 +112,26 @@ fn register_collateral() {
     };
     let terra_oracle_query = to_binary(&wasm_query).unwrap();
 
-    let msg = HandleMsg::RegisterCollateralAsset {
+    let msg = ExecuteMsg::RegisterCollateralAsset {
         asset: AssetInfo::Token {
-            contract_addr: HumanAddr::from("mTSLA"),
+            contract_addr: Addr::unchecked("mTSLA"),
         },
         multiplier: Decimal::percent(100),
         price_source: SourceType::TerraOracle { terra_oracle_query },
     };
 
     // unauthorized attempt
-    let env = mock_env("addr0000", &[]);
-    let res = handle(&mut deps, env, msg.clone()).unwrap_err();
-    assert_eq!(res, StdError::unauthorized());
+    let info = mock_info("addr0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
+    assert_eq!(res, StdError::generic_err("unauthorized"));
 
     // successfull attempt
-    let env = mock_env("owner0000", &[]);
-    let res = handle(&mut deps, env, msg).unwrap();
+    let info = mock_info("owner0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(0, res.messages.len());
 
     // query collateral info
-    let query_res = query_collateral_info(&deps, "mTSLA".to_string()).unwrap();
+    let query_res = query_collateral_info(deps.as_ref(), "mTSLA".to_string()).unwrap();
     assert_eq!(
         query_res,
         CollateralInfoResponse {
@@ -145,24 +145,24 @@ fn register_collateral() {
 
 #[test]
 fn update_collateral() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(&[]);
     deps.querier.with_oracle_price(&[
         (&"uusd".to_string(), &Decimal::one()),
         (&"mTSLA".to_string(), &Decimal::percent(100)),
     ]);
 
-    let msg = InitMsg {
-        owner: HumanAddr("owner0000".to_string()),
-        mint_contract: HumanAddr("mint0000".to_string()),
-        factory_contract: HumanAddr("factory0000".to_string()),
+    let msg = InstantiateMsg {
+        owner: "owner0000".to_string(),
+        mint_contract: "mint0000".to_string(),
+        factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
     };
 
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env, msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     let wasm_query: WasmQuery = WasmQuery::Smart {
-        contract_addr: HumanAddr::from("oracle0000"),
+        contract_addr: "oracle0000".to_string(),
         msg: to_binary(&OracleQueryMsg::Price {
             base_asset: "uusd".to_string(),
             quote_asset: "mTSLA".to_string(),
@@ -171,21 +171,21 @@ fn update_collateral() {
     };
     let terra_oracle_query = to_binary(&wasm_query).unwrap();
 
-    let msg = HandleMsg::RegisterCollateralAsset {
+    let msg = ExecuteMsg::RegisterCollateralAsset {
         asset: AssetInfo::Token {
-            contract_addr: HumanAddr::from("mTSLA"),
+            contract_addr: Addr::unchecked("mTSLA"),
         },
         multiplier: Decimal::percent(100),
         price_source: SourceType::TerraOracle { terra_oracle_query },
     };
 
     // successfull attempt
-    let env = mock_env("owner0000", &[]);
-    let res = handle(&mut deps, env, msg).unwrap();
+    let info = mock_info("owner0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(0, res.messages.len());
 
     // query collateral info
-    let query_res = query_collateral_info(&deps, "mTSLA".to_string()).unwrap();
+    let query_res = query_collateral_info(deps.as_ref(), "mTSLA".to_string()).unwrap();
     assert_eq!(
         query_res,
         CollateralInfoResponse {
@@ -197,9 +197,9 @@ fn update_collateral() {
     );
 
     // update collateral query
-    let msg = HandleMsg::UpdateCollateralPriceSource {
+    let msg = ExecuteMsg::UpdateCollateralPriceSource {
         asset: AssetInfo::Token {
-            contract_addr: HumanAddr::from("mTSLA"),
+            contract_addr: Addr::unchecked("mTSLA"),
         },
         price_source: SourceType::FixedPrice {
             price: Decimal::zero(),
@@ -207,17 +207,17 @@ fn update_collateral() {
     };
 
     // unauthorized attempt
-    let env = mock_env("factory0000", &[]);
-    let res = handle(&mut deps, env, msg.clone()).unwrap_err();
-    assert_eq!(res, StdError::unauthorized());
+    let info = mock_info("factory0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
+    assert_eq!(res, StdError::generic_err("unauthorized"));
 
     // successfull attempt
-    let env = mock_env("owner0000", &[]);
-    let res = handle(&mut deps, env, msg).unwrap();
+    let info = mock_info("owner0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(0, res.messages.len());
 
     // query the updated collateral
-    let query_res = query_collateral_info(&deps, "mTSLA".to_string()).unwrap();
+    let query_res = query_collateral_info(deps.as_ref(), "mTSLA".to_string()).unwrap();
     assert_eq!(
         query_res,
         CollateralInfoResponse {
@@ -229,41 +229,41 @@ fn update_collateral() {
     );
 
     // update collateral premium - invalid msg
-    let msg = HandleMsg::UpdateCollateralMultiplier {
+    let msg = ExecuteMsg::UpdateCollateralMultiplier {
         asset: AssetInfo::Token {
-            contract_addr: HumanAddr::from("mTSLA"),
+            contract_addr: Addr::unchecked("mTSLA"),
         },
         multiplier: Decimal::zero(),
     };
 
     // invalid multiplier
-    let env = mock_env("factory0000", &[]);
-    let res = handle(&mut deps, env, msg).unwrap_err();
+    let info = mock_info("factory0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
     assert_eq!(
         res,
         StdError::generic_err("Multiplier must be bigger than 0")
     );
 
     // update collateral premium - valid msg
-    let msg = HandleMsg::UpdateCollateralMultiplier {
+    let msg = ExecuteMsg::UpdateCollateralMultiplier {
         asset: AssetInfo::Token {
-            contract_addr: HumanAddr::from("mTSLA"),
+            contract_addr: Addr::unchecked("mTSLA"),
         },
         multiplier: Decimal::percent(120),
     };
 
     // unauthorized attempt
-    let env = mock_env("owner0000", &[]);
-    let res = handle(&mut deps, env, msg.clone()).unwrap_err();
-    assert_eq!(res, StdError::unauthorized());
+    let info = mock_info("owner0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
+    assert_eq!(res, StdError::generic_err("unauthorized"));
 
     // successfull attempt
-    let env = mock_env("factory0000", &[]);
-    let res = handle(&mut deps, env, msg).unwrap();
+    let info = mock_info("factory0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(0, res.messages.len());
 
     // query the updated collateral
-    let query_res = query_collateral_info(&deps, "mTSLA".to_string()).unwrap();
+    let query_res = query_collateral_info(deps.as_ref(), "mTSLA".to_string()).unwrap();
     assert_eq!(
         query_res,
         CollateralInfoResponse {
@@ -277,30 +277,30 @@ fn update_collateral() {
 
 #[test]
 fn get_oracle_price() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(&[]);
     deps.querier.with_oracle_price(&[
         (&"uusd".to_string(), &Decimal::one()),
         (&"mTSLA".to_string(), &Decimal::percent(100)),
     ]);
 
-    let msg = InitMsg {
-        owner: HumanAddr("owner0000".to_string()),
-        mint_contract: HumanAddr("mint0000".to_string()),
-        factory_contract: HumanAddr("factory0000".to_string()),
+    let msg = InstantiateMsg {
+        owner: "owner0000".to_string(),
+        mint_contract: "mint0000".to_string(),
+        factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
     };
 
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env, msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    let msg = HandleMsg::RegisterCollateralAsset {
+    let msg = ExecuteMsg::RegisterCollateralAsset {
         asset: AssetInfo::Token {
-            contract_addr: HumanAddr::from("mTSLA"),
+            contract_addr: Addr::unchecked("mTSLA"),
         },
         multiplier: Decimal::percent(100),
         price_source: SourceType::TerraOracle {
             terra_oracle_query: to_binary(&WasmQuery::Smart {
-                contract_addr: HumanAddr::from("oracle0000"),
+                contract_addr: "oracle0000".to_string(),
                 msg: to_binary(&OracleQueryMsg::Price {
                     base_asset: "uusd".to_string(),
                     quote_asset: "mTSLA".to_string(),
@@ -311,11 +311,11 @@ fn get_oracle_price() {
         },
     };
 
-    let env = mock_env("owner0000", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
+    let info = mock_info("owner0000", &[]);
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // attempt to query price
-    let query_res = query_collateral_price(&deps, "mTSLA".to_string()).unwrap();
+    let query_res = query_collateral_price(deps.as_ref(), "mTSLA".to_string()).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
@@ -330,10 +330,10 @@ fn get_oracle_price() {
 
 #[test]
 fn get_terraswap_price() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(&[]);
     deps.querier.with_terraswap_pools(&[
         (
-            &HumanAddr::from("ustancpair0000"),
+            &"ustancpair0000".to_string(),
             (
                 &"uusd".to_string(),
                 &Uint128(1u128),
@@ -342,7 +342,7 @@ fn get_terraswap_price() {
             ),
         ),
         (
-            &HumanAddr::from("lunablunapair0000"),
+            &"lunablunapair0000".to_string(),
             (
                 &"uluna".to_string(),
                 &Uint128(18u128),
@@ -352,24 +352,24 @@ fn get_terraswap_price() {
         ),
     ]);
 
-    let msg = InitMsg {
-        owner: HumanAddr("owner0000".to_string()),
-        mint_contract: HumanAddr("mint0000".to_string()),
-        factory_contract: HumanAddr("factory0000".to_string()),
+    let msg = InstantiateMsg {
+        owner: "owner0000".to_string(),
+        mint_contract: "mint0000".to_string(),
+        factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
     };
 
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env, msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    let msg = HandleMsg::RegisterCollateralAsset {
+    let msg = ExecuteMsg::RegisterCollateralAsset {
         asset: AssetInfo::Token {
-            contract_addr: HumanAddr::from("anc0000"),
+            contract_addr: Addr::unchecked("anc0000"),
         },
         multiplier: Decimal::percent(100),
         price_source: SourceType::Terraswap {
             terraswap_query: to_binary(&WasmQuery::Smart {
-                contract_addr: HumanAddr::from("ustancpair0000"),
+                contract_addr: "ustancpair0000".to_string(),
                 msg: to_binary(&TerraswapPairQueryMsg::Pool {}).unwrap(),
             })
             .unwrap(),
@@ -377,11 +377,11 @@ fn get_terraswap_price() {
         },
     };
 
-    let env = mock_env("owner0000", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
+    let info = mock_info("owner0000", &[]);
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // attempt to query price
-    let query_res = query_collateral_price(&deps, "anc0000".to_string()).unwrap();
+    let query_res = query_collateral_price(deps.as_ref(), "anc0000".to_string()).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
@@ -394,14 +394,14 @@ fn get_terraswap_price() {
     );
 
     // register collateral with intermediate denom
-    let msg = HandleMsg::RegisterCollateralAsset {
+    let msg = ExecuteMsg::RegisterCollateralAsset {
         asset: AssetInfo::Token {
-            contract_addr: HumanAddr::from("bluna0000"),
+            contract_addr: Addr::unchecked("bluna0000"),
         },
         multiplier: Decimal::percent(100),
         price_source: SourceType::Terraswap {
             terraswap_query: to_binary(&WasmQuery::Smart {
-                contract_addr: HumanAddr::from("lunablunapair0000"),
+                contract_addr: "lunablunapair0000".to_string(),
                 msg: to_binary(&TerraswapPairQueryMsg::Pool {}).unwrap(),
             })
             .unwrap(),
@@ -409,11 +409,11 @@ fn get_terraswap_price() {
         },
     };
 
-    let env = mock_env("owner0000", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
+    let info = mock_info("owner0000", &[]);
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // attempt to query price
-    let query_res = query_collateral_price(&deps, "bluna0000".to_string()).unwrap();
+    let query_res = query_collateral_price(deps.as_ref(), "bluna0000".to_string()).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
@@ -428,21 +428,21 @@ fn get_terraswap_price() {
 
 #[test]
 fn get_fixed_price() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(&[]);
 
-    let msg = InitMsg {
-        owner: HumanAddr("owner0000".to_string()),
-        mint_contract: HumanAddr("mint0000".to_string()),
-        factory_contract: HumanAddr("factory0000".to_string()),
+    let msg = InstantiateMsg {
+        owner: "owner0000".to_string(),
+        mint_contract: "mint0000".to_string(),
+        factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
     };
 
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env, msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    let msg = HandleMsg::RegisterCollateralAsset {
+    let msg = ExecuteMsg::RegisterCollateralAsset {
         asset: AssetInfo::Token {
-            contract_addr: HumanAddr::from("aUST"),
+            contract_addr: Addr::unchecked("aUST"),
         },
         multiplier: Decimal::percent(100),
         price_source: SourceType::FixedPrice {
@@ -450,11 +450,11 @@ fn get_fixed_price() {
         },
     };
 
-    let env = mock_env("owner0000", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
+    let info = mock_info("owner0000", &[]);
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // attempt to query price
-    let query_res = query_collateral_price(&deps, "aUST".to_string()).unwrap();
+    let query_res = query_collateral_price(deps.as_ref(), "aUST".to_string()).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
@@ -469,26 +469,26 @@ fn get_fixed_price() {
 
 #[test]
 fn get_band_oracle_price() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(&[]);
 
-    let msg = InitMsg {
-        owner: HumanAddr("owner0000".to_string()),
-        mint_contract: HumanAddr("mint0000".to_string()),
-        factory_contract: HumanAddr("factory0000".to_string()),
+    let msg = InstantiateMsg {
+        owner: "owner0000".to_string(),
+        mint_contract: "mint0000".to_string(),
+        factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
     };
 
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env, msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    let msg = HandleMsg::RegisterCollateralAsset {
+    let msg = ExecuteMsg::RegisterCollateralAsset {
         asset: AssetInfo::NativeToken {
             denom: "uluna".to_string(),
         },
         multiplier: Decimal::percent(100),
         price_source: SourceType::BandOracle {
             band_oracle_query: to_binary(&WasmQuery::Smart {
-                contract_addr: HumanAddr::from("bandoracle0000"),
+                contract_addr: "bandoracle0000".to_string(),
                 msg: to_binary(&MockQueryMsg::GetReferenceData {
                     base_symbol: "LUNA".to_string(),
                     quote_symbol: "USD".to_string(),
@@ -499,11 +499,11 @@ fn get_band_oracle_price() {
         },
     };
 
-    let env = mock_env("owner0000", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
+    let info = mock_info("owner0000", &[]);
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // attempt to query price
-    let query_res = query_collateral_price(&deps, "uluna".to_string()).unwrap();
+    let query_res = query_collateral_price(deps.as_ref(), "uluna".to_string()).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
@@ -518,26 +518,26 @@ fn get_band_oracle_price() {
 
 #[test]
 fn get_anchor_market_price() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(&[]);
 
-    let msg = InitMsg {
-        owner: HumanAddr("owner0000".to_string()),
-        mint_contract: HumanAddr("mint0000".to_string()),
-        factory_contract: HumanAddr("factory0000".to_string()),
+    let msg = InstantiateMsg {
+        owner: "owner0000".to_string(),
+        mint_contract: "mint0000".to_string(),
+        factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
     };
 
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env, msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    let msg = HandleMsg::RegisterCollateralAsset {
+    let msg = ExecuteMsg::RegisterCollateralAsset {
         asset: AssetInfo::Token {
-            contract_addr: HumanAddr::from("aust0000"),
+            contract_addr: Addr::unchecked("aust0000"),
         },
         multiplier: Decimal::percent(100),
         price_source: SourceType::AnchorMarket {
             anchor_market_query: to_binary(&WasmQuery::Smart {
-                contract_addr: HumanAddr::from("anchormarket0000"),
+                contract_addr: "anchormarket0000".to_string(),
                 msg: to_binary(&MockQueryMsg::EpochState {
                     block_heigth: None,
                     distributed_interest: None,
@@ -548,11 +548,11 @@ fn get_anchor_market_price() {
         },
     };
 
-    let env = mock_env("owner0000", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
+    let info = mock_info("owner0000", &[]);
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // attempt to query price
-    let query_res = query_collateral_price(&deps, "aust0000".to_string()).unwrap();
+    let query_res = query_collateral_price(deps.as_ref(), "aust0000".to_string()).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
@@ -567,19 +567,19 @@ fn get_anchor_market_price() {
 
 #[test]
 fn get_native_price() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(&[]);
 
-    let msg = InitMsg {
-        owner: HumanAddr("owner0000".to_string()),
-        mint_contract: HumanAddr("mint0000".to_string()),
-        factory_contract: HumanAddr("factory0000".to_string()),
+    let msg = InstantiateMsg {
+        owner: "owner0000".to_string(),
+        mint_contract: "mint0000".to_string(),
+        factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
     };
 
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env, msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    let msg = HandleMsg::RegisterCollateralAsset {
+    let msg = ExecuteMsg::RegisterCollateralAsset {
         asset: AssetInfo::NativeToken {
             denom: "uluna".to_string(),
         },
@@ -589,11 +589,11 @@ fn get_native_price() {
         },
     };
 
-    let env = mock_env("owner0000", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
+    let info = mock_info("owner0000", &[]);
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // attempt to query price
-    let query_res = query_collateral_price(&deps, "uluna".to_string()).unwrap();
+    let query_res = query_collateral_price(deps.as_ref(), "uluna".to_string()).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
@@ -608,21 +608,21 @@ fn get_native_price() {
 
 #[test]
 fn revoke_collateral() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(&[]);
 
-    let msg = InitMsg {
-        owner: HumanAddr("owner0000".to_string()),
-        mint_contract: HumanAddr("mint0000".to_string()),
-        factory_contract: HumanAddr("factory0000".to_string()),
+    let msg = InstantiateMsg {
+        owner: "owner0000".to_string(),
+        mint_contract: "mint0000".to_string(),
+        factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
     };
 
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env, msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    let msg = HandleMsg::RegisterCollateralAsset {
+    let msg = ExecuteMsg::RegisterCollateralAsset {
         asset: AssetInfo::Token {
-            contract_addr: HumanAddr::from("aUST"),
+            contract_addr: Addr::unchecked("aUST"),
         },
         multiplier: Decimal::percent(100),
         price_source: SourceType::FixedPrice {
@@ -630,11 +630,11 @@ fn revoke_collateral() {
         },
     };
 
-    let env = mock_env("owner0000", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
+    let info = mock_info("owner0000", &[]);
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // attempt to query price
-    let query_res = query_collateral_price(&deps, "aUST".to_string()).unwrap();
+    let query_res = query_collateral_price(deps.as_ref(), "aUST".to_string()).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
@@ -647,24 +647,24 @@ fn revoke_collateral() {
     );
 
     // revoke the asset
-    let msg = HandleMsg::RevokeCollateralAsset {
+    let msg = ExecuteMsg::RevokeCollateralAsset {
         asset: AssetInfo::Token {
-            contract_addr: HumanAddr::from("aUST"),
+            contract_addr: Addr::unchecked("aUST"),
         },
     };
 
     // unauthorized attempt
-    let env = mock_env("factory0000", &[]);
-    let res = handle(&mut deps, env, msg.clone()).unwrap_err();
-    assert_eq!(res, StdError::unauthorized());
+    let info = mock_info("factory0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
+    assert_eq!(res, StdError::generic_err("unauthorized"));
 
     // successfull attempt
-    let env = mock_env("owner0000", &[]);
-    let res = handle(&mut deps, env, msg).unwrap();
+    let info = mock_info("owner0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(0, res.messages.len());
 
     // query the revoked collateral
-    let query_res = query_collateral_info(&deps, "aUST".to_string()).unwrap();
+    let query_res = query_collateral_info(deps.as_ref(), "aUST".to_string()).unwrap();
     assert_eq!(
         query_res,
         CollateralInfoResponse {
@@ -676,7 +676,7 @@ fn revoke_collateral() {
     );
 
     // attempt to query price of revoked asset
-    let query_res = query_collateral_price(&deps, "aUST".to_string()).unwrap();
+    let query_res = query_collateral_price(deps.as_ref(), "aUST".to_string()).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {

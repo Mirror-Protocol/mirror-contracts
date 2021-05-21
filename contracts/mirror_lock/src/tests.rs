@@ -1,21 +1,21 @@
-use crate::contract::{handle, init, query};
+use crate::contract::{execute, instantiate, query};
 use crate::mock_querier::mock_dependencies;
-use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
+use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, log, BankMsg, BlockInfo, Coin, CosmosMsg, Decimal, Env, HumanAddr, StdError,
-    Uint128,
+    from_binary, attr, BankMsg, BlockInfo, Coin, CosmosMsg, Decimal, Env, StdError,
+    Timestamp, Uint128,
 };
 use mirror_protocol::lock::{
-    ConfigResponse, HandleMsg, InitMsg, PositionLockInfoResponse, QueryMsg,
+    ConfigResponse, ExecuteMsg, InstantiateMsg, PositionLockInfoResponse, QueryMsg,
 };
 
-fn mock_env_with_block_time<U: Into<HumanAddr>>(sender: U, sent: &[Coin], time: u64) -> Env {
-    let env = mock_env(sender, sent);
+fn mock_env_with_block_time(time: u64) -> Env {
+    let env = mock_env();
     // register time
     return Env {
         block: BlockInfo {
             height: 1,
-            time,
+            time: Timestamp::from_seconds(time),
             chain_id: "columbus".to_string(),
         },
         ..env
@@ -24,107 +24,111 @@ fn mock_env_with_block_time<U: Into<HumanAddr>>(sender: U, sent: &[Coin], time: 
 
 #[test]
 fn proper_initialization() {
-    let mut deps = mock_dependencies(20, &[]);
-    let msg = InitMsg {
-        owner: HumanAddr::from("owner0000"),
-        mint_contract: HumanAddr::from("mint0000"),
+    let mut deps = mock_dependencies(&[]);
+    let msg = InstantiateMsg {
+        owner: "owner0000".to_string(),
+        mint_contract: "mint0000".to_string(),
         base_denom: "uusd".to_string(),
         lockup_period: 100u64,
     };
-    let env = mock_env("addr0000", &[]);
+    let info = mock_info("addr0000", &[]);
     // we can just call .unwrap() to assert this was a success
-    let _res = init(&mut deps, env.clone(), msg).unwrap();
+    let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
     // it worked, let's query the state
-    let res = query(&deps, QueryMsg::Config {}).unwrap();
+    let res = query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap();
     let config: ConfigResponse = from_binary(&res).unwrap();
     assert_eq!("owner0000", config.owner.as_str());
     assert_eq!("uusd", config.base_denom.to_string());
     assert_eq!("mint0000", config.mint_contract.as_str());
     assert_eq!(100u64, config.lockup_period);
 }
+
 #[test]
 fn update_config() {
-    let mut deps = mock_dependencies(20, &[]);
-    let msg = InitMsg {
-        owner: HumanAddr::from("owner0000"),
-        mint_contract: HumanAddr::from("mint0000"),
+    let mut deps = mock_dependencies(&[]);
+    let msg = InstantiateMsg {
+        owner: "owner0000".to_string(),
+        mint_contract: "mint0000".to_string(),
         base_denom: "uusd".to_string(),
         lockup_period: 100u64,
     };
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env.clone(), msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
     // update owner
-    let env = mock_env("owner0000", &[]);
-    let msg = HandleMsg::UpdateConfig {
-        owner: Some(HumanAddr("owner0001".to_string())),
+    let info = mock_info("owner0000", &[]);
+    let msg = ExecuteMsg::UpdateConfig {
+        owner: Some("owner0001".to_string()),
         mint_contract: None,
         base_denom: None,
         lockup_period: None,
     };
-    let res = handle(&mut deps, env, msg).unwrap();
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(0, res.messages.len());
     // it worked, let's query the state
-    let res = query(&deps, QueryMsg::Config {}).unwrap();
+    let res = query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap();
     let config: ConfigResponse = from_binary(&res).unwrap();
     assert_eq!("owner0001", config.owner.as_str());
     // Unauthorized err
-    let env = mock_env("owner0000", &[]);
-    let msg = HandleMsg::UpdateConfig {
+    let info = mock_info("owner0000", &[]);
+    let msg = ExecuteMsg::UpdateConfig {
         owner: None,
         mint_contract: None,
         base_denom: None,
         lockup_period: None,
     };
-    let res = handle(&mut deps, env, msg).unwrap_err();
-    assert_eq!(res, StdError::unauthorized());
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
+    assert_eq!(res, StdError::generic_err("unauthorized"));
 }
 
 #[test]
 fn lock_position_funds() {
-    let mut deps = mock_dependencies(20, &[]);
-    let msg = InitMsg {
-        owner: HumanAddr::from("owner0000"),
-        mint_contract: HumanAddr::from("mint0000"),
+    let mut deps = mock_dependencies(&[]);
+    let msg = InstantiateMsg {
+        owner: "owner0000".to_string(),
+        mint_contract: "mint0000".to_string(),
         base_denom: "uusd".to_string(),
         lockup_period: 100u64,
     };
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env.clone(), msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
     deps.querier.with_bank_balance(
-        &HumanAddr::from(MOCK_CONTRACT_ADDR),
+        &MOCK_CONTRACT_ADDR.to_string(),
         vec![Coin {
             denom: "uusd".to_string(),
             amount: Uint128(100u128), // lock 100uusd
         }],
     );
-    let msg = HandleMsg::LockPositionFundsHook {
+    let msg = ExecuteMsg::LockPositionFundsHook {
         position_idx: Uint128(1u128),
-        receiver: HumanAddr::from("addr0000"),
+        receiver: "addr0000".to_string(),
     };
 
     // unauthorized attempt
-    let env = mock_env("addr0000", &[]);
-    let res = handle(&mut deps, env.clone(), msg.clone()).unwrap_err();
-    assert_eq!(res, StdError::unauthorized());
+    let info = mock_info("addr0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap_err();
+    assert_eq!(res, StdError::generic_err("unauthorized"));
 
     // successfull attempt
-    let env = mock_env_with_block_time("mint0000", &[], 20u64);
-    let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
+    let env = mock_env_with_block_time(20u64);
+    let info = mock_info("mint0000", &[]);
+
+    let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
     assert_eq!(
-        res.log,
+        res.attributes,
         vec![
-            log("action", "lock_position_funds_hook"),
-            log("position_idx", "1"),
-            log("locked_amount", "100uusd"),
-            log("lock_time", "20"),
+            attr("action", "lock_position_funds_hook"),
+            attr("position_idx", "1"),
+            attr("locked_amount", "100uusd"),
+            attr("lock_time", "20"),
         ]
     );
 
     // query lock info
     let res: PositionLockInfoResponse = from_binary(
         &query(
-            &deps,
+            deps.as_ref(),
+            mock_env(),
             QueryMsg::PositionLockInfo {
                 position_idx: Uint128(1u128),
             },
@@ -136,7 +140,7 @@ fn lock_position_funds() {
         res,
         PositionLockInfoResponse {
             idx: Uint128(1u128),
-            receiver: HumanAddr::from("addr0000"),
+            receiver: "addr0000".to_string(),
             locked_funds: vec![(20u64, Uint128(100u128)),]
         }
     );
@@ -144,57 +148,66 @@ fn lock_position_funds() {
 
 #[test]
 fn unlock_position_funds() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(&[]);
     deps.querier.with_tax(
         Decimal::percent(1u64),
         &[(&"uusd".to_string(), &Uint128(100000000u128))],
     );
-    let msg = InitMsg {
-        owner: HumanAddr::from("owner0000"),
-        mint_contract: HumanAddr::from("mint0000"),
+    let msg = InstantiateMsg {
+        owner: "owner0000".to_string(),
+        mint_contract: "mint0000".to_string(),
         base_denom: "uusd".to_string(),
         lockup_period: 100u64,
     };
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env.clone(), msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
     // lock 100 UST 3 times at different heights
-    let msg = HandleMsg::LockPositionFundsHook {
+    let msg = ExecuteMsg::LockPositionFundsHook {
         position_idx: Uint128(1u128),
-        receiver: HumanAddr::from("addr0000"),
+        receiver: "addr0000".to_string(),
     };
-    let env = mock_env_with_block_time("mint0000", &[], 1u64);
+    let env = mock_env_with_block_time(1u64);
+    let info = mock_info("mint0000", &[]);
+
     deps.querier.with_bank_balance(
-        &HumanAddr::from(MOCK_CONTRACT_ADDR),
+        &MOCK_CONTRACT_ADDR.to_string(),
         vec![Coin {
             denom: "uusd".to_string(),
             amount: Uint128(100u128), // lock 100uusd
         }],
     );
-    let _res = handle(&mut deps, env, msg.clone()).unwrap();
-    let env = mock_env_with_block_time("mint0000", &[], 10u64);
+    let _res = execute(deps.as_mut(), env, info, msg.clone()).unwrap();
+
+    let env = mock_env_with_block_time(10u64);
+    let info = mock_info("mint0000", &[]);
+
     deps.querier.with_bank_balance(
-        &HumanAddr::from(MOCK_CONTRACT_ADDR),
+        &MOCK_CONTRACT_ADDR.to_string(),
         vec![Coin {
             denom: "uusd".to_string(),
             amount: Uint128(200u128), // lock 100uusd more
         }],
     );
-    let _res = handle(&mut deps, env, msg.clone()).unwrap();
-    let env = mock_env_with_block_time("mint0000", &[], 20u64);
+    let _res = execute(deps.as_mut(), env, info, msg.clone()).unwrap();
+
+    let env = mock_env_with_block_time(20u64);
+    let info = mock_info("mint0000", &[]);
+
     deps.querier.with_bank_balance(
-        &HumanAddr::from(MOCK_CONTRACT_ADDR),
+        &MOCK_CONTRACT_ADDR.to_string(),
         vec![Coin {
             denom: "uusd".to_string(),
             amount: Uint128(300u128), // lock 100uusd more
         }],
     );
-    let _res = handle(&mut deps, env, msg.clone()).unwrap();
+    let _res = execute(deps.as_mut(), env, info, msg.clone()).unwrap();
 
     // query lock info
     let res: PositionLockInfoResponse = from_binary(
         &query(
-            &deps,
+            deps.as_ref(),
+            mock_env(),
             QueryMsg::PositionLockInfo {
                 position_idx: Uint128(1u128),
             },
@@ -206,7 +219,7 @@ fn unlock_position_funds() {
         res,
         PositionLockInfoResponse {
             idx: Uint128(1u128),
-            receiver: HumanAddr::from("addr0000"),
+            receiver: "addr0000".to_string(),
             locked_funds: vec![
                 (1u64, Uint128(100u128)),
                 (10u64, Uint128(100u128)),
@@ -215,37 +228,40 @@ fn unlock_position_funds() {
         }
     );
 
-    let msg = HandleMsg::UnlockPositionFunds {
+    let msg = ExecuteMsg::UnlockPositionFunds {
         position_idx: Uint128(1u128),
     };
 
     // unauthorized attempt
-    let env = mock_env("addr0001", &[]);
-    let res = handle(&mut deps, env.clone(), msg.clone()).unwrap_err();
-    assert_eq!(res, StdError::unauthorized());
+    let info = mock_info("addr0001", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap_err();
+    assert_eq!(res, StdError::generic_err("unauthorized"));
 
     // nothing to unlock
-    let env = mock_env_with_block_time("addr0000", &[], 50u64);
-    let res = handle(&mut deps, env, msg.clone()).unwrap_err();
+    let env = mock_env_with_block_time(50u64);
+    let info = mock_info("addr0000", &[]);
+    let res = execute(deps.as_mut(), env, info, msg.clone()).unwrap_err();
     assert_eq!(res, StdError::generic_err("Nothing to unlock"));
 
     // unlock 100 UST
-    let env = mock_env_with_block_time("addr0000", &[], 101u64);
-    let res = handle(&mut deps, env, msg.clone()).unwrap();
+    let env = mock_env_with_block_time(101u64);
+    let info = mock_info("addr0000", &[]);
+    let res = execute(deps.as_mut(), env, info, msg.clone()).unwrap();
     assert_eq!(
-        res.log,
+        res.attributes,
         vec![
-            log("action", "unlock_shorting_funds"),
-            log("position_idx", "1"),
-            log("unlocked_amount", "100uusd"),
-            log("tax_amount", "1uusd"),
+            attr("action", "unlock_shorting_funds"),
+            attr("position_idx", "1"),
+            attr("unlocked_amount", "100uusd"),
+            attr("tax_amount", "1uusd"),
         ]
     );
 
     // query lock info
     let res: PositionLockInfoResponse = from_binary(
         &query(
-            &deps,
+            deps.as_ref(),
+            mock_env(),
             QueryMsg::PositionLockInfo {
                 position_idx: Uint128(1u128),
             },
@@ -257,28 +273,28 @@ fn unlock_position_funds() {
         res,
         PositionLockInfoResponse {
             idx: Uint128(1u128),
-            receiver: HumanAddr::from("addr0000"),
+            receiver: "addr0000".to_string(),
             locked_funds: vec![(10u64, Uint128(100u128)), (20u64, Uint128(100u128)),]
         }
     );
 
     // unlock everything else
-    let env = mock_env_with_block_time("addr0000", &[], 120u64);
-    let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
+    let env = mock_env_with_block_time(120u64);
+    let info = mock_info("addr0000", &[]);
+    let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
     assert_eq!(
-        res.log,
+        res.attributes,
         vec![
-            log("action", "unlock_shorting_funds"),
-            log("position_idx", "1"),
-            log("unlocked_amount", "200uusd"),
-            log("tax_amount", "2uusd"),
+            attr("action", "unlock_shorting_funds"),
+            attr("position_idx", "1"),
+            attr("unlocked_amount", "200uusd"),
+            attr("tax_amount", "2uusd"),
         ]
     );
     assert_eq!(
         res.messages,
         vec![CosmosMsg::Bank(BankMsg::Send {
-            from_address: HumanAddr::from(MOCK_CONTRACT_ADDR),
-            to_address: HumanAddr::from("addr0000"),
+            to_address: "addr0000".to_string(),
             amount: vec![Coin {
                 denom: "uusd".to_string(),
                 amount: Uint128(198u128),
@@ -287,7 +303,7 @@ fn unlock_position_funds() {
     );
 
     // lock info does not exist anymore
-    let res = handle(&mut deps, env, msg.clone()).unwrap_err();
+    let res = execute(deps.as_mut(), env, info, msg.clone()).unwrap_err();
     assert_eq!(
         res,
         StdError::generic_err("There are no locked funds for this position idx")
@@ -296,59 +312,62 @@ fn unlock_position_funds() {
 
 #[test]
 fn release_position_funds() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(&[]);
     deps.querier.with_tax(
         Decimal::percent(1u64),
         &[(&"uusd".to_string(), &Uint128(100000000u128))],
     );
-    let msg = InitMsg {
-        owner: HumanAddr::from("owner0000"),
-        mint_contract: HumanAddr::from("mint0000"),
+    let msg = InstantiateMsg {
+        owner: "owner0000".to_string(),
+        mint_contract: "mint0000".to_string(),
         base_denom: "uusd".to_string(),
         lockup_period: 100u64,
     };
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env.clone(), msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
     // lock 100 UST
-    let msg = HandleMsg::LockPositionFundsHook {
+    let msg = ExecuteMsg::LockPositionFundsHook {
         position_idx: Uint128(1u128),
-        receiver: HumanAddr::from("addr0000"),
+        receiver: "addr0000".to_string(),
     };
-    let env = mock_env_with_block_time("mint0000", &[], 1u64);
+    let env = mock_env_with_block_time(1u64);
+    let info = mock_info("mint0000", &[]);
     deps.querier.with_bank_balance(
-        &HumanAddr::from(MOCK_CONTRACT_ADDR),
+        &MOCK_CONTRACT_ADDR.to_string(),
         vec![Coin {
             denom: "uusd".to_string(),
             amount: Uint128(100u128), // lock 100uusd
         }],
     );
-    let _res = handle(&mut deps, env, msg.clone()).unwrap();
+    let _res = execute(deps.as_mut(), env, info, msg.clone()).unwrap();
 
-    let msg = HandleMsg::ReleasePositionFunds {
+    let msg = ExecuteMsg::ReleasePositionFunds {
         position_idx: Uint128(1u128),
     };
 
     // unauthorized attempt
-    let env = mock_env_with_block_time("addr0000", &[], 1u64);
-    let res = handle(&mut deps, env, msg.clone()).unwrap_err();
-    assert_eq!(res, StdError::unauthorized());
+    let env = mock_env_with_block_time(1u64);
+    let info = mock_info("addr0000", &[]);
+    let res = execute(deps.as_mut(), env, info, msg.clone()).unwrap_err();
+    assert_eq!(res, StdError::generic_err("unauthorized"));
 
     // only mint contract can unlock before lock period is over
-    let env = mock_env_with_block_time("mint0000", &[], 50u64);
-    let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
+    let env = mock_env_with_block_time(50u64);
+    let info = mock_info("mint0000", &[]);
+    let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
     assert_eq!(
-        res.log,
+        res.attributes,
         vec![
-            log("action", "unlock_shorting_funds"),
-            log("position_idx", "1"),
-            log("unlocked_amount", "100uusd"),
-            log("tax_amount", "1uusd"),
+            attr("action", "unlock_shorting_funds"),
+            attr("position_idx", "1"),
+            attr("unlocked_amount", "100uusd"),
+            attr("tax_amount", "1uusd"),
         ]
     );
 
     // lock info does not exist anymore
-    let res = handle(&mut deps, env, msg.clone()).unwrap_err();
+    let res = execute(deps.as_mut(), env, info, msg.clone()).unwrap_err();
     assert_eq!(
         res,
         StdError::generic_err("There are no locked funds for this position idx")

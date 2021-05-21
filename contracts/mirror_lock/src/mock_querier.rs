@@ -1,26 +1,23 @@
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_slice, to_binary, Api, Coin, Decimal, Extern, HumanAddr, Querier, QuerierResult,
-    QueryRequest, SystemError, Uint128,
+    from_slice, to_binary, Api, Coin, ContractResult, Decimal, OwnedDeps, Querier, QuerierResult,
+    QueryRequest, SystemError, SystemResult, Uint128,
 };
 use std::collections::HashMap;
 
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 
 pub fn mock_dependencies(
-    canonical_length: usize,
     contract_balance: &[Coin],
-) -> Extern<MockStorage, MockApi, WasmMockQuerier> {
-    let contract_addr = HumanAddr::from(MOCK_CONTRACT_ADDR);
+) -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier> {
     let custom_querier: WasmMockQuerier = WasmMockQuerier::new(
-        MockQuerier::new(&[(&contract_addr, contract_balance)]),
-        MockApi::new(canonical_length),
-        canonical_length,
+        MockQuerier::new(&[(&MOCK_CONTRACT_ADDR, contract_balance)]),
+        MockApi::default(),
     );
 
-    Extern {
+    OwnedDeps {
+        api: MockApi::default(),
         storage: MockStorage::default(),
-        api: MockApi::new(canonical_length),
         querier: custom_querier,
     }
 }
@@ -60,7 +57,7 @@ impl Querier for WasmMockQuerier {
         let request: QueryRequest<TerraQueryWrapper> = match from_slice(bin_request) {
             Ok(v) => v,
             Err(e) => {
-                return Err(SystemError::InvalidRequest {
+                return SystemResult::Err(SystemError::InvalidRequest {
                     error: format!("Parsing query request: {}", e),
                     request: bin_request.into(),
                 })
@@ -80,7 +77,7 @@ impl WasmMockQuerier {
                             let res = TaxRateResponse {
                                 rate: self.tax_querier.rate,
                             };
-                            Ok(to_binary(&res))
+                            SystemResult::Ok(ContractResult::from(to_binary(&res)))
                         }
                         TerraQuery::TaxCap { denom } => {
                             let cap = self
@@ -90,7 +87,7 @@ impl WasmMockQuerier {
                                 .copied()
                                 .unwrap_or_default();
                             let res = TaxCapResponse { cap };
-                            Ok(to_binary(&res))
+                            SystemResult::Ok(ContractResult::from(to_binary(&res)))
                         }
                         _ => panic!("DO NOT ENTER HERE"),
                     }
@@ -107,7 +104,6 @@ impl WasmMockQuerier {
     pub fn new<A: Api>(
         base: MockQuerier<TerraQueryWrapper>,
         _api: A,
-        _canonical_length: usize,
     ) -> Self {
         WasmMockQuerier {
             base,
@@ -115,7 +111,7 @@ impl WasmMockQuerier {
         }
     }
 
-    pub fn with_bank_balance(&mut self, addr: &HumanAddr, balance: Vec<Coin>) {
+    pub fn with_bank_balance(&mut self, addr: &String, balance: Vec<Coin>) {
         self.base.update_balance(addr, balance);
     }
 

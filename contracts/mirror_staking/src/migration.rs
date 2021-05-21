@@ -20,15 +20,15 @@ pub struct LegacyPoolInfo {
     pub reward_index: Decimal,
 }
 
-fn read_legacy_config<S: Storage>(storage: &S) -> StdResult<LegacyConfig> {
+fn read_legacy_config(storage: &dyn Storage) -> StdResult<LegacyConfig> {
     singleton_read(storage, KEY_CONFIG).load()
 }
 
-fn read_legacy_pool_infos<S: Storage>(
-    storage: &S,
+fn read_legacy_pool_infos(
+    storage: &dyn Storage,
 ) -> StdResult<Vec<(CanonicalAddr, LegacyPoolInfo)>> {
-    let pool_info_bucket: ReadonlyBucket<S, LegacyPoolInfo> =
-        ReadonlyBucket::new(PREFIX_POOL_INFO, storage);
+    let pool_info_bucket: ReadonlyBucket<LegacyPoolInfo> =
+        ReadonlyBucket::new(storage, PREFIX_POOL_INFO);
     pool_info_bucket
         .range(None, None, Order::Ascending)
         .map(|item| {
@@ -38,8 +38,8 @@ fn read_legacy_pool_infos<S: Storage>(
         .collect()
 }
 
-pub fn migrate_config<S: Storage>(
-    storage: &mut S,
+pub fn migrate_config(
+    storage: &mut dyn Storage,
     mint_contract: CanonicalAddr,
     oracle_contract: CanonicalAddr,
     terraswap_factory: CanonicalAddr,
@@ -62,7 +62,7 @@ pub fn migrate_config<S: Storage>(
     )
 }
 
-pub fn migrate_pool_infos<S: Storage>(storage: &mut S) -> StdResult<()> {
+pub fn migrate_pool_infos(storage: &mut dyn Storage) -> StdResult<()> {
     let legacy_pool_infos: Vec<(CanonicalAddr, LegacyPoolInfo)> = read_legacy_pool_infos(storage)?;
     for (asset_token, legacy_pool_info) in legacy_pool_infos.iter() {
         store_pool_info(

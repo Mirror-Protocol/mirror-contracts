@@ -19,25 +19,25 @@ static KEY_STATE: &[u8] = b"state";
 static PREFIX_POLL: &[u8] = b"poll";
 
 #[cfg(test)]
-pub fn poll_indexer_old_store<'a, S: Storage>(
-    storage: &'a mut S,
+pub fn poll_indexer_old_store<'a>(
+    storage: &'a mut dyn Storage,
     status: &PollStatus,
-) -> Bucket<'a, S, bool> {
+) -> Bucket<'a, bool> {
     Bucket::multilevel(
-        &[PREFIX_POLL_INDEXER_OLD, status.to_string().as_bytes()],
         storage,
+        &[PREFIX_POLL_INDEXER_OLD, status.to_string().as_bytes()],
     )
 }
 #[cfg(test)]
-pub fn polls_old_store<'a, S: Storage>(storage: &'a mut S) -> Bucket<'a, S, LegacyPoll> {
-    Bucket::new(PREFIX_POLL, storage)
+pub fn polls_old_store<'a>(storage: &'a mut dyn Storage) -> Bucket<'a, LegacyPoll> {
+    Bucket::new(storage, PREFIX_POLL)
 }
 #[cfg(test)]
-pub fn state_old_store<'a, S: Storage>(storage: &'a mut S) -> Singleton<'a, S, LegacyState> {
+pub fn state_old_store<'a>(storage: &'a mut dyn Storage) -> Singleton<'a, LegacyState> {
     Singleton::new(storage, KEY_STATE)
 }
 #[cfg(test)]
-pub fn config_old_store<'a, S: Storage>(storage: &'a mut S) -> Singleton<'a, S, LegacyConfig> {
+pub fn config_old_store<'a>(storage: &'a mut dyn Storage) -> Singleton<'a, LegacyConfig> {
     Singleton::new(storage, KEY_CONFIG)
 }
 
@@ -77,10 +77,10 @@ pub struct LegacyPoll {
     pub total_balance_at_end_poll: Option<Uint128>,
 }
 
-pub fn migrate_poll_indexer<S: Storage>(storage: &mut S, status: &PollStatus) -> StdResult<()> {
-    let mut old_indexer_bucket: Bucket<S, bool> = Bucket::multilevel(
-        &[PREFIX_POLL_INDEXER_OLD, status.to_string().as_bytes()],
+pub fn migrate_poll_indexer(storage: &mut dyn Storage, status: &PollStatus) -> StdResult<()> {
+    let mut old_indexer_bucket: Bucket<bool> = Bucket::multilevel(
         storage,
+        &[PREFIX_POLL_INDEXER_OLD, status.to_string().as_bytes()],
     );
 
     let mut poll_ids: Vec<u64> = vec![];
@@ -93,9 +93,9 @@ pub fn migrate_poll_indexer<S: Storage>(storage: &mut S, status: &PollStatus) ->
         old_indexer_bucket.remove(&id.to_be_bytes());
     }
 
-    let mut new_indexer_bucket: Bucket<S, bool> = Bucket::multilevel(
-        &[PREFIX_POLL_INDEXER, status.to_string().as_bytes()],
+    let mut new_indexer_bucket: Bucket<bool> = Bucket::multilevel(
         storage,
+        &[PREFIX_POLL_INDEXER, status.to_string().as_bytes()],
     );
 
     for id in poll_ids.into_iter() {
@@ -114,12 +114,12 @@ fn bytes_to_u64(data: &[u8]) -> StdResult<u64> {
     }
 }
 
-pub fn migrate_config<S: Storage>(
-    storage: &mut S,
+pub fn migrate_config(
+    storage: &mut dyn Storage,
     voter_weight: Decimal,
     snapshot_period: u64,
 ) -> StdResult<()> {
-    let legacty_store: ReadonlySingleton<S, LegacyConfig> = singleton_read(storage, KEY_CONFIG);
+    let legacty_store: ReadonlySingleton<LegacyConfig> = singleton_read(storage, KEY_CONFIG);
     let legacy_config: LegacyConfig = legacty_store.load()?;
     let config = Config {
         mirror_token: legacy_config.mirror_token,
@@ -133,13 +133,13 @@ pub fn migrate_config<S: Storage>(
         voter_weight: voter_weight,
         snapshot_period: snapshot_period,
     };
-    let mut store: Singleton<S, Config> = singleton(storage, KEY_CONFIG);
+    let mut store: Singleton<Config> = singleton(storage, KEY_CONFIG);
     store.save(&config)?;
     Ok(())
 }
 
-pub fn migrate_state<S: Storage>(storage: &mut S) -> StdResult<()> {
-    let legacy_store: ReadonlySingleton<S, LegacyState> = singleton_read(storage, KEY_STATE);
+pub fn migrate_state(storage: &mut dyn Storage) -> StdResult<()> {
+    let legacy_store: ReadonlySingleton<LegacyState> = singleton_read(storage, KEY_STATE);
     let legacy_state: LegacyState = legacy_store.load()?;
     let state = State {
         contract_addr: legacy_state.contract_addr,
@@ -148,13 +148,13 @@ pub fn migrate_state<S: Storage>(storage: &mut S) -> StdResult<()> {
         total_deposit: legacy_state.total_deposit,
         pending_voting_rewards: Uint128::zero(),
     };
-    let mut store: Singleton<S, State> = singleton(storage, KEY_STATE);
+    let mut store: Singleton<State> = singleton(storage, KEY_STATE);
     store.save(&state)?;
     Ok(())
 }
 
-pub fn migrate_polls<S: Storage>(storage: &mut S) -> StdResult<()> {
-    let mut legacy_polls_bucket: Bucket<S, LegacyPoll> = Bucket::new(PREFIX_POLL, storage);
+pub fn migrate_polls(storage: &mut dyn Storage) -> StdResult<()> {
+    let mut legacy_polls_bucket: Bucket<LegacyPoll> = Bucket::new(storage, PREFIX_POLL);
 
     let mut read_polls: Vec<(u64, LegacyPoll)> = vec![];
     for item in legacy_polls_bucket.range(None, None, Order::Ascending) {
@@ -166,7 +166,7 @@ pub fn migrate_polls<S: Storage>(storage: &mut S) -> StdResult<()> {
         legacy_polls_bucket.remove(&id.to_be_bytes());
     }
 
-    let mut new_polls_bucket: Bucket<S, Poll> = Bucket::new(PREFIX_POLL, storage);
+    let mut new_polls_bucket: Bucket<Poll> = Bucket::new(storage, PREFIX_POLL);
 
     for (id, poll) in read_polls.into_iter() {
         let new_poll = &Poll {
@@ -200,7 +200,7 @@ mod migrate_tests {
 
     #[test]
     fn test_poll_indexer_migration() {
-        let mut deps = mock_dependencies(20, &[]);
+        let mut deps = mock_dependencies(&[]);
         poll_indexer_old_store(&mut deps.storage, &PollStatus::InProgress)
             .save(&1u64.to_be_bytes(), &true)
             .unwrap();
@@ -230,13 +230,13 @@ mod migrate_tests {
 
     #[test]
     fn test_polls_migration() {
-        let mut deps = mock_dependencies(20, &[]);
+        let mut deps = mock_dependencies(&[]);
         polls_old_store(&mut deps.storage)
             .save(
                 &1u64.to_be_bytes(),
                 &LegacyPoll {
                     id: 1u64,
-                    creator: CanonicalAddr::default(),
+                    creator: CanonicalAddr::from(vec![]),
                     status: PollStatus::InProgress,
                     yes_votes: Uint128::zero(),
                     no_votes: Uint128::zero(),
@@ -255,7 +255,7 @@ mod migrate_tests {
                 &2u64.to_be_bytes(),
                 &LegacyPoll {
                     id: 2u64,
-                    creator: CanonicalAddr::default(),
+                    creator: CanonicalAddr::from(vec![]),
                     status: PollStatus::InProgress,
                     yes_votes: Uint128::zero(),
                     no_votes: Uint128::zero(),
@@ -279,7 +279,7 @@ mod migrate_tests {
             poll1,
             Poll {
                 id: 1u64,
-                creator: CanonicalAddr::default(),
+                creator: CanonicalAddr::from(vec![]),
                 status: PollStatus::InProgress,
                 yes_votes: Uint128::zero(),
                 no_votes: Uint128::zero(),
@@ -302,7 +302,7 @@ mod migrate_tests {
             poll2,
             Poll {
                 id: 2u64,
-                creator: CanonicalAddr::default(),
+                creator: CanonicalAddr::from(vec![]),
                 status: PollStatus::InProgress,
                 yes_votes: Uint128::zero(),
                 no_votes: Uint128::zero(),
@@ -322,12 +322,12 @@ mod migrate_tests {
 
     #[test]
     fn test_config_migration() {
-        let mut deps = mock_dependencies(20, &[]);
+        let mut deps = mock_dependencies(&[]);
         let mut legacy_config_store = config_old_store(&mut deps.storage);
         legacy_config_store
             .save(&LegacyConfig {
-                mirror_token: CanonicalAddr::default(),
-                owner: CanonicalAddr::default(),
+                mirror_token: CanonicalAddr::from(vec![]),
+                owner: CanonicalAddr::from(vec![]),
                 quorum: Decimal::one(),
                 threshold: Decimal::one(),
                 voting_period: 100u64,
@@ -343,8 +343,8 @@ mod migrate_tests {
         assert_eq!(
             config,
             Config {
-                mirror_token: CanonicalAddr::default(),
-                owner: CanonicalAddr::default(),
+                mirror_token: CanonicalAddr::from(vec![]),
+                owner: CanonicalAddr::from(vec![]),
                 quorum: Decimal::one(),
                 threshold: Decimal::one(),
                 voting_period: 100u64,
@@ -359,11 +359,11 @@ mod migrate_tests {
 
     #[test]
     fn test_state_migration() {
-        let mut deps = mock_dependencies(20, &[]);
+        let mut deps = mock_dependencies(&[]);
         let mut legacy_state_store = state_old_store(&mut deps.storage);
         legacy_state_store
             .save(&LegacyState {
-                contract_addr: CanonicalAddr::default(),
+                contract_addr: CanonicalAddr::from(vec![]),
                 poll_count: 0,
                 total_share: Uint128::zero(),
                 total_deposit: Uint128::zero(),
@@ -376,7 +376,7 @@ mod migrate_tests {
         assert_eq!(
             state,
             State {
-                contract_addr: CanonicalAddr::default(),
+                contract_addr: CanonicalAddr::from(vec![]),
                 poll_count: 0,
                 total_share: Uint128::zero(),
                 total_deposit: Uint128::zero(),
