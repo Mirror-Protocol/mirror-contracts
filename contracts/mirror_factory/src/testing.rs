@@ -1,11 +1,12 @@
 use crate::contract::{handle, init, query};
-use crate::mock_querier::mock_dependencies;
+use crate::mock_querier::{mock_dependencies, WasmMockQuerier};
 
 use crate::state::{read_params, read_total_weight, read_weight, store_total_weight, store_weight};
-use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
+use cosmwasm_std::testing::{mock_env, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::Api;
 use cosmwasm_std::{
-    from_binary, log, to_binary, CosmosMsg, Decimal, Env, HumanAddr, StdError, Uint128, WasmMsg,
+    from_binary, log, to_binary, CosmosMsg, Decimal, Env, Extern, HumanAddr, StdError, Uint128,
+    WasmMsg,
 };
 use cw20::{Cw20HandleMsg, MinterResponse};
 
@@ -825,6 +826,161 @@ fn test_distribute() {
             ],
             last_distributed: 1_571_802_819,
         }
+    );
+}
+
+fn whitelist_token(
+    deps: &mut Extern<MockStorage, MockApi, WasmMockQuerier>,
+    name: &str,
+    symbol: &str,
+    asset_token: &str,
+    weight: u32,
+) {
+    // whitelist first item with weight 1.5
+    let msg = HandleMsg::Whitelist {
+        name: name.to_string(),
+        symbol: symbol.to_string(),
+        oracle_feeder: HumanAddr::from("feeder0000"),
+        params: Params {
+            auction_discount: Decimal::percent(5),
+            min_collateral_ratio: Decimal::percent(150),
+            weight: Some(weight),
+            mint_period: None,
+            min_collateral_ratio_after_migration: None,
+        },
+    };
+    let env = mock_env("owner0000", &[]);
+    let _res = handle(deps, env, msg).unwrap();
+
+    let msg = HandleMsg::TokenCreationHook {
+        oracle_feeder: HumanAddr::from("feeder0000"),
+    };
+    let env = mock_env(asset_token, &[]);
+    let _res = handle(deps, env, msg).unwrap();
+
+    let msg = HandleMsg::TerraswapCreationHook {
+        asset_token: HumanAddr::from(asset_token),
+    };
+    let env = mock_env("terraswapfactory", &[]);
+    let _res = handle(deps, env, msg).unwrap();
+}
+#[test]
+fn test_distribute_split() {
+    let mut deps = mock_dependencies(20, &[]);
+    deps.querier.with_terraswap_pairs(&[
+        (&"uusdasset0000".to_string(), &HumanAddr::from("LP0000")),
+        (&"uusdasset0001".to_string(), &HumanAddr::from("LP0001")),
+        (&"uusdasset0002".to_string(), &HumanAddr::from("LP0002")),
+        (&"uusdasset0003".to_string(), &HumanAddr::from("LP0003")),
+        (&"uusdasset0004".to_string(), &HumanAddr::from("LP0004")),
+        (&"uusdasset0005".to_string(), &HumanAddr::from("LP0005")),
+        (&"uusdasset0006".to_string(), &HumanAddr::from("LP0006")),
+        (&"uusdasset0007".to_string(), &HumanAddr::from("LP0007")),
+        (&"uusdasset0008".to_string(), &HumanAddr::from("LP0008")),
+        (&"uusdasset0009".to_string(), &HumanAddr::from("LP0009")),
+        (&"uusdasset0010".to_string(), &HumanAddr::from("LP0010")),
+        (&"uusdasset0011".to_string(), &HumanAddr::from("LP0011")),
+    ]);
+
+    let msg = InitMsg {
+        base_denom: BASE_DENOM.to_string(),
+        token_code_id: TOKEN_CODE_ID,
+        distribution_schedule: vec![
+            (1800, 3600, Uint128::from(3600u128)),
+            (3600, 3600 + 3600, Uint128::from(7200u128)),
+        ],
+    };
+
+    let env = mock_env("addr0000", &[]);
+    let _res = init(&mut deps, env.clone(), msg).unwrap();
+
+    let msg = HandleMsg::PostInitialize {
+        owner: HumanAddr::from("owner0000"),
+        mirror_token: HumanAddr::from("mirror0000"),
+        mint_contract: HumanAddr::from("mint0000"),
+        staking_contract: HumanAddr::from("staking0000"),
+        commission_collector: HumanAddr::from("collector0000"),
+        oracle_contract: HumanAddr::from("oracle0000"),
+        terraswap_factory: HumanAddr::from("terraswapfactory"),
+    };
+    let _res = handle(&mut deps, env, msg).unwrap();
+
+    // whitelist first item with weight 1.5
+    whitelist_token(&mut deps, "asset 0", "a0", "asset0000", 100u32);
+    whitelist_token(&mut deps, "asset 1", "a1", "asset0001", 100u32);
+    whitelist_token(&mut deps, "asset 2", "a2", "asset0002", 100u32);
+    whitelist_token(&mut deps, "asset 3", "a3", "asset0003", 100u32);
+    whitelist_token(&mut deps, "asset 4", "a4", "asset0004", 100u32);
+    whitelist_token(&mut deps, "asset 5", "a5", "asset0005", 100u32);
+    whitelist_token(&mut deps, "asset 6", "a6", "asset0006", 100u32);
+    whitelist_token(&mut deps, "asset 7", "a7", "asset0007", 100u32);
+    whitelist_token(&mut deps, "asset 8", "a8", "asset0008", 100u32);
+    whitelist_token(&mut deps, "asset 9", "a9", "asset0009", 100u32);
+    whitelist_token(&mut deps, "asset 10", "a10", "asset0010", 100u32);
+    whitelist_token(&mut deps, "asset 11", "a11", "asset0011", 100u32);
+
+    // one height increase
+    let msg = HandleMsg::Distribute {};
+    let env = mock_env_time(&HumanAddr::from("addr0000"), 1_571_797_419u64 + 5400u64);
+    let res = handle(&mut deps, env, msg).unwrap();
+    assert_eq!(
+        res.log,
+        vec![
+            log("action", "distribute"),
+            log("distribution_amount", "7200"),
+        ]
+    );
+
+    assert_eq!(
+        res.messages[0],
+        CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: HumanAddr::from("mirror0000"),
+            msg: to_binary(&Cw20HandleMsg::Send {
+                contract: HumanAddr::from("staking0000"),
+                amount: Uint128(6000u128),
+                msg: Some(
+                    to_binary(&StakingCw20HookMsg::DepositReward {
+                        rewards: vec![
+                            (HumanAddr::from("asset0000"), Uint128(600u128)),
+                            (HumanAddr::from("asset0001"), Uint128(600u128)),
+                            (HumanAddr::from("asset0002"), Uint128(600u128)),
+                            (HumanAddr::from("asset0003"), Uint128(600u128)),
+                            (HumanAddr::from("asset0004"), Uint128(600u128)),
+                            (HumanAddr::from("asset0005"), Uint128(600u128)),
+                            (HumanAddr::from("asset0006"), Uint128(600u128)),
+                            (HumanAddr::from("asset0007"), Uint128(600u128)),
+                            (HumanAddr::from("asset0008"), Uint128(600u128)),
+                            (HumanAddr::from("asset0009"), Uint128(600u128)),
+                        ],
+                    })
+                    .unwrap()
+                ),
+            })
+            .unwrap(),
+            send: vec![],
+        }),
+    );
+
+    assert_eq!(
+        res.messages[1],
+        CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: HumanAddr::from("mirror0000"),
+            msg: to_binary(&Cw20HandleMsg::Send {
+                contract: HumanAddr::from("staking0000"),
+                amount: Uint128(1200u128),
+                msg: Some(
+                    to_binary(&StakingCw20HookMsg::DepositReward {
+                        rewards: vec![
+                            (HumanAddr::from("asset0010"), Uint128(600u128)),
+                            (HumanAddr::from("asset0011"), Uint128(600u128)),
+                        ],
+                    })
+                    .unwrap()
+                ),
+            })
+            .unwrap(),
+            send: vec![],
+        }),
     );
 }
 

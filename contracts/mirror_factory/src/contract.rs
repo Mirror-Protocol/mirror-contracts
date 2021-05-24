@@ -480,8 +480,9 @@ pub fn distribute<S: Storage, A: Api, Q: Querier>(
     let rewards: Vec<(HumanAddr, Uint128)> = weights
         .iter()
         .map(|w| {
-            let amount =
-                target_distribution_amount * Decimal::from_ratio(w.1 as u128, total_weight as u128);
+            let amount = Uint128::from(
+                target_distribution_amount.u128() * (w.1 as u128) / (total_weight as u128),
+            );
 
             if amount.is_zero() {
                 return Err(StdError::generic_err("cannot distribute zero amount"));
@@ -509,7 +510,7 @@ pub fn distribute<S: Storage, A: Api, Q: Querier>(
                     contract_addr: mirror_token.clone(),
                     msg: to_binary(&Cw20HandleMsg::Send {
                         contract: staking_contract.clone(),
-                        amount: distribution_amount,
+                        amount: rewards.iter().map(|v| v.1.u128()).sum::<u128>().into(),
                         msg: Some(to_binary(&StakingCw20HookMsg::DepositReward { rewards })?),
                     })?,
                     send: vec![],
