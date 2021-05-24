@@ -62,7 +62,7 @@
           "required": [
             "asset",
             "collateral_premium",
-            "query_request"
+            "price_source"
           ],
           "properties": {
             "asset": {
@@ -71,8 +71,8 @@
             "collateral_premium": {
               "$ref": "#/definitions/Decimal"
             },
-            "query_request": {
-              "$ref": "#/definitions/Binary"
+            "price_source": {
+              "$ref": "#/definitions/SourceType"
             }
           }
         }
@@ -100,21 +100,21 @@
     {
       "type": "object",
       "required": [
-        "update_collateral_query"
+        "update_collateral_price_source"
       ],
       "properties": {
-        "update_collateral_query": {
+        "update_collateral_price_source": {
           "type": "object",
           "required": [
             "asset",
-            "query_request"
+            "price_source"
           ],
           "properties": {
             "asset": {
               "$ref": "#/definitions/AssetInfo"
             },
-            "query_request": {
-              "$ref": "#/definitions/Binary"
+            "price_source": {
+              "$ref": "#/definitions/SourceType"
             }
           }
         }
@@ -197,6 +197,86 @@
     },
     "HumanAddr": {
       "type": "string"
+    },
+    "SourceType": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "terra_oracle"
+          ],
+          "properties": {
+            "terra_oracle": {
+              "type": "object",
+              "required": [
+                "terra_oracle_query"
+              ],
+              "properties": {
+                "terra_oracle_query": {
+                  "$ref": "#/definitions/Binary"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "band_oracle"
+          ],
+          "properties": {
+            "band_oracle": {
+              "type": "object",
+              "required": [
+                "band_oracle_query"
+              ],
+              "properties": {
+                "band_oracle_query": {
+                  "$ref": "#/definitions/Binary"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "fixed_price"
+          ],
+          "properties": {
+            "fixed_price": {
+              "type": "object",
+              "required": [
+                "price"
+              ],
+              "properties": {
+                "price": {
+                  "$ref": "#/definitions/Decimal"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "terraswap"
+          ],
+          "properties": {
+            "terraswap": {
+              "type": "object",
+              "required": [
+                "terraswap_query"
+              ],
+              "properties": {
+                "terraswap_query": {
+                  "$ref": "#/definitions/Binary"
+                }
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }

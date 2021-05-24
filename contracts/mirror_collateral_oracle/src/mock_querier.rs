@@ -101,12 +101,24 @@ impl Querier for WasmMockQuerier {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
+pub struct ReferenceData {
+    rate: Uint128,
+    last_updated_base: u64,
+    last_updated_quote: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     Price {
         base_asset: String,
         quote_asset: String,
     },
     Pool {},
+    GetReferenceData {
+        base_symbol: String,
+        quote_symbol: String,
+    },
 }
 
 impl WasmMockQuerier {
@@ -160,6 +172,11 @@ impl WasmMockQuerier {
                         request: msg.as_slice().into(),
                     }),
                 },
+                QueryMsg::GetReferenceData { .. } => Ok(to_binary(&ReferenceData {
+                    rate: Uint128(3465211050000000000000),
+                    last_updated_base: 100u64,
+                    last_updated_quote: 100u64,
+                })),
             },
             _ => self.base.handle_query(request),
         }

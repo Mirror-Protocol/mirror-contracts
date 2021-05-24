@@ -40,6 +40,7 @@ pub fn load_collateral_info<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     collateral_oracle: &HumanAddr,
     collateral: &AssetInfoRaw,
+    block_time: Option<u64>,
 ) -> StdResult<(Decimal, Decimal, bool)> {
     let config: Config = read_config(&deps.storage)?;
     let collateral_denom: String = (collateral.to_normal(&deps)?).to_string();
@@ -50,14 +51,12 @@ pub fn load_collateral_info<S: Storage, A: Api, Q: Querier>(
     }
 
     // load collateral info from collateral oracle
-    let (collateral_oracle_price, collateral_premium, is_revoked) =
-        if let Ok(response) = query_collateral(deps, collateral_oracle, collateral_denom.clone()) {
-            response
-        } else {
-            return Err(StdError::generic_err(
-                "Collateral asset information not found",
-            ));
-        };
+    let (collateral_oracle_price, collateral_premium, is_revoked) = query_collateral(
+        deps,
+        collateral_oracle,
+        collateral_denom,
+        block_time,
+    )?;
 
     // check if the collateral is a revoked mAsset
     let end_price = read_end_price(&deps.storage, &collateral);
@@ -100,12 +99,19 @@ pub fn query_collateral<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     collateral_oracle: &HumanAddr,
     asset: String,
+    block_time: Option<u64>,
 ) -> StdResult<(Decimal, Decimal, bool)> {
     let res: CollateralPriceResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
             contract_addr: HumanAddr::from(collateral_oracle),
             msg: to_binary(&CollateralOracleQueryMsg::CollateralPrice { asset })?,
         }))?;
+
+    if let Some(block_time) = block_time {
+        if res.last_updated < (block_time - PRICE_EXPIRE_TIME) {
+            return Err(StdError::generic_err("Collateral price is too old"));
+        }
+    }
 
     Ok((res.rate, res.collateral_premium, res.is_revoked))
 }

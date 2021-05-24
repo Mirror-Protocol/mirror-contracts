@@ -4,14 +4,13 @@ use crate::state::{
     CollateralAssetInfo, Config,
 };
 use cosmwasm_std::{
-    from_binary, to_binary, Api, Binary, CanonicalAddr, Decimal, Env, Extern, HandleResponse,
-    HandleResult, HumanAddr, InitResponse, MigrateResponse, MigrateResult, Querier, StdError,
-    StdResult, Storage, WasmQuery,
+    to_binary, Api, Binary, CanonicalAddr, Decimal, Env, Extern, HandleResponse, HandleResult,
+    HumanAddr, InitResponse, MigrateResponse, MigrateResult, Querier, StdError, StdResult, Storage,
 };
 
 use mirror_protocol::collateral_oracle::{
     CollateralInfoResponse, CollateralInfosResponse, CollateralPriceResponse, ConfigResponse,
-    HandleMsg, InitMsg, MigrateMsg, QueryMsg,
+    HandleMsg, InitMsg, MigrateMsg, QueryMsg, SourceType,
 };
 
 use terraswap::asset::AssetInfo;
@@ -55,14 +54,14 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         ),
         HandleMsg::RegisterCollateralAsset {
             asset,
-            query_request,
+            price_source,
             collateral_premium,
-        } => register_collateral(deps, env, asset, query_request, collateral_premium),
+        } => register_collateral(deps, env, asset, price_source, collateral_premium),
         HandleMsg::RevokeCollateralAsset { asset } => revoke_collateral(deps, env, asset),
-        HandleMsg::UpdateCollateralQuery {
+        HandleMsg::UpdateCollateralPriceSource {
             asset,
-            query_request,
-        } => update_collateral_query(deps, env, asset, query_request),
+            price_source,
+        } => update_collateral_source(deps, env, asset, price_source),
         HandleMsg::UpdateCollateralPremium {
             asset,
             collateral_premium,
@@ -107,7 +106,7 @@ pub fn register_collateral<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     asset: AssetInfo,
-    query_request: Binary,
+    price_source: SourceType,
     collateral_premium: Decimal,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
@@ -126,7 +125,7 @@ pub fn register_collateral<S: Storage, A: Api, Q: Querier>(
         &CollateralAssetInfo {
             asset: asset.to_string(),
             collateral_premium,
-            query_request,
+            price_source,
             is_revoked: false,
         },
     )?;
@@ -160,11 +159,11 @@ pub fn revoke_collateral<S: Storage, A: Api, Q: Querier>(
     Ok(HandleResponse::default())
 }
 
-pub fn update_collateral_query<S: Storage, A: Api, Q: Querier>(
+pub fn update_collateral_source<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     asset: AssetInfo,
-    query_request: Binary,
+    price_source: SourceType,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
     let sender_address_raw: CanonicalAddr = deps.api.canonical_address(&env.message.sender)?;
@@ -180,13 +179,7 @@ pub fn update_collateral_query<S: Storage, A: Api, Q: Querier>(
             return Err(StdError::generic_err("Collateral not found"));
         };
 
-    // test the query request
-    if query_price(&deps, query_request.clone(), config.base_denom).is_err() {
-        return Err(StdError::generic_err(
-            "The query request provided is not valid",
-        ));
-    }
-    collateral_info.query_request = query_request;
+    collateral_info.price_source = price_source;
 
     store_collateral_info(&mut deps.storage, &collateral_info)?;
 
@@ -258,11 +251,13 @@ pub fn query_collateral_price<S: Storage, A: Api, Q: Querier>(
             return Err(StdError::generic_err("Collateral asset not found"));
         };
 
-    let price: Decimal = query_price(deps, collateral.query_request, config.base_denom)?;
+    let (price, last_updated): (Decimal, u64) =
+        query_price(deps, collateral.price_source, config.base_denom)?;
 
     Ok(CollateralPriceResponse {
         asset: collateral.asset,
         rate: price,
+        last_updated,
         collateral_premium: collateral.collateral_premium,
         is_revoked: collateral.is_revoked,
     })
@@ -279,11 +274,9 @@ pub fn query_collateral_info<S: Storage, A: Api, Q: Querier>(
             return Err(StdError::generic_err("Collateral asset not found"));
         };
 
-    let wasm_query: WasmQuery = from_binary(&collateral.query_request)?;
-
     Ok(CollateralInfoResponse {
         asset: collateral.asset,
-        query_request: wasm_query,
+        source_type: collateral.price_source.to_string(),
         collateral_premium: collateral.collateral_premium,
         is_revoked: collateral.is_revoked,
     })

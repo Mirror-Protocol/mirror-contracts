@@ -18,7 +18,7 @@ use crate::{
 };
 
 use cw20::Cw20ReceiveMsg;
-use mirror_protocol::collateral_oracle::HandleMsg as CollateralOracleHandleMsg;
+use mirror_protocol::collateral_oracle::{HandleMsg as CollateralOracleHandleMsg, SourceType};
 use mirror_protocol::mint::{
     AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrateMsg, QueryMsg,
 };
@@ -344,13 +344,15 @@ pub fn register_asset<S: Storage, A: Api, Q: Querier>(
                     contract_addr: asset_token.clone(),
                 },
                 collateral_premium: Decimal::zero(), // default collateral premium for new mAssets
-                query_request: to_binary(&WasmQuery::Smart {
-                    contract_addr: deps.api.human_address(&config.oracle)?,
-                    msg: to_binary(&OracleQueryMsg::Price {
-                        base_asset: config.base_denom,
-                        quote_asset: asset_token.to_string(),
+                price_source: SourceType::TerraOracle {
+                    terra_oracle_query: to_binary(&WasmQuery::Smart {
+                        contract_addr: deps.api.human_address(&config.oracle)?,
+                        msg: to_binary(&OracleQueryMsg::Price {
+                            base_asset: config.base_denom,
+                            quote_asset: asset_token.to_string(),
+                        })?,
                     })?,
-                })?,
+                },
             })?,
         })],
         log: vec![log("action", "register"), log("asset_token", asset_token)],

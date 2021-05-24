@@ -379,7 +379,7 @@ mod tests {
             },
             short_params: None,
         };
-        let env = mock_env("addr0000", &[]);
+        let env = mock_env_with_block_time("addr0000", &[], 1000);
         let res = handle(&mut deps, env, msg).unwrap_err();
         match res {
             StdError::GenericErr { msg, .. } => {
@@ -850,7 +850,7 @@ mod tests {
             },
             short_params: None,
         };
-        let env = mock_env("addr0000", &[]);
+        let env = mock_env_with_block_time("addr0000", &[], 1000);
         let res = handle(&mut deps, env, msg.clone()).unwrap_err();
         assert_eq!(
             res,

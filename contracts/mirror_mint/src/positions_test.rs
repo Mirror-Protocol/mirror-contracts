@@ -84,7 +84,25 @@ mod tests {
         let env = mock_env("owner0000", &[]);
         let _res = handle(&mut deps, env, msg).unwrap();
 
-        // must be failed; collateral ratio is too low
+        // open position with unknown collateral
+        let msg = HandleMsg::Receive(Cw20ReceiveMsg {
+            msg: Some(
+                to_binary(&Cw20HookMsg::OpenPosition {
+                    asset_info: AssetInfo::Token {
+                        contract_addr: HumanAddr::from("asset9999"),
+                    },
+                    collateral_ratio: Decimal::percent(150),
+                    short_params: None,
+                })
+                .unwrap(),
+            ),
+            sender: HumanAddr::from("addr0000"),
+            amount: Uint128(1000000u128),
+        });
+        let env = mock_env_with_block_time("asset9999", &[], 1000);
+        let _res = handle(&mut deps, env, msg).unwrap_err(); // expect error
+
+        // must fail; collateral ratio is too low
         let msg = HandleMsg::OpenPosition {
             collateral: Asset {
                 info: AssetInfo::NativeToken {
@@ -115,6 +133,7 @@ mod tests {
             _ => panic!("DO NOT ENTER ERROR"),
         }
 
+        // successful attempt
         let msg = HandleMsg::OpenPosition {
             collateral: Asset {
                 info: AssetInfo::NativeToken {

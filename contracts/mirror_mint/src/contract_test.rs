@@ -6,7 +6,7 @@ mod tests {
     use cosmwasm_std::{
         from_binary, to_binary, CosmosMsg, Decimal, HumanAddr, StdError, WasmMsg, WasmQuery,
     };
-    use mirror_protocol::collateral_oracle::HandleMsg::RegisterCollateralAsset;
+    use mirror_protocol::collateral_oracle::{HandleMsg::RegisterCollateralAsset, SourceType};
     use mirror_protocol::mint::{
         AssetConfigResponse, ConfigResponse, HandleMsg, InitMsg, QueryMsg,
     };
@@ -139,15 +139,17 @@ mod tests {
                         contract_addr: HumanAddr::from("asset0000"),
                     },
                     collateral_premium: Decimal::zero(),
-                    query_request: to_binary(&WasmQuery::Smart {
-                        contract_addr: HumanAddr::from("oracle0000"),
-                        msg: to_binary(&Price {
-                            base_asset: "uusd".to_string(),
-                            quote_asset: "asset0000".to_string(),
+                    price_source: SourceType::TerraOracle {
+                        terra_oracle_query: to_binary(&WasmQuery::Smart {
+                            contract_addr: HumanAddr::from("oracle0000"),
+                            msg: to_binary(&Price {
+                                base_asset: "uusd".to_string(),
+                                quote_asset: "asset0000".to_string(),
+                            })
+                            .unwrap()
                         })
-                        .unwrap()
-                    })
-                    .unwrap(),
+                        .unwrap(),
+                    },
                 })
                 .unwrap(),
             })]

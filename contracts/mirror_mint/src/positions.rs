@@ -52,6 +52,7 @@ pub fn open_position<S: Storage, A: Api, Q: Querier>(
         &deps,
         &collateral_oracle,
         &collateral_info_raw,
+        Some(env.block.time),
     )?)?;
 
     // assert asset migrated
@@ -227,6 +228,7 @@ pub fn deposit<S: Storage, A: Api, Q: Querier>(
         &deps,
         &collateral_oracle,
         &position.collateral.info,
+        None,
     )?)?;
 
     // assert asset migrated
@@ -288,8 +290,12 @@ pub fn withdraw<S: Storage, A: Api, Q: Querier>(
 
     // Fetch collateral info from collateral oracle
     let collateral_oracle: HumanAddr = deps.api.human_address(&config.collateral_oracle)?;
-    let (collateral_price, collateral_premium, _collateral_is_revoked) =
-        load_collateral_info(&deps, &collateral_oracle, &position.collateral.info)?;
+    let (collateral_price, collateral_premium, _collateral_is_revoked) = load_collateral_info(
+        &deps,
+        &collateral_oracle,
+        &position.collateral.info,
+        Some(env.block.time),
+    )?;
 
     // Compute new collateral amount
     let collateral_amount: Uint128 = (position.collateral.amount - collateral.amount)?;
@@ -400,6 +406,7 @@ pub fn mint<S: Storage, A: Api, Q: Querier>(
         &deps,
         &collateral_oracle,
         &position.collateral.info,
+        Some(env.block.time),
     )?)?;
 
     // for assets with limited minting period (preIPO assets), assert minting phase
@@ -575,8 +582,12 @@ pub fn burn<S: Storage, A: Api, Q: Querier>(
 
         // fetch collateral info from collateral oracle
         let collateral_oracle: HumanAddr = deps.api.human_address(&config.collateral_oracle)?;
-        let (collateral_price, _collateral_premium, _collateral_is_revoked) =
-            load_collateral_info(&deps, &collateral_oracle, &position.collateral.info)?;
+        let (collateral_price, _collateral_premium, _collateral_is_revoked) = load_collateral_info(
+            &deps,
+            &collateral_oracle,
+            &position.collateral.info,
+            Some(env.block.time),
+        )?;
 
         let collateral_price_in_asset = decimal_division(asset_price, collateral_price);
 
@@ -707,8 +718,12 @@ pub fn auction<S: Storage, A: Api, Q: Querier>(
 
     // fetch collateral info from collateral oracle
     let collateral_oracle: HumanAddr = deps.api.human_address(&config.collateral_oracle)?;
-    let (collateral_price, _collateral_premium, _collateral_is_revoked) =
-        load_collateral_info(&deps, &collateral_oracle, &position.collateral.info)?;
+    let (collateral_price, _collateral_premium, _collateral_is_revoked) = load_collateral_info(
+        &deps,
+        &collateral_oracle,
+        &position.collateral.info,
+        Some(env.block.time),
+    )?;
 
     let collateral_price_in_asset: Decimal = decimal_division(asset_price, collateral_price);
     // Check the position is in auction state

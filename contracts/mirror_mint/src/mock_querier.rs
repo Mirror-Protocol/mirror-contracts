@@ -266,6 +266,7 @@ impl WasmMockQuerier {
                         Some(collateral_info) => Ok(to_binary(&CollateralPriceResponse {
                             asset,
                             rate: collateral_info.0,
+                            last_updated: 1000u64,
                             collateral_premium: collateral_info.1,
                             is_revoked: collateral_info.2,
                         })),
