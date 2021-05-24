@@ -480,8 +480,9 @@ pub fn distribute<S: Storage, A: Api, Q: Querier>(
     let rewards: Vec<(HumanAddr, Uint128)> = weights
         .iter()
         .map(|w| {
-            let amount =
-                target_distribution_amount * Decimal::from_ratio(w.1 as u128, total_weight as u128);
+            let amount = Uint128::from(
+                target_distribution_amount.u128() * (w.1 as u128) / (total_weight as u128),
+            );
 
             if amount.is_zero() {
                 return Err(StdError::generic_err("cannot distribute zero amount"));
@@ -496,17 +497,26 @@ pub fn distribute<S: Storage, A: Api, Q: Querier>(
     // store last distributed
     store_last_distributed(&mut deps.storage, env.block.time)?;
 
+    const SPLIT_UNIT: usize = 10;
+    let rewards_vec: Vec<Vec<(HumanAddr, Uint128)>> =
+        rewards.chunks(SPLIT_UNIT).map(|v| v.to_vec()).collect();
+
     // mint token to self and try send minted tokens to staking contract
     Ok(HandleResponse {
-        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: mirror_token.clone(),
-            msg: to_binary(&Cw20HandleMsg::Send {
-                contract: staking_contract.clone(),
-                amount: distribution_amount,
-                msg: Some(to_binary(&StakingCw20HookMsg::DepositReward { rewards })?),
-            })?,
-            send: vec![],
-        })],
+        messages: rewards_vec
+            .into_iter()
+            .map(|rewards| {
+                Ok(CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: mirror_token.clone(),
+                    msg: to_binary(&Cw20HandleMsg::Send {
+                        contract: staking_contract.clone(),
+                        amount: rewards.iter().map(|v| v.1.u128()).sum::<u128>().into(),
+                        msg: Some(to_binary(&StakingCw20HookMsg::DepositReward { rewards })?),
+                    })?,
+                    send: vec![],
+                }))
+            })
+            .collect::<StdResult<Vec<CosmosMsg>>>()?,
         log: vec![
             log("action", "distribute"),
             log("distribution_amount", distribution_amount.to_string()),
