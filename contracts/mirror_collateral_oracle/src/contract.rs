@@ -119,6 +119,10 @@ pub fn register_collateral<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::generic_err("Collateral was already registered"));
     }
 
+    if multiplier.is_zero() {
+        return Err(StdError::generic_err("Multiplier must be bigger than 0"));
+    }
+
     store_collateral_info(
         &mut deps.storage,
         &CollateralAssetInfo {
@@ -204,6 +208,10 @@ pub fn update_collateral_multiplier<S: Storage, A: Api, Q: Querier>(
         } else {
             return Err(StdError::generic_err("Collateral not found"));
         };
+
+    if multiplier.is_zero() {
+        return Err(StdError::generic_err("Multiplier must be bigger than 0"));
+    }
 
     collateral_info.multiplier = multiplier;
     store_collateral_info(&mut deps.storage, &collateral_info)?;

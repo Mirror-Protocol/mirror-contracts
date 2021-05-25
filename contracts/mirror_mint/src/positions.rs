@@ -8,7 +8,7 @@ use crate::{
         assert_asset, assert_burn_period, assert_collateral, assert_migrated_asset,
         assert_mint_period, assert_revoked_collateral,
     },
-    math::{decimal_division, decimal_subtraction, reverse_decimal},
+    math::{decimal_division, decimal_subtraction, reverse_decimal, decimal_multiplication},
     querier::{load_asset_price, load_collateral_info},
     state::{
         create_position, is_short_position, read_asset_config, read_config, read_position,
@@ -81,12 +81,11 @@ pub fn open_position<S: Storage, A: Api, Q: Querier>(
 
     let asset_price_in_collateral_asset = decimal_division(collateral_price, asset_price);
 
-    // Calculate collateral effective value in asset unit
-    let collateral_effective_value =
-        collateral.amount * asset_price_in_collateral_asset * collateral_multiplier;
+    // Calculate effective cr
+    let effective_cr = decimal_multiplication(collateral_ratio, collateral_multiplier);
 
     // Convert collateral to mint amount
-    let mint_amount = collateral_effective_value * reverse_decimal(collateral_ratio);
+    let mint_amount = collateral.amount * asset_price_in_collateral_asset * reverse_decimal(effective_cr);
     if mint_amount.is_zero() {
         return Err(StdError::generic_err("collateral is too small"));
     }
@@ -307,12 +306,9 @@ pub fn withdraw<S: Storage, A: Api, Q: Querier>(
     let asset_value_in_collateral_asset: Uint128 =
         position.asset.amount * decimal_division(asset_price, collateral_price);
 
-    // Compute effective collateral amount
-    let collateral_effective_amount = collateral_amount * collateral_multiplier;
-
     // Check minimum collateral ratio is satisfied
-    if asset_value_in_collateral_asset * asset_config.min_collateral_ratio
-        > collateral_effective_amount
+    if asset_value_in_collateral_asset * asset_config.min_collateral_ratio * collateral_multiplier
+        > collateral_amount
     {
         return Err(StdError::generic_err(
             "Cannot withdraw collateral over than minimum collateral ratio",
@@ -430,12 +426,9 @@ pub fn mint<S: Storage, A: Api, Q: Querier>(
     let asset_value_in_collateral_asset: Uint128 =
         asset_amount * decimal_division(asset_price, collateral_price);
 
-    // Compute effective collateral amount
-    let collateral_effective_amount = position.collateral.amount * collateral_multiplier;
-
     // Check minimum collateral ratio is satisfied
-    if asset_value_in_collateral_asset * asset_config.min_collateral_ratio
-        > collateral_effective_amount
+    if asset_value_in_collateral_asset * asset_config.min_collateral_ratio * collateral_multiplier
+        > position.collateral.amount
     {
         return Err(StdError::generic_err(
             "Cannot mint asset over than min collateral ratio",
@@ -736,16 +729,15 @@ pub fn auction<S: Storage, A: Api, Q: Querier>(
         Some(env.block.time),
     )?;
 
-    // Compute effective collateral amount and collateral price in asset unit
-    let collateral_effective_amount = position.collateral.amount * collateral_multiplier;
+    // Compute collateral price in asset unit
     let collateral_price_in_asset: Decimal = decimal_division(asset_price, collateral_price);
 
     // Check the position is in auction state
     // asset_amount * price_to_collateral * auction_threshold > collateral_amount
     let asset_value_in_collateral_asset: Uint128 =
         position.asset.amount * collateral_price_in_asset;
-    if asset_value_in_collateral_asset * asset_config.min_collateral_ratio
-        < collateral_effective_amount
+    if asset_value_in_collateral_asset * asset_config.min_collateral_ratio * collateral_multiplier
+        < position.collateral.amount
     {
         return Err(StdError::generic_err(
             "Cannot liquidate a safely collateralized position",
