@@ -40,7 +40,7 @@ mod tests {
         deps.querier.with_collateral_infos(&[(
             &"asset0001".to_string(),
             &Decimal::percent(50),
-            &Decimal::percent(50), // 0.5 collateral_multiplier
+            &Decimal::percent(200), // 2 collateral_multiplier
             &false,
         )]);
 
