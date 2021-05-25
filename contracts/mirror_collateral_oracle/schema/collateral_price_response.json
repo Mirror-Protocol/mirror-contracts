@@ -4,17 +4,14 @@
   "type": "object",
   "required": [
     "asset",
-    "collateral_premium",
     "is_revoked",
     "last_updated",
+    "multiplier",
     "rate"
   ],
   "properties": {
     "asset": {
       "type": "string"
-    },
-    "collateral_premium": {
-      "$ref": "#/definitions/Decimal"
     },
     "is_revoked": {
       "type": "boolean"
@@ -23,6 +20,9 @@
       "type": "integer",
       "format": "uint64",
       "minimum": 0.0
+    },
+    "multiplier": {
+      "$ref": "#/definitions/Decimal"
     },
     "rate": {
       "$ref": "#/definitions/Decimal"

@@ -55,17 +55,16 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::RegisterCollateralAsset {
             asset,
             price_source,
-            collateral_premium,
-        } => register_collateral(deps, env, asset, price_source, collateral_premium),
+            multiplier,
+        } => register_collateral(deps, env, asset, price_source, multiplier),
         HandleMsg::RevokeCollateralAsset { asset } => revoke_collateral(deps, env, asset),
         HandleMsg::UpdateCollateralPriceSource {
             asset,
             price_source,
         } => update_collateral_source(deps, env, asset, price_source),
-        HandleMsg::UpdateCollateralPremium {
-            asset,
-            collateral_premium,
-        } => update_collateral_premium(deps, env, asset, collateral_premium),
+        HandleMsg::UpdateCollateralMultiplier { asset, multiplier } => {
+            update_collateral_multiplier(deps, env, asset, multiplier)
+        }
     }
 }
 
@@ -107,7 +106,7 @@ pub fn register_collateral<S: Storage, A: Api, Q: Querier>(
     env: Env,
     asset: AssetInfo,
     price_source: SourceType,
-    collateral_premium: Decimal,
+    multiplier: Decimal,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
     let sender_address_raw: CanonicalAddr = deps.api.canonical_address(&env.message.sender)?;
@@ -124,7 +123,7 @@ pub fn register_collateral<S: Storage, A: Api, Q: Querier>(
         &mut deps.storage,
         &CollateralAssetInfo {
             asset: asset.to_string(),
-            collateral_premium,
+            multiplier,
             price_source,
             is_revoked: false,
         },
@@ -186,11 +185,11 @@ pub fn update_collateral_source<S: Storage, A: Api, Q: Querier>(
     Ok(HandleResponse::default())
 }
 
-pub fn update_collateral_premium<S: Storage, A: Api, Q: Querier>(
+pub fn update_collateral_multiplier<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     asset: AssetInfo,
-    collateral_premium: Decimal,
+    multiplier: Decimal,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
     let sender_address_raw: CanonicalAddr = deps.api.canonical_address(&env.message.sender)?;
@@ -206,7 +205,7 @@ pub fn update_collateral_premium<S: Storage, A: Api, Q: Querier>(
             return Err(StdError::generic_err("Collateral not found"));
         };
 
-    collateral_info.collateral_premium = collateral_premium;
+    collateral_info.multiplier = multiplier;
     store_collateral_info(&mut deps.storage, &collateral_info)?;
 
     Ok(HandleResponse::default())
@@ -258,7 +257,7 @@ pub fn query_collateral_price<S: Storage, A: Api, Q: Querier>(
         asset: collateral.asset,
         rate: price,
         last_updated,
-        collateral_premium: collateral.collateral_premium,
+        multiplier: collateral.multiplier,
         is_revoked: collateral.is_revoked,
     })
 }
@@ -277,7 +276,7 @@ pub fn query_collateral_info<S: Storage, A: Api, Q: Querier>(
     Ok(CollateralInfoResponse {
         asset: collateral.asset,
         source_type: collateral.price_source.to_string(),
-        collateral_premium: collateral.collateral_premium,
+        multiplier: collateral.multiplier,
         is_revoked: collateral.is_revoked,
     })
 }

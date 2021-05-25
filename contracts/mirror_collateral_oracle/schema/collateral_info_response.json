@@ -4,19 +4,19 @@
   "type": "object",
   "required": [
     "asset",
-    "collateral_premium",
     "is_revoked",
+    "multiplier",
     "source_type"
   ],
   "properties": {
     "asset": {
       "type": "string"
     },
-    "collateral_premium": {
-      "$ref": "#/definitions/Decimal"
-    },
     "is_revoked": {
       "type": "boolean"
+    },
+    "multiplier": {
+      "$ref": "#/definitions/Decimal"
     },
     "source_type": {
       "type": "string"

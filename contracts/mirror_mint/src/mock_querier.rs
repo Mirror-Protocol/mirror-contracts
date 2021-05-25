@@ -140,10 +140,11 @@ pub(crate) fn collateral_infos_to_map(
     collateral_infos: &[(&String, &Decimal, &Decimal, &bool)],
 ) -> HashMap<String, (Decimal, Decimal, bool)> {
     let mut collateral_infos_map: HashMap<String, (Decimal, Decimal, bool)> = HashMap::new();
-    for (collateral, collateral_price, collateral_premium, is_revoked) in collateral_infos.iter() {
+    for (collateral, collateral_price, collateral_multiplier, is_revoked) in collateral_infos.iter()
+    {
         collateral_infos_map.insert(
             (*collateral).clone(),
-            (**collateral_price, **collateral_premium, **is_revoked),
+            (**collateral_price, **collateral_multiplier, **is_revoked),
         );
     }
 
@@ -267,7 +268,7 @@ impl WasmMockQuerier {
                             asset,
                             rate: collateral_info.0,
                             last_updated: 1000u64,
-                            collateral_premium: collateral_info.1,
+                            multiplier: collateral_info.1,
                             is_revoked: collateral_info.2,
                         })),
                         None => Err(SystemError::InvalidRequest {

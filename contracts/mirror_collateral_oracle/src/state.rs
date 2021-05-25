@@ -29,7 +29,7 @@ pub fn read_config<S: Storage>(storage: &S) -> StdResult<Config> {
 pub struct CollateralAssetInfo {
     pub asset: String,
     pub price_source: SourceType,
-    pub collateral_premium: Decimal,
+    pub multiplier: Decimal,
     pub is_revoked: bool,
 }
 
@@ -62,7 +62,7 @@ pub fn read_collateral_infos<S: Storage>(storage: &S) -> StdResult<Vec<Collatera
             Ok(CollateralInfoResponse {
                 asset: v.asset,
                 source_type: v.price_source.to_string(),
-                collateral_premium: v.collateral_premium,
+                multiplier: v.multiplier,
                 is_revoked: v.is_revoked,
             })
         })

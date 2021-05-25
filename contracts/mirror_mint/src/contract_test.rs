@@ -138,7 +138,7 @@ mod tests {
                     asset: AssetInfo::Token {
                         contract_addr: HumanAddr::from("asset0000"),
                     },
-                    collateral_premium: Decimal::zero(),
+                    multiplier: Decimal::one(),
                     price_source: SourceType::TerraOracle {
                         terra_oracle_query: to_binary(&WasmQuery::Smart {
                             contract_addr: HumanAddr::from("oracle0000"),

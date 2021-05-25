@@ -40,7 +40,7 @@ mod tests {
         deps.querier.with_collateral_infos(&[(
             &"asset0001".to_string(),
             &Decimal::percent(50),
-            &Decimal::zero(),
+            &Decimal::percent(50), // 0.5 collateral_multiplier
             &false,
         )]);
 
@@ -280,7 +280,7 @@ mod tests {
             vec![
                 log("action", "open_position"),
                 log("position_idx", "2"),
-                log("mint_amount", "333333asset0000"),
+                log("mint_amount", "166666asset0000"), // 1000000 * 0.5 (price to asset) * 0.5 multiplier / 1.5 (mcr)
                 log("collateral_amount", "1000000asset0001"),
                 log("is_short", "false"),
             ]
@@ -293,7 +293,7 @@ mod tests {
                 send: vec![],
                 msg: to_binary(&Cw20HandleMsg::Mint {
                     recipient: HumanAddr::from("addr0000"),
-                    amount: Uint128(333333u128),
+                    amount: Uint128(166666u128),
                 })
                 .unwrap(),
             })]
@@ -316,7 +316,7 @@ mod tests {
                     info: AssetInfo::Token {
                         contract_addr: HumanAddr::from("asset0000"),
                     },
-                    amount: Uint128(333333u128),
+                    amount: Uint128(166666u128),
                 },
                 collateral: Asset {
                     info: AssetInfo::Token {
@@ -352,7 +352,7 @@ mod tests {
                             info: AssetInfo::Token {
                                 contract_addr: HumanAddr::from("asset0000"),
                             },
-                            amount: Uint128(333333u128),
+                            amount: Uint128(166666u128),
                         },
                         collateral: Asset {
                             info: AssetInfo::Token {
@@ -430,7 +430,7 @@ mod tests {
         deps.querier.with_collateral_infos(&[(
             &"asset0001".to_string(),
             &Decimal::percent(50),
-            &Decimal::zero(),
+            &Decimal::one(),
             &false,
         )]);
 
@@ -642,7 +642,7 @@ mod tests {
         deps.querier.with_collateral_infos(&[(
             &"asset0001".to_string(),
             &Decimal::from_ratio(50u128, 1u128),
-            &Decimal::zero(),
+            &Decimal::one(),
             &false,
         )]);
 
@@ -890,7 +890,7 @@ mod tests {
         deps.querier.with_collateral_infos(&[(
             &"asset0001".to_string(),
             &Decimal::from_ratio(50u128, 1u128),
-            &Decimal::zero(),
+            &Decimal::one(),
             &false,
         )]);
 
@@ -1162,7 +1162,7 @@ mod tests {
         deps.querier.with_collateral_infos(&[(
             &"asset0001".to_string(),
             &Decimal::from_ratio(50u128, 1u128),
-            &Decimal::zero(),
+            &Decimal::one(),
             &false,
         )]);
 
@@ -1357,13 +1357,13 @@ mod tests {
             (
                 &"asset0000".to_string(),
                 &Decimal::from_ratio(100u128, 1u128),
-                &Decimal::zero(),
+                &Decimal::one(),
                 &false,
             ),
             (
                 &"asset0001".to_string(),
                 &Decimal::from_ratio(50u128, 1u128),
-                &Decimal::zero(),
+                &Decimal::one(),
                 &false,
             ),
         ]);
@@ -1516,13 +1516,13 @@ mod tests {
             (
                 &"asset0000".to_string(),
                 &Decimal::from_ratio(116u128, 1u128),
-                &Decimal::zero(),
+                &Decimal::one(),
                 &false,
             ),
             (
                 &"asset0001".to_string(),
                 &Decimal::from_ratio(50u128, 1u128),
-                &Decimal::zero(),
+                &Decimal::one(),
                 &false,
             ),
         ]);
@@ -1649,13 +1649,13 @@ mod tests {
             (
                 &"asset0000".to_string(),
                 &Decimal::percent(200),
-                &Decimal::zero(),
+                &Decimal::one(),
                 &false,
             ),
             (
                 &"asset0001".to_string(),
                 &Decimal::percent(50),
-                &Decimal::zero(),
+                &Decimal::one(),
                 &false,
             ),
         ]);
@@ -1728,5 +1728,104 @@ mod tests {
                 log("protocol_fee", "10000asset0001"),
             ]
         );
+    }
+
+    #[test]
+    fn collateral_types() {
+        let mut deps = mock_dependencies(20, &[]);
+        deps.querier.with_oracle_price(&[
+            (&"uusd".to_string(), &Decimal::one()),
+            (
+                &"asset0000".to_string(),
+                &Decimal::from_ratio(100u128, 1u128),
+            ),
+            (
+                &"asset0001".to_string(),
+                &Decimal::from_ratio(50u128, 1u128),
+            ),
+        ]);
+        deps.querier.with_collateral_infos(&[(
+            &"asset0001".to_string(),
+            &Decimal::from_ratio(50u128, 1u128),
+            &Decimal::percent(50), // 0.5 collateral_multiplier
+            &false,
+        )]);
+
+        let base_denom = "uusd".to_string();
+
+        let msg = InitMsg {
+            owner: HumanAddr::from("owner0000"),
+            oracle: HumanAddr::from("oracle0000"),
+            collector: HumanAddr::from("collector0000"),
+            collateral_oracle: HumanAddr::from("collateraloracle0000"),
+            staking: HumanAddr::from("staking0000"),
+            terraswap_factory: HumanAddr::from("terraswap_factory"),
+            lock: HumanAddr::from("lock0000"),
+            base_denom: base_denom.clone(),
+            token_code_id: TOKEN_CODE_ID,
+            protocol_fee_rate: Decimal::percent(1),
+        };
+
+        let env = mock_env("addr0000", &[]);
+        let _res = init(&mut deps, env, msg).unwrap();
+
+        let msg = HandleMsg::RegisterAsset {
+            asset_token: HumanAddr::from("asset0000"),
+            auction_discount: Decimal::percent(20),
+            min_collateral_ratio: Decimal::percent(150),
+            mint_end: None,
+            min_collateral_ratio_after_migration: None,
+        };
+
+        let env = mock_env("owner0000", &[]);
+        let _res = handle(&mut deps, env, msg).unwrap();
+
+        // open asset0001-asset0000 position
+        let msg = HandleMsg::Receive(Cw20ReceiveMsg {
+            msg: Some(
+                to_binary(&Cw20HookMsg::OpenPosition {
+                    asset_info: AssetInfo::Token {
+                        contract_addr: HumanAddr::from("asset0000"),
+                    },
+                    collateral_ratio: Decimal::percent(150),
+                    short_params: None,
+                })
+                .unwrap(),
+            ),
+            sender: HumanAddr::from("addr0000"),
+            amount: Uint128(1000000u128),
+        });
+        let env = mock_env_with_block_time("asset0001", &[], 1000);
+        let res = handle(&mut deps, env, msg).unwrap();
+
+        assert_eq!(
+            res.log,
+            vec![
+                log("action", "open_position"),
+                log("position_idx", "1"),
+                log("mint_amount", "166666asset0000"), // 500000 * 0.5 (price to asset) * 0.5 multiplier / 1.5 (mcr)
+                log("collateral_amount", "1000000asset0001"),
+                log("is_short", "false"),
+            ]
+        );
+
+        let msg = HandleMsg::Withdraw {
+            position_idx: Uint128(1u128),
+            collateral: Asset {
+                info: AssetInfo::Token {
+                    contract_addr: HumanAddr::from("asset0001"),
+                },
+                amount: Uint128(10u128),
+            },
+        };
+        let env = mock_env_with_block_time("addr0000", &[], 1000u64);
+        let res = handle(&mut deps, env, msg).unwrap_err();
+        match res {
+            StdError::GenericErr { msg, .. } => assert_eq!(
+                msg,
+                "Cannot withdraw collateral over than minimum collateral ratio"
+            ),
+            _ => panic!("DO NOT ENTER HERE"),
+        }
     }
 }

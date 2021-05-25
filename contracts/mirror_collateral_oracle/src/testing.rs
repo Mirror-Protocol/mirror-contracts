@@ -116,7 +116,7 @@ fn register_collateral() {
         asset: AssetInfo::Token {
             contract_addr: HumanAddr::from("mTSLA"),
         },
-        collateral_premium: Decimal::percent(50),
+        multiplier: Decimal::percent(50),
         price_source: SourceType::TerraOracle { terra_oracle_query },
     };
 
@@ -137,7 +137,7 @@ fn register_collateral() {
         CollateralInfoResponse {
             asset: "mTSLA".to_string(),
             source_type: "terra_oracle".to_string(),
-            collateral_premium: Decimal::percent(50),
+            multiplier: Decimal::percent(50),
             is_revoked: false,
         }
     )
@@ -175,7 +175,7 @@ fn update_collateral() {
         asset: AssetInfo::Token {
             contract_addr: HumanAddr::from("mTSLA"),
         },
-        collateral_premium: Decimal::percent(50),
+        multiplier: Decimal::percent(50),
         price_source: SourceType::TerraOracle { terra_oracle_query },
     };
 
@@ -191,7 +191,7 @@ fn update_collateral() {
         CollateralInfoResponse {
             asset: "mTSLA".to_string(),
             source_type: "terra_oracle".to_string(),
-            collateral_premium: Decimal::percent(50),
+            multiplier: Decimal::percent(50),
             is_revoked: false,
         }
     );
@@ -223,17 +223,17 @@ fn update_collateral() {
         CollateralInfoResponse {
             asset: "mTSLA".to_string(),
             source_type: "fixed_price".to_string(),
-            collateral_premium: Decimal::percent(50),
+            multiplier: Decimal::percent(50),
             is_revoked: false,
         }
     );
 
     // update collateral premium
-    let msg = HandleMsg::UpdateCollateralPremium {
+    let msg = HandleMsg::UpdateCollateralMultiplier {
         asset: AssetInfo::Token {
             contract_addr: HumanAddr::from("mTSLA"),
         },
-        collateral_premium: Decimal::percent(60),
+        multiplier: Decimal::percent(60),
     };
 
     // unauthorized attempt
@@ -253,7 +253,7 @@ fn update_collateral() {
         CollateralInfoResponse {
             asset: "mTSLA".to_string(),
             source_type: "fixed_price".to_string(),
-            collateral_premium: Decimal::percent(60),
+            multiplier: Decimal::percent(60),
             is_revoked: false,
         }
     )
@@ -281,7 +281,7 @@ fn get_oracle_price() {
         asset: AssetInfo::Token {
             contract_addr: HumanAddr::from("mTSLA"),
         },
-        collateral_premium: Decimal::percent(50),
+        multiplier: Decimal::percent(50),
         price_source: SourceType::TerraOracle {
             terra_oracle_query: to_binary(&WasmQuery::Smart {
                 contract_addr: HumanAddr::from("oracle0000"),
@@ -306,7 +306,7 @@ fn get_oracle_price() {
             asset: "mTSLA".to_string(),
             rate: Decimal::percent(100),
             last_updated: 1000u64,
-            collateral_premium: Decimal::percent(50),
+            multiplier: Decimal::percent(50),
             is_revoked: false,
         }
     );
@@ -334,7 +334,7 @@ fn get_terraswap_price() {
         asset: AssetInfo::Token {
             contract_addr: HumanAddr::from("anc"),
         },
-        collateral_premium: Decimal::percent(50),
+        multiplier: Decimal::percent(50),
         price_source: SourceType::Terraswap {
             terraswap_query: to_binary(&WasmQuery::Smart {
                 contract_addr: HumanAddr::from("ustancpair0000"),
@@ -355,7 +355,7 @@ fn get_terraswap_price() {
             asset: "anc".to_string(),
             rate: Decimal::from_ratio(1u128, 100u128),
             last_updated: u64::MAX,
-            collateral_premium: Decimal::percent(50),
+            multiplier: Decimal::percent(50),
             is_revoked: false,
         }
     );
@@ -379,7 +379,7 @@ fn get_fixed_price() {
         asset: AssetInfo::Token {
             contract_addr: HumanAddr::from("aUST"),
         },
-        collateral_premium: Decimal::percent(50),
+        multiplier: Decimal::percent(50),
         price_source: SourceType::FixedPrice {
             price: Decimal::from_ratio(1u128, 2u128),
         },
@@ -396,7 +396,7 @@ fn get_fixed_price() {
             asset: "aUST".to_string(),
             rate: Decimal::from_ratio(1u128, 2u128),
             last_updated: u64::MAX,
-            collateral_premium: Decimal::percent(50),
+            multiplier: Decimal::percent(50),
             is_revoked: false,
         }
     );
@@ -420,7 +420,7 @@ fn get_band_oracle_price() {
         asset: AssetInfo::NativeToken {
             denom: "uluna".to_string(),
         },
-        collateral_premium: Decimal::percent(50),
+        multiplier: Decimal::percent(50),
         price_source: SourceType::BandOracle {
             band_oracle_query: to_binary(&WasmQuery::Smart {
                 contract_addr: HumanAddr::from("bandoracle0000"),
@@ -445,7 +445,7 @@ fn get_band_oracle_price() {
             asset: "uluna".to_string(),
             rate: Decimal::from_str("3465.211050000000000000").unwrap(),
             last_updated: 100u64,
-            collateral_premium: Decimal::percent(50),
+            multiplier: Decimal::percent(50),
             is_revoked: false,
         }
     );
@@ -469,7 +469,7 @@ fn revoke_collateral() {
         asset: AssetInfo::Token {
             contract_addr: HumanAddr::from("aUST"),
         },
-        collateral_premium: Decimal::percent(50),
+        multiplier: Decimal::percent(50),
         price_source: SourceType::FixedPrice {
             price: Decimal::one(),
         },
@@ -486,7 +486,7 @@ fn revoke_collateral() {
             asset: "aUST".to_string(),
             rate: Decimal::one(),
             last_updated: u64::MAX,
-            collateral_premium: Decimal::percent(50),
+            multiplier: Decimal::percent(50),
             is_revoked: false,
         }
     );
@@ -515,7 +515,7 @@ fn revoke_collateral() {
         CollateralInfoResponse {
             asset: "aUST".to_string(),
             source_type: "fixed_price".to_string(),
-            collateral_premium: Decimal::percent(50),
+            multiplier: Decimal::percent(50),
             is_revoked: true,
         }
     );
@@ -528,7 +528,7 @@ fn revoke_collateral() {
             asset: "aUST".to_string(),
             rate: Decimal::one(),
             last_updated: u64::MAX,
-            collateral_premium: Decimal::percent(50),
+            multiplier: Decimal::percent(50),
             is_revoked: true,
         }
     );

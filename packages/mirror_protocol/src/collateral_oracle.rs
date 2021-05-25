@@ -26,7 +26,7 @@ pub enum HandleMsg {
     RegisterCollateralAsset {
         asset: AssetInfo,
         price_source: SourceType,
-        collateral_premium: Decimal,
+        multiplier: Decimal,
     },
     RevokeCollateralAsset {
         asset: AssetInfo,
@@ -35,9 +35,9 @@ pub enum HandleMsg {
         asset: AssetInfo,
         price_source: SourceType,
     },
-    UpdateCollateralPremium {
+    UpdateCollateralMultiplier {
         asset: AssetInfo,
-        collateral_premium: Decimal,
+        multiplier: Decimal,
     }
 }
 
@@ -67,14 +67,14 @@ pub struct CollateralPriceResponse {
     pub asset: String,
     pub rate: Decimal,
     pub last_updated: u64,
-    pub collateral_premium: Decimal,
+    pub multiplier: Decimal,
     pub is_revoked: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct CollateralInfoResponse {
     pub asset: String,
-    pub collateral_premium: Decimal,
+    pub multiplier: Decimal,
     pub source_type: String,
     pub is_revoked: bool,
 }
