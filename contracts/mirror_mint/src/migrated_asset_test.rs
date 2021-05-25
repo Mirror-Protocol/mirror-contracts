@@ -157,7 +157,7 @@ mod tests {
         deps.querier.with_collateral_infos(&[(
             &"asset0000".to_string(),
             &Decimal::percent(100),
-            &Decimal::zero(),
+            &Decimal::one(),
             &false,
         )]);
 
@@ -539,7 +539,7 @@ mod tests {
         deps.querier.with_collateral_infos(&[(
             &"asset0000".to_string(),
             &Decimal::percent(100),
-            &Decimal::zero(),
+            &Decimal::one(),
             &false,
         )]);
 

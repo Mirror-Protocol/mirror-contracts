@@ -61,14 +61,14 @@
           "type": "object",
           "required": [
             "asset",
-            "collateral_premium",
+            "multiplier",
             "price_source"
           ],
           "properties": {
             "asset": {
               "$ref": "#/definitions/AssetInfo"
             },
-            "collateral_premium": {
+            "multiplier": {
               "$ref": "#/definitions/Decimal"
             },
             "price_source": {
@@ -123,20 +123,20 @@
     {
       "type": "object",
       "required": [
-        "update_collateral_premium"
+        "update_collateral_multiplier"
       ],
       "properties": {
-        "update_collateral_premium": {
+        "update_collateral_multiplier": {
           "type": "object",
           "required": [
             "asset",
-            "collateral_premium"
+            "multiplier"
           ],
           "properties": {
             "asset": {
               "$ref": "#/definitions/AssetInfo"
             },
-            "collateral_premium": {
+            "multiplier": {
               "$ref": "#/definitions/Decimal"
             }
           }

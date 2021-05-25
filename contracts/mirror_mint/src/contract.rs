@@ -343,7 +343,7 @@ pub fn register_asset<S: Storage, A: Api, Q: Querier>(
                 asset: AssetInfo::Token {
                     contract_addr: asset_token.clone(),
                 },
-                collateral_premium: Decimal::zero(), // default collateral premium for new mAssets
+                multiplier: Decimal::one(), // default collateral multiplier for new mAssets
                 price_source: SourceType::TerraOracle {
                     terra_oracle_query: to_binary(&WasmQuery::Smart {
                         contract_addr: deps.api.human_address(&config.oracle)?,

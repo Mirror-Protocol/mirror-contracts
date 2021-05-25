@@ -40,7 +40,7 @@ mod tests {
         deps.querier.with_collateral_infos(&[(
             &"asset0001".to_string(),
             &Decimal::percent(50),
-            &Decimal::zero(),
+            &Decimal::percent(50), // 0.5 collateral_multiplier
             &false,
         )]);
 
@@ -280,7 +280,7 @@ mod tests {
             vec![
                 log("action", "open_position"),
                 log("position_idx", "2"),
-                log("mint_amount", "333333asset0000"),
+                log("mint_amount", "166666asset0000"), // 1000000 * 0.5 (price to asset) * 0.5 multiplier / 1.5 (mcr)
                 log("collateral_amount", "1000000asset0001"),
                 log("is_short", "false"),
             ]
@@ -293,7 +293,7 @@ mod tests {
                 send: vec![],
                 msg: to_binary(&Cw20HandleMsg::Mint {
                     recipient: HumanAddr::from("addr0000"),
-                    amount: Uint128(333333u128),
+                    amount: Uint128(166666u128),
                 })
                 .unwrap(),
             })]
@@ -316,7 +316,7 @@ mod tests {
                     info: AssetInfo::Token {
                         contract_addr: HumanAddr::from("asset0000"),
                     },
-                    amount: Uint128(333333u128),
+                    amount: Uint128(166666u128),
                 },
                 collateral: Asset {
                     info: AssetInfo::Token {
@@ -352,7 +352,7 @@ mod tests {
                             info: AssetInfo::Token {
                                 contract_addr: HumanAddr::from("asset0000"),
                             },
-                            amount: Uint128(333333u128),
+                            amount: Uint128(166666u128),
                         },
                         collateral: Asset {
                             info: AssetInfo::Token {
@@ -430,7 +430,7 @@ mod tests {
         deps.querier.with_collateral_infos(&[(
             &"asset0001".to_string(),
             &Decimal::percent(50),
-            &Decimal::zero(),
+            &Decimal::one(),
             &false,
         )]);
 
@@ -642,7 +642,7 @@ mod tests {
         deps.querier.with_collateral_infos(&[(
             &"asset0001".to_string(),
             &Decimal::from_ratio(50u128, 1u128),
-            &Decimal::zero(),
+            &Decimal::one(),
             &false,
         )]);
 
@@ -890,7 +890,7 @@ mod tests {
         deps.querier.with_collateral_infos(&[(
             &"asset0001".to_string(),
             &Decimal::from_ratio(50u128, 1u128),
-            &Decimal::zero(),
+            &Decimal::one(),
             &false,
         )]);
 
@@ -1162,7 +1162,7 @@ mod tests {
         deps.querier.with_collateral_infos(&[(
             &"asset0001".to_string(),
             &Decimal::from_ratio(50u128, 1u128),
-            &Decimal::zero(),
+            &Decimal::one(),
             &false,
         )]);
 
@@ -1357,13 +1357,13 @@ mod tests {
             (
                 &"asset0000".to_string(),
                 &Decimal::from_ratio(100u128, 1u128),
-                &Decimal::zero(),
+                &Decimal::one(),
                 &false,
             ),
             (
                 &"asset0001".to_string(),
                 &Decimal::from_ratio(50u128, 1u128),
-                &Decimal::zero(),
+                &Decimal::one(),
                 &false,
             ),
         ]);
@@ -1516,13 +1516,13 @@ mod tests {
             (
                 &"asset0000".to_string(),
                 &Decimal::from_ratio(116u128, 1u128),
-                &Decimal::zero(),
+                &Decimal::one(),
                 &false,
             ),
             (
                 &"asset0001".to_string(),
                 &Decimal::from_ratio(50u128, 1u128),
-                &Decimal::zero(),
+                &Decimal::one(),
                 &false,
             ),
         ]);
@@ -1649,13 +1649,13 @@ mod tests {
             (
                 &"asset0000".to_string(),
                 &Decimal::percent(200),
-                &Decimal::zero(),
+                &Decimal::one(),
                 &false,
             ),
             (
                 &"asset0001".to_string(),
                 &Decimal::percent(50),
-                &Decimal::zero(),
+                &Decimal::one(),
                 &false,
             ),
         ]);

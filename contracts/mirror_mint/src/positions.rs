@@ -48,12 +48,13 @@ pub fn open_position<S: Storage, A: Api, Q: Querier>(
     // assert the collateral is listed and has not been migrated/revoked
     let collateral_info_raw: AssetInfoRaw = collateral.info.to_raw(&deps)?;
     let collateral_oracle: HumanAddr = deps.api.human_address(&config.collateral_oracle)?;
-    let (collateral_price, collateral_premium) = assert_revoked_collateral(load_collateral_info(
-        &deps,
-        &collateral_oracle,
-        &collateral_info_raw,
-        Some(env.block.time),
-    )?)?;
+    let (collateral_price, collateral_multiplier) =
+        assert_revoked_collateral(load_collateral_info(
+            &deps,
+            &collateral_oracle,
+            &collateral_info_raw,
+            Some(env.block.time),
+        )?)?;
 
     // assert asset migrated
     let asset_info_raw: AssetInfoRaw = asset_info.to_raw(&deps)?;
@@ -68,8 +69,7 @@ pub fn open_position<S: Storage, A: Api, Q: Querier>(
     // for assets with limited minting period (preIPO assets), assert minting phase
     assert_mint_period(&env, &asset_config)?;
 
-    let min_collateral_ratio: Decimal = asset_config.min_collateral_ratio + collateral_premium;
-    if collateral_ratio < min_collateral_ratio {
+    if collateral_ratio < asset_config.min_collateral_ratio {
         return Err(StdError::generic_err(
             "Can not open a position with low collateral ratio than minimum",
         ));
@@ -81,9 +81,12 @@ pub fn open_position<S: Storage, A: Api, Q: Querier>(
 
     let asset_price_in_collateral_asset = decimal_division(collateral_price, asset_price);
 
-    // Convert collateral to asset unit
-    let mint_amount =
-        collateral.amount * asset_price_in_collateral_asset * reverse_decimal(collateral_ratio);
+    // Calculate collateral effective value in asset unit
+    let collateral_effective_value =
+        collateral.amount * asset_price_in_collateral_asset * collateral_multiplier;
+
+    // Convert collateral to mint amount
+    let mint_amount = collateral_effective_value * reverse_decimal(collateral_ratio);
     if mint_amount.is_zero() {
         return Err(StdError::generic_err("collateral is too small"));
     }
@@ -290,7 +293,7 @@ pub fn withdraw<S: Storage, A: Api, Q: Querier>(
 
     // Fetch collateral info from collateral oracle
     let collateral_oracle: HumanAddr = deps.api.human_address(&config.collateral_oracle)?;
-    let (collateral_price, collateral_premium, _collateral_is_revoked) = load_collateral_info(
+    let (collateral_price, collateral_multiplier, _collateral_is_revoked) = load_collateral_info(
         &deps,
         &collateral_oracle,
         &position.collateral.info,
@@ -304,9 +307,12 @@ pub fn withdraw<S: Storage, A: Api, Q: Querier>(
     let asset_value_in_collateral_asset: Uint128 =
         position.asset.amount * decimal_division(asset_price, collateral_price);
 
+    // Compute effective collateral amount
+    let collateral_effective_amount = collateral_amount * collateral_multiplier;
+
     // Check minimum collateral ratio is satisfied
-    if asset_value_in_collateral_asset * (asset_config.min_collateral_ratio + collateral_premium)
-        > collateral_amount
+    if asset_value_in_collateral_asset * asset_config.min_collateral_ratio
+        > collateral_effective_amount
     {
         return Err(StdError::generic_err(
             "Cannot withdraw collateral over than minimum collateral ratio",
@@ -402,12 +408,13 @@ pub fn mint<S: Storage, A: Api, Q: Querier>(
 
     // assert the collateral is listed and has not been migrated/revoked
     let collateral_oracle: HumanAddr = deps.api.human_address(&config.collateral_oracle)?;
-    let (collateral_price, collateral_premium) = assert_revoked_collateral(load_collateral_info(
-        &deps,
-        &collateral_oracle,
-        &position.collateral.info,
-        Some(env.block.time),
-    )?)?;
+    let (collateral_price, collateral_multiplier) =
+        assert_revoked_collateral(load_collateral_info(
+            &deps,
+            &collateral_oracle,
+            &position.collateral.info,
+            Some(env.block.time),
+        )?)?;
 
     // for assets with limited minting period (preIPO assets), assert minting phase
     assert_mint_period(&env, &asset_config)?;
@@ -423,9 +430,12 @@ pub fn mint<S: Storage, A: Api, Q: Querier>(
     let asset_value_in_collateral_asset: Uint128 =
         asset_amount * decimal_division(asset_price, collateral_price);
 
+    // Compute effective collateral amount
+    let collateral_effective_amount = position.collateral.amount * collateral_multiplier;
+
     // Check minimum collateral ratio is satisfied
-    if asset_value_in_collateral_asset * (asset_config.min_collateral_ratio + collateral_premium)
-        > position.collateral.amount
+    if asset_value_in_collateral_asset * asset_config.min_collateral_ratio
+        > collateral_effective_amount
     {
         return Err(StdError::generic_err(
             "Cannot mint asset over than min collateral ratio",
@@ -582,12 +592,13 @@ pub fn burn<S: Storage, A: Api, Q: Querier>(
 
         // fetch collateral info from collateral oracle
         let collateral_oracle: HumanAddr = deps.api.human_address(&config.collateral_oracle)?;
-        let (collateral_price, _collateral_premium, _collateral_is_revoked) = load_collateral_info(
-            &deps,
-            &collateral_oracle,
-            &position.collateral.info,
-            Some(env.block.time),
-        )?;
+        let (collateral_price, _collateral_multiplier, _collateral_is_revoked) =
+            load_collateral_info(
+                &deps,
+                &collateral_oracle,
+                &position.collateral.info,
+                Some(env.block.time),
+            )?;
 
         let collateral_price_in_asset = decimal_division(asset_price, collateral_price);
 
@@ -718,20 +729,23 @@ pub fn auction<S: Storage, A: Api, Q: Querier>(
 
     // fetch collateral info from collateral oracle
     let collateral_oracle: HumanAddr = deps.api.human_address(&config.collateral_oracle)?;
-    let (collateral_price, _collateral_premium, _collateral_is_revoked) = load_collateral_info(
+    let (collateral_price, collateral_multiplier, _collateral_is_revoked) = load_collateral_info(
         &deps,
         &collateral_oracle,
         &position.collateral.info,
         Some(env.block.time),
     )?;
 
+    // Compute effective collateral amount and collateral price in asset unit
+    let collateral_effective_amount = position.collateral.amount * collateral_multiplier;
     let collateral_price_in_asset: Decimal = decimal_division(asset_price, collateral_price);
+
     // Check the position is in auction state
     // asset_amount * price_to_collateral * auction_threshold > collateral_amount
     let asset_value_in_collateral_asset: Uint128 =
         position.asset.amount * collateral_price_in_asset;
     if asset_value_in_collateral_asset * asset_config.min_collateral_ratio
-        < position.collateral.amount
+        < collateral_effective_amount
     {
         return Err(StdError::generic_err(
             "Cannot liquidate a safely collateralized position",

@@ -47,24 +47,20 @@ pub fn load_collateral_info<S: Storage, A: Api, Q: Querier>(
 
     // base collateral
     if collateral_denom == config.base_denom {
-        return Ok((Decimal::one(), Decimal::zero(), false));
+        return Ok((Decimal::one(), Decimal::one(), false));
     }
 
     // load collateral info from collateral oracle
-    let (collateral_oracle_price, collateral_premium, is_revoked) = query_collateral(
-        deps,
-        collateral_oracle,
-        collateral_denom,
-        block_time,
-    )?;
+    let (collateral_oracle_price, collateral_multiplier, is_revoked) =
+        query_collateral(deps, collateral_oracle, collateral_denom, block_time)?;
 
     // check if the collateral is a revoked mAsset
     let end_price = read_end_price(&deps.storage, &collateral);
 
     if let Some(end_price) = end_price {
-        Ok((end_price, collateral_premium, true))
+        Ok((end_price, collateral_multiplier, true))
     } else {
-        Ok((collateral_oracle_price, collateral_premium, is_revoked))
+        Ok((collateral_oracle_price, collateral_multiplier, is_revoked))
     }
 }
 
@@ -94,7 +90,7 @@ pub fn query_price<S: Storage, A: Api, Q: Querier>(
     Ok(res.rate)
 }
 
-// queries the collateral oracle to get the asset rate and collateral_premium
+// queries the collateral oracle to get the asset rate and multiplier
 pub fn query_collateral<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     collateral_oracle: &HumanAddr,
@@ -113,5 +109,5 @@ pub fn query_collateral<S: Storage, A: Api, Q: Querier>(
         }
     }
 
-    Ok((res.rate, res.collateral_premium, res.is_revoked))
+    Ok((res.rate, res.multiplier, res.is_revoked))
 }
