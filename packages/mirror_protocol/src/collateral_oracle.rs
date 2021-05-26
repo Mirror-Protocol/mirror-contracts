@@ -102,6 +102,9 @@ pub enum SourceType {
     },
     Terraswap {
         terraswap_query: Binary,
+    },
+    AnchorMarket {
+        anchor_market_query: Binary,
     }
 } 
 
@@ -112,6 +115,7 @@ impl fmt::Display for SourceType {
             SourceType::BandOracle{..} => write!(f, "band_oracle"),
             SourceType::FixedPrice{..} => write!(f, "fixed_price"),
             SourceType::Terraswap{..} => write!(f, "terraswap"),
+            SourceType::AnchorMarket{..} => write!(f, "anchor_market"),
         }
     }
 }

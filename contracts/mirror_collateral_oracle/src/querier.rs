@@ -7,6 +7,7 @@ use std::str::FromStr;
 use mirror_protocol::collateral_oracle::SourceType;
 use serde::{Deserialize, Serialize};
 use terraswap::asset::{Asset, AssetInfo};
+use cosmwasm_bignumber::Decimal256;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct TerraOracleResponse {
@@ -24,6 +25,11 @@ pub struct BandOracleResponse {
     // band oracle queries returns rate (uint128)
     pub rate: Uint128,
     pub last_updated_base: u64,
+}
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct AnchorMarketResponse {
+    // anchor market queries return exchange rate in Decimal256
+    pub exchange_rate: Decimal256,
 }
 
 pub fn query_price<S: Storage, A: Api, Q: Querier>(
@@ -62,6 +68,13 @@ pub fn query_price<S: Storage, A: Api, Q: Querier>(
             } else {
                 return Err(StdError::generic_err("Invalid pool"));
             };
+
+            Ok((rate, u64::MAX))
+        },
+        SourceType::AnchorMarket { anchor_market_query } => {
+            let wasm_query: WasmQuery = from_binary(&anchor_market_query)?;
+            let res: AnchorMarketResponse = deps.querier.query(&QueryRequest::Wasm(wasm_query))?;
+            let rate: Decimal = res.exchange_rate.into();
 
             Ok((rate, u64::MAX))
         }

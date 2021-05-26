@@ -275,6 +275,25 @@
               }
             }
           }
+        },
+        {
+          "type": "object",
+          "required": [
+            "anchor_market"
+          ],
+          "properties": {
+            "anchor_market": {
+              "type": "object",
+              "required": [
+                "anchor_market_query"
+              ],
+              "properties": {
+                "anchor_market_query": {
+                  "$ref": "#/definitions/Binary"
+                }
+              }
+            }
+          }
         }
       ]
     }
