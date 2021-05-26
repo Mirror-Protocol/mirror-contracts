@@ -465,6 +465,55 @@ fn get_band_oracle_price() {
 }
 
 #[test]
+fn get_anchor_market_price() {
+    let mut deps = mock_dependencies(20, &[]);
+
+    let msg = InitMsg {
+        owner: HumanAddr("owner0000".to_string()),
+        mint_contract: HumanAddr("mint0000".to_string()),
+        factory_contract: HumanAddr("factory0000".to_string()),
+        base_denom: "uusd".to_string(),
+    };
+
+    let env = mock_env("addr0000", &[]);
+    let _res = init(&mut deps, env, msg).unwrap();
+
+    let msg = HandleMsg::RegisterCollateralAsset {
+        asset: AssetInfo::Token {
+            contract_addr: HumanAddr::from("aust0000"),
+        },
+        multiplier: Decimal::percent(100),
+        price_source: SourceType::AnchorMarket {
+            anchor_market_query: to_binary(&WasmQuery::Smart {
+                contract_addr: HumanAddr::from("anchormarket0000"),
+                msg: to_binary(&MockQueryMsg::EpochState {
+                    block_heigth: None,
+                    distributed_interest: None,
+                })
+                .unwrap(),
+            })
+            .unwrap(),
+        },
+    };
+
+    let env = mock_env("owner0000", &[]);
+    let _res = handle(&mut deps, env, msg).unwrap();
+
+    // attempt to query price
+    let query_res = query_collateral_price(&deps, "aust0000".to_string()).unwrap();
+    assert_eq!(
+        query_res,
+        CollateralPriceResponse {
+            asset: "aust0000".to_string(),
+            rate: Decimal::from_ratio(10u128,3u128),
+            last_updated: u64::MAX,
+            multiplier: Decimal::percent(100),
+            is_revoked: false,
+        }
+    );
+}
+
+#[test]
 fn revoke_collateral() {
     let mut deps = mock_dependencies(20, &[]);
 

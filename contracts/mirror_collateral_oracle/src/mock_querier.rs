@@ -6,11 +6,13 @@ use cosmwasm_std::{
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::str::FromStr;
 
 use crate::math::decimal_division;
 use mirror_protocol::oracle::PriceResponse;
 use terraswap::asset::{Asset, AssetInfo};
 use terraswap::pair::PoolResponse;
+use cosmwasm_bignumber::{Decimal256, Uint256};
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
 /// this uses our CustomQuerier.
@@ -109,6 +111,13 @@ pub struct ReferenceData {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
+pub struct EpochStateResponse {
+    exchange_rate: Decimal256,
+    aterra_supply: Uint256,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     Price {
         base_asset: String,
@@ -119,6 +128,10 @@ pub enum QueryMsg {
         base_symbol: String,
         quote_symbol: String,
     },
+    EpochState {
+        block_heigth: Option<u64>,
+        distributed_interest: Option<Uint256>,
+    }
 }
 
 impl WasmMockQuerier {
@@ -177,6 +190,10 @@ impl WasmMockQuerier {
                     last_updated_base: 100u64,
                     last_updated_quote: 100u64,
                 })),
+                QueryMsg::EpochState { .. } => Ok(to_binary(&EpochStateResponse {
+                    exchange_rate: Decimal256::from_ratio(10, 3),
+                    aterra_supply: Uint256::from_str("123123123").unwrap(),
+                }))
             },
             _ => self.base.handle_query(request),
         }
