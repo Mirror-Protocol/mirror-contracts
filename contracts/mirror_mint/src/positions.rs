@@ -345,18 +345,21 @@ pub fn withdraw<S: Storage, A: Api, Q: Querier>(
     // Compute tax amount
     let tax_amount = collateral.compute_tax(&deps)?;
 
+    if !protocol_fee.amount.is_zero() {
+        messages.push(protocol_fee.clone().into_msg(
+            &deps,
+            env.contract.address.clone(),
+            deps.api.human_address(&config.collector)?,
+        )?);
+    }
+
     Ok(HandleResponse {
         messages: vec![
-            vec![
-                collateral
-                    .clone()
-                    .into_msg(&deps, env.contract.address.clone(), position_owner)?,
-                protocol_fee.clone().into_msg(
-                    &deps,
-                    env.contract.address,
-                    deps.api.human_address(&config.collector)?,
-                )?,
-            ],
+            vec![collateral.clone().into_msg(
+                &deps,
+                env.contract.address,
+                position_owner,
+            )?],
             messages,
         ]
         .concat(),
@@ -843,11 +846,13 @@ pub fn auction<S: Storage, A: Api, Q: Querier>(
         amount: protocol_fee,
     };
 
-    messages.push(protocol_fee_asset.into_msg(
-        &deps,
-        env.contract.address,
-        deps.api.human_address(&config.collector)?,
-    )?);
+    if !protocol_fee_asset.amount.is_zero() {
+        messages.push(protocol_fee_asset.into_msg(
+            &deps,
+            env.contract.address,
+            deps.api.human_address(&config.collector)?,
+        )?);
+    }
 
     // If the position is flagged as short position.
     // decrease short token amount from the staking contract
