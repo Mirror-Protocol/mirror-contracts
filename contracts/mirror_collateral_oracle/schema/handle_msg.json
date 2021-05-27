@@ -294,6 +294,25 @@
               }
             }
           }
+        },
+        {
+          "type": "object",
+          "required": [
+            "native"
+          ],
+          "properties": {
+            "native": {
+              "type": "object",
+              "required": [
+                "native_denom"
+              ],
+              "properties": {
+                "native_denom": {
+                  "type": "string"
+                }
+              }
+            }
+          }
         }
       ]
     }

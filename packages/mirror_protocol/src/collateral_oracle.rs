@@ -105,7 +105,10 @@ pub enum SourceType {
     },
     AnchorMarket {
         anchor_market_query: Binary,
-    }
+    },
+    Native {
+        native_denom: String,
+    },
 } 
 
 impl fmt::Display for SourceType {
@@ -116,6 +119,7 @@ impl fmt::Display for SourceType {
             SourceType::FixedPrice{..} => write!(f, "fixed_price"),
             SourceType::Terraswap{..} => write!(f, "terraswap"),
             SourceType::AnchorMarket{..} => write!(f, "anchor_market"),
+            SourceType::Native {..} => write!(f, "native"),
         }
     }
 }

@@ -239,7 +239,10 @@ fn update_collateral() {
     // invalid multiplier
     let env = mock_env("factory0000", &[]);
     let res = handle(&mut deps, env, msg).unwrap_err();
-    assert_eq!(res, StdError::generic_err("Multiplier must be bigger than 0"));
+    assert_eq!(
+        res,
+        StdError::generic_err("Multiplier must be bigger than 0")
+    );
 
     // update collateral premium - valid msg
     let msg = HandleMsg::UpdateCollateralMultiplier {
@@ -505,7 +508,48 @@ fn get_anchor_market_price() {
         query_res,
         CollateralPriceResponse {
             asset: "aust0000".to_string(),
-            rate: Decimal::from_ratio(10u128,3u128),
+            rate: Decimal::from_ratio(10u128, 3u128),
+            last_updated: u64::MAX,
+            multiplier: Decimal::percent(100),
+            is_revoked: false,
+        }
+    );
+}
+
+#[test]
+fn get_native_price() {
+    let mut deps = mock_dependencies(20, &[]);
+
+    let msg = InitMsg {
+        owner: HumanAddr("owner0000".to_string()),
+        mint_contract: HumanAddr("mint0000".to_string()),
+        factory_contract: HumanAddr("factory0000".to_string()),
+        base_denom: "uusd".to_string(),
+    };
+
+    let env = mock_env("addr0000", &[]);
+    let _res = init(&mut deps, env, msg).unwrap();
+
+    let msg = HandleMsg::RegisterCollateralAsset {
+        asset: AssetInfo::NativeToken {
+            denom: "uluna".to_string(),
+        },
+        multiplier: Decimal::percent(100),
+        price_source: SourceType::Native {
+            native_denom: "uluna".to_string(),
+        },
+    };
+
+    let env = mock_env("owner0000", &[]);
+    let _res = handle(&mut deps, env, msg).unwrap();
+
+    // attempt to query price
+    let query_res = query_collateral_price(&deps, "uluna".to_string()).unwrap();
+    assert_eq!(
+        query_res,
+        CollateralPriceResponse {
+            asset: "uluna".to_string(),
+            rate: Decimal::from_ratio(10u128, 3u128),
             last_updated: u64::MAX,
             multiplier: Decimal::percent(100),
             is_revoked: false,
