@@ -4,10 +4,11 @@ use cosmwasm_std::{
 };
 use std::str::FromStr;
 
+use cosmwasm_bignumber::Decimal256;
 use mirror_protocol::collateral_oracle::SourceType;
 use serde::{Deserialize, Serialize};
+use terra_cosmwasm::{ExchangeRatesResponse, TerraQuerier};
 use terraswap::asset::{Asset, AssetInfo};
-use cosmwasm_bignumber::Decimal256;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct TerraOracleResponse {
@@ -70,13 +71,22 @@ pub fn query_price<S: Storage, A: Api, Q: Querier>(
             };
 
             Ok((rate, u64::MAX))
-        },
-        SourceType::AnchorMarket { anchor_market_query } => {
+        }
+        SourceType::AnchorMarket {
+            anchor_market_query,
+        } => {
             let wasm_query: WasmQuery = from_binary(&anchor_market_query)?;
             let res: AnchorMarketResponse = deps.querier.query(&QueryRequest::Wasm(wasm_query))?;
             let rate: Decimal = res.exchange_rate.into();
 
             Ok((rate, u64::MAX))
+        }
+        SourceType::Native { native_denom } => {
+            let terra_querier = TerraQuerier::new(&deps.querier);
+            let res: ExchangeRatesResponse =
+                terra_querier.query_exchange_rates(native_denom, vec![base_denom])?;
+
+            Ok((res.exchange_rates[0].exchange_rate, u64::MAX))
         }
     }
 }

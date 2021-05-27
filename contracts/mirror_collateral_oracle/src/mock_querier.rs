@@ -1,7 +1,7 @@
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Coin, Decimal, Empty, Extern, HumanAddr, Querier,
-    QuerierResult, QueryRequest, SystemError, Uint128, WasmQuery,
+    from_binary, from_slice, to_binary, Coin, Decimal, Extern, HumanAddr, Querier, QuerierResult,
+    QueryRequest, SystemError, Uint128, WasmQuery,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -9,10 +9,13 @@ use std::collections::HashMap;
 use std::str::FromStr;
 
 use crate::math::decimal_division;
+use cosmwasm_bignumber::{Decimal256, Uint256};
 use mirror_protocol::oracle::PriceResponse;
+use terra_cosmwasm::{
+    ExchangeRateItem, ExchangeRatesResponse, TerraQuery, TerraQueryWrapper, TerraRoute,
+};
 use terraswap::asset::{Asset, AssetInfo};
 use terraswap::pair::PoolResponse;
-use cosmwasm_bignumber::{Decimal256, Uint256};
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
 /// this uses our CustomQuerier.
@@ -32,7 +35,7 @@ pub fn mock_dependencies(
 }
 
 pub struct WasmMockQuerier {
-    base: MockQuerier<Empty>,
+    base: MockQuerier<TerraQueryWrapper>,
     oracle_price_querier: OraclePriceQuerier,
     terraswap_pools_querier: TerraswapPoolsQuerier,
 }
@@ -88,7 +91,7 @@ pub(crate) fn pools_to_map(
 impl Querier for WasmMockQuerier {
     fn raw_query(&self, bin_request: &[u8]) -> QuerierResult {
         // MockQuerier doesn't support Custom, so we ignore it completely here
-        let request: QueryRequest<Empty> = match from_slice(bin_request) {
+        let request: QueryRequest<TerraQueryWrapper> = match from_slice(bin_request) {
             Ok(v) => v,
             Err(e) => {
                 return Err(SystemError::InvalidRequest {
@@ -131,12 +134,34 @@ pub enum QueryMsg {
     EpochState {
         block_heigth: Option<u64>,
         distributed_interest: Option<Uint256>,
-    }
+    },
 }
 
 impl WasmMockQuerier {
-    pub fn handle_query(&self, request: &QueryRequest<Empty>) -> QuerierResult {
+    pub fn handle_query(&self, request: &QueryRequest<TerraQueryWrapper>) -> QuerierResult {
         match &request {
+            QueryRequest::Custom(TerraQueryWrapper { route, query_data }) => {
+                if &TerraRoute::Oracle == route {
+                    match query_data {
+                        TerraQuery::ExchangeRates {
+                            base_denom: _,
+                            quote_denoms: _,
+                        } => {
+                            let res = ExchangeRatesResponse {
+                                exchange_rates: vec![ExchangeRateItem {
+                                    quote_denom: "uusd".to_string(),
+                                    exchange_rate: Decimal::from_ratio(10u128, 3u128),
+                                }],
+                                base_denom: "uluna".to_string(),
+                            };
+                            Ok(to_binary(&res))
+                        }
+                        _ => panic!("DO NOT ENTER HERE"),
+                    }
+                } else {
+                    panic!("DO NOT ENTER HERE")
+                }
+            }
             QueryRequest::Wasm(WasmQuery::Smart { contract_addr, msg }) => match from_binary(&msg)
                 .unwrap()
             {
@@ -193,7 +218,7 @@ impl WasmMockQuerier {
                 QueryMsg::EpochState { .. } => Ok(to_binary(&EpochStateResponse {
                     exchange_rate: Decimal256::from_ratio(10, 3),
                     aterra_supply: Uint256::from_str("123123123").unwrap(),
-                }))
+                })),
             },
             _ => self.base.handle_query(request),
         }
@@ -201,7 +226,7 @@ impl WasmMockQuerier {
 }
 
 impl WasmMockQuerier {
-    pub fn new(base: MockQuerier<Empty>) -> Self {
+    pub fn new(base: MockQuerier<TerraQueryWrapper>) -> Self {
         WasmMockQuerier {
             base,
             oracle_price_querier: OraclePriceQuerier::default(),

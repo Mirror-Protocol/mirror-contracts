@@ -44,6 +44,7 @@ schemars = "0.7"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 terraswap = "1.1.0"
 cosmwasm-bignumber = "1.0"
+terra-cosmwasm = "1.2.4"
 
 [dev-dependencies]
 cosmwasm-vm = { version = "0.10.1", default-features = false, features = ["iterator"] }
