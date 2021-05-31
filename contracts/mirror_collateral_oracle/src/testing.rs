@@ -331,10 +331,26 @@ fn get_oracle_price() {
 #[test]
 fn get_terraswap_price() {
     let mut deps = mock_dependencies(20, &[]);
-    deps.querier.with_terraswap_pools(&[(
-        &HumanAddr::from("ustancpair0000"),
-        (&Uint128(1u128), &Uint128(100u128)),
-    )]);
+    deps.querier.with_terraswap_pools(&[
+        (
+            &HumanAddr::from("ustancpair0000"),
+            (
+                &"uusd".to_string(),
+                &Uint128(1u128),
+                &"anc0000".to_string(),
+                &Uint128(100u128),
+            ),
+        ),
+        (
+            &HumanAddr::from("lunablunapair0000"),
+            (
+                &"uluna".to_string(),
+                &Uint128(18u128),
+                &"bluna0000".to_string(),
+                &Uint128(2u128),
+            ),
+        ),
+    ]);
 
     let msg = InitMsg {
         owner: HumanAddr("owner0000".to_string()),
@@ -348,7 +364,7 @@ fn get_terraswap_price() {
 
     let msg = HandleMsg::RegisterCollateralAsset {
         asset: AssetInfo::Token {
-            contract_addr: HumanAddr::from("anc"),
+            contract_addr: HumanAddr::from("anc0000"),
         },
         multiplier: Decimal::percent(100),
         price_source: SourceType::Terraswap {
@@ -357,6 +373,7 @@ fn get_terraswap_price() {
                 msg: to_binary(&TerraswapPairQueryMsg::Pool {}).unwrap(),
             })
             .unwrap(),
+            intermediate_denom: None,
         },
     };
 
@@ -364,12 +381,44 @@ fn get_terraswap_price() {
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // attempt to query price
-    let query_res = query_collateral_price(&deps, "anc".to_string()).unwrap();
+    let query_res = query_collateral_price(&deps, "anc0000".to_string()).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
-            asset: "anc".to_string(),
+            asset: "anc0000".to_string(),
             rate: Decimal::from_ratio(1u128, 100u128),
+            last_updated: u64::MAX,
+            multiplier: Decimal::percent(100),
+            is_revoked: false,
+        }
+    );
+
+    // register collateral with intermediate denom
+    let msg = HandleMsg::RegisterCollateralAsset {
+        asset: AssetInfo::Token {
+            contract_addr: HumanAddr::from("bluna0000"),
+        },
+        multiplier: Decimal::percent(100),
+        price_source: SourceType::Terraswap {
+            terraswap_query: to_binary(&WasmQuery::Smart {
+                contract_addr: HumanAddr::from("lunablunapair0000"),
+                msg: to_binary(&TerraswapPairQueryMsg::Pool {}).unwrap(),
+            })
+            .unwrap(),
+            intermediate_denom: Some("uluna".to_string()),
+        },
+    };
+
+    let env = mock_env("owner0000", &[]);
+    let _res = handle(&mut deps, env, msg).unwrap();
+
+    // attempt to query price
+    let query_res = query_collateral_price(&deps, "bluna0000".to_string()).unwrap();
+    assert_eq!(
+        query_res,
+        CollateralPriceResponse {
+            asset: "bluna0000".to_string(),
+            rate: Decimal::from_ratio(45u128, 1u128), // 9 / 1 * 5 / 1
             last_updated: u64::MAX,
             multiplier: Decimal::percent(100),
             is_revoked: false,
@@ -549,7 +598,7 @@ fn get_native_price() {
         query_res,
         CollateralPriceResponse {
             asset: "uluna".to_string(),
-            rate: Decimal::from_ratio(10u128, 3u128),
+            rate: Decimal::from_ratio(5u128, 1u128),
             last_updated: u64::MAX,
             multiplier: Decimal::percent(100),
             is_revoked: false,

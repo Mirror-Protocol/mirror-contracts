@@ -4,6 +4,7 @@ use cosmwasm_std::{
 };
 use std::str::FromStr;
 
+use crate::math::decimal_multiplication;
 use cosmwasm_bignumber::Decimal256;
 use mirror_protocol::collateral_oracle::SourceType;
 use serde::{Deserialize, Serialize};
@@ -53,21 +54,40 @@ pub fn query_price<S: Storage, A: Api, Q: Querier>(
 
             Ok((res.rate, res.last_updated_base))
         }
-        SourceType::Terraswap { terraswap_query } => {
+        SourceType::Terraswap {
+            terraswap_query,
+            intermediate_denom,
+        } => {
             let wasm_query: WasmQuery = from_binary(&terraswap_query)?;
             let res: TerraswapResponse = deps.querier.query(&QueryRequest::Wasm(wasm_query))?;
             let assets: [Asset; 2] = res.assets;
 
-            let rate: Decimal = if assets[0].info.equal(&AssetInfo::NativeToken {
-                denom: base_denom.clone(),
+            // query intermediate denom if it exists
+            let query_denom: String = match intermediate_denom.clone() {
+                Some(v) => v,
+                None => base_denom.clone(),
+            };
+
+            let queried_rate: Decimal = if assets[0].info.equal(&AssetInfo::NativeToken {
+                denom: query_denom.clone(),
             }) {
                 Decimal::from_ratio(assets[0].amount, assets[1].amount)
             } else if assets[1].info.equal(&AssetInfo::NativeToken {
-                denom: base_denom.clone(),
+                denom: query_denom.clone(),
             }) {
                 Decimal::from_ratio(assets[1].amount, assets[0].amount)
             } else {
                 return Err(StdError::generic_err("Invalid pool"));
+            };
+
+            // if intermediate denom exists, calculate final rate
+            let rate: Decimal = if intermediate_denom.is_some() {
+                // (query_denom / intermediate_denom) * (intermedaite_denom / base_denom) = (query_denom / base_denom)
+                let native_rate: Decimal =
+                    query_native_rate(&deps.querier, query_denom, base_denom)?;
+                decimal_multiplication(queried_rate, native_rate)
+            } else {
+                queried_rate
             };
 
             Ok((rate, u64::MAX))
@@ -82,11 +102,9 @@ pub fn query_price<S: Storage, A: Api, Q: Querier>(
             Ok((rate, u64::MAX))
         }
         SourceType::Native { native_denom } => {
-            let terra_querier = TerraQuerier::new(&deps.querier);
-            let res: ExchangeRatesResponse =
-                terra_querier.query_exchange_rates(native_denom, vec![base_denom])?;
+            let rate: Decimal = query_native_rate(&deps.querier, native_denom, base_denom)?;
 
-            Ok((res.exchange_rates[0].exchange_rate, u64::MAX))
+            Ok((rate, u64::MAX))
         }
     }
 }
@@ -110,6 +128,18 @@ fn parse_band_rate(uint_rate: Uint128) -> StdResult<Decimal> {
     }
 
     Decimal::from_str(rate_uint_string.as_str())
+}
+
+fn query_native_rate<Q: Querier>(
+    querier: &Q,
+    base_denom: String,
+    quote_denom: String,
+) -> StdResult<Decimal> {
+    let terra_querier = TerraQuerier::new(querier);
+    let res: ExchangeRatesResponse =
+        terra_querier.query_exchange_rates(base_denom, vec![quote_denom])?;
+
+    Ok(res.exchange_rates[0].exchange_rate)
 }
 
 #[cfg(test)]
