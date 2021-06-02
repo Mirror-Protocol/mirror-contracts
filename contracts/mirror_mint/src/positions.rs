@@ -570,9 +570,8 @@ pub fn burn<S: Storage, A: Api, Q: Querier>(
     let mut messages: Vec<CosmosMsg> = vec![];
     let mut logs: Vec<LogAttribute> = vec![];
 
-    // If mint_end is different than None, it is a pre-IPO asset.
-    // In that case, burning should be disabled after the minting period is over.
-    // Burning is enabled again after asset migration (IPO event), when mint_end is reset to None
+    // For preIPO assets, burning should be disabled after the minting period is over.
+    // Burning is enabled again after IPO event is triggered, when ipo_params are set to None
     assert_burn_period(&env, &asset_config)?;
 
     // Check if it is a short position
