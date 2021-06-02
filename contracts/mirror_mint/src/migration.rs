@@ -82,8 +82,7 @@ pub fn migrate_asset_configs<S: Storage>(storage: &mut S) -> StdResult<()> {
                 auction_discount: legacy_config.auction_discount,
                 min_collateral_ratio: legacy_config.min_collateral_ratio,
                 end_price: legacy_config.end_price,
-                mint_end: None,
-                min_collateral_ratio_after_migration: None,
+                ipo_params: None,
             },
         )?
     }
@@ -222,8 +221,7 @@ mod migrate_tests {
                 auction_discount: legacy_asset_config.auction_discount,
                 min_collateral_ratio: legacy_asset_config.min_collateral_ratio,
                 end_price: legacy_asset_config.end_price,
-                mint_end: None,
-                min_collateral_ratio_after_migration: None,
+                ipo_params: None,
             }
         );
         assert_eq!(
@@ -233,8 +231,7 @@ mod migrate_tests {
                 auction_discount: legacy_asset_config_2.auction_discount,
                 min_collateral_ratio: legacy_asset_config_2.min_collateral_ratio,
                 end_price: legacy_asset_config_2.end_price,
-                mint_end: None,
-                min_collateral_ratio_after_migration: None,
+                ipo_params: None,
             }
         );
     }

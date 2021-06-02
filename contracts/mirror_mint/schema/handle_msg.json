@@ -141,6 +141,16 @@
                 }
               ]
             },
+            "ipo_params": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/IPOParams"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "min_collateral_ratio": {
               "anyOf": [
                 {
@@ -176,26 +186,18 @@
             "auction_discount": {
               "$ref": "#/definitions/Decimal"
             },
-            "min_collateral_ratio": {
-              "$ref": "#/definitions/Decimal"
-            },
-            "min_collateral_ratio_after_migration": {
+            "ipo_params": {
               "anyOf": [
                 {
-                  "$ref": "#/definitions/Decimal"
+                  "$ref": "#/definitions/IPOParams"
                 },
                 {
                   "type": "null"
                 }
               ]
             },
-            "mint_end": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint64",
-              "minimum": 0.0
+            "min_collateral_ratio": {
+              "$ref": "#/definitions/Decimal"
             }
           }
         }
@@ -219,6 +221,26 @@
             },
             "end_price": {
               "$ref": "#/definitions/Decimal"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "Asset feeder is allowed to trigger IPO event on preIPO assets",
+      "type": "object",
+      "required": [
+        "trigger_i_p_o"
+      ],
+      "properties": {
+        "trigger_i_p_o": {
+          "type": "object",
+          "required": [
+            "asset_token"
+          ],
+          "properties": {
+            "asset_token": {
+              "$ref": "#/definitions/HumanAddr"
             }
           }
         }
@@ -439,6 +461,23 @@
     },
     "HumanAddr": {
       "type": "string"
+    },
+    "IPOParams": {
+      "type": "object",
+      "required": [
+        "min_collateral_ratio_after_ipo",
+        "mint_end"
+      ],
+      "properties": {
+        "min_collateral_ratio_after_ipo": {
+          "$ref": "#/definitions/Decimal"
+        },
+        "mint_end": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        }
+      }
     },
     "ShortParams": {
       "type": "object",

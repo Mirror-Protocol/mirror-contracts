@@ -1,8 +1,4 @@
-use cosmwasm_std::{
-    from_binary, log, to_binary, Api, Binary, CosmosMsg, Decimal, Env, Extern, HandleResponse,
-    HandleResult, HumanAddr, InitResponse, MigrateResponse, MigrateResult, Querier, StdError,
-    StdResult, Storage, Uint128, WasmMsg, WasmQuery,
-};
+use cosmwasm_std::{Api, Binary, CanonicalAddr, CosmosMsg, Decimal, Env, Extern, HandleResponse, HandleResult, HumanAddr, InitResponse, MigrateResponse, MigrateResult, Querier, StdError, StdResult, Storage, Uint128, WasmMsg, WasmQuery, from_binary, log, to_binary};
 
 use crate::{
     asserts::{assert_auction_discount, assert_min_collateral_ratio},
@@ -15,10 +11,11 @@ use crate::{
         read_asset_config, read_config, store_asset_config, store_config, store_position_idx,
         AssetConfig, Config,
     },
+    querier::load_oracle_feeder,
 };
 
 use cw20::Cw20ReceiveMsg;
-use mirror_protocol::collateral_oracle::{HandleMsg as CollateralOracleHandleMsg, SourceType};
+use mirror_protocol::{collateral_oracle::{HandleMsg as CollateralOracleHandleMsg, SourceType}, mint::IPOParams};
 use mirror_protocol::mint::{
     AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrateMsg, QueryMsg,
 };
@@ -82,32 +79,35 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             asset_token,
             auction_discount,
             min_collateral_ratio,
+            ipo_params,
         } => update_asset(
             deps,
             env,
             asset_token,
             auction_discount,
             min_collateral_ratio,
+            ipo_params,
         ),
         HandleMsg::RegisterAsset {
             asset_token,
             auction_discount,
             min_collateral_ratio,
-            mint_end,
-            min_collateral_ratio_after_migration,
+            ipo_params,
         } => register_asset(
             deps,
             env,
             asset_token,
             auction_discount,
             min_collateral_ratio,
-            mint_end,
-            min_collateral_ratio_after_migration,
+            ipo_params,
         ),
         HandleMsg::RegisterMigration {
             asset_token,
             end_price,
         } => register_migration(deps, env, asset_token, end_price),
+        HandleMsg::TriggerIPO {
+            asset_token,
+        } => trigger_ipo(deps, env, asset_token),
         HandleMsg::OpenPosition {
             collateral,
             asset_info,
@@ -269,6 +269,7 @@ pub fn update_asset<S: Storage, A: Api, Q: Querier>(
     asset_token: HumanAddr,
     auction_discount: Option<Decimal>,
     min_collateral_ratio: Option<Decimal>,
+    ipo_params: Option<IPOParams>,
 ) -> StdResult<HandleResponse> {
     let config: Config = read_config(&deps.storage)?;
     let asset_token_raw = deps.api.canonical_address(&asset_token)?;
@@ -288,6 +289,11 @@ pub fn update_asset<S: Storage, A: Api, Q: Querier>(
         asset.min_collateral_ratio = min_collateral_ratio;
     }
 
+    if let Some(ipo_params) = ipo_params {
+        assert_min_collateral_ratio(ipo_params.min_collateral_ratio_after_ipo)?;
+        asset.ipo_params = Some(ipo_params);
+    }
+
     store_asset_config(&mut deps.storage, &asset_token_raw, &asset)?;
     Ok(HandleResponse {
         messages: vec![],
@@ -302,11 +308,13 @@ pub fn register_asset<S: Storage, A: Api, Q: Querier>(
     asset_token: HumanAddr,
     auction_discount: Decimal,
     min_collateral_ratio: Decimal,
-    mint_end: Option<u64>,
-    min_collateral_ratio_after_migration: Option<Decimal>,
+    ipo_params: Option<IPOParams>,
 ) -> StdResult<HandleResponse> {
     assert_auction_discount(auction_discount)?;
     assert_min_collateral_ratio(min_collateral_ratio)?;
+    if let Some(params) = ipo_params.clone() {
+        assert_min_collateral_ratio(params.min_collateral_ratio_after_ipo)?;
+    }
 
     let config: Config = read_config(&deps.storage)?;
 
@@ -329,8 +337,7 @@ pub fn register_asset<S: Storage, A: Api, Q: Querier>(
             auction_discount,
             min_collateral_ratio,
             end_price: None,
-            mint_end,
-            min_collateral_ratio_after_migration,
+            ipo_params,
         },
     )?;
 
@@ -381,7 +388,7 @@ pub fn register_migration<S: Storage, A: Api, Q: Querier>(
         &AssetConfig {
             end_price: Some(end_price),
             min_collateral_ratio: Decimal::percent(100),
-            mint_end: None,
+            ipo_params: None,
             ..asset_config
         },
     )?;
@@ -401,6 +408,46 @@ pub fn register_migration<S: Storage, A: Api, Q: Querier>(
             log("action", "migrate_asset"),
             log("asset_token", asset_token.as_str()),
             log("end_price", end_price.to_string()),
+        ],
+        data: None,
+    })
+}
+
+pub fn trigger_ipo<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    asset_token: HumanAddr,
+) -> StdResult<HandleResponse> {
+    let config = read_config(&deps.storage)?;
+    let asset_token_raw: CanonicalAddr = deps.api.canonical_address(&&asset_token)?;
+    let oracle_feeder: HumanAddr = deps.api.human_address(&load_oracle_feeder(
+        &deps,
+        &deps.api.human_address(&config.oracle)?,
+        &asset_token_raw,
+    )?)?;
+
+    // only asset feeder can trigger ipo
+    if oracle_feeder != env.message.sender {
+        return Err(StdError::unauthorized());
+    }
+
+    let mut asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
+
+    let ipo_params: IPOParams = match asset_config.ipo_params {
+        Some(v) => v,
+        None => return Err(StdError::generic_err("Asset does not have IPO params"))
+    };
+
+    asset_config.min_collateral_ratio = ipo_params.min_collateral_ratio_after_ipo;
+    asset_config.ipo_params = None;
+
+    store_asset_config(&mut deps.storage, &asset_token_raw, &asset_config)?;
+
+    Ok(HandleResponse {
+        messages: vec![],
+        log: vec![
+            log("action", "trigger_ipo"),
+            log("asset_token", asset_token.as_str()),
         ],
         data: None,
     })
@@ -464,8 +511,7 @@ pub fn query_asset_config<S: Storage, A: Api, Q: Querier>(
         auction_discount: asset_config.auction_discount,
         min_collateral_ratio: asset_config.min_collateral_ratio,
         end_price: asset_config.end_price,
-        mint_end: asset_config.mint_end,
-        min_collateral_ratio_after_migration: asset_config.min_collateral_ratio_after_migration,
+        ipo_params: asset_config.ipo_params,
     };
 
     Ok(resp)

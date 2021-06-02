@@ -128,6 +128,6 @@ pub struct Params {
     pub weight: Option<u32>,
     /// For pre-IPO assets, time period after asset creation in which minting is enabled
     pub mint_period: Option<u64>,
-    /// For pre-IPO assets, collateral ratio for the asset after migration
-    pub min_collateral_ratio_after_migration: Option<Decimal>,
+    /// For pre-IPO assets, collateral ratio for the asset after ipo
+    pub min_collateral_ratio_after_ipo: Option<Decimal>,
 }

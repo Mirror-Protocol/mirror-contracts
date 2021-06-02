@@ -7,7 +7,7 @@ mod tests {
         from_binary, log, to_binary, BlockInfo, Coin, Decimal, Env, HumanAddr, StdError, Uint128,
     };
     use cw20::Cw20ReceiveMsg;
-    use mirror_protocol::mint::{AssetConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, QueryMsg};
+    use mirror_protocol::mint::{AssetConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, QueryMsg, IPOParams};
     use terraswap::asset::{Asset, AssetInfo};
 
     static TOKEN_CODE_ID: u64 = 10u64;
@@ -34,6 +34,9 @@ mod tests {
                 &Decimal::from_ratio(10u128, 1u128),
             ),
         ]);
+        deps.querier.with_oracle_feeders(&[
+            (&HumanAddr::from("preIPOAsset0000"), &HumanAddr::from("feeder0000"))
+        ]);
 
         let base_denom = "uusd".to_string();
 
@@ -58,8 +61,10 @@ mod tests {
             asset_token: HumanAddr::from("preIPOAsset0000"),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(1000),
-            mint_end: Some(mint_end),
-            min_collateral_ratio_after_migration: None,
+            ipo_params: Some(IPOParams {
+                mint_end,
+                min_collateral_ratio_after_ipo: Decimal::percent(150),
+            }),
         };
         let env = mock_env("owner0000", &[]);
         let _res = handle(&mut deps, env, msg).unwrap();
@@ -207,19 +212,27 @@ mod tests {
         current_height = creator_env.block.height + 20;
 
         // register migration initiated by the feeder
-        let msg = HandleMsg::RegisterMigration {
+        let msg = HandleMsg::TriggerIPO {
             asset_token: HumanAddr::from("preIPOAsset0000"),
-            end_price: Decimal::percent(50), // first IPO price
         };
-        let mut env = mock_env("owner0000", &[]);
+
+        // unauthorized attempt
+        let env = mock_env("owner", &[]);
+        let res = handle(&mut deps, env, msg.clone()).unwrap_err();
+        assert_eq!(
+            res,
+            StdError::unauthorized()
+        );
+
+        // succesfull attempt
+        let mut env = mock_env("feeder0000", &[]);
         env.block.height = current_height;
         let res = handle(&mut deps, env, msg).unwrap();
         assert_eq!(
             res.log,
             vec![
-                log("action", "migrate_asset"),
+                log("action", "trigger_ipo"),
                 log("asset_token", "preIPOAsset0000"),
-                log("end_price", "0.5"),
             ]
         );
 
@@ -231,31 +244,16 @@ mod tests {
         )
         .unwrap();
         let asset_config_res: AssetConfigResponse = from_binary(&res).unwrap();
+        // traditional asset configuration, feeder feeds real price
         assert_eq!(
             asset_config_res,
             AssetConfigResponse {
                 token: HumanAddr::from("preIPOAsset0000"),
                 auction_discount: Decimal::percent(20),
-                min_collateral_ratio: Decimal::percent(100),
-                end_price: Some(Decimal::percent(50)),
-                mint_end: None,
-                min_collateral_ratio_after_migration: None,
+                min_collateral_ratio: Decimal::percent(150),
+                end_price: None,
+                ipo_params: None,
             }
         );
-
-        // anyone can burn the preIPO asset at the first IPO price
-        let msg = HandleMsg::Receive(Cw20ReceiveMsg {
-            sender: HumanAddr::from("addr0001"),
-            amount: Uint128::from(133u128),
-            msg: Some(
-                to_binary(&Cw20HookMsg::Burn {
-                    position_idx: Uint128(1u128),
-                })
-                .unwrap(),
-            ),
-        });
-        let mut env = mock_env_with_block_time("preIPOAsset0000", &[], 1000);
-        env.block.height = current_height + 1;
-        let _res = handle(&mut deps, env, msg).unwrap();
     }
 }

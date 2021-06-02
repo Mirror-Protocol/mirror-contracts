@@ -15,7 +15,7 @@ use crate::state::{
 use mirror_protocol::factory::{
     ConfigResponse, DistributionInfoResponse, HandleMsg, InitMsg, MigrateMsg, Params, QueryMsg,
 };
-use mirror_protocol::mint::HandleMsg as MintHandleMsg;
+use mirror_protocol::mint::{HandleMsg as MintHandleMsg, IPOParams};
 use mirror_protocol::oracle::HandleMsg as OracleHandleMsg;
 use mirror_protocol::staking::Cw20HookMsg as StakingCw20HookMsg;
 use mirror_protocol::staking::HandleMsg as StakingHandleMsg;
@@ -331,8 +331,16 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
     remove_params(&mut deps.storage);
 
     // If it is a pre-IPO asset, calculate the end of the minting period
-    let mint_end = if let Some(mint_period) = params.mint_period {
-        Some(env.block.height + mint_period)
+    let ipo_params: Option<IPOParams> = if let Some(mint_period) = params.mint_period {
+        // both parameters must be provided
+        if let Some(min_collateral_ratio_after_ipo) = params.min_collateral_ratio_after_ipo {
+            Some(IPOParams {
+                mint_end: env.block.height + mint_period,
+                min_collateral_ratio_after_ipo,
+            })
+        } else {
+            return Err(StdError::generic_err("Missing min_collateral_ratio_after_ipo parameter"));
+        }
     } else {
         None
     };
@@ -349,9 +357,7 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
                     asset_token: asset_token.clone(),
                     auction_discount: params.auction_discount,
                     min_collateral_ratio: params.min_collateral_ratio,
-                    mint_end,
-                    min_collateral_ratio_after_migration: params
-                        .min_collateral_ratio_after_migration,
+                    ipo_params,
                 })?,
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
@@ -591,24 +597,17 @@ pub fn migrate_asset<S: Storage, A: Api, Q: Querier>(
     decrease_total_weight(&mut deps.storage, NORMAL_TOKEN_WEIGHT)?;
 
     let mint_contract = deps.api.human_address(&config.mint_contract)?;
-    let mint_config: (Decimal, Decimal, Option<Decimal>) =
+    let mint_config: (Decimal, Decimal) =
         load_mint_asset_config(&deps, &mint_contract, &asset_token_raw)?;
-
-    // check if the asset being migrated specifies a min CR after migration
-    let min_collateral_ratio = if let Some(min_collateral_ratio_after_migration) = mint_config.2 {
-        min_collateral_ratio_after_migration
-    } else {
-        mint_config.1
-    };
 
     store_params(
         &mut deps.storage,
         &Params {
             auction_discount: mint_config.0,
-            min_collateral_ratio,
+            min_collateral_ratio: mint_config.1,
             weight: Some(weight),
             mint_period: None,
-            min_collateral_ratio_after_migration: None,
+            min_collateral_ratio_after_ipo: None,
         },
     )?;
 
