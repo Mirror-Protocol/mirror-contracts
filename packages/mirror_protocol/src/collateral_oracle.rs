@@ -102,6 +102,7 @@ pub enum SourceType {
     },
     Terraswap {
         terraswap_query: Binary,
+        intermediate_denom: Option<String>,
     },
     AnchorMarket {
         anchor_market_query: Binary,

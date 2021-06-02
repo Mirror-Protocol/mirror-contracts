@@ -269,6 +269,12 @@
                 "terraswap_query"
               ],
               "properties": {
+                "intermediate_denom": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
                 "terraswap_query": {
                   "$ref": "#/definitions/Binary"
                 }

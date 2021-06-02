@@ -67,11 +67,11 @@ pub(crate) fn oracle_price_to_map(
 
 #[derive(Clone, Default)]
 pub struct TerraswapPoolsQuerier {
-    pools: HashMap<HumanAddr, (Uint128, Uint128)>,
+    pools: HashMap<HumanAddr, (String, Uint128, String, Uint128)>,
 }
 
 impl TerraswapPoolsQuerier {
-    pub fn new(pools: &[(&HumanAddr, (&Uint128, &Uint128))]) -> Self {
+    pub fn new(pools: &[(&HumanAddr, (&String, &Uint128, &String, &Uint128))]) -> Self {
         TerraswapPoolsQuerier {
             pools: pools_to_map(pools),
         }
@@ -79,11 +79,14 @@ impl TerraswapPoolsQuerier {
 }
 
 pub(crate) fn pools_to_map(
-    pools: &[(&HumanAddr, (&Uint128, &Uint128))],
-) -> HashMap<HumanAddr, (Uint128, Uint128)> {
-    let mut pools_map: HashMap<HumanAddr, (Uint128, Uint128)> = HashMap::new();
+    pools: &[(&HumanAddr, (&String, &Uint128, &String, &Uint128))],
+) -> HashMap<HumanAddr, (String, Uint128, String, Uint128)> {
+    let mut pools_map: HashMap<HumanAddr, (String, Uint128, String, Uint128)> = HashMap::new();
     for (key, pool) in pools.into_iter() {
-        pools_map.insert(HumanAddr::from(key), (*pool.0, *pool.1));
+        pools_map.insert(
+            HumanAddr::from(key),
+            (pool.0.clone(), *pool.1, pool.2.clone(), *pool.3),
+        );
     }
     pools_map
 }
@@ -150,7 +153,7 @@ impl WasmMockQuerier {
                             let res = ExchangeRatesResponse {
                                 exchange_rates: vec![ExchangeRateItem {
                                     quote_denom: "uusd".to_string(),
-                                    exchange_rate: Decimal::from_ratio(10u128, 3u128),
+                                    exchange_rate: Decimal::from_ratio(5u128, 1u128),
                                 }],
                                 base_denom: "uluna".to_string(),
                             };
@@ -191,15 +194,13 @@ impl WasmMockQuerier {
                     Some(v) => Ok(to_binary(&PoolResponse {
                         assets: [
                             Asset {
-                                amount: v.0,
-                                info: AssetInfo::NativeToken {
-                                    denom: "uusd".to_string(),
-                                },
+                                amount: v.1,
+                                info: AssetInfo::NativeToken { denom: v.0.clone() },
                             },
                             Asset {
-                                amount: v.1,
+                                amount: v.3,
                                 info: AssetInfo::Token {
-                                    contract_addr: HumanAddr::from("token"),
+                                    contract_addr: HumanAddr::from(v.2.clone()),
                                 },
                             },
                         ],
@@ -239,7 +240,10 @@ impl WasmMockQuerier {
         self.oracle_price_querier = OraclePriceQuerier::new(oracle_price);
     }
 
-    pub fn with_terraswap_pools(&mut self, pairs: &[(&HumanAddr, (&Uint128, &Uint128))]) {
+    pub fn with_terraswap_pools(
+        &mut self,
+        pairs: &[(&HumanAddr, (&String, &Uint128, &String, &Uint128))],
+    ) {
         self.terraswap_pools_querier = TerraswapPoolsQuerier::new(pairs);
     }
 }
