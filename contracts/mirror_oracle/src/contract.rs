@@ -76,19 +76,21 @@ pub fn try_register_asset<S: Storage, A: Api, Q: Querier>(
     }
 
     let asset_token_raw = deps.api.canonical_address(&asset_token)?;
-    if read_feeder(&deps.storage, &asset_token_raw).is_ok() {
-        return Err(StdError::generic_err("Asset was already registered"));
+
+    // check if it is a new asset
+    if read_feeder(&deps.storage, &asset_token_raw).is_err() {
+        // new asset, initialize asset price info
+        store_price(
+            &mut deps.storage,
+            &asset_token_raw,
+            &PriceInfo {
+                price: Decimal::zero(),
+                last_updated_time: 0u64,
+            },
+        )?;
     }
 
-    store_price(
-        &mut deps.storage,
-        &asset_token_raw,
-        &PriceInfo {
-            price: Decimal::zero(),
-            last_updated_time: 0u64,
-        },
-    )?;
-
+    // update/store feeder
     store_feeder(
         &mut deps.storage,
         &asset_token_raw,
@@ -226,214 +228,6 @@ fn query_prices<S: Storage, A: Api, Q: Querier>(
     let prices: Vec<PricesResponseElem> = read_prices(&deps, start_after, limit, order_by)?;
 
     Ok(PricesResponse { prices })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use cosmwasm_std::testing::{mock_dependencies, mock_env};
-    use cosmwasm_std::StdError;
-
-    #[test]
-    fn proper_initialization() {
-        let mut deps = mock_dependencies(20, &[]);
-
-        let msg = InitMsg {
-            owner: HumanAddr("owner0000".to_string()),
-            base_asset: "base0000".to_string(),
-        };
-
-        let env = mock_env("addr0000", &[]);
-
-        // we can just call .unwrap() to assert this was a success
-        let res = init(&mut deps, env, msg).unwrap();
-        assert_eq!(0, res.messages.len());
-
-        // it worked, let's query the state
-        let value = query_config(&deps).unwrap();
-        assert_eq!("owner0000", value.owner.as_str());
-        assert_eq!("base0000", &value.base_asset.to_string());
-    }
-
-    #[test]
-    fn update_config() {
-        let mut deps = mock_dependencies(20, &[]);
-
-        let msg = InitMsg {
-            owner: HumanAddr("owner0000".to_string()),
-            base_asset: "base0000".to_string(),
-        };
-
-        let env = mock_env("addr0000", &[]);
-        let _res = init(&mut deps, env, msg).unwrap();
-
-        // update owner
-        let env = mock_env("owner0000", &[]);
-        let msg = HandleMsg::UpdateConfig {
-            owner: Some(HumanAddr("owner0001".to_string())),
-        };
-
-        let res = handle(&mut deps, env, msg).unwrap();
-        assert_eq!(0, res.messages.len());
-
-        // it worked, let's query the state
-        let value = query_config(&deps).unwrap();
-        assert_eq!("owner0001", value.owner.as_str());
-        assert_eq!("base0000", &value.base_asset.to_string());
-
-        // Unauthorized err
-        let env = mock_env("owner0000", &[]);
-        let msg = HandleMsg::UpdateConfig { owner: None };
-
-        let res = handle(&mut deps, env, msg);
-        match res {
-            Err(StdError::Unauthorized { .. }) => {}
-            _ => panic!("Must return unauthorized error"),
-        }
-    }
-
-    #[test]
-    fn feed_price() {
-        let mut deps = mock_dependencies(20, &[]);
-
-        let msg = InitMsg {
-            owner: HumanAddr("owner0000".to_string()),
-            base_asset: "base0000".to_string(),
-        };
-
-        let env = mock_env("addr0000", &[]);
-        let _res = init(&mut deps, env, msg).unwrap();
-
-        // update price
-        let env = mock_env("addr0000", &[]);
-        let msg = HandleMsg::FeedPrice {
-            prices: vec![(
-                HumanAddr::from("mAAPL"),
-                Decimal::from_ratio(12u128, 10u128),
-            )],
-        };
-
-        let _res = handle(&mut deps, env, msg).unwrap_err();
-
-        let msg = HandleMsg::RegisterAsset {
-            asset_token: HumanAddr::from("mAAPL"),
-            feeder: HumanAddr::from("addr0000"),
-        };
-
-        let env = mock_env("addr0000", &[]);
-        let res = handle(&mut deps, env, msg).unwrap_err();
-        match res {
-            StdError::Unauthorized { .. } => {}
-            _ => panic!("DO NOT ENTER HERE"),
-        }
-
-        let msg = HandleMsg::RegisterAsset {
-            asset_token: HumanAddr::from("mAAPL"),
-            feeder: HumanAddr::from("addr0000"),
-        };
-
-        let env = mock_env("owner0000", &[]);
-        let _res = handle(&mut deps, env, msg).unwrap();
-        let msg = HandleMsg::RegisterAsset {
-            asset_token: HumanAddr::from("mGOGL"),
-            feeder: HumanAddr::from("addr0000"),
-        };
-
-        let env = mock_env("owner0000", &[]);
-        let _res = handle(&mut deps, env, msg).unwrap();
-
-        // try register the asset is already exists
-        let msg = HandleMsg::RegisterAsset {
-            asset_token: HumanAddr::from("mAAPL"),
-            feeder: HumanAddr::from("addr0000"),
-        };
-
-        let env = mock_env("owner0000", &[]);
-        let res = handle(&mut deps, env.clone(), msg).unwrap_err();
-        match res {
-            StdError::GenericErr { msg, .. } => assert_eq!(msg, "Asset was already registered"),
-            _ => panic!("DO NOT ENTER HERE"),
-        }
-
-        let value: FeederResponse = query_feeder(&deps, HumanAddr::from("mAAPL")).unwrap();
-        assert_eq!(
-            value,
-            FeederResponse {
-                asset_token: HumanAddr::from("mAAPL"),
-                feeder: HumanAddr::from("addr0000"),
-            }
-        );
-
-        let value: PriceResponse =
-            query_price(&deps, "mAAPL".to_string(), "base0000".to_string()).unwrap();
-        assert_eq!(
-            value,
-            PriceResponse {
-                rate: Decimal::zero(),
-                last_updated_base: 0u64,
-                last_updated_quote: u64::MAX,
-            }
-        );
-
-        let msg = HandleMsg::FeedPrice {
-            prices: vec![
-                (
-                    HumanAddr::from("mAAPL"),
-                    Decimal::from_ratio(12u128, 10u128),
-                ),
-                (
-                    HumanAddr::from("mGOGL"),
-                    Decimal::from_ratio(22u128, 10u128),
-                ),
-            ],
-        };
-        let env = mock_env("addr0000", &[]);
-        let _res = handle(&mut deps, env.clone(), msg).unwrap();
-        let value: PriceResponse =
-            query_price(&deps, "mAAPL".to_string(), "base0000".to_string()).unwrap();
-        assert_eq!(
-            value,
-            PriceResponse {
-                rate: Decimal::from_ratio(12u128, 10u128),
-                last_updated_base: env.block.time,
-                last_updated_quote: u64::MAX,
-            }
-        );
-
-        let value: PricesResponse = query_prices(&deps, None, None, Some(OrderBy::Asc)).unwrap();
-        assert_eq!(
-            value,
-            PricesResponse {
-                prices: vec![
-                    PricesResponseElem {
-                        asset_token: HumanAddr::from("mAAPL"),
-                        price: Decimal::from_ratio(12u128, 10u128),
-                        last_updated_time: env.block.time,
-                    },
-                    PricesResponseElem {
-                        asset_token: HumanAddr::from("mGOGL"),
-                        price: Decimal::from_ratio(22u128, 10u128),
-                        last_updated_time: env.block.time,
-                    }
-                ],
-            }
-        );
-
-        // Unautorized try
-        let env = mock_env("addr0001", &[]);
-        let msg = HandleMsg::FeedPrice {
-            prices: vec![(
-                HumanAddr::from("mAAPL"),
-                Decimal::from_ratio(12u128, 10u128),
-            )],
-        };
-
-        let res = handle(&mut deps, env, msg);
-        match res {
-            Err(StdError::Unauthorized { .. }) => {}
-            _ => panic!("Must return unauthorized error"),
-        }
-    }
 }
 
 pub fn migrate<S: Storage, A: Api, Q: Querier>(

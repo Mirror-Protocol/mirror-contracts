@@ -712,7 +712,6 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cosmwasm-storage",
- "cosmwasm-vm",
  "mirror-protocol",
  "schemars",
  "serde",
