@@ -409,7 +409,7 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
         // period need to have participated in the vote.
         rejected_reason = "Quorum not reached";
     } else {
-        if Decimal::from_ratio(yes, yes + no) > config.threshold {
+        if yes != 0u128 && Decimal::from_ratio(yes, yes + no) > config.threshold {
             //Threshold: More than 50% of the tokens that participated in the vote
             // (after excluding “Abstain” votes) need to have voted in favor of the proposal (“Yes”).
             poll_status = PollStatus::Passed;
