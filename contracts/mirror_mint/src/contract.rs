@@ -5,7 +5,7 @@ use cosmwasm_std::{
 };
 
 use crate::{
-    asserts::{assert_auction_discount, assert_min_collateral_ratio},
+    asserts::{assert_auction_discount, assert_min_collateral_ratio, assert_protocol_fee},
     migration::{migrate_asset_configs, migrate_config},
     positions::{
         auction, burn, deposit, mint, open_position, query_next_position_idx, query_position,
@@ -250,6 +250,7 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     }
 
     if let Some(protocol_fee_rate) = protocol_fee_rate {
+        assert_protocol_fee(protocol_fee_rate)?;
         config.protocol_fee_rate = protocol_fee_rate;
     }
 

@@ -74,6 +74,16 @@ pub fn assert_min_collateral_ratio(min_collateral_ratio: Decimal) -> StdResult<(
     }
 }
 
+pub fn assert_protocol_fee(protocol_fee_rate: Decimal) -> StdResult<()> {
+    if protocol_fee_rate >= Decimal::one() {
+        Err(StdError::generic_err(
+            "protocol_fee_rate must be smaller than 1",
+        ))
+    } else {
+        Ok(())
+    }
+}
+
 pub fn assert_mint_period(env: &Env, asset_config: &AssetConfig) -> StdResult<()> {
     if let Some(ipo_params) = asset_config.ipo_params.clone() {
         if ipo_params.mint_end < env.block.time {
