@@ -76,9 +76,9 @@ pub fn assert_min_collateral_ratio(min_collateral_ratio: Decimal) -> StdResult<(
 
 pub fn assert_mint_period(env: &Env, asset_config: &AssetConfig) -> StdResult<()> {
     if let Some(ipo_params) = asset_config.ipo_params.clone() {
-        if ipo_params.mint_end < env.block.height {
+        if ipo_params.mint_end < env.block.time {
             return Err(StdError::generic_err(format!(
-                "The minting period for this asset ended at height {}",
+                "The minting period for this asset ended at time {}",
                 ipo_params.mint_end
             )));
         }
@@ -88,9 +88,9 @@ pub fn assert_mint_period(env: &Env, asset_config: &AssetConfig) -> StdResult<()
 
 pub fn assert_burn_period(env: &Env, asset_config: &AssetConfig) -> StdResult<()> {
     if let Some(ipo_params) = asset_config.ipo_params.clone() {
-        if ipo_params.mint_end < env.block.height {
+        if ipo_params.mint_end < env.block.time {
             return Err(StdError::generic_err(format!(
-                "Burning is disabled for assets with limitied minting time. Mint period ended at {}",
+                "Burning is disabled for assets with limitied minting time. Mint period ended at time {}",
                 ipo_params.mint_end
             )));
         }

@@ -50,7 +50,8 @@
       "type": "object",
       "required": [
         "min_collateral_ratio_after_ipo",
-        "mint_end"
+        "mint_end",
+        "pre_ipo_price"
       ],
       "properties": {
         "min_collateral_ratio_after_ipo": {
@@ -60,6 +61,9 @@
           "type": "integer",
           "format": "uint64",
           "minimum": 0.0
+        },
+        "pre_ipo_price": {
+          "$ref": "#/definitions/Decimal"
         }
       }
     }

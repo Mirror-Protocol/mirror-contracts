@@ -289,6 +289,7 @@ fn test_whitelist() {
             weight: Some(100u32),
             mint_period: None,
             min_collateral_ratio_after_ipo: None,
+            pre_ipo_price: None,
         },
     };
     let env = mock_env("owner0000", &[]);
@@ -340,6 +341,7 @@ fn test_whitelist() {
             weight: Some(100u32),
             mint_period: None,
             min_collateral_ratio_after_ipo: None,
+            pre_ipo_price: None,
         }
     );
 
@@ -404,6 +406,7 @@ fn test_token_creation_hook() {
             weight: Some(100u32),
             mint_period: None,
             min_collateral_ratio_after_ipo: None,
+            pre_ipo_price: None,
         },
     };
     let env = mock_env("owner0000", &[]);
@@ -459,6 +462,13 @@ fn test_token_creation_hook() {
                 })
                 .unwrap(),
             })
+        ]
+    );
+    assert_eq!(
+        res.log,
+        vec![
+            log("asset_token_addr", "asset0000"),
+            log("is_pre_ipo", false),
         ]
     );
 
@@ -533,6 +543,7 @@ fn test_token_creation_hook_without_weight() {
             weight: None,
             mint_period: None,
             min_collateral_ratio_after_ipo: None,
+            pre_ipo_price: None,
         },
     };
     let env = mock_env("owner0000", &[]);
@@ -651,6 +662,7 @@ fn test_terraswap_creation_hook() {
             weight: Some(100u32),
             mint_period: None,
             min_collateral_ratio_after_ipo: None,
+            pre_ipo_price: None,
         },
     };
     let env = mock_env("owner0000", &[]);
@@ -723,6 +735,7 @@ fn test_distribute() {
             weight: Some(100u32),
             mint_period: None,
             min_collateral_ratio_after_ipo: None,
+            pre_ipo_price: None,
         },
     };
     let env = mock_env("owner0000", &[]);
@@ -751,6 +764,7 @@ fn test_distribute() {
             weight: Some(100u32),
             mint_period: None,
             min_collateral_ratio_after_ipo: None,
+            pre_ipo_price: None,
         },
     };
     let env = mock_env("owner0000", &[]);
@@ -845,6 +859,7 @@ fn whitelist_token(
             weight: Some(weight),
             mint_period: None,
             min_collateral_ratio_after_ipo: None,
+            pre_ipo_price: None,
         },
     };
     let env = mock_env("owner0000", &[]);
@@ -1021,6 +1036,7 @@ fn test_revocation() {
             weight: Some(100u32),
             mint_period: None,
             min_collateral_ratio_after_ipo: None,
+            pre_ipo_price: None,
         },
     };
     let env = mock_env("owner0000", &[]);
@@ -1049,6 +1065,7 @@ fn test_revocation() {
             weight: Some(100u32),
             mint_period: None,
             min_collateral_ratio_after_ipo: None,
+            pre_ipo_price: None,
         },
     };
     let env = mock_env("owner0000", &[]);
@@ -1164,6 +1181,7 @@ fn test_migration() {
             weight: Some(100u32),
             mint_period: None,
             min_collateral_ratio_after_ipo: None,
+            pre_ipo_price: None,
         },
     };
     let env = mock_env("owner0000", &[]);
@@ -1281,6 +1299,7 @@ fn test_whitelist_pre_ipo_asset() {
             weight: Some(100u32),
             mint_period: Some(10000u64),
             min_collateral_ratio_after_ipo: Some(Decimal::percent(150)),
+            pre_ipo_price: Some(Decimal::percent(1)),
         },
     };
     let env = mock_env("owner0000", &[]);
@@ -1323,6 +1342,7 @@ fn test_whitelist_pre_ipo_asset() {
             weight: Some(100u32),
             mint_period: Some(10000u64),
             min_collateral_ratio_after_ipo: Some(Decimal::percent(150)),
+            pre_ipo_price: Some(Decimal::percent(1)),
         }
     );
 
@@ -1344,8 +1364,9 @@ fn test_whitelist_pre_ipo_asset() {
                     auction_discount: Decimal::percent(5),
                     min_collateral_ratio: Decimal::percent(1000),
                     ipo_params: Some(IPOParams {
-                        mint_end: env.block.height + 10000u64,
+                        mint_end: env.block.time + 10000u64,
                         min_collateral_ratio_after_ipo: Decimal::percent(150),
+                        pre_ipo_price: Decimal::percent(1),
                     }),
                 })
                 .unwrap(),
@@ -1381,6 +1402,17 @@ fn test_whitelist_pre_ipo_asset() {
                 })
                 .unwrap(),
             })
+        ]
+    );
+
+    assert_eq!(
+        res.log,
+        vec![
+            log("asset_token_addr", "asset0000"),
+            log("is_pre_ipo", true),
+            log("mint_end", env.block.time + 10000u64),
+            log("min_collateral_ratio_after_ipo", "1.5"),
+            log("pre_ipo_price", "0.01"),
         ]
     );
 }

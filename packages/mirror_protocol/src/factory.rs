@@ -130,4 +130,6 @@ pub struct Params {
     pub mint_period: Option<u64>,
     /// For pre-IPO assets, collateral ratio for the asset after ipo
     pub min_collateral_ratio_after_ipo: Option<Decimal>,
+    /// For pre-IPO assets, fixed price during minting period
+    pub pre_ipo_price: Option<Decimal>,
 }

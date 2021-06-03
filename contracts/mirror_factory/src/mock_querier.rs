@@ -102,10 +102,7 @@ pub(crate) fn configs_to_map(
 ) -> HashMap<HumanAddr, (Decimal, Decimal)> {
     let mut configs_map: HashMap<HumanAddr, (Decimal, Decimal)> = HashMap::new();
     for (contract_addr, touple) in configs.iter() {
-        configs_map.insert(
-            HumanAddr::from(contract_addr),
-            (touple.0, touple.1),
-        );
+        configs_map.insert(HumanAddr::from(contract_addr), (touple.0, touple.1));
     }
     configs_map
 }
@@ -252,10 +249,7 @@ impl WasmMockQuerier {
         self.oracle_querier = OracleQuerier::new(feeders);
     }
 
-    pub fn with_mint_configs(
-        &mut self,
-        configs: &[(&HumanAddr, &(Decimal, Decimal))],
-    ) {
+    pub fn with_mint_configs(&mut self, configs: &[(&HumanAddr, &(Decimal, Decimal))]) {
         self.mint_querier = MintQuerier::new(configs);
     }
 }

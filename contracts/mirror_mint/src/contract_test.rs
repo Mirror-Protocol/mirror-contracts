@@ -7,7 +7,9 @@ mod tests {
         from_binary, to_binary, CosmosMsg, Decimal, HumanAddr, StdError, WasmMsg, WasmQuery,
     };
     use mirror_protocol::collateral_oracle::{HandleMsg::RegisterCollateralAsset, SourceType};
-    use mirror_protocol::mint::{AssetConfigResponse, ConfigResponse, HandleMsg, IPOParams, InitMsg, QueryMsg};
+    use mirror_protocol::mint::{
+        AssetConfigResponse, ConfigResponse, HandleMsg, IPOParams, InitMsg, QueryMsg,
+    };
     use mirror_protocol::oracle::QueryMsg::Price;
     use terraswap::asset::AssetInfo;
 
@@ -260,6 +262,7 @@ mod tests {
             ipo_params: Some(IPOParams {
                 min_collateral_ratio_after_ipo: Decimal::percent(150),
                 mint_end: 10000u64,
+                pre_ipo_price: Decimal::percent(1),
             }),
         };
         let env = mock_env("owner0000", &[]);
@@ -282,6 +285,7 @@ mod tests {
                 ipo_params: Some(IPOParams {
                     min_collateral_ratio_after_ipo: Decimal::percent(150),
                     mint_end: 10000u64,
+                    pre_ipo_price: Decimal::percent(1)
                 }),
             }
         );

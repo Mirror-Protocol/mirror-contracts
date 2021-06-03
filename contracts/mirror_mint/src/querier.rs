@@ -1,10 +1,10 @@
 use cosmwasm_std::{
-    to_binary, from_binary, Binary, Api, Decimal, Extern, HumanAddr, Querier, QueryRequest, StdError, StdResult,
-    Storage, WasmQuery, CanonicalAddr,
+    from_binary, to_binary, Api, Binary, CanonicalAddr, Decimal, Extern, HumanAddr, Querier,
+    QueryRequest, StdError, StdResult, Storage, WasmQuery,
 };
 use cosmwasm_storage::to_length_prefixed;
 
-use crate::state::{read_config, read_end_price, Config};
+use crate::state::{read_config, read_fixed_price, Config};
 use mirror_protocol::collateral_oracle::{
     CollateralPriceResponse, QueryMsg as CollateralOracleQueryMsg,
 };
@@ -52,15 +52,17 @@ pub fn load_asset_price<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<Decimal> {
     let config: Config = read_config(&deps.storage)?;
 
-    let end_price = read_end_price(&deps.storage, &asset);
-    let asset_denom: String = (asset.to_normal(&deps)?).to_string();
+    // check if the asset has a stored end_price or pre_ipo_price
+    let stored_price = read_fixed_price(&deps.storage, &asset);
 
-    let price: Decimal = if let Some(end_price) = end_price {
-        end_price
+    let price: Decimal = if let Some(stored_price) = stored_price {
+        stored_price
     } else {
+        let asset_denom: String = (asset.to_normal(&deps)?).to_string();
         if asset_denom == config.base_denom {
             Decimal::one()
         } else {
+            // fetch price from oracle
             query_price(deps, oracle, asset_denom, config.base_denom, block_time)?
         }
     };
@@ -86,8 +88,8 @@ pub fn load_collateral_info<S: Storage, A: Api, Q: Querier>(
     let (collateral_oracle_price, collateral_multiplier, is_revoked) =
         query_collateral(deps, collateral_oracle, collateral_denom, block_time)?;
 
-    // check if the collateral is a revoked mAsset
-    let end_price = read_end_price(&deps.storage, &collateral);
+    // check if the collateral is a revoked mAsset, will ignore pre_ipo_price since all preIPO are not whitelisted in collateral oracle
+    let end_price = read_fixed_price(&deps.storage, &collateral);
 
     if let Some(end_price) = end_price {
         Ok((end_price, collateral_multiplier, true))

@@ -324,7 +324,9 @@ impl WasmMockQuerier {
                 let prefix_balance = to_length_prefixed(b"balance").to_vec();
                 let prefix_feeder = to_length_prefixed(b"feeder").to_vec();
 
-                if key.len() > prefix_balance.len() && key[..prefix_balance.len()].to_vec() == prefix_balance {
+                if key.len() > prefix_balance.len()
+                    && key[..prefix_balance.len()].to_vec() == prefix_balance
+                {
                     let balances: &HashMap<HumanAddr, Uint128> =
                         match self.token_querier.balances.get(contract_addr) {
                             Some(balances) => balances,
@@ -364,7 +366,9 @@ impl WasmMockQuerier {
                     };
 
                     Ok(to_binary(&to_binary(&balance).unwrap()))
-                } else if key.len() > prefix_feeder.len() && key[..prefix_feeder.len()].to_vec() == prefix_feeder {
+                } else if key.len() > prefix_feeder.len()
+                    && key[..prefix_feeder.len()].to_vec() == prefix_feeder
+                {
                     let api: MockApi = MockApi::new(self.canonical_length);
                     let rest_key: &[u8] = &key[prefix_feeder.len()..];
 

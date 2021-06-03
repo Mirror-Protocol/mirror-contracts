@@ -1,7 +1,7 @@
 use cosmwasm_std::{
     log, to_binary, Api, Binary, CanonicalAddr, CosmosMsg, Decimal, Env, Extern, HandleResponse,
-    HandleResult, HumanAddr, InitResponse, MigrateResponse, MigrateResult, Querier, StdError,
-    StdResult, Storage, Uint128, WasmMsg,
+    HandleResult, HumanAddr, InitResponse, LogAttribute, MigrateResponse, MigrateResult, Querier,
+    StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 
 use crate::querier::{load_mint_asset_config, load_oracle_feeder};
@@ -330,20 +330,34 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
     // Remove params == clear flag
     remove_params(&mut deps.storage);
 
-    // If it is a pre-IPO asset, calculate the end of the minting period
-    let ipo_params: Option<IPOParams> = if let Some(mint_period) = params.mint_period {
-        // both parameters must be provided
-        if let Some(min_collateral_ratio_after_ipo) = params.min_collateral_ratio_after_ipo {
+    let mut logs: Vec<LogAttribute> = vec![];
+
+    // Check if all IPO params exist
+    let ipo_params: Option<IPOParams> =
+        if let (Some(mint_period), Some(min_collateral_ratio_after_ipo), Some(pre_ipo_price)) = (
+            params.mint_period,
+            params.min_collateral_ratio_after_ipo,
+            params.pre_ipo_price,
+        ) {
+            let mint_end: u64 = env.block.time + mint_period;
+            logs = vec![
+                log("is_pre_ipo", true),
+                log("mint_end", mint_end.to_string()),
+                log(
+                    "min_collateral_ratio_after_ipo",
+                    min_collateral_ratio_after_ipo.to_string(),
+                ),
+                log("pre_ipo_price", pre_ipo_price.to_string()),
+            ];
             Some(IPOParams {
-                mint_end: env.block.height + mint_period,
+                mint_end: mint_end,
                 min_collateral_ratio_after_ipo,
+                pre_ipo_price,
             })
         } else {
-            return Err(StdError::generic_err("Missing min_collateral_ratio_after_ipo parameter"));
-        }
-    } else {
-        None
-    };
+            logs.push(log("is_pre_ipo", false));
+            None
+        };
 
     // Register asset to mint contract
     // Register asset to oracle contract
@@ -389,7 +403,7 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
                 })?,
             }),
         ],
-        log: vec![log("asset_token_addr", asset_token.as_str())],
+        log: vec![vec![log("asset_token_addr", asset_token.as_str())], logs].concat(),
         data: None,
     })
 }
@@ -608,6 +622,7 @@ pub fn migrate_asset<S: Storage, A: Api, Q: Querier>(
             weight: Some(weight),
             mint_period: None,
             min_collateral_ratio_after_ipo: None,
+            pre_ipo_price: None,
         },
     )?;
 
