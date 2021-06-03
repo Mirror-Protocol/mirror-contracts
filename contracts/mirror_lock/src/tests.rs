@@ -42,6 +42,7 @@ fn proper_initialization() {
     assert_eq!("mint0000", config.mint_contract.as_str());
     assert_eq!(100u64, config.lockup_period);
 }
+
 #[test]
 fn update_config() {
     let mut deps = mock_dependencies(20, &[]);
@@ -117,7 +118,8 @@ fn lock_position_funds() {
             log("action", "lock_position_funds_hook"),
             log("position_idx", "1"),
             log("locked_amount", "100uusd"),
-            log("lock_time", "20"),
+            log("total_locked_amount", "100uusd"),
+            log("unlock_time", "120"),
         ]
     );
 
@@ -137,7 +139,8 @@ fn lock_position_funds() {
         PositionLockInfoResponse {
             idx: Uint128(1u128),
             receiver: HumanAddr::from("addr0000"),
-            locked_funds: vec![(20u64, Uint128(100u128)),]
+            locked_amount: Uint128(100u128),
+            unlock_time: 120u64,
         }
     );
 }
@@ -181,15 +184,6 @@ fn unlock_position_funds() {
         }],
     );
     let _res = handle(&mut deps, env, msg.clone()).unwrap();
-    let env = mock_env_with_block_time("mint0000", &[], 20u64);
-    deps.querier.with_bank_balance(
-        &HumanAddr::from(MOCK_CONTRACT_ADDR),
-        vec![Coin {
-            denom: "uusd".to_string(),
-            amount: Uint128(300u128), // lock 100uusd more
-        }],
-    );
-    let _res = handle(&mut deps, env, msg.clone()).unwrap();
 
     // query lock info
     let res: PositionLockInfoResponse = from_binary(
@@ -207,11 +201,8 @@ fn unlock_position_funds() {
         PositionLockInfoResponse {
             idx: Uint128(1u128),
             receiver: HumanAddr::from("addr0000"),
-            locked_funds: vec![
-                (1u64, Uint128(100u128)),
-                (10u64, Uint128(100u128)),
-                (20u64, Uint128(100u128)),
-            ]
+            locked_amount: Uint128(200),
+            unlock_time: 10u64 + 100u64, // from last lock time
         }
     );
 
@@ -227,44 +218,14 @@ fn unlock_position_funds() {
     // nothing to unlock
     let env = mock_env_with_block_time("addr0000", &[], 50u64);
     let res = handle(&mut deps, env, msg.clone()).unwrap_err();
-    assert_eq!(res, StdError::generic_err("Nothing to unlock"));
-
-    // unlock 100 UST
-    let env = mock_env_with_block_time("addr0000", &[], 101u64);
-    let res = handle(&mut deps, env, msg.clone()).unwrap();
-    assert_eq!(
-        res.log,
-        vec![
-            log("action", "unlock_shorting_funds"),
-            log("position_idx", "1"),
-            log("unlocked_amount", "100uusd"),
-            log("tax_amount", "1uusd"),
-        ]
-    );
-
-    // query lock info
-    let res: PositionLockInfoResponse = from_binary(
-        &query(
-            &deps,
-            QueryMsg::PositionLockInfo {
-                position_idx: Uint128(1u128),
-            },
-        )
-        .unwrap(),
-    )
-    .unwrap();
     assert_eq!(
         res,
-        PositionLockInfoResponse {
-            idx: Uint128(1u128),
-            receiver: HumanAddr::from("addr0000"),
-            locked_funds: vec![(10u64, Uint128(100u128)), (20u64, Uint128(100u128)),]
-        }
+        StdError::generic_err("Lock period has not expired yet. Unlocks at 110")
     );
 
-    // unlock everything else
+    // unlock 100 UST
     let env = mock_env_with_block_time("addr0000", &[], 120u64);
-    let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
+    let res = handle(&mut deps, env, msg.clone()).unwrap();
     assert_eq!(
         res.log,
         vec![
@@ -281,12 +242,13 @@ fn unlock_position_funds() {
             to_address: HumanAddr::from("addr0000"),
             amount: vec![Coin {
                 denom: "uusd".to_string(),
-                amount: Uint128(198u128),
+                amount: Uint128(198u128), // minus tax
             }]
         })]
     );
 
     // lock info does not exist anymore
+    let env = mock_env_with_block_time("addr0000", &[], 120u64);
     let res = handle(&mut deps, env, msg.clone()).unwrap_err();
     assert_eq!(
         res,
@@ -340,17 +302,14 @@ fn release_position_funds() {
     assert_eq!(
         res.log,
         vec![
-            log("action", "unlock_shorting_funds"),
+            log("action", "release_shorting_funds"),
             log("position_idx", "1"),
             log("unlocked_amount", "100uusd"),
             log("tax_amount", "1uusd"),
         ]
     );
 
-    // lock info does not exist anymore
-    let res = handle(&mut deps, env, msg.clone()).unwrap_err();
-    assert_eq!(
-        res,
-        StdError::generic_err("There are no locked funds for this position idx")
-    );
+    // lock info does not exist anymore, graceful return
+    let res = handle(&mut deps, env, msg.clone()).unwrap();
+    assert_eq!(res.log.len(), 0);
 }

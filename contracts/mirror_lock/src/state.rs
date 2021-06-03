@@ -1,14 +1,11 @@
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
-
 use cosmwasm_std::{CanonicalAddr, StdResult, Storage, Uint128};
-
 use cosmwasm_storage::{
     singleton, singleton_read, Bucket, ReadonlyBucket, ReadonlySingleton, Singleton,
 };
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 static PREFIX_LOCK_INFOS: &[u8] = b"lock_infos";
-
 static KEY_CONFIG: &[u8] = b"config";
 static KEY_TOTAL_LOCKED_FUNDS: &[u8] = b"total_locked_funds";
 
@@ -40,7 +37,8 @@ pub fn read_config<S: Storage>(storage: &S) -> StdResult<Config> {
 pub struct PositionLockInfo {
     pub idx: Uint128,
     pub receiver: CanonicalAddr,
-    pub locked_funds: Vec<(u64, Uint128)>, // locking time and amount
+    pub locked_amount: Uint128,
+    pub unlock_time: u64,
 }
 
 pub fn store_position_lock_info<S: Storage>(
