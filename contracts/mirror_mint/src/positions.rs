@@ -8,7 +8,7 @@ use crate::{
         assert_asset, assert_burn_period, assert_collateral, assert_migrated_asset,
         assert_mint_period, assert_revoked_collateral,
     },
-    math::{decimal_division, decimal_subtraction, reverse_decimal, decimal_multiplication},
+    math::{decimal_division, decimal_multiplication, decimal_subtraction, reverse_decimal},
     querier::{load_asset_price, load_collateral_info},
     state::{
         create_position, is_short_position, read_asset_config, read_config, read_position,
@@ -85,7 +85,8 @@ pub fn open_position<S: Storage, A: Api, Q: Querier>(
     let effective_cr = decimal_multiplication(collateral_ratio, collateral_multiplier);
 
     // Convert collateral to mint amount
-    let mint_amount = collateral.amount * asset_price_in_collateral_asset * reverse_decimal(effective_cr);
+    let mint_amount =
+        collateral.amount * asset_price_in_collateral_asset * reverse_decimal(effective_cr);
     if mint_amount.is_zero() {
         return Err(StdError::generic_err("collateral is too small"));
     }
@@ -355,11 +356,9 @@ pub fn withdraw<S: Storage, A: Api, Q: Querier>(
 
     Ok(HandleResponse {
         messages: vec![
-            vec![collateral.clone().into_msg(
-                &deps,
-                env.contract.address,
-                position_owner,
-            )?],
+            vec![collateral
+                .clone()
+                .into_msg(&deps, env.contract.address, position_owner)?],
             messages,
         ]
         .concat(),
@@ -570,9 +569,8 @@ pub fn burn<S: Storage, A: Api, Q: Querier>(
     let mut messages: Vec<CosmosMsg> = vec![];
     let mut logs: Vec<LogAttribute> = vec![];
 
-    // If mint_end is different than None, it is a pre-IPO asset.
-    // In that case, burning should be disabled after the minting period is over.
-    // Burning is enabled again after asset migration (IPO event), when mint_end is reset to None
+    // For preIPO assets, burning should be disabled after the minting period is over.
+    // Burning is enabled again after IPO event is triggered, when ipo_params are set to None
     assert_burn_period(&env, &asset_config)?;
 
     // Check if it is a short position
@@ -581,10 +579,8 @@ pub fn burn<S: Storage, A: Api, Q: Querier>(
     // If the collateral is default denom asset and the asset is deprecated,
     // anyone can execute burn the asset to any position without permission
     let mut close_position: bool = false;
-    if asset_config.end_price.is_some() {
-        let oracle: HumanAddr = deps.api.human_address(&config.oracle)?;
-        let asset_price: Decimal =
-            load_asset_price(&deps, &oracle, &position.asset.info, Some(env.block.time))?;
+    if let Some(end_price) = asset_config.end_price {
+        let asset_price: Decimal = end_price;
 
         // fetch collateral info from collateral oracle
         let collateral_oracle: HumanAddr = deps.api.human_address(&config.collateral_oracle)?;

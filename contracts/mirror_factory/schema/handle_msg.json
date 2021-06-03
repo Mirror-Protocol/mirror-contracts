@@ -338,8 +338,8 @@
             }
           ]
         },
-        "min_collateral_ratio_after_migration": {
-          "description": "For pre-IPO assets, collateral ratio for the asset after migration",
+        "min_collateral_ratio_after_ipo": {
+          "description": "For pre-IPO assets, collateral ratio for the asset after ipo",
           "anyOf": [
             {
               "$ref": "#/definitions/Decimal"
@@ -357,6 +357,17 @@
           ],
           "format": "uint64",
           "minimum": 0.0
+        },
+        "pre_ipo_price": {
+          "description": "For pre-IPO assets, fixed price during minting period",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Decimal"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "weight": {
           "description": "Distribution weight (default is 30, which is 1/10 of MIR distribution weight)",

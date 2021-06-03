@@ -47,18 +47,22 @@ pub enum HandleMsg {
         asset_token: HumanAddr,
         auction_discount: Option<Decimal>,
         min_collateral_ratio: Option<Decimal>,
+        ipo_params: Option<IPOParams>,
     },
     /// Generate asset token initialize msg and register required infos except token address
     RegisterAsset {
         asset_token: HumanAddr,
         auction_discount: Decimal,
         min_collateral_ratio: Decimal,
-        mint_end: Option<u64>,
-        min_collateral_ratio_after_migration: Option<Decimal>,
+        ipo_params: Option<IPOParams>,
     },
     RegisterMigration {
         asset_token: HumanAddr,
         end_price: Decimal,
+    },
+    /// Asset feeder is allowed to trigger IPO event on preIPO assets
+    TriggerIPO {
+        asset_token: HumanAddr,
     },
 
     //////////////////////
@@ -93,6 +97,13 @@ pub enum HandleMsg {
 pub struct ShortParams {
     pub belief_price: Option<Decimal>,
     pub max_spread: Option<Decimal>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct IPOParams {
+    pub mint_end: u64,
+    pub pre_ipo_price: Decimal,
+    pub min_collateral_ratio_after_ipo: Decimal,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -154,8 +165,7 @@ pub struct AssetConfigResponse {
     pub auction_discount: Decimal,
     pub min_collateral_ratio: Decimal,
     pub end_price: Option<Decimal>,
-    pub mint_end: Option<u64>,
-    pub min_collateral_ratio_after_migration: Option<Decimal>,
+    pub ipo_params: Option<IPOParams>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

@@ -41,6 +41,7 @@ pub struct WasmMockQuerier {
     oracle_price_querier: OraclePriceQuerier,
     collateral_oracle_querier: CollateralOracleQuerier,
     terraswap_pair_querier: TerraswapPairQuerier,
+    oracle_querier: OracleQuerier,
     canonical_length: usize,
 }
 
@@ -177,6 +178,29 @@ pub(crate) fn paris_to_map(pairs: &[(&String, &String, &HumanAddr)]) -> HashMap<
     pairs_map
 }
 
+#[derive(Clone, Default)]
+pub struct OracleQuerier {
+    feeders: HashMap<HumanAddr, HumanAddr>,
+}
+
+impl OracleQuerier {
+    pub fn new(feeders: &[(&HumanAddr, &HumanAddr)]) -> Self {
+        OracleQuerier {
+            feeders: address_pair_to_map(feeders),
+        }
+    }
+}
+
+pub(crate) fn address_pair_to_map(
+    address_pair: &[(&HumanAddr, &HumanAddr)],
+) -> HashMap<HumanAddr, HumanAddr> {
+    let mut address_pair_map: HashMap<HumanAddr, HumanAddr> = HashMap::new();
+    for (addr1, addr2) in address_pair.iter() {
+        address_pair_map.insert(HumanAddr::from(addr1), HumanAddr::from(addr2));
+    }
+    address_pair_map
+}
+
 impl Querier for WasmMockQuerier {
     fn raw_query(&self, bin_request: &[u8]) -> QuerierResult {
         // MockQuerier doesn't support Custom, so we ignore it completely here
@@ -298,8 +322,11 @@ impl WasmMockQuerier {
             QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
                 let key: &[u8] = key.as_slice();
                 let prefix_balance = to_length_prefixed(b"balance").to_vec();
+                let prefix_feeder = to_length_prefixed(b"feeder").to_vec();
 
-                if key[..prefix_balance.len()].to_vec() == prefix_balance {
+                if key.len() > prefix_balance.len()
+                    && key[..prefix_balance.len()].to_vec() == prefix_balance
+                {
                     let balances: &HashMap<HumanAddr, Uint128> =
                         match self.token_querier.balances.get(contract_addr) {
                             Some(balances) => balances,
@@ -339,6 +366,36 @@ impl WasmMockQuerier {
                     };
 
                     Ok(to_binary(&to_binary(&balance).unwrap()))
+                } else if key.len() > prefix_feeder.len()
+                    && key[..prefix_feeder.len()].to_vec() == prefix_feeder
+                {
+                    let api: MockApi = MockApi::new(self.canonical_length);
+                    let rest_key: &[u8] = &key[prefix_feeder.len()..];
+
+                    if contract_addr == &HumanAddr::from("oracle0000") {
+                        let asset_token: HumanAddr = api
+                            .human_address(&(CanonicalAddr::from(rest_key.to_vec())))
+                            .unwrap();
+
+                        let feeder = match self.oracle_querier.feeders.get(&asset_token) {
+                            Some(v) => v,
+                            None => {
+                                return Err(SystemError::InvalidRequest {
+                                    error: format!(
+                                        "Oracle Feeder is not found for {}",
+                                        asset_token
+                                    ),
+                                    request: key.into(),
+                                })
+                            }
+                        };
+
+                        Ok(to_binary(
+                            &to_binary(&api.canonical_address(&feeder).unwrap()).unwrap(),
+                        ))
+                    } else {
+                        panic!("DO NOT ENTER HERE")
+                    }
                 } else {
                     panic!("DO NOT ENTER HERE")
                 }
@@ -361,6 +418,7 @@ impl WasmMockQuerier {
             oracle_price_querier: OraclePriceQuerier::default(),
             collateral_oracle_querier: CollateralOracleQuerier::default(),
             terraswap_pair_querier: TerraswapPairQuerier::default(),
+            oracle_querier: OracleQuerier::default(),
             canonical_length,
         }
     }
@@ -391,5 +449,9 @@ impl WasmMockQuerier {
     // configure the terraswap factory pair mock querier
     pub fn with_terraswap_pair(&mut self, pairs: &[(&String, &String, &HumanAddr)]) {
         self.terraswap_pair_querier = TerraswapPairQuerier::new(pairs);
+    }
+
+    pub fn with_oracle_feeders(&mut self, feeders: &[(&HumanAddr, &HumanAddr)]) {
+        self.oracle_querier = OracleQuerier::new(feeders);
     }
 }

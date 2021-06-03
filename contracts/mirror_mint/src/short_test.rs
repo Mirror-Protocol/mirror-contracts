@@ -63,8 +63,7 @@ mod test {
             asset_token: HumanAddr::from("asset0000"),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
-            mint_end: None,
-            min_collateral_ratio_after_migration: None,
+            ipo_params: None,
         };
 
         let env = mock_env("owner0000", &[]);
@@ -74,8 +73,7 @@ mod test {
             asset_token: HumanAddr::from("asset0001"),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
-            mint_end: None,
-            min_collateral_ratio_after_migration: None,
+            ipo_params: None,
         };
 
         let env = mock_env("owner0000", &[]);
@@ -238,8 +236,7 @@ mod test {
             asset_token: HumanAddr::from("asset0000"),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
-            mint_end: None,
-            min_collateral_ratio_after_migration: None,
+            ipo_params: None,
         };
 
         let env = mock_env("owner0000", &[]);
@@ -249,8 +246,7 @@ mod test {
             asset_token: HumanAddr::from("asset0001"),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
-            mint_end: None,
-            min_collateral_ratio_after_migration: None,
+            ipo_params: None,
         };
 
         let env = mock_env("owner0000", &[]);
@@ -395,8 +391,7 @@ mod test {
             asset_token: HumanAddr::from("asset0000"),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
-            mint_end: None,
-            min_collateral_ratio_after_migration: None,
+            ipo_params: None,
         };
 
         let env = mock_env("owner0000", &[]);
@@ -406,8 +401,7 @@ mod test {
             asset_token: HumanAddr::from("asset0001"),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
-            mint_end: None,
-            min_collateral_ratio_after_migration: None,
+            ipo_params: None,
         };
 
         let env = mock_env("owner0000", &[]);
@@ -526,8 +520,7 @@ mod test {
             asset_token: HumanAddr::from("asset0000"),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
-            mint_end: None,
-            min_collateral_ratio_after_migration: None,
+            ipo_params: None,
         };
 
         let env = mock_env("owner0000", &[]);
@@ -537,8 +530,7 @@ mod test {
             asset_token: HumanAddr::from("asset0001"),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
-            mint_end: None,
-            min_collateral_ratio_after_migration: None,
+            ipo_params: None,
         };
 
         let env = mock_env("owner0000", &[]);
@@ -681,8 +673,7 @@ mod test {
             asset_token: HumanAddr::from("asset0000"),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(200),
-            mint_end: None,
-            min_collateral_ratio_after_migration: None,
+            ipo_params: None,
         };
 
         let env = mock_env("owner0000", &[]);

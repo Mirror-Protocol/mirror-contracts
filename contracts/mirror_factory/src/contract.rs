@@ -1,7 +1,7 @@
 use cosmwasm_std::{
     log, to_binary, Api, Binary, CanonicalAddr, CosmosMsg, Decimal, Env, Extern, HandleResponse,
-    HandleResult, HumanAddr, InitResponse, MigrateResponse, MigrateResult, Querier, StdError,
-    StdResult, Storage, Uint128, WasmMsg,
+    HandleResult, HumanAddr, InitResponse, LogAttribute, MigrateResponse, MigrateResult, Querier,
+    StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 
 use crate::querier::{load_mint_asset_config, load_oracle_feeder};
@@ -15,7 +15,7 @@ use crate::state::{
 use mirror_protocol::factory::{
     ConfigResponse, DistributionInfoResponse, HandleMsg, InitMsg, MigrateMsg, Params, QueryMsg,
 };
-use mirror_protocol::mint::HandleMsg as MintHandleMsg;
+use mirror_protocol::mint::{HandleMsg as MintHandleMsg, IPOParams};
 use mirror_protocol::oracle::HandleMsg as OracleHandleMsg;
 use mirror_protocol::staking::Cw20HookMsg as StakingCw20HookMsg;
 use mirror_protocol::staking::HandleMsg as StakingHandleMsg;
@@ -330,12 +330,34 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
     // Remove params == clear flag
     remove_params(&mut deps.storage);
 
-    // If it is a pre-IPO asset, calculate the end of the minting period
-    let mint_end = if let Some(mint_period) = params.mint_period {
-        Some(env.block.height + mint_period)
-    } else {
-        None
-    };
+    let mut logs: Vec<LogAttribute> = vec![];
+
+    // Check if all IPO params exist
+    let ipo_params: Option<IPOParams> =
+        if let (Some(mint_period), Some(min_collateral_ratio_after_ipo), Some(pre_ipo_price)) = (
+            params.mint_period,
+            params.min_collateral_ratio_after_ipo,
+            params.pre_ipo_price,
+        ) {
+            let mint_end: u64 = env.block.time + mint_period;
+            logs = vec![
+                log("is_pre_ipo", true),
+                log("mint_end", mint_end.to_string()),
+                log(
+                    "min_collateral_ratio_after_ipo",
+                    min_collateral_ratio_after_ipo.to_string(),
+                ),
+                log("pre_ipo_price", pre_ipo_price.to_string()),
+            ];
+            Some(IPOParams {
+                mint_end: mint_end,
+                min_collateral_ratio_after_ipo,
+                pre_ipo_price,
+            })
+        } else {
+            logs.push(log("is_pre_ipo", false));
+            None
+        };
 
     // Register asset to mint contract
     // Register asset to oracle contract
@@ -349,9 +371,7 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
                     asset_token: asset_token.clone(),
                     auction_discount: params.auction_discount,
                     min_collateral_ratio: params.min_collateral_ratio,
-                    mint_end,
-                    min_collateral_ratio_after_migration: params
-                        .min_collateral_ratio_after_migration,
+                    ipo_params,
                 })?,
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
@@ -383,7 +403,7 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
                 })?,
             }),
         ],
-        log: vec![log("asset_token_addr", asset_token.as_str())],
+        log: vec![vec![log("asset_token_addr", asset_token.as_str())], logs].concat(),
         data: None,
     })
 }
@@ -591,24 +611,18 @@ pub fn migrate_asset<S: Storage, A: Api, Q: Querier>(
     decrease_total_weight(&mut deps.storage, NORMAL_TOKEN_WEIGHT)?;
 
     let mint_contract = deps.api.human_address(&config.mint_contract)?;
-    let mint_config: (Decimal, Decimal, Option<Decimal>) =
+    let mint_config: (Decimal, Decimal) =
         load_mint_asset_config(&deps, &mint_contract, &asset_token_raw)?;
-
-    // check if the asset being migrated specifies a min CR after migration
-    let min_collateral_ratio = if let Some(min_collateral_ratio_after_migration) = mint_config.2 {
-        min_collateral_ratio_after_migration
-    } else {
-        mint_config.1
-    };
 
     store_params(
         &mut deps.storage,
         &Params {
             auction_discount: mint_config.0,
-            min_collateral_ratio,
+            min_collateral_ratio: mint_config.1,
             weight: Some(weight),
             mint_period: None,
-            min_collateral_ratio_after_migration: None,
+            min_collateral_ratio_after_ipo: None,
+            pre_ipo_price: None,
         },
     )?;
 
