@@ -74,7 +74,6 @@ mod tests {
             token_code_id: Some(100u64),
             protocol_fee_rate: None,
             collateral_oracle: None,
-            staking: None,
         };
         let res = handle(&mut deps, env, msg).unwrap();
         assert_eq!(0, res.messages.len());
@@ -94,7 +93,6 @@ mod tests {
             token_code_id: None,
             protocol_fee_rate: None,
             collateral_oracle: None,
-            staking: None,
         };
         let res = handle(&mut deps, env, msg);
         match res {

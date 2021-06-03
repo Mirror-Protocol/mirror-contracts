@@ -64,7 +64,6 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             oracle,
             collector,
             collateral_oracle,
-            staking,
             terraswap_factory,
             lock,
             token_code_id,
@@ -76,7 +75,6 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             oracle,
             collector,
             collateral_oracle,
-            staking,
             terraswap_factory,
             lock,
             token_code_id,
@@ -212,7 +210,6 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     oracle: Option<HumanAddr>,
     collector: Option<HumanAddr>,
     collateral_oracle: Option<HumanAddr>,
-    staking: Option<HumanAddr>,
     terraswap_factory: Option<HumanAddr>,
     lock: Option<HumanAddr>,
     token_code_id: Option<u64>,
@@ -238,10 +235,6 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
 
     if let Some(collateral_oracle) = collateral_oracle {
         config.collateral_oracle = deps.api.canonical_address(&collateral_oracle)?;
-    }
-
-    if let Some(staking) = staking {
-        config.staking = deps.api.canonical_address(&staking)?;
     }
 
     if let Some(terraswap_factory) = terraswap_factory {
