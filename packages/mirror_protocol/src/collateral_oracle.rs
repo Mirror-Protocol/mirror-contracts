@@ -3,7 +3,7 @@ use std::fmt;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Decimal, HumanAddr, Binary};
+use cosmwasm_std::{Decimal, HumanAddr};
 use terraswap::asset::AssetInfo;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -12,6 +12,9 @@ pub struct InitMsg {
     pub mint_contract: HumanAddr,
     pub factory_contract: HumanAddr,
     pub base_denom: String,
+    pub mirror_oracle: HumanAddr,
+    pub anchor_oracle: HumanAddr,
+    pub band_oracle: HumanAddr,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -22,6 +25,9 @@ pub enum HandleMsg {
         mint_contract: Option<HumanAddr>,
         factory_contract: Option<HumanAddr>,
         base_denom: Option<String>,
+        mirror_oracle: Option<HumanAddr>,
+        anchor_oracle: Option<HumanAddr>,
+        band_oracle: Option<HumanAddr>,
     },
     RegisterCollateralAsset {
         asset: AssetInfo,
@@ -60,6 +66,9 @@ pub struct ConfigResponse {
     pub mint_contract: HumanAddr,
     pub factory_contract: HumanAddr,
     pub base_denom: String,
+    pub mirror_oracle: HumanAddr,
+    pub anchor_oracle: HumanAddr,
+    pub band_oracle: HumanAddr,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -91,21 +100,18 @@ pub struct MigrateMsg {}
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SourceType {
-    TerraOracle {
-        terra_oracle_query: Binary,
-    },
-    BandOracle {
-        band_oracle_query: Binary,
-    },
+    MirrorOracle {},
+    AnchorOracle {},
+    BandOracle {},
     FixedPrice {
         price: Decimal,
     },
     Terraswap {
-        terraswap_query: Binary,
+        terraswap_pair_addr: HumanAddr,
         intermediate_denom: Option<String>,
     },
     AnchorMarket {
-        anchor_market_query: Binary,
+        anchor_market_addr: HumanAddr,
     },
     Native {
         native_denom: String,
@@ -115,7 +121,8 @@ pub enum SourceType {
 impl fmt::Display for SourceType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            SourceType::TerraOracle{..} => write!(f, "terra_oracle"),
+            SourceType::MirrorOracle{..} => write!(f, "mirror_oracle"),
+            SourceType::AnchorOracle{..} => write!(f, "anchor_oracle"),
             SourceType::BandOracle{..} => write!(f, "band_oracle"),
             SourceType::FixedPrice{..} => write!(f, "fixed_price"),
             SourceType::Terraswap{..} => write!(f, "terraswap"),
