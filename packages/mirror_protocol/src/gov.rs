@@ -163,6 +163,7 @@ pub struct StakerResponse {
     pub balance: Uint128,
     pub share: Uint128,
     pub locked_balance: Vec<(u64, VoterInfo)>,
+    pub withdrawable_polls: Vec<(u64, Uint128)>,
     pub pending_voting_rewards: Uint128,
 }
 
