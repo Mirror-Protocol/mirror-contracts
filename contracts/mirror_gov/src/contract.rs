@@ -8,6 +8,7 @@ use crate::state::{
     poll_voter_read, poll_voter_store, read_poll_voters, read_polls, state_read, state_store,
     Config, ExecuteData, Poll, State,
 };
+
 use cosmwasm_std::{
     from_binary, log, to_binary, Api, Binary, CosmosMsg, Decimal, Env, Extern, HandleResponse,
     HandleResult, HumanAddr, InitResponse, InitResult, MigrateResponse, MigrateResult, Querier,
@@ -178,10 +179,12 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
         }
 
         if let Some(quorum) = quorum {
+            validate_quorum(quorum)?;
             config.quorum = quorum;
         }
 
         if let Some(threshold) = threshold {
+            validate_threshold(threshold)?;
             config.threshold = threshold;
         }
 
@@ -202,6 +205,7 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
         }
 
         if let Some(voter_weight) = voter_weight {
+            validate_voter_weight(voter_weight)?;
             config.voter_weight = voter_weight;
         }
 
@@ -266,6 +270,14 @@ fn validate_quorum(quorum: Decimal) -> StdResult<()> {
 fn validate_threshold(threshold: Decimal) -> StdResult<()> {
     if threshold > Decimal::one() {
         Err(StdError::generic_err("threshold must be 0 to 1"))
+    } else {
+        Ok(())
+    }
+}
+
+pub fn validate_voter_weight(voter_weight: Decimal) -> StdResult<()> {
+    if voter_weight >= Decimal::one() {
+        Err(StdError::generic_err("voter_weight must be smaller than 1"))
     } else {
         Ok(())
     }

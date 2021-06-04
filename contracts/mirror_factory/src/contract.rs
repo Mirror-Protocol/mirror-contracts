@@ -430,7 +430,7 @@ pub fn terraswap_creation_hook<S: Storage, A: Api, Q: Querier>(
 
     let asset_infos = [
         AssetInfo::NativeToken {
-            denom: "uusd".to_string(),
+            denom: config.base_denom,
         },
         AssetInfo::Token {
             contract_addr: asset_token.clone(),
