@@ -84,16 +84,21 @@ pub fn load_collateral_info<S: Storage, A: Api, Q: Querier>(
         return Ok((Decimal::one(), Decimal::one(), false));
     }
 
-    // load collateral info from collateral oracle
-    let (collateral_oracle_price, collateral_multiplier, is_revoked) =
-        query_collateral(deps, collateral_oracle, collateral_denom, block_time)?;
-
-    // check if the collateral is a revoked mAsset, will ignore pre_ipo_price since all preIPO are not whitelisted in collateral oracle
+    // check if the collateral is a revoked mAsset, will ignore pre_ipo_price since all preIPO assets are not whitelisted in collateral oracle
     let end_price = read_fixed_price(&deps.storage, &collateral);
 
     if let Some(end_price) = end_price {
+        // load collateral_multiplier from collateral oracle
+        // if asset is revoked, no need to check for old price
+        let (_, collateral_multiplier, _) =
+            query_collateral(deps, collateral_oracle, collateral_denom, None)?;
+
         Ok((end_price, collateral_multiplier, true))
     } else {
+        // load collateral info from collateral oracle
+        let (collateral_oracle_price, collateral_multiplier, is_revoked) =
+            query_collateral(deps, collateral_oracle, collateral_denom, block_time)?;
+
         Ok((collateral_oracle_price, collateral_multiplier, is_revoked))
     }
 }

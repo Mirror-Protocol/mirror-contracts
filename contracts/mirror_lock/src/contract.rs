@@ -1,14 +1,12 @@
-use cosmwasm_std::{
-    log, to_binary, Api, Binary, CanonicalAddr, Env, Extern, HandleResponse, HumanAddr,
-    InitResponse, Querier, StdError, StdResult, Storage, Uint128,
-};
-
 use crate::state::{
     read_config, read_position_lock_info, remove_position_lock_info, store_config,
     store_position_lock_info, total_locked_funds_read, total_locked_funds_store, Config,
     PositionLockInfo,
 };
-
+use cosmwasm_std::{
+    log, to_binary, Api, Binary, CanonicalAddr, Env, Extern, HandleResponse, HumanAddr,
+    InitResponse, Querier, StdError, StdResult, Storage, Uint128,
+};
 use mirror_protocol::lock::{
     ConfigResponse, HandleMsg, InitMsg, PositionLockInfoResponse, QueryMsg,
 };
@@ -51,10 +49,10 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             receiver,
         } => lock_position_funds_hook(deps, env, position_idx, receiver),
         HandleMsg::UnlockPositionFunds { position_idx } => {
-            unlock_position_funds(deps, env, position_idx, true)
+            unlock_position_funds(deps, env, position_idx)
         }
         HandleMsg::ReleasePositionFunds { position_idx } => {
-            unlock_position_funds(deps, env, position_idx, false)
+            release_position_funds(deps, env, position_idx)
         }
     }
 }
@@ -109,9 +107,20 @@ pub fn lock_position_funds_hook<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::unauthorized());
     }
 
+    let current_balance: Uint128 =
+        query_balance(deps, &env.contract.address, config.base_denom.clone())?;
+    let locked_funds: Uint128 = total_locked_funds_read(&deps.storage).load()?;
+    let position_locked_amount: Uint128 = (current_balance - locked_funds)?;
+
+    if position_locked_amount.is_zero() {
+        // nothing to lock
+        return Err(StdError::generic_err("Nothing to lock"));
+    }
+
+    let unlock_time: u64 = env.block.time + config.lockup_period;
     let receiver_raw: CanonicalAddr = deps.api.canonical_address(&receiver)?;
-    let mut lock_info: PositionLockInfo =
-        if let Ok(lock_info) = read_position_lock_info(&deps.storage, position_idx) {
+    let lock_info: PositionLockInfo =
+        if let Ok(mut lock_info) = read_position_lock_info(&deps.storage, position_idx) {
             // assert position receiver
             if receiver_raw != lock_info.receiver {
                 // should never happen
@@ -119,24 +128,18 @@ pub fn lock_position_funds_hook<S: Storage, A: Api, Q: Querier>(
                     "Receiver address do not match with existing record",
                 ));
             }
+            // increase amount
+            lock_info.locked_amount += position_locked_amount;
+            lock_info.unlock_time = unlock_time;
             lock_info
         } else {
             PositionLockInfo {
                 idx: position_idx,
                 receiver: receiver_raw,
-                locked_funds: vec![],
+                locked_amount: position_locked_amount,
+                unlock_time: unlock_time,
             }
         };
-
-    let current_balance: Uint128 =
-        query_balance(deps, &env.contract.address, config.base_denom.clone())?;
-    let locked_funds: Uint128 = total_locked_funds_read(&deps.storage).load()?;
-
-    let position_locked_amount: Uint128 = (current_balance - locked_funds)?;
-
-    lock_info
-        .locked_funds
-        .push((env.block.time, position_locked_amount));
 
     store_position_lock_info(&mut deps.storage, &lock_info)?;
     total_locked_funds_store(&mut deps.storage).save(&current_balance)?;
@@ -149,7 +152,11 @@ pub fn lock_position_funds_hook<S: Storage, A: Api, Q: Querier>(
                 "locked_amount",
                 position_locked_amount.to_string() + &config.base_denom,
             ),
-            log("lock_time", env.block.time),
+            log(
+                "total_locked_amount",
+                lock_info.locked_amount.to_string() + &config.base_denom,
+            ),
+            log("unlock_time", unlock_time),
         ],
         messages: vec![],
         data: None,
@@ -160,12 +167,10 @@ pub fn unlock_position_funds<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     position_idx: Uint128,
-    check_lock_period: bool,
 ) -> StdResult<HandleResponse> {
     let config: Config = read_config(&deps.storage)?;
     let sender_addr_raw: CanonicalAddr = deps.api.canonical_address(&env.message.sender)?;
-    let mut lock_info: PositionLockInfo = match read_position_lock_info(&deps.storage, position_idx)
-    {
+    let lock_info: PositionLockInfo = match read_position_lock_info(&deps.storage, position_idx) {
         Ok(lock_info) => lock_info,
         Err(_) => {
             return Err(StdError::generic_err(
@@ -174,48 +179,32 @@ pub fn unlock_position_funds<S: Storage, A: Api, Q: Querier>(
         }
     };
 
-    // sparate the funds that can be unlocked
-    let (to_unlock, remaining): (Vec<(u64, Uint128)>, Vec<(u64, Uint128)>) = if check_lock_period {
-        // only position owner can unlock funds
-        if sender_addr_raw != lock_info.receiver {
-            return Err(StdError::unauthorized());
-        }
-        lock_info
-            .locked_funds
-            .iter()
-            .partition(|(lock_time, _)| env.block.time >= lock_time + config.lockup_period)
-    } else {
-        // only mint contract can force claim all funds, without checking lock period
-        if sender_addr_raw != config.mint_contract {
-            return Err(StdError::unauthorized());
-        }
-        (lock_info.locked_funds, vec![])
-    };
-
-    if to_unlock.is_empty() {
-        return Err(StdError::generic_err("Nothing to unlock"));
+    // only position owner can unlock funds
+    if sender_addr_raw != lock_info.receiver {
+        return Err(StdError::unauthorized());
     }
 
-    // calculate amount to unlock
-    let unlock_amount: u128 = to_unlock.iter().map(|item| item.1.u128()).sum();
+    if env.block.time < lock_info.unlock_time {
+        return Err(StdError::generic_err(format!(
+            "Lock period has not expired yet. Unlocks at {}",
+            lock_info.unlock_time
+        )));
+    }
+
+    let unlok_amount: Uint128 = lock_info.locked_amount;
     let unlock_asset = Asset {
         info: AssetInfo::NativeToken {
             denom: config.base_denom.clone(),
         },
-        amount: Uint128(unlock_amount),
+        amount: unlok_amount,
     };
 
-    if remaining.is_empty() {
-        remove_position_lock_info(&mut deps.storage, position_idx);
-    } else {
-        // update the lock info
-        lock_info.locked_funds = remaining;
-        store_position_lock_info(&mut deps.storage, &lock_info)?;
-    }
+    // remove lock record
+    remove_position_lock_info(&mut deps.storage, position_idx);
 
     // decrease locked amount
     total_locked_funds_store(&mut deps.storage).update(|current| {
-        let new_total = (current - Uint128(unlock_amount))?;
+        let new_total = (current - unlok_amount)?;
         Ok(new_total)
     })?;
 
@@ -224,6 +213,61 @@ pub fn unlock_position_funds<S: Storage, A: Api, Q: Querier>(
     Ok(HandleResponse {
         log: vec![
             log("action", "unlock_shorting_funds"),
+            log("position_idx", position_idx.to_string()),
+            log("unlocked_amount", unlock_asset.to_string()),
+            log("tax_amount", tax_amount.to_string() + &config.base_denom),
+        ],
+        messages: vec![unlock_asset.into_msg(
+            &deps,
+            env.contract.address,
+            deps.api.human_address(&lock_info.receiver)?,
+        )?],
+        data: None,
+    })
+}
+
+pub fn release_position_funds<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    position_idx: Uint128,
+) -> StdResult<HandleResponse> {
+    let config: Config = read_config(&deps.storage)?;
+    let sender_addr_raw: CanonicalAddr = deps.api.canonical_address(&env.message.sender)?;
+    // only mint contract can force claim all funds, without checking lock period
+    if sender_addr_raw != config.mint_contract {
+        return Err(StdError::unauthorized());
+    }
+
+    let lock_info: PositionLockInfo = match read_position_lock_info(&deps.storage, position_idx) {
+        Ok(lock_info) => lock_info,
+        Err(_) => {
+            return Ok(HandleResponse::default()); // user previously unlocked funds, graceful return
+        }
+    };
+
+    // ingnore lock period, and unlock funds
+    let unlock_amount: Uint128 = lock_info.locked_amount;
+    let unlock_asset = Asset {
+        info: AssetInfo::NativeToken {
+            denom: config.base_denom.clone(),
+        },
+        amount: unlock_amount,
+    };
+
+    // remove position info
+    remove_position_lock_info(&mut deps.storage, position_idx);
+
+    // decrease locked amount
+    total_locked_funds_store(&mut deps.storage).update(|current| {
+        let new_total = (current - unlock_amount)?;
+        Ok(new_total)
+    })?;
+
+    let tax_amount: Uint128 = unlock_asset.compute_tax(&deps)?;
+
+    Ok(HandleResponse {
+        log: vec![
+            log("action", "release_shorting_funds"),
             log("position_idx", position_idx.to_string()),
             log("unlocked_amount", unlock_asset.to_string()),
             log("tax_amount", tax_amount.to_string() + &config.base_denom),
@@ -272,7 +316,8 @@ pub fn query_position_lock_info<S: Storage, A: Api, Q: Querier>(
     let resp = PositionLockInfoResponse {
         idx: lock_info.idx,
         receiver: deps.api.human_address(&lock_info.receiver)?,
-        locked_funds: lock_info.locked_funds,
+        locked_amount: lock_info.locked_amount,
+        unlock_time: lock_info.unlock_time,
     };
 
     Ok(resp)

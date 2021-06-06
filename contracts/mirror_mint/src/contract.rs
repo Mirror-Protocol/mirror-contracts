@@ -5,7 +5,7 @@ use cosmwasm_std::{
 };
 
 use crate::{
-    asserts::{assert_auction_discount, assert_min_collateral_ratio},
+    asserts::{assert_auction_discount, assert_min_collateral_ratio, assert_protocol_fee},
     migration::{migrate_asset_configs, migrate_config},
     positions::{
         auction, burn, deposit, mint, open_position, query_next_position_idx, query_position,
@@ -64,7 +64,6 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             oracle,
             collector,
             collateral_oracle,
-            staking,
             terraswap_factory,
             lock,
             token_code_id,
@@ -76,7 +75,6 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             oracle,
             collector,
             collateral_oracle,
-            staking,
             terraswap_factory,
             lock,
             token_code_id,
@@ -212,7 +210,6 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     oracle: Option<HumanAddr>,
     collector: Option<HumanAddr>,
     collateral_oracle: Option<HumanAddr>,
-    staking: Option<HumanAddr>,
     terraswap_factory: Option<HumanAddr>,
     lock: Option<HumanAddr>,
     token_code_id: Option<u64>,
@@ -240,10 +237,6 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
         config.collateral_oracle = deps.api.canonical_address(&collateral_oracle)?;
     }
 
-    if let Some(staking) = staking {
-        config.staking = deps.api.canonical_address(&staking)?;
-    }
-
     if let Some(terraswap_factory) = terraswap_factory {
         config.terraswap_factory = deps.api.canonical_address(&terraswap_factory)?;
     }
@@ -257,6 +250,7 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     }
 
     if let Some(protocol_fee_rate) = protocol_fee_rate {
+        assert_protocol_fee(protocol_fee_rate)?;
         config.protocol_fee_rate = protocol_fee_rate;
     }
 

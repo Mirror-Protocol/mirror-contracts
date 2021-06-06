@@ -4,33 +4,24 @@
   "type": "object",
   "required": [
     "idx",
-    "locked_funds",
-    "receiver"
+    "locked_amount",
+    "receiver",
+    "unlock_time"
   ],
   "properties": {
     "idx": {
       "$ref": "#/definitions/Uint128"
     },
-    "locked_funds": {
-      "type": "array",
-      "items": {
-        "type": "array",
-        "items": [
-          {
-            "type": "integer",
-            "format": "uint64",
-            "minimum": 0.0
-          },
-          {
-            "$ref": "#/definitions/Uint128"
-          }
-        ],
-        "maxItems": 2,
-        "minItems": 2
-      }
+    "locked_amount": {
+      "$ref": "#/definitions/Uint128"
     },
     "receiver": {
       "$ref": "#/definitions/HumanAddr"
+    },
+    "unlock_time": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
     }
   },
   "definitions": {

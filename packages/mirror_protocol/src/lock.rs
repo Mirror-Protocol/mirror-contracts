@@ -53,5 +53,6 @@ pub struct ConfigResponse {
 pub struct PositionLockInfoResponse {
     pub idx: Uint128,
     pub receiver: HumanAddr,
-    pub locked_funds: Vec<(u64, Uint128)>, // lock_block_height, amount
+    pub locked_amount: Uint128,
+    pub unlock_time: u64,
 }

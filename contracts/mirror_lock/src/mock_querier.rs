@@ -4,7 +4,6 @@ use cosmwasm_std::{
     QueryRequest, SystemError, Uint128,
 };
 use std::collections::HashMap;
-
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 
 pub fn mock_dependencies(

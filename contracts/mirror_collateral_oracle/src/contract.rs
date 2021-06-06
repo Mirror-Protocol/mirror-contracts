@@ -27,6 +27,9 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
             mint_contract: deps.api.canonical_address(&msg.mint_contract)?,
             factory_contract: deps.api.canonical_address(&msg.factory_contract)?,
             base_denom: msg.base_denom,
+            mirror_oracle: deps.api.canonical_address(&msg.mirror_oracle)?,
+            anchor_oracle: deps.api.canonical_address(&msg.anchor_oracle)?,
+            band_oracle: deps.api.canonical_address(&msg.band_oracle)?,
         },
     )?;
 
@@ -44,6 +47,9 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             mint_contract,
             factory_contract,
             base_denom,
+            mirror_oracle,
+            anchor_oracle,
+            band_oracle,
         } => update_config(
             deps,
             env,
@@ -51,6 +57,9 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             mint_contract,
             factory_contract,
             base_denom,
+            mirror_oracle,
+            anchor_oracle,
+            band_oracle,
         ),
         HandleMsg::RegisterCollateralAsset {
             asset,
@@ -75,6 +84,9 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     mint_contract: Option<HumanAddr>,
     factory_contract: Option<HumanAddr>,
     base_denom: Option<String>,
+    mirror_oracle: Option<HumanAddr>,
+    anchor_oracle: Option<HumanAddr>,
+    band_oracle: Option<HumanAddr>,
 ) -> HandleResult {
     let mut config: Config = read_config(&deps.storage)?;
     if deps.api.canonical_address(&env.message.sender)? != config.owner {
@@ -95,6 +107,18 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
 
     if let Some(base_denom) = base_denom {
         config.base_denom = base_denom;
+    }
+
+    if let Some(mirror_oracle) = mirror_oracle {
+        config.mirror_oracle = deps.api.canonical_address(&mirror_oracle)?;
+    }
+
+    if let Some(anchor_oracle) = anchor_oracle {
+        config.anchor_oracle = deps.api.canonical_address(&anchor_oracle)?;
+    }
+
+    if let Some(band_oracle) = band_oracle {
+        config.band_oracle = deps.api.canonical_address(&band_oracle)?;
     }
 
     store_config(&mut deps.storage, &config)?;
@@ -240,6 +264,9 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
         mint_contract: deps.api.human_address(&config.mint_contract)?,
         factory_contract: deps.api.human_address(&config.factory_contract)?,
         base_denom: config.base_denom,
+        mirror_oracle: deps.api.human_address(&config.mirror_oracle)?,
+        anchor_oracle: deps.api.human_address(&config.anchor_oracle)?,
+        band_oracle: deps.api.human_address(&config.band_oracle)?,
     };
 
     Ok(resp)
@@ -259,7 +286,7 @@ pub fn query_collateral_price<S: Storage, A: Api, Q: Querier>(
         };
 
     let (price, last_updated): (Decimal, u64) =
-        query_price(deps, collateral.price_source, config.base_denom)?;
+        query_price(deps, &config, &quote_asset, &collateral.price_source)?;
 
     Ok(CollateralPriceResponse {
         asset: collateral.asset,

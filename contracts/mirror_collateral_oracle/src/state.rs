@@ -15,6 +15,9 @@ pub struct Config {
     pub mint_contract: CanonicalAddr,
     pub factory_contract: CanonicalAddr,
     pub base_denom: String,
+    pub mirror_oracle: CanonicalAddr,
+    pub anchor_oracle: CanonicalAddr,
+    pub band_oracle: CanonicalAddr,
 }
 
 pub fn store_config<S: Storage>(storage: &mut S, config: &Config) -> StdResult<()> {

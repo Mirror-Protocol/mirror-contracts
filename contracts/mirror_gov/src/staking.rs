@@ -83,7 +83,7 @@ pub fn withdraw_voting_tokens<S: Storage, A: Api, Q: Querier>(
         )? - total_locked_balance)?
             .u128();
 
-        let user_locked_balance = compute_locked_balance(deps, &mut token_manager)?;
+        let user_locked_balance = compute_locked_balance(deps, &mut token_manager, &&sender_address_raw)?;
         let user_locked_share = user_locked_balance * total_share / total_balance;
         let user_share = token_manager.share.u128();
 
@@ -124,12 +124,18 @@ pub fn withdraw_voting_tokens<S: Storage, A: Api, Q: Querier>(
 fn compute_locked_balance<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     token_manager: &mut TokenManager,
+    voter: &CanonicalAddr,
 ) -> StdResult<u128> {
     // filter out not in-progress polls
     token_manager.locked_balance.retain(|(poll_id, _)| {
         let poll: Poll = poll_read(&deps.storage)
             .load(&poll_id.to_be_bytes())
             .unwrap();
+
+        // cleanup not needed information, voting info in polls with no rewards
+        if poll.status != PollStatus::InProgress && poll.voters_reward.is_zero() {
+            poll_voter_store(&mut deps.storage, *poll_id).remove(&voter.as_slice());
+        }
 
         poll.status == PollStatus::InProgress
     });
@@ -324,7 +330,7 @@ fn get_withdrawable_polls<S: Storage>(
             (poll, voter_info_res)
         })
         .filter(|(poll, voter_info_res)| {
-            poll.status != PollStatus::InProgress && voter_info_res.is_ok()
+            poll.status != PollStatus::InProgress && voter_info_res.is_ok() && !poll.voters_reward.is_zero()
         })
         .map(|(poll, voter_info_res)| (poll, voter_info_res.unwrap()))
         .collect();
@@ -375,18 +381,22 @@ pub fn query_staker<S: Storage, A: Api, Q: Querier>(
     // calculate pending voting rewards
     let w_polls: Vec<(Poll, VoterInfo)> =
         get_withdrawable_polls(&deps.storage, &token_manager, &addr_raw);
-    let user_reward_amount: u128 = w_polls
+
+    let mut user_reward_amount = Uint128::zero();
+    let w_polls_res: Vec<(u64, Uint128)> = w_polls
         .iter()
         .map(|(poll, voting_info)| {
             // calculate reward share
             let total_votes =
-                poll.no_votes.u128() + poll.yes_votes.u128() + poll.abstain_votes.u128();
+                poll.no_votes + poll.yes_votes + poll.abstain_votes;
             let poll_voting_reward = poll
                 .voters_reward
                 .multiply_ratio(voting_info.balance, total_votes);
-            poll_voting_reward.u128()
+            user_reward_amount += poll_voting_reward;
+
+            (poll.id, poll_voting_reward)
         })
-        .sum();
+        .collect();
 
     // filter out not in-progress polls
     token_manager.locked_balance.retain(|(poll_id, _)| {
@@ -414,6 +424,7 @@ pub fn query_staker<S: Storage, A: Api, Q: Querier>(
         },
         share: token_manager.share,
         locked_balance: token_manager.locked_balance,
-        pending_voting_rewards: Uint128(user_reward_amount),
+        pending_voting_rewards: user_reward_amount,
+        withdrawable_polls: w_polls_res,
     })
 }
