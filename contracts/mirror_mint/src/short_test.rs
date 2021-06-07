@@ -452,7 +452,7 @@ mod test {
                 .unwrap(),
             ),
         });
-        let env = mock_env("asset0000", &[]);
+        let env = mock_env_with_block_time("asset0000", &[], 1000);
         let res = handle(&mut deps, env.clone(), msg).unwrap();
 
         assert_eq!(
@@ -460,7 +460,8 @@ mod test {
             vec![
                 log("action", "burn"),
                 log("position_idx", "1"),
-                log("burn_amount", "100asset0000"),
+                log("burn_amount", "100asset0000"), // value = 100
+                log("protocol_fee", "1uusd"),
             ]
         );
 
@@ -474,6 +475,14 @@ mod test {
                         amount: Uint128(100u128),
                     })
                     .unwrap(),
+                }),
+                CosmosMsg::Bank(BankMsg::Send {
+                    from_address: HumanAddr::from(MOCK_CONTRACT_ADDR),
+                    to_address: HumanAddr::from("collector0000"),
+                    amount: vec![Coin {
+                        denom: "uusd".to_string(),
+                        amount: Uint128(1u128)
+                    }],
                 }),
                 CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: HumanAddr::from("staking0000"),
@@ -724,7 +733,7 @@ mod test {
                 .unwrap(),
             ),
         });
-        let env = mock_env("asset0000", &[]);
+        let env = mock_env_with_block_time("asset0000", &[], 1000);
         let _res = handle(&mut deps, env.clone(), msg).unwrap();
 
         // withdraw all collateral
@@ -734,7 +743,7 @@ mod test {
                 info: AssetInfo::NativeToken {
                     denom: "uusd".to_string(),
                 },
-                amount: Uint128(200u128),
+                amount: Uint128(199u128), // 1 collateral spent as protocol fee
             },
         };
         let env = mock_env_with_block_time("addr0000", &[], 1000);
