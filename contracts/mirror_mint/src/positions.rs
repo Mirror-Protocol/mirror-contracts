@@ -332,26 +332,8 @@ pub fn withdraw<S: Storage, A: Api, Q: Querier>(
         store_position(&mut deps.storage, position_idx, &position)?;
     }
 
-    let mut collateral = collateral;
-
-    // Deduct protocol fee
-    let protocol_fee = Asset {
-        info: collateral.info.clone(),
-        amount: collateral.amount * config.protocol_fee_rate,
-    };
-
-    collateral.amount = (collateral.amount - protocol_fee.amount)?;
-
     // Compute tax amount
     let tax_amount = collateral.compute_tax(&deps)?;
-
-    if !protocol_fee.amount.is_zero() {
-        messages.push(protocol_fee.clone().into_msg(
-            &deps,
-            env.contract.address.clone(),
-            deps.api.human_address(&config.collector)?,
-        )?);
-    }
 
     Ok(HandleResponse {
         messages: vec![
@@ -369,7 +351,6 @@ pub fn withdraw<S: Storage, A: Api, Q: Querier>(
                 "tax_amount",
                 tax_amount.to_string() + &collateral.info.to_string(),
             ),
-            log("protocol_fee", protocol_fee.to_string()),
         ],
         data: None,
     })
@@ -575,29 +556,27 @@ pub fn burn<S: Storage, A: Api, Q: Querier>(
     // Check if it is a short position
     let is_short_position: bool = is_short_position(&deps.storage, position_idx)?;
 
+    // fetch collateral info from collateral oracle
+    let collateral_oracle: HumanAddr = deps.api.human_address(&config.collateral_oracle)?;
+    let (collateral_price, _collateral_multiplier, _collateral_is_revoked) = load_collateral_info(
+        &deps,
+        &collateral_oracle,
+        &position.collateral.info,
+        Some(env.block.time),
+    )?;
+
     // If the collateral is default denom asset and the asset is deprecated,
     // anyone can execute burn the asset to any position without permission
     let mut close_position: bool = false;
     if let Some(end_price) = asset_config.end_price {
         let asset_price: Decimal = end_price;
-
-        // fetch collateral info from collateral oracle
-        let collateral_oracle: HumanAddr = deps.api.human_address(&config.collateral_oracle)?;
-        let (collateral_price, _collateral_multiplier, _collateral_is_revoked) =
-            load_collateral_info(
-                &deps,
-                &collateral_oracle,
-                &position.collateral.info,
-                Some(env.block.time),
-            )?;
-
         let collateral_price_in_asset = decimal_division(asset_price, collateral_price);
 
         // Burn deprecated asset to receive collaterals back
         let conversion_rate =
             Decimal::from_ratio(position.collateral.amount, position.asset.amount);
-        let refund_collateral = Asset {
-            info: collateral_info,
+        let mut refund_collateral = Asset {
+            info: collateral_info.clone(),
             amount: std::cmp::min(
                 burn_amount * collateral_price_in_asset,
                 burn_amount * conversion_rate,
@@ -617,6 +596,22 @@ pub fn burn<S: Storage, A: Api, Q: Querier>(
             store_position(&mut deps.storage, position_idx, &position)?;
         }
 
+        // Subtract protocol fee from refunded collateral
+        let protocol_fee = Asset {
+            info: collateral_info,
+            amount: burn_amount * collateral_price_in_asset * config.protocol_fee_rate,
+        };
+
+        if !protocol_fee.amount.is_zero() {
+            messages.push(protocol_fee.clone().into_msg(
+                &deps,
+                env.contract.address.clone(),
+                deps.api.human_address(&config.collector)?,
+            )?);
+            refund_collateral.amount = (refund_collateral.amount - protocol_fee.amount).unwrap();
+        }
+        logs.push(log("protocol_fee", protocol_fee.to_string()));
+
         // Refund collateral msg
         messages.push(
             refund_collateral
@@ -632,6 +627,31 @@ pub fn burn<S: Storage, A: Api, Q: Querier>(
         if sender != position_owner {
             return Err(StdError::unauthorized());
         }
+        let oracle = deps.api.human_address(&config.oracle)?;
+        let asset_price: Decimal = load_asset_price(
+            deps,
+            &oracle,
+            &asset.info.to_raw(deps)?,
+            Some(env.block.time),
+        )?;
+        let collateral_price_in_asset: Decimal = decimal_division(asset_price, collateral_price);
+
+        // Subtract the protocol fee from the position's collateral
+        let protocol_fee = Asset {
+            info: collateral_info,
+            amount: burn_amount * collateral_price_in_asset * config.protocol_fee_rate,
+        };
+
+        if !protocol_fee.amount.is_zero() {
+            messages.push(protocol_fee.clone().into_msg(
+                &deps,
+                env.contract.address,
+                deps.api.human_address(&config.collector)?,
+            )?);
+            position.collateral.amount =
+                (position.collateral.amount - protocol_fee.amount).unwrap();
+        }
+        logs.push(log("protocol_fee", protocol_fee.to_string()));
 
         // Update asset amount
         position.asset.amount = (position.asset.amount - burn_amount).unwrap();
@@ -755,7 +775,7 @@ pub fn auction<S: Storage, A: Api, Q: Querier>(
 
     // Cap return collateral amount to position collateral amount
     // If the given asset amount exceeds the amount required to liquidate position,
-    // left asset amount will be refunds to executor.
+    // left asset amount will be refunded to the executor.
     let (return_collateral_amount, refund_asset_amount) =
         if asset_value_in_collateral_asset > position.collateral.amount {
             // refunds left asset to position liquidator
@@ -824,7 +844,8 @@ pub fn auction<S: Storage, A: Api, Q: Querier>(
     }));
 
     // Deduct protocol fee
-    let protocol_fee = return_collateral_amount * config.protocol_fee_rate;
+    let protocol_fee =
+        liquidated_asset_amount * collateral_price_in_asset * config.protocol_fee_rate;
     let return_collateral_amount = (return_collateral_amount - protocol_fee).unwrap();
 
     // return collateral to liquidation initiator(sender)

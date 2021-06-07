@@ -1044,7 +1044,7 @@ mod tests {
                 .unwrap(),
             ),
         });
-        let env = mock_env("asset0000", &[]);
+        let env = mock_env_with_block_time("asset0000", &[], 1000);
         let res = handle(&mut deps, env, msg).unwrap();
         assert_eq!(
             res.log,
@@ -1052,18 +1052,29 @@ mod tests {
                 log("action", "burn"),
                 log("position_idx", "1"),
                 log("burn_amount", "13333asset0000"),
+                log("protocol_fee", "13333uusd") // 13333 * 100 (price) * 0.01 (protocol_fee)
             ]
         );
         assert_eq!(
             res.messages,
-            vec![CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("asset0000"),
-                msg: to_binary(&Cw20HandleMsg::Burn {
-                    amount: Uint128(13333u128),
-                })
-                .unwrap(),
-                send: vec![],
-            })]
+            vec![
+                CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: HumanAddr::from("asset0000"),
+                    msg: to_binary(&Cw20HandleMsg::Burn {
+                        amount: Uint128(13333u128),
+                    })
+                    .unwrap(),
+                    send: vec![],
+                }),
+                CosmosMsg::Bank(BankMsg::Send {
+                    from_address: HumanAddr::from(MOCK_CONTRACT_ADDR),
+                    to_address: HumanAddr::from("collector0000"),
+                    amount: vec![Coin {
+                        denom: "uusd".to_string(),
+                        amount: Uint128(13333u128)
+                    }],
+                }),
+            ]
         );
 
         // mint other asset
@@ -1110,7 +1121,7 @@ mod tests {
                 .unwrap(),
             ),
         });
-        let env = mock_env("asset0000", &[]);
+        let env = mock_env_with_block_time("asset0000", &[], 1000);
         let res = handle(&mut deps, env, msg).unwrap();
         assert_eq!(
             res.log,
@@ -1118,18 +1129,30 @@ mod tests {
                 log("action", "burn"),
                 log("position_idx", "2"),
                 log("burn_amount", "666666asset0000"),
+                log("protocol_fee", "13333asset0001"), // 666666 * 100 * 0.01 / 50
             ]
         );
         assert_eq!(
             res.messages,
-            vec![CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("asset0000"),
-                msg: to_binary(&Cw20HandleMsg::Burn {
-                    amount: Uint128(666666u128),
+            vec![
+                CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: HumanAddr::from("asset0000"),
+                    msg: to_binary(&Cw20HandleMsg::Burn {
+                        amount: Uint128(666666u128),
+                    })
+                    .unwrap(),
+                    send: vec![],
+                }),
+                CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: HumanAddr::from("asset0001"),
+                    msg: to_binary(&Cw20HandleMsg::Transfer {
+                        recipient: HumanAddr::from("collector0000"),
+                        amount: Uint128(13333u128)
+                    })
+                    .unwrap(),
+                    send: vec![],
                 })
-                .unwrap(),
-                send: vec![],
-            })]
+            ]
         );
     }
 
@@ -1275,9 +1298,8 @@ mod tests {
             vec![
                 log("action", "withdraw"),
                 log("position_idx", "1"),
-                log("withdraw_amount", "99uusd"),
+                log("withdraw_amount", "100uusd"),
                 log("tax_amount", "1uusd"),
-                log("protocol_fee", "1uusd"),
             ]
         );
 
@@ -1320,7 +1342,6 @@ mod tests {
                 log("position_idx", "2"),
                 log("withdraw_amount", "1asset0001"),
                 log("tax_amount", "0asset0001"),
-                log("protocol_fee", "0asset0001"),
             ]
         );
     }
@@ -1585,7 +1606,7 @@ mod tests {
                 CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: HumanAddr::from("asset0000"),
                     msg: to_binary(&Cw20HandleMsg::Burn {
-                        amount: Uint128(6666u128),
+                        amount: Uint128(6666u128), // asset value in collateral = 6666 * 116  = 773256 -- protocol fee = 7732
                     })
                     .unwrap(),
                     send: vec![],
@@ -1596,9 +1617,9 @@ mod tests {
                     amount: vec![Coin {
                         denom: "uusd".to_string(),
                         // Origin:          966,570
-                        // ProtocolFee(1%): -9,665
-                        // Tax(5%):         -45,567
-                        amount: Uint128(911338u128)
+                        // ProtocolFee(1%): -7,732
+                        // Tax(5%):         -45,659
+                        amount: Uint128(913179u128)
                     }],
                 }),
                 CosmosMsg::Bank(BankMsg::Send {
@@ -1606,9 +1627,9 @@ mod tests {
                     to_address: HumanAddr::from("collector0000"),
                     amount: vec![Coin {
                         denom: "uusd".to_string(),
-                        // Origin:  9,665
-                        // Tax(5%): -461
-                        amount: Uint128(9204u128)
+                        // Origin:  7732
+                        // Tax(5%): -369
+                        amount: Uint128(7363u128)
                     }]
                 })
             ],
@@ -1619,10 +1640,10 @@ mod tests {
                 log("action", "auction"),
                 log("position_idx", "1"),
                 log("owner", "addr0000"),
-                log("return_collateral_amount", "956905uusd"),
+                log("return_collateral_amount", "958838uusd"),
                 log("liquidated_amount", "6666asset0000"),
-                log("tax_amount", "45567uusd"),
-                log("protocol_fee", "9665uusd"),
+                log("tax_amount", "45659uusd"),
+                log("protocol_fee", "7732uusd"),
             ]
         );
 
@@ -1679,7 +1700,7 @@ mod tests {
                 CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: HumanAddr::from("asset0000"),
                     msg: to_binary(&Cw20HandleMsg::Burn {
-                        amount: Uint128(200000u128),
+                        amount: Uint128(200000u128), // asset value in collateral = 200000 * 200 / 50 = 800000 -- protocol fee = 8000
                     })
                     .unwrap(),
                     send: vec![],
@@ -1688,7 +1709,7 @@ mod tests {
                     contract_addr: HumanAddr::from("asset0001"),
                     msg: to_binary(&Cw20HandleMsg::Transfer {
                         recipient: HumanAddr::from("addr0001"),
-                        amount: Uint128(990000u128), // protocol fee = 200000 * 0.01 = 2000
+                        amount: Uint128(992000u128), // protocol fee = 200000 * 0.01 = 2000
                     })
                     .unwrap(),
                     send: vec![],
@@ -1697,7 +1718,7 @@ mod tests {
                     contract_addr: HumanAddr::from("asset0001"),
                     msg: to_binary(&Cw20HandleMsg::Transfer {
                         recipient: HumanAddr::from("collector0000"),
-                        amount: Uint128(10000u128),
+                        amount: Uint128(8000u128),
                     })
                     .unwrap(),
                     send: vec![],
@@ -1710,10 +1731,10 @@ mod tests {
                 log("action", "auction"),
                 log("position_idx", "2"),
                 log("owner", "addr0000"),
-                log("return_collateral_amount", "990000asset0001"),
+                log("return_collateral_amount", "992000asset0001"),
                 log("liquidated_amount", "200000asset0000"),
                 log("tax_amount", "0asset0001"),
-                log("protocol_fee", "10000asset0001"),
+                log("protocol_fee", "8000asset0001"),
             ]
         );
     }
