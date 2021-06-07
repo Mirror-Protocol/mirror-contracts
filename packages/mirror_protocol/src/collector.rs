@@ -60,4 +60,10 @@ pub struct ConfigResponse {
 
 /// We currently take no arguments for migrations
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct MigrateMsg {}
+pub struct MigrateMsg {
+    pub owner: HumanAddr,
+    pub aust_token: HumanAddr,
+    pub anchor_market: HumanAddr,
+    pub bluna_token: HumanAddr,
+    pub bluna_swap_denom: String,
+}

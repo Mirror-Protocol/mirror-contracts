@@ -1,3 +1,4 @@
+use crate::migration::migrate_config;
 use crate::state::{read_config, store_config, Config};
 use crate::swap::{convert, luna_swap_hook};
 use cosmwasm_std::{
@@ -188,9 +189,19 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
 }
 
 pub fn migrate<S: Storage, A: Api, Q: Querier>(
-    _deps: &mut Extern<S, A, Q>,
+    deps: &mut Extern<S, A, Q>,
     _env: Env,
-    _msg: MigrateMsg,
+    msg: MigrateMsg,
 ) -> MigrateResult {
+    // migrate config
+    migrate_config(
+        &mut deps.storage,
+        deps.api.canonical_address(&msg.owner)?,
+        deps.api.canonical_address(&msg.aust_token)?,
+        deps.api.canonical_address(&msg.anchor_market)?,
+        deps.api.canonical_address(&msg.bluna_token)?,
+        msg.bluna_swap_denom,
+    )?;
+
     Ok(MigrateResponse::default())
 }
