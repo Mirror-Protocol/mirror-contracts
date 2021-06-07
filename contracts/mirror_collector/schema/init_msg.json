@@ -3,19 +3,39 @@
   "title": "InitMsg",
   "type": "object",
   "required": [
+    "anchor_market",
+    "aust_token",
     "base_denom",
+    "bluna_swap_denom",
+    "bluna_token",
     "distribution_contract",
     "mirror_token",
+    "owner",
     "terraswap_factory"
   ],
   "properties": {
+    "anchor_market": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "aust_token": {
+      "$ref": "#/definitions/HumanAddr"
+    },
     "base_denom": {
       "type": "string"
+    },
+    "bluna_swap_denom": {
+      "type": "string"
+    },
+    "bluna_token": {
+      "$ref": "#/definitions/HumanAddr"
     },
     "distribution_contract": {
       "$ref": "#/definitions/HumanAddr"
     },
     "mirror_token": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "owner": {
       "$ref": "#/definitions/HumanAddr"
     },
     "terraswap_factory": {

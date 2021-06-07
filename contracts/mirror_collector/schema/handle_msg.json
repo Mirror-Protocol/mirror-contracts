@@ -5,6 +5,101 @@
     {
       "type": "object",
       "required": [
+        "update_config"
+      ],
+      "properties": {
+        "update_config": {
+          "type": "object",
+          "properties": {
+            "anchor_market": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "aust_token": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "base_denom": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "bluna_swap_denom": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "bluna_token": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "distribution_contract": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "mirror_token": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "owner": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "terraswap_factory": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
         "convert"
       ],
       "properties": {
@@ -28,6 +123,18 @@
       ],
       "properties": {
         "distribute": {
+          "type": "object"
+        }
+      }
+    },
+    {
+      "description": "Internal operation to swap Luna for UST",
+      "type": "object",
+      "required": [
+        "luna_swap_hook"
+      ],
+      "properties": {
+        "luna_swap_hook": {
           "type": "object"
         }
       }
