@@ -3,14 +3,11 @@ mod tests {
     use crate::contract::{handle, init, query};
     use crate::mock_querier::mock_dependencies;
     use cosmwasm_std::testing::mock_env;
-    use cosmwasm_std::{
-        from_binary, to_binary, CosmosMsg, Decimal, HumanAddr, StdError, WasmMsg, WasmQuery,
-    };
+    use cosmwasm_std::{from_binary, to_binary, CosmosMsg, Decimal, HumanAddr, StdError, WasmMsg};
     use mirror_protocol::collateral_oracle::{HandleMsg::RegisterCollateralAsset, SourceType};
     use mirror_protocol::mint::{
         AssetConfigResponse, ConfigResponse, HandleMsg, IPOParams, InitMsg, QueryMsg,
     };
-    use mirror_protocol::oracle::QueryMsg::Price;
     use terraswap::asset::AssetInfo;
 
     static TOKEN_CODE_ID: u64 = 10u64;
@@ -136,17 +133,7 @@ mod tests {
                         contract_addr: HumanAddr::from("asset0000"),
                     },
                     multiplier: Decimal::one(),
-                    price_source: SourceType::TerraOracle {
-                        terra_oracle_query: to_binary(&WasmQuery::Smart {
-                            contract_addr: HumanAddr::from("oracle0000"),
-                            msg: to_binary(&Price {
-                                base_asset: "uusd".to_string(),
-                                quote_asset: "asset0000".to_string(),
-                            })
-                            .unwrap()
-                        })
-                        .unwrap(),
-                    },
+                    price_source: SourceType::MirrorOracle {},
                 })
                 .unwrap(),
             })]

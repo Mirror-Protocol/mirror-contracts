@@ -1,7 +1,7 @@
 use cosmwasm_std::{
     from_binary, log, to_binary, Api, Binary, CanonicalAddr, CosmosMsg, Decimal, Env, Extern,
     HandleResponse, HandleResult, HumanAddr, InitResponse, MigrateResponse, MigrateResult, Querier,
-    StdError, StdResult, Storage, Uint128, WasmMsg, WasmQuery,
+    StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 
 use crate::{
@@ -22,7 +22,6 @@ use cw20::Cw20ReceiveMsg;
 use mirror_protocol::mint::{
     AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrateMsg, QueryMsg,
 };
-use mirror_protocol::oracle::QueryMsg as OracleQueryMsg;
 use mirror_protocol::{
     collateral_oracle::{HandleMsg as CollateralOracleHandleMsg, SourceType},
     mint::IPOParams,
@@ -339,15 +338,7 @@ pub fn register_asset<S: Storage, A: Api, Q: Querier>(
                     contract_addr: asset_token.clone(),
                 },
                 multiplier: Decimal::one(), // default collateral multiplier for new mAssets
-                price_source: SourceType::TerraOracle {
-                    terra_oracle_query: to_binary(&WasmQuery::Smart {
-                        contract_addr: deps.api.human_address(&config.oracle)?,
-                        msg: to_binary(&OracleQueryMsg::Price {
-                            base_asset: config.base_denom,
-                            quote_asset: asset_token.to_string(),
-                        })?,
-                    })?,
-                },
+                price_source: SourceType::MirrorOracle {},
             })?,
         }));
     }
@@ -458,15 +449,7 @@ pub fn trigger_ipo<S: Storage, A: Api, Q: Querier>(
                     contract_addr: asset_token.clone(),
                 },
                 multiplier: Decimal::one(), // default collateral multiplier for new mAssets
-                price_source: SourceType::TerraOracle {
-                    terra_oracle_query: to_binary(&WasmQuery::Smart {
-                        contract_addr: deps.api.human_address(&config.oracle)?,
-                        msg: to_binary(&OracleQueryMsg::Price {
-                            base_asset: config.base_denom,
-                            quote_asset: asset_token.to_string(),
-                        })?,
-                    })?,
-                },
+                price_source: SourceType::MirrorOracle {},
             })?,
         })],
         log: vec![

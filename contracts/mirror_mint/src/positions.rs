@@ -69,7 +69,9 @@ pub fn open_position<S: Storage, A: Api, Q: Querier>(
     // for assets with limited minting period (preIPO assets), assert minting phase
     assert_mint_period(&env, &asset_config)?;
 
-    if collateral_ratio < asset_config.min_collateral_ratio {
+    if collateral_ratio
+        < decimal_multiplication(asset_config.min_collateral_ratio, collateral_multiplier)
+    {
         return Err(StdError::generic_err(
             "Can not open a position with low collateral ratio than minimum",
         ));
@@ -81,12 +83,9 @@ pub fn open_position<S: Storage, A: Api, Q: Querier>(
 
     let asset_price_in_collateral_asset = decimal_division(collateral_price, asset_price);
 
-    // Calculate effective cr
-    let effective_cr = decimal_multiplication(collateral_ratio, collateral_multiplier);
-
     // Convert collateral to mint amount
     let mint_amount =
-        collateral.amount * asset_price_in_collateral_asset * reverse_decimal(effective_cr);
+        collateral.amount * asset_price_in_collateral_asset * reverse_decimal(collateral_ratio);
     if mint_amount.is_zero() {
         return Err(StdError::generic_err("collateral is too small"));
     }

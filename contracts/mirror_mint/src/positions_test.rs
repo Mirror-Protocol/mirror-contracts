@@ -262,7 +262,7 @@ mod tests {
                     asset_info: AssetInfo::Token {
                         contract_addr: HumanAddr::from("asset0000"),
                     },
-                    collateral_ratio: Decimal::percent(150),
+                    collateral_ratio: Decimal::percent(300), // 150 * 2 (multiplier)
                     short_params: None,
                 })
                 .unwrap(),
