@@ -605,9 +605,9 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cosmwasm-storage",
- "cosmwasm-vm",
  "cw20",
  "mirror-protocol",
+ "moneymarket",
  "schemars",
  "serde",
  "terra-cosmwasm",
@@ -741,6 +741,21 @@ dependencies = [
  "serde",
  "terra-cosmwasm",
  "terraswap",
+]
+
+[[package]]
+name = "moneymarket"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d489e76e6a197ce4837f8f2186ce24f4e9e3b2c5464915eb3f9ecab3ed6348b"
+dependencies = [
+ "cosmwasm-bignumber",
+ "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw20",
+ "schemars",
+ "serde",
+ "terra-cosmwasm",
 ]
 
 [[package]]

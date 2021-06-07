@@ -5,6 +5,8 @@ use cosmwasm_std::{to_binary, Coin, CosmosMsg, Decimal, HumanAddr, Uint128, Wasm
 use cw20::Cw20HandleMsg;
 use mirror_protocol::collector::{ConfigResponse, HandleMsg, InitMsg};
 use mirror_protocol::gov::Cw20HookMsg::DepositReward;
+use moneymarket::market::Cw20HookMsg::RedeemStable;
+use terra_cosmwasm::{TerraMsg, TerraMsgWrapper, TerraRoute};
 use terraswap::asset::{Asset, AssetInfo};
 use terraswap::pair::{Cw20HookMsg as TerraswapCw20HookMsg, HandleMsg as TerraswapHandleMsg};
 
@@ -13,10 +15,15 @@ fn proper_initialization() {
     let mut deps = mock_dependencies(20, &[]);
 
     let msg = InitMsg {
+        owner: HumanAddr("owner0000".to_string()),
         terraswap_factory: HumanAddr("terraswapfactory".to_string()),
         distribution_contract: HumanAddr("gov0000".to_string()),
         mirror_token: HumanAddr("mirror0000".to_string()),
         base_denom: "uusd".to_string(),
+        aust_token: HumanAddr("aust0000".to_string()),
+        anchor_market: HumanAddr("anchormarket0000".to_string()),
+        bluna_token: HumanAddr("bluna0000".to_string()),
+        bluna_swap_denom: "uluna".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -58,10 +65,15 @@ fn test_convert() {
     ]);
 
     let msg = InitMsg {
+        owner: HumanAddr("owner0000".to_string()),
         terraswap_factory: HumanAddr("terraswapfactory".to_string()),
         distribution_contract: HumanAddr("gov0000".to_string()),
         mirror_token: HumanAddr("tokenMIRROR".to_string()),
         base_denom: "uusd".to_string(),
+        aust_token: HumanAddr("aust0000".to_string()),
+        anchor_market: HumanAddr("anchormarket0000".to_string()),
+        bluna_token: HumanAddr("bluna0000".to_string()),
+        bluna_swap_denom: "uluna".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -127,6 +139,142 @@ fn test_convert() {
 }
 
 #[test]
+fn test_convert_aust() {
+    let mut deps = mock_dependencies(
+        20,
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(100u128),
+        }],
+    );
+    deps.querier.with_token_balances(&[(
+        &HumanAddr::from("aust0000"),
+        &[(&HumanAddr::from(MOCK_CONTRACT_ADDR), &Uint128(100u128))],
+    )]);
+
+    let msg = InitMsg {
+        owner: HumanAddr("owner0000".to_string()),
+        terraswap_factory: HumanAddr("terraswapfactory".to_string()),
+        distribution_contract: HumanAddr("gov0000".to_string()),
+        mirror_token: HumanAddr("mirror0000".to_string()),
+        base_denom: "uusd".to_string(),
+        aust_token: HumanAddr("aust0000".to_string()),
+        anchor_market: HumanAddr("anchormarket0000".to_string()),
+        bluna_token: HumanAddr("bluna0000".to_string()),
+        bluna_swap_denom: "uluna".to_string(),
+    };
+
+    let env = mock_env("addr0000", &[]);
+    let _res = init(&mut deps, env, msg).unwrap();
+
+    let msg = HandleMsg::Convert {
+        asset_token: HumanAddr::from("aust0000"),
+    };
+
+    let env = mock_env("addr0000", &[]);
+    let res = handle(&mut deps, env, msg).unwrap();
+    assert_eq!(
+        res.messages,
+        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: HumanAddr::from("aust0000"),
+            msg: to_binary(&Cw20HandleMsg::Send {
+                contract: HumanAddr::from("anchormarket0000"),
+                amount: Uint128(100u128),
+                msg: Some(to_binary(&RedeemStable {}).unwrap()),
+            })
+            .unwrap(),
+            send: vec![],
+        })]
+    );
+}
+
+#[test]
+fn test_convert_bluna() {
+    let mut deps = mock_dependencies(
+        20,
+        &[Coin {
+            denom: "uluna".to_string(),
+            amount: Uint128(100u128),
+        }],
+    );
+    deps.querier.with_token_balances(&[(
+        &HumanAddr::from("bluna0000"),
+        &[(&HumanAddr::from(MOCK_CONTRACT_ADDR), &Uint128(100u128))],
+    )]);
+
+    deps.querier
+        .with_terraswap_pairs(&[(&"ulunabluna0000".to_string(), &HumanAddr::from("pairbLuna"))]);
+
+    let msg = InitMsg {
+        owner: HumanAddr("owner0000".to_string()),
+        terraswap_factory: HumanAddr("terraswapfactory".to_string()),
+        distribution_contract: HumanAddr("gov0000".to_string()),
+        mirror_token: HumanAddr("mirror0000".to_string()),
+        base_denom: "uusd".to_string(),
+        aust_token: HumanAddr("aust0000".to_string()),
+        anchor_market: HumanAddr("anchormarket0000".to_string()),
+        bluna_token: HumanAddr("bluna0000".to_string()),
+        bluna_swap_denom: "uluna".to_string(),
+    };
+
+    let env = mock_env("addr0000", &[]);
+    let _res = init(&mut deps, env, msg).unwrap();
+
+    let msg = HandleMsg::Convert {
+        asset_token: HumanAddr::from("bluna0000"),
+    };
+
+    let env = mock_env("addr0000", &[]);
+    let res = handle(&mut deps, env, msg).unwrap();
+    assert_eq!(
+        res.messages,
+        vec![
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from("bluna0000"),
+                msg: to_binary(&Cw20HandleMsg::Send {
+                    contract: HumanAddr::from("pairbLuna"),
+                    amount: Uint128(100u128),
+                    msg: Some(
+                        to_binary(&TerraswapCw20HookMsg::Swap {
+                            max_spread: None,
+                            belief_price: None,
+                            to: None,
+                        })
+                        .unwrap()
+                    ),
+                })
+                .unwrap(),
+                send: vec![],
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
+                msg: to_binary(&HandleMsg::LunaSwapHook {}).unwrap(),
+                send: vec![],
+            }),
+        ]
+    );
+
+    // suppose we sell the bluna for 100uluna
+    let msg = HandleMsg::LunaSwapHook {};
+    let env = mock_env("owner0000", &[]);
+    let res = handle(&mut deps, env, msg).unwrap();
+    assert_eq!(
+        res.messages,
+        vec![CosmosMsg::Custom(TerraMsgWrapper {
+            route: TerraRoute::Market,
+            msg_data: TerraMsg::Swap {
+                trader: HumanAddr::from(MOCK_CONTRACT_ADDR),
+                offer_coin: Coin {
+                    amount: Uint128(100),
+                    denom: "uluna".to_string()
+                },
+                ask_denom: "uusd".to_string(),
+            },
+        })],
+    )
+}
+
+#[test]
 fn test_send() {
     let mut deps = mock_dependencies(20, &[]);
     deps.querier.with_token_balances(&[(
@@ -135,10 +283,15 @@ fn test_send() {
     )]);
 
     let msg = InitMsg {
+        owner: HumanAddr("owner0000".to_string()),
         terraswap_factory: HumanAddr("terraswapfactory".to_string()),
         distribution_contract: HumanAddr("gov0000".to_string()),
         mirror_token: HumanAddr("mirror0000".to_string()),
         base_denom: "uusd".to_string(),
+        aust_token: HumanAddr("aust0000".to_string()),
+        anchor_market: HumanAddr("anchormarket0000".to_string()),
+        bluna_token: HumanAddr("bluna0000".to_string()),
+        bluna_swap_denom: "uluna".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);
