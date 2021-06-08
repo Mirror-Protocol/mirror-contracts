@@ -387,12 +387,12 @@ mod tests {
         // withdraw 333334 uusd
         let msg = HandleMsg::Withdraw {
             position_idx: Uint128(1u128),
-            collateral: Asset {
+            collateral: Some(Asset {
                 info: AssetInfo::NativeToken {
                     denom: "uusd".to_string(),
                 },
                 amount: Uint128(333334u128),
-            },
+            }),
         };
 
         // only owner can withdraw
@@ -603,12 +603,12 @@ mod tests {
         // withdraw 333334 uusd
         let msg = HandleMsg::Withdraw {
             position_idx: Uint128(1u128),
-            collateral: Asset {
+            collateral: Some(Asset {
                 info: AssetInfo::Token {
                     contract_addr: HumanAddr::from("asset0000"),
                 },
                 amount: Uint128(333334u128),
-            },
+            }),
         };
 
         // only owner can withdraw
@@ -904,12 +904,12 @@ mod tests {
         // owner can withdraw revoked collateral
         let msg = HandleMsg::Withdraw {
             position_idx: Uint128(1u128),
-            collateral: Asset {
+            collateral: Some(Asset {
                 info: AssetInfo::NativeToken {
                     denom: "uluna".to_string(),
                 },
                 amount: Uint128(2u128),
-            },
+            }),
         };
         let env = mock_env_with_block_time("addr0000", &[], 1000);
         let _res = handle(&mut deps, env, msg.clone()).unwrap();

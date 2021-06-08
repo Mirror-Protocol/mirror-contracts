@@ -260,7 +260,7 @@ pub fn withdraw<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     position_idx: Uint128,
-    collateral: Asset,
+    collateral: Option<Asset>,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
     let mut position: Position = read_position(&deps.storage, position_idx)?;
@@ -269,16 +269,23 @@ pub fn withdraw<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::unauthorized());
     }
 
-    // Check the given collateral has same asset info
-    // with position's collateral token
-    // also Check the collateral amount is non-zero
-    assert_collateral(deps, &position, &collateral)?;
+    // if collateral is not provided, withraw all collateral
+    let collateral: Asset = if let Some(collateral) = collateral {
+        // Check the given collateral has same asset info
+        // with position's collateral token
+        // also Check the collateral amount is non-zero
+        assert_collateral(deps, &position, &collateral)?;
 
-    if position.collateral.amount < collateral.amount {
-        return Err(StdError::generic_err(
-            "Cannot withdraw more than you provide",
-        ));
-    }
+        if position.collateral.amount < collateral.amount {
+            return Err(StdError::generic_err(
+                "Cannot withdraw more than you provide",
+            ));
+        }
+
+        collateral
+    } else {
+        position.collateral.to_normal(deps)?
+    };
 
     let asset_token_raw = match position.asset.info.clone() {
         AssetInfoRaw::Token { contract_addr } => contract_addr,
