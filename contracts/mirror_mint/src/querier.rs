@@ -29,7 +29,7 @@ pub fn load_oracle_feeder<S: Storage, A: Api, Q: Querier>(
     let res = match res {
         Ok(v) => v,
         Err(_) => {
-            return Err(StdError::generic_err("Falied to fetch the oracle feeder"));
+            return Err(StdError::generic_err("Failed to fetch the oracle feeder"));
         }
     };
 
@@ -37,7 +37,7 @@ pub fn load_oracle_feeder<S: Storage, A: Api, Q: Querier>(
     let feeder: CanonicalAddr = match feeder {
         Ok(v) => v,
         Err(_) => {
-            return Err(StdError::generic_err("Falied to fetch the oracle feeder"));
+            return Err(StdError::generic_err("Failed to fetch the oracle feeder"));
         }
     };
 
