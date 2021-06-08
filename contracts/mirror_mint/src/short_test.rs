@@ -739,12 +739,12 @@ mod test {
         // withdraw all collateral
         let msg = HandleMsg::Withdraw {
             position_idx: Uint128(1u128),
-            collateral: Asset {
+            collateral: Some(Asset {
                 info: AssetInfo::NativeToken {
                     denom: "uusd".to_string(),
                 },
                 amount: Uint128(199u128), // 1 collateral spent as protocol fee
-            },
+            }),
         };
         let env = mock_env_with_block_time("addr0000", &[], 1000);
         let res = handle(&mut deps, env.clone(), msg).unwrap();

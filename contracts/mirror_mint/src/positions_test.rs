@@ -1265,12 +1265,12 @@ mod tests {
         // due to min collateral ratio
         let msg = HandleMsg::Withdraw {
             position_idx: Uint128(1u128),
-            collateral: Asset {
+            collateral: Some(Asset {
                 info: AssetInfo::NativeToken {
                     denom: "uusd".to_string(),
                 },
                 amount: Uint128(101u128),
-            },
+            }),
         };
         let env = mock_env_with_block_time("addr0000", &[], 1000u64);
         let res = handle(&mut deps, env, msg).unwrap_err();
@@ -1284,12 +1284,12 @@ mod tests {
 
         let msg = HandleMsg::Withdraw {
             position_idx: Uint128(1u128),
-            collateral: Asset {
+            collateral: Some(Asset {
                 info: AssetInfo::NativeToken {
                     denom: "uusd".to_string(),
                 },
                 amount: Uint128(100u128),
-            },
+            }),
         };
         let env = mock_env_with_block_time("addr0000", &[], 1000u64);
         let res = handle(&mut deps, env, msg).unwrap();
@@ -1307,12 +1307,12 @@ mod tests {
         // due to min collateral ratio
         let msg = HandleMsg::Withdraw {
             position_idx: Uint128(2u128),
-            collateral: Asset {
+            collateral: Some(Asset {
                 info: AssetInfo::Token {
                     contract_addr: HumanAddr::from("asset0001"),
                 },
                 amount: Uint128(2u128),
-            },
+            }),
         };
         let env = mock_env_with_block_time("addr0000", &[], 1000u64);
         let res = handle(&mut deps, env, msg).unwrap_err();
@@ -1326,12 +1326,12 @@ mod tests {
 
         let msg = HandleMsg::Withdraw {
             position_idx: Uint128(2u128),
-            collateral: Asset {
+            collateral: Some(Asset {
                 info: AssetInfo::Token {
                     contract_addr: HumanAddr::from("asset0001"),
                 },
                 amount: Uint128(1u128),
-            },
+            }),
         };
         let env = mock_env_with_block_time("addr0000", &[], 1000u64);
         let res = handle(&mut deps, env, msg).unwrap();

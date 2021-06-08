@@ -82,7 +82,7 @@ pub enum HandleMsg {
     /// Withdraw collateral
     Withdraw {
         position_idx: Uint128,
-        collateral: Asset,
+        collateral: Option<Asset>,
     },
     /// Convert all deposit collateral to asset
     Mint {

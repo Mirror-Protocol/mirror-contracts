@@ -308,12 +308,18 @@
         "withdraw": {
           "type": "object",
           "required": [
-            "collateral",
             "position_idx"
           ],
           "properties": {
             "collateral": {
-              "$ref": "#/definitions/Asset"
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Asset"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "position_idx": {
               "$ref": "#/definitions/Uint128"
