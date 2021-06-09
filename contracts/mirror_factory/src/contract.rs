@@ -578,8 +578,9 @@ pub fn revoke_asset<S: Storage, A: Api, Q: Querier>(
         }
     };
 
+    let weight = read_weight(&deps.storage, &asset_token_raw)?;
     remove_weight(&mut deps.storage, &asset_token_raw);
-    decrease_total_weight(&mut deps.storage, NORMAL_TOKEN_WEIGHT)?;
+    decrease_total_weight(&mut deps.storage, weight)?;
 
     Ok(HandleResponse {
         messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
@@ -621,7 +622,7 @@ pub fn migrate_asset<S: Storage, A: Api, Q: Querier>(
 
     let weight = read_weight(&deps.storage, &asset_token_raw)?;
     remove_weight(&mut deps.storage, &asset_token_raw);
-    decrease_total_weight(&mut deps.storage, NORMAL_TOKEN_WEIGHT)?;
+    decrease_total_weight(&mut deps.storage, weight)?;
 
     let mint_contract = deps.api.human_address(&config.mint_contract)?;
     let mint_config: (Decimal, Decimal) =
