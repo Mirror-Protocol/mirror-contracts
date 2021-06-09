@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     log, to_binary, Api, Coin, CosmosMsg, Env, Extern, HandleResponse, HandleResult, HumanAddr,
-    Querier, StdError, Storage, WasmMsg,
+    Querier, Storage, WasmMsg,
 };
 
 use crate::state::{read_config, Config};
@@ -56,52 +56,57 @@ fn direct_swap<S: Storage, A: Api, Q: Querier>(
         ],
     )?;
 
-    let messages: Vec<CosmosMsg<TerraMsgWrapper>>;
+    let mut messages: Vec<CosmosMsg<TerraMsgWrapper>> = vec![];
     if config.mirror_token == asset_token_raw {
         // collateral token => MIR token
         let amount = query_balance(&deps, &env.contract.address, config.base_denom.clone())?;
-        let swap_asset = Asset {
-            info: AssetInfo::NativeToken {
-                denom: config.base_denom.clone(),
-            },
-            amount,
-        };
 
-        // deduct tax first
-        let amount = (swap_asset.deduct_tax(&deps)?).amount;
-        messages = vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: pair_info.contract_addr,
-            msg: to_binary(&TerraswapHandleMsg::Swap {
-                offer_asset: Asset {
-                    amount,
-                    ..swap_asset
+        if !amount.is_zero() {
+            let swap_asset = Asset {
+                info: AssetInfo::NativeToken {
+                    denom: config.base_denom.clone(),
                 },
-                max_spread: None,
-                belief_price: None,
-                to: None,
-            })?,
-            send: vec![Coin {
-                denom: config.base_denom.clone(),
                 amount,
-            }],
-        })];
+            };
+
+            // deduct tax first
+            let amount = (swap_asset.deduct_tax(&deps)?).amount;
+            messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: pair_info.contract_addr,
+                msg: to_binary(&TerraswapHandleMsg::Swap {
+                    offer_asset: Asset {
+                        amount,
+                        ..swap_asset
+                    },
+                    max_spread: None,
+                    belief_price: None,
+                    to: None,
+                })?,
+                send: vec![Coin {
+                    denom: config.base_denom.clone(),
+                    amount,
+                }],
+            }));
+        }
     } else {
         // asset token => collateral token
         let amount = query_token_balance(&deps, &asset_token, &env.contract.address)?;
 
-        messages = vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: asset_token.clone(),
-            msg: to_binary(&Cw20HandleMsg::Send {
-                contract: pair_info.contract_addr,
-                amount,
-                msg: Some(to_binary(&TerraswapCw20HookMsg::Swap {
-                    max_spread: None,
-                    belief_price: None,
-                    to: None,
-                })?),
-            })?,
-            send: vec![],
-        })];
+        if !amount.is_zero() {
+            messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: asset_token.clone(),
+                msg: to_binary(&Cw20HandleMsg::Send {
+                    contract: pair_info.contract_addr,
+                    amount,
+                    msg: Some(to_binary(&TerraswapCw20HookMsg::Swap {
+                        max_spread: None,
+                        belief_price: None,
+                        to: None,
+                    })?),
+                })?,
+                send: vec![],
+            }));
+        }
     }
 
     Ok(HandleResponse {
@@ -123,8 +128,9 @@ fn anchor_redeem<S: Storage, A: Api, Q: Querier>(
 ) -> HandleResult<TerraMsgWrapper> {
     let amount = query_token_balance(&deps, &asset_token, &env.contract.address)?;
 
-    Ok(HandleResponse {
-        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
+    let mut messages: Vec<CosmosMsg<TerraMsgWrapper>> = vec![];
+    if !amount.is_zero() {
+        messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: asset_token.clone(),
             msg: to_binary(&Cw20HandleMsg::Send {
                 contract: deps.api.human_address(&config.anchor_market)?,
@@ -132,7 +138,10 @@ fn anchor_redeem<S: Storage, A: Api, Q: Querier>(
                 msg: Some(to_binary(&RedeemStable {})?),
             })?,
             send: vec![],
-        })],
+        }))
+    }
+    Ok(HandleResponse {
+        messages,
         log: vec![
             log("action", "convert"),
             log("swap_type", "anchor_redeem"),
@@ -165,27 +174,32 @@ fn bluna_swap<S: Storage, A: Api, Q: Querier>(
 
     let amount = query_token_balance(&deps, &asset_token, &env.contract.address)?;
 
+    let mut messages: Vec<CosmosMsg<TerraMsgWrapper>> = vec![];
+    if !amount.is_zero() {
+        messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: asset_token.clone(),
+            msg: to_binary(&Cw20HandleMsg::Send {
+                contract: pair_info.contract_addr,
+                amount,
+                msg: Some(to_binary(&TerraswapCw20HookMsg::Swap {
+                    max_spread: None,
+                    belief_price: None,
+                    to: None,
+                })?),
+            })?,
+            send: vec![],
+        }))
+    }
     Ok(HandleResponse {
         messages: vec![
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: asset_token.clone(),
-                msg: to_binary(&Cw20HandleMsg::Send {
-                    contract: pair_info.contract_addr,
-                    amount,
-                    msg: Some(to_binary(&TerraswapCw20HookMsg::Swap {
-                        max_spread: None,
-                        belief_price: None,
-                        to: None,
-                    })?),
-                })?,
-                send: vec![],
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
+            messages,
+            vec![CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: env.contract.address,
                 msg: to_binary(&HandleMsg::LunaSwapHook {})?,
                 send: vec![],
-            }),
-        ],
+            })],
+        ]
+        .concat(),
         log: vec![
             log("action", "convert"),
             log("swap_type", "bluna_swap"),
@@ -200,23 +214,23 @@ pub fn luna_swap_hook<S: Storage, A: Api, Q: Querier>(
     env: Env,
 ) -> HandleResult<TerraMsgWrapper> {
     let config: Config = read_config(&deps.storage)?;
-
-    if env.message.sender != deps.api.human_address(&config.owner)? {
-        return Err(StdError::unauthorized());
-    }
-
     let amount = query_balance(deps, &env.contract.address, config.bluna_swap_denom.clone())?;
-    let offer_coin = Coin {
-        amount,
-        denom: config.bluna_swap_denom,
-    };
 
-    Ok(HandleResponse {
-        messages: vec![create_swap_msg(
+    let mut messages: Vec<CosmosMsg<TerraMsgWrapper>> = vec![];
+    if !amount.is_zero() {
+        let offer_coin = Coin {
+            amount,
+            denom: config.bluna_swap_denom,
+        };
+        messages.push(create_swap_msg(
             env.contract.address,
             offer_coin,
             config.base_denom,
-        )],
+        ));
+    }
+
+    Ok(HandleResponse {
+        messages,
         log: vec![log("action", "luna_swap_hook")],
         data: None,
     })

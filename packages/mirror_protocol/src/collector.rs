@@ -34,7 +34,6 @@ pub enum HandleMsg {
     },
     Convert { asset_token: HumanAddr },
     Distribute {},
-    /// Internal operation to swap Luna for UST
     LunaSwapHook {},
 }
 

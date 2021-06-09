@@ -128,7 +128,6 @@
       }
     },
     {
-      "description": "Internal operation to swap Luna for UST",
       "type": "object",
       "required": [
         "luna_swap_hook"
