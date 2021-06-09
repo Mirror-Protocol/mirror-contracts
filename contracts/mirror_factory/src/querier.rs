@@ -1,9 +1,10 @@
 use cosmwasm_std::{
-    from_binary, Api, Binary, CanonicalAddr, Decimal, Extern, HumanAddr, Querier, QueryRequest,
-    StdError, StdResult, Storage, WasmQuery,
+    from_binary, to_binary, Api, Binary, CanonicalAddr, Decimal, Extern, HumanAddr, Querier,
+    QueryRequest, StdError, StdResult, Storage, WasmQuery,
 };
 
 use cosmwasm_storage::to_length_prefixed;
+use mirror_protocol::oracle::{PriceResponse, QueryMsg as OracleQueryMsg};
 use serde::{Deserialize, Serialize};
 
 pub fn load_oracle_feeder<S: Storage, A: Api, Q: Querier>(
@@ -35,6 +36,24 @@ pub fn load_oracle_feeder<S: Storage, A: Api, Q: Querier>(
     };
 
     Ok(feeder)
+}
+
+/// Query asset price igonoring price age
+pub fn query_last_price<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    oracle: &HumanAddr,
+    base_asset: String,
+    quote_asset: String,
+) -> StdResult<Decimal> {
+    let res: PriceResponse = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+        contract_addr: HumanAddr::from(oracle),
+        msg: to_binary(&OracleQueryMsg::Price {
+            base_asset,
+            quote_asset,
+        })?,
+    }))?;
+
+    Ok(res.rate)
 }
 
 #[derive(Serialize, Deserialize)]

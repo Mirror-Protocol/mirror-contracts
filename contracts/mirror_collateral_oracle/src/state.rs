@@ -13,7 +13,6 @@ static KEY_CONFIG: &[u8] = b"config";
 pub struct Config {
     pub owner: CanonicalAddr,
     pub mint_contract: CanonicalAddr,
-    pub factory_contract: CanonicalAddr,
     pub base_denom: String,
     pub mirror_oracle: CanonicalAddr,
     pub anchor_oracle: CanonicalAddr,

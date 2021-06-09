@@ -6,7 +6,6 @@
     "anchor_oracle",
     "band_oracle",
     "base_denom",
-    "factory_contract",
     "mint_contract",
     "mirror_oracle",
     "owner"
@@ -20,9 +19,6 @@
     },
     "base_denom": {
       "type": "string"
-    },
-    "factory_contract": {
-      "$ref": "#/definitions/HumanAddr"
     },
     "mint_contract": {
       "$ref": "#/definitions/HumanAddr"

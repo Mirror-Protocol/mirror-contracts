@@ -63,9 +63,10 @@ pub enum HandleMsg {
 
     /// Revoke asset from MIR rewards pool
     /// and register end_price to mint contract
+    /// Only feeder can set end_price
     RevokeAsset {
         asset_token: HumanAddr,
-        end_price: Decimal,
+        end_price: Option<Decimal>,
     },
     /// Migrate asset to new asset by registering
     /// end_price to mint contract and add
