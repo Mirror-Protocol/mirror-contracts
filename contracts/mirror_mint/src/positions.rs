@@ -299,12 +299,18 @@ pub fn withdraw<S: Storage, A: Api, Q: Querier>(
 
     // Fetch collateral info from collateral oracle
     let collateral_oracle: HumanAddr = deps.api.human_address(&config.collateral_oracle)?;
-    let (collateral_price, collateral_multiplier, _collateral_is_revoked) = load_collateral_info(
-        &deps,
-        &collateral_oracle,
-        &position.collateral.info,
-        Some(env.block.time),
-    )?;
+    let (collateral_price, mut collateral_multiplier, _collateral_is_revoked) =
+        load_collateral_info(
+            &deps,
+            &collateral_oracle,
+            &position.collateral.info,
+            Some(env.block.time),
+        )?;
+
+    // ignre multiplier for delisted assets
+    if asset_config.end_price.is_some() {
+        collateral_multiplier = Decimal::one();
+    }
 
     // Compute new collateral amount
     let collateral_amount: Uint128 = (position.collateral.amount - collateral.amount)?;
@@ -582,7 +588,7 @@ pub fn burn<S: Storage, A: Api, Q: Querier>(
         // Burn deprecated asset to receive collaterals back
         let conversion_rate =
             Decimal::from_ratio(position.collateral.amount, position.asset.amount);
-        let mut refund_collateral = Asset {
+        let refund_collateral = Asset {
             info: collateral_info.clone(),
             amount: std::cmp::min(
                 burn_amount * collateral_price_in_asset,
@@ -602,22 +608,6 @@ pub fn burn<S: Storage, A: Api, Q: Querier>(
         } else {
             store_position(&mut deps.storage, position_idx, &position)?;
         }
-
-        // Subtract protocol fee from refunded collateral
-        let protocol_fee = Asset {
-            info: collateral_info,
-            amount: burn_amount * collateral_price_in_asset * config.protocol_fee_rate,
-        };
-
-        if !protocol_fee.amount.is_zero() {
-            messages.push(protocol_fee.clone().into_msg(
-                &deps,
-                env.contract.address.clone(),
-                deps.api.human_address(&config.collector)?,
-            )?);
-            refund_collateral.amount = (refund_collateral.amount - protocol_fee.amount).unwrap();
-        }
-        logs.push(log("protocol_fee", protocol_fee.to_string()));
 
         // Refund collateral msg
         messages.push(
