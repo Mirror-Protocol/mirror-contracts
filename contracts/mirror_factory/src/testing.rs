@@ -1004,6 +1004,10 @@ fn test_revocation() {
         (&"uusdasset0000".to_string(), &HumanAddr::from("LP0000")),
         (&"uusdasset0001".to_string(), &HumanAddr::from("LP0001")),
     ]);
+    deps.querier.with_oracle_price(&[
+        (&"uusd".to_string(), &Decimal::one()),
+        (&"asset0001".to_string(), &Decimal::percent(200)),
+    ]);
 
     let msg = InitMsg {
         base_denom: BASE_DENOM.to_string(),
@@ -1097,11 +1101,19 @@ fn test_revocation() {
     // unauthorized revoke attempt
     let msg = HandleMsg::RevokeAsset {
         asset_token: HumanAddr::from("asset0000"),
-        end_price: Decimal::from_ratio(2u128, 1u128),
+        end_price: Some(Decimal::from_ratio(2u128, 1u128)),
     };
+
     let env = mock_env("address0000", &[]);
     let res = handle(&mut deps, env, msg.clone()).unwrap_err();
+    match res {
+        StdError::Unauthorized { .. } => {}
+        _ => panic!("DO NOT ENTER HERE"),
+    }
 
+    // unatuthorized attemt 2, only owner can fix set price
+    let env = mock_env("owner0000", &[]);
+    let res = handle(&mut deps, env, msg.clone()).unwrap_err();
     match res {
         StdError::Unauthorized { .. } => {}
         _ => panic!("DO NOT ENTER HERE"),
@@ -1125,9 +1137,9 @@ fn test_revocation() {
 
     let msg = HandleMsg::RevokeAsset {
         asset_token: HumanAddr::from("asset0001"),
-        end_price: Decimal::from_ratio(2u128, 1u128),
+        end_price: None,
     };
-    // SUCCESS - the owner revokes item 2
+    // SUCCESS - the owner revokes item 2 with queried last price
     let env = mock_env("owner0000", &[]);
     let res = handle(&mut deps, env, msg).unwrap();
     assert_eq!(
@@ -1137,7 +1149,7 @@ fn test_revocation() {
             send: vec![],
             msg: to_binary(&MintHandleMsg::RegisterMigration {
                 asset_token: HumanAddr::from("asset0001"),
-                end_price: Decimal::from_ratio(2u128, 1u128),
+                end_price: Decimal::percent(200),
             })
             .unwrap(),
         }),]

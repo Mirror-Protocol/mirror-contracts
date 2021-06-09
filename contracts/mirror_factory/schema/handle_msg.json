@@ -235,7 +235,7 @@
       }
     },
     {
-      "description": "Feeder Operations ////////////////// Revoke asset from MIR rewards pool and register end_price to mint contract",
+      "description": "Feeder Operations ////////////////// Revoke asset from MIR rewards pool and register end_price to mint contract Only feeder can set end_price",
       "type": "object",
       "required": [
         "revoke_asset"
@@ -244,15 +244,21 @@
         "revoke_asset": {
           "type": "object",
           "required": [
-            "asset_token",
-            "end_price"
+            "asset_token"
           ],
           "properties": {
             "asset_token": {
               "$ref": "#/definitions/HumanAddr"
             },
             "end_price": {
-              "$ref": "#/definitions/Decimal"
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Decimal"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             }
           }
         }

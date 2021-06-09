@@ -4,7 +4,7 @@ use cosmwasm_std::{
     StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 
-use crate::querier::{load_mint_asset_config, load_oracle_feeder};
+use crate::querier::{load_mint_asset_config, load_oracle_feeder, query_last_price};
 use crate::state::{
     decrease_total_weight, increase_total_weight, read_all_weight, read_config,
     read_last_distributed, read_params, read_total_weight, read_weight, remove_params,
@@ -549,21 +549,34 @@ pub fn revoke_asset<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     asset_token: HumanAddr,
-    end_price: Decimal,
+    end_price: Option<Decimal>,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
     let asset_token_raw: CanonicalAddr = deps.api.canonical_address(&asset_token)?;
-    let oracle_feeder: HumanAddr = deps.api.human_address(&load_oracle_feeder(
-        &deps,
-        &deps.api.human_address(&config.oracle_contract)?,
-        &asset_token_raw,
-    )?)?;
+    let oracle: HumanAddr = deps.api.human_address(&config.oracle_contract)?;
     let sender_raw = deps.api.canonical_address(&env.message.sender)?;
 
-    // revoke asset can only be executed by the feeder or the owner (gov contract)
-    if oracle_feeder != env.message.sender && config.owner != sender_raw {
-        return Err(StdError::unauthorized());
-    }
+    let end_price: Decimal = match end_price {
+        Some(value) => {
+            // only feeder can revoke_asset with end_price
+            let oracle_feeder: HumanAddr =
+                deps.api
+                    .human_address(&load_oracle_feeder(&deps, &oracle, &asset_token_raw)?)?;
+            if oracle_feeder != env.message.sender {
+                return Err(StdError::unauthorized());
+            }
+
+            value
+        }
+        None => {
+            // revoke asset without end_price can be called by owner
+            if config.owner != sender_raw {
+                return Err(StdError::unauthorized());
+            }
+
+            query_last_price(&deps, &oracle, asset_token.to_string(), config.base_denom)?
+        }
+    };
 
     remove_weight(&mut deps.storage, &asset_token_raw);
     decrease_total_weight(&mut deps.storage, NORMAL_TOKEN_WEIGHT)?;
