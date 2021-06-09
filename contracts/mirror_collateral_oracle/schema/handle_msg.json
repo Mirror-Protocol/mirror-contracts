@@ -37,16 +37,6 @@
                 "null"
               ]
             },
-            "factory_contract": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/HumanAddr"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
             "mint_contract": {
               "anyOf": [
                 {

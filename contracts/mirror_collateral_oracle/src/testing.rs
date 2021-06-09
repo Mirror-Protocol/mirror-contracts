@@ -15,7 +15,6 @@ fn proper_initialization() {
     let msg = InitMsg {
         owner: HumanAddr("owner0000".to_string()),
         mint_contract: HumanAddr("mint0000".to_string()),
-        factory_contract: HumanAddr("factory0000".to_string()),
         base_denom: "uusd".to_string(),
         mirror_oracle: HumanAddr("mirrororacle0000".to_string()),
         anchor_oracle: HumanAddr("anchororacle0000".to_string()),
@@ -32,7 +31,6 @@ fn proper_initialization() {
     let value = query_config(&deps).unwrap();
     assert_eq!("owner0000", value.owner.as_str());
     assert_eq!("mint0000", value.mint_contract.as_str());
-    assert_eq!("factory0000", value.factory_contract.as_str());
     assert_eq!("uusd", value.base_denom.as_str());
 }
 
@@ -43,7 +41,6 @@ fn update_config() {
     let msg = InitMsg {
         owner: HumanAddr("owner0000".to_string()),
         mint_contract: HumanAddr("mint0000".to_string()),
-        factory_contract: HumanAddr("factory0000".to_string()),
         base_denom: "uusd".to_string(),
         mirror_oracle: HumanAddr("mirrororacle0000".to_string()),
         anchor_oracle: HumanAddr("anchororacle0000".to_string()),
@@ -58,7 +55,6 @@ fn update_config() {
     let msg = HandleMsg::UpdateConfig {
         owner: Some(HumanAddr("owner0001".to_string())),
         mint_contract: Some(HumanAddr("mint0001".to_string())),
-        factory_contract: Some(HumanAddr("factory0001".to_string())),
         base_denom: Some("uluna".to_string()),
         mirror_oracle: Some(HumanAddr("mirrororacle0001".to_string())),
         anchor_oracle: Some(HumanAddr("anchororacle0001".to_string())),
@@ -72,7 +68,6 @@ fn update_config() {
     let value = query_config(&deps).unwrap();
     assert_eq!("owner0001", value.owner.as_str());
     assert_eq!("mint0001", value.mint_contract.as_str());
-    assert_eq!("factory0001", value.factory_contract.as_str());
     assert_eq!("uluna", value.base_denom.as_str());
     assert_eq!("mirrororacle0001", value.mirror_oracle.as_str());
     assert_eq!("anchororacle0001", value.anchor_oracle.as_str());
@@ -83,7 +78,6 @@ fn update_config() {
     let msg = HandleMsg::UpdateConfig {
         owner: None,
         mint_contract: None,
-        factory_contract: None,
         base_denom: None,
         mirror_oracle: None,
         anchor_oracle: None,
@@ -108,7 +102,6 @@ fn register_collateral() {
     let msg = InitMsg {
         owner: HumanAddr("owner0000".to_string()),
         mint_contract: HumanAddr("mint0000".to_string()),
-        factory_contract: HumanAddr("factory0000".to_string()),
         base_denom: "uusd".to_string(),
         mirror_oracle: HumanAddr("mirrororacle0000".to_string()),
         anchor_oracle: HumanAddr("anchororacle0000".to_string()),
@@ -160,7 +153,6 @@ fn update_collateral() {
     let msg = InitMsg {
         owner: HumanAddr("owner0000".to_string()),
         mint_contract: HumanAddr("mint0000".to_string()),
-        factory_contract: HumanAddr("factory0000".to_string()),
         base_denom: "uusd".to_string(),
         mirror_oracle: HumanAddr("mirrororacle0000".to_string()),
         anchor_oracle: HumanAddr("anchororacle0000".to_string()),
@@ -236,7 +228,7 @@ fn update_collateral() {
     };
 
     // invalid multiplier
-    let env = mock_env("factory0000", &[]);
+    let env = mock_env("owner0000", &[]);
     let res = handle(&mut deps, env, msg).unwrap_err();
     assert_eq!(
         res,
@@ -252,12 +244,12 @@ fn update_collateral() {
     };
 
     // unauthorized attempt
-    let env = mock_env("owner0000", &[]);
+    let env = mock_env("addr0000", &[]);
     let res = handle(&mut deps, env, msg.clone()).unwrap_err();
     assert_eq!(res, StdError::unauthorized());
 
     // successfull attempt
-    let env = mock_env("factory0000", &[]);
+    let env = mock_env("owner0000", &[]);
     let res = handle(&mut deps, env, msg).unwrap();
     assert_eq!(0, res.messages.len());
 
@@ -285,7 +277,6 @@ fn get_oracle_price() {
     let msg = InitMsg {
         owner: HumanAddr("owner0000".to_string()),
         mint_contract: HumanAddr("mint0000".to_string()),
-        factory_contract: HumanAddr("factory0000".to_string()),
         base_denom: "uusd".to_string(),
         mirror_oracle: HumanAddr("mirrororacle0000".to_string()),
         anchor_oracle: HumanAddr("anchororacle0000".to_string()),
@@ -347,7 +338,6 @@ fn get_terraswap_price() {
     let msg = InitMsg {
         owner: HumanAddr("owner0000".to_string()),
         mint_contract: HumanAddr("mint0000".to_string()),
-        factory_contract: HumanAddr("factory0000".to_string()),
         base_denom: "uusd".to_string(),
         mirror_oracle: HumanAddr("mirrororacle0000".to_string()),
         anchor_oracle: HumanAddr("anchororacle0000".to_string()),
@@ -420,7 +410,6 @@ fn get_fixed_price() {
     let msg = InitMsg {
         owner: HumanAddr("owner0000".to_string()),
         mint_contract: HumanAddr("mint0000".to_string()),
-        factory_contract: HumanAddr("factory0000".to_string()),
         base_denom: "uusd".to_string(),
         mirror_oracle: HumanAddr("mirrororacle0000".to_string()),
         anchor_oracle: HumanAddr("anchororacle0000".to_string()),
@@ -464,7 +453,6 @@ fn get_band_oracle_price() {
     let msg = InitMsg {
         owner: HumanAddr("owner0000".to_string()),
         mint_contract: HumanAddr("mint0000".to_string()),
-        factory_contract: HumanAddr("factory0000".to_string()),
         base_denom: "uusd".to_string(),
         mirror_oracle: HumanAddr("mirrororacle0000".to_string()),
         anchor_oracle: HumanAddr("anchororacle0000".to_string()),
@@ -506,7 +494,6 @@ fn get_anchor_market_price() {
     let msg = InitMsg {
         owner: HumanAddr("owner0000".to_string()),
         mint_contract: HumanAddr("mint0000".to_string()),
-        factory_contract: HumanAddr("factory0000".to_string()),
         base_denom: "uusd".to_string(),
         mirror_oracle: HumanAddr("mirrororacle0000".to_string()),
         anchor_oracle: HumanAddr("anchororacle0000".to_string()),
@@ -550,7 +537,6 @@ fn get_native_price() {
     let msg = InitMsg {
         owner: HumanAddr("owner0000".to_string()),
         mint_contract: HumanAddr("mint0000".to_string()),
-        factory_contract: HumanAddr("factory0000".to_string()),
         base_denom: "uusd".to_string(),
         mirror_oracle: HumanAddr("mirrororacle0000".to_string()),
         anchor_oracle: HumanAddr("anchororacle0000".to_string()),
@@ -594,7 +580,6 @@ fn revoke_collateral() {
     let msg = InitMsg {
         owner: HumanAddr("owner0000".to_string()),
         mint_contract: HumanAddr("mint0000".to_string()),
-        factory_contract: HumanAddr("factory0000".to_string()),
         base_denom: "uusd".to_string(),
         mirror_oracle: HumanAddr("mirrororacle0000".to_string()),
         anchor_oracle: HumanAddr("anchororacle0000".to_string()),

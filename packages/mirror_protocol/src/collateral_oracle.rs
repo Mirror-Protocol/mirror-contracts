@@ -10,7 +10,6 @@ use terraswap::asset::AssetInfo;
 pub struct InitMsg {
     pub owner: HumanAddr,
     pub mint_contract: HumanAddr,
-    pub factory_contract: HumanAddr,
     pub base_denom: String,
     pub mirror_oracle: HumanAddr,
     pub anchor_oracle: HumanAddr,
@@ -23,7 +22,6 @@ pub enum HandleMsg {
     UpdateConfig {
         owner: Option<HumanAddr>,
         mint_contract: Option<HumanAddr>,
-        factory_contract: Option<HumanAddr>,
         base_denom: Option<String>,
         mirror_oracle: Option<HumanAddr>,
         anchor_oracle: Option<HumanAddr>,
@@ -64,7 +62,6 @@ pub enum QueryMsg {
 pub struct ConfigResponse {
     pub owner: HumanAddr,
     pub mint_contract: HumanAddr,
-    pub factory_contract: HumanAddr,
     pub base_denom: String,
     pub mirror_oracle: HumanAddr,
     pub anchor_oracle: HumanAddr,

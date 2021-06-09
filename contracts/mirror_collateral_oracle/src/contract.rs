@@ -25,7 +25,6 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         &Config {
             owner: deps.api.canonical_address(&msg.owner)?,
             mint_contract: deps.api.canonical_address(&msg.mint_contract)?,
-            factory_contract: deps.api.canonical_address(&msg.factory_contract)?,
             base_denom: msg.base_denom,
             mirror_oracle: deps.api.canonical_address(&msg.mirror_oracle)?,
             anchor_oracle: deps.api.canonical_address(&msg.anchor_oracle)?,
@@ -45,7 +44,6 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::UpdateConfig {
             owner,
             mint_contract,
-            factory_contract,
             base_denom,
             mirror_oracle,
             anchor_oracle,
@@ -55,7 +53,6 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             env,
             owner,
             mint_contract,
-            factory_contract,
             base_denom,
             mirror_oracle,
             anchor_oracle,
@@ -82,7 +79,6 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     env: Env,
     owner: Option<HumanAddr>,
     mint_contract: Option<HumanAddr>,
-    factory_contract: Option<HumanAddr>,
     base_denom: Option<String>,
     mirror_oracle: Option<HumanAddr>,
     anchor_oracle: Option<HumanAddr>,
@@ -99,10 +95,6 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
 
     if let Some(mint_contract) = mint_contract {
         config.mint_contract = deps.api.canonical_address(&mint_contract)?;
-    }
-
-    if let Some(factory_contract) = factory_contract {
-        config.factory_contract = deps.api.canonical_address(&factory_contract)?;
     }
 
     if let Some(base_denom) = base_denom {
@@ -221,8 +213,8 @@ pub fn update_collateral_multiplier<S: Storage, A: Api, Q: Querier>(
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
     let sender_address_raw: CanonicalAddr = deps.api.canonical_address(&env.message.sender)?;
-    // only factory contract can update collateral premium
-    if config.factory_contract != sender_address_raw {
+    // only owner can update collateral premium
+    if config.owner != sender_address_raw {
         return Err(StdError::unauthorized());
     }
 
@@ -262,7 +254,6 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
     let resp = ConfigResponse {
         owner: deps.api.human_address(&config.owner)?,
         mint_contract: deps.api.human_address(&config.mint_contract)?,
-        factory_contract: deps.api.human_address(&config.factory_contract)?,
         base_denom: config.base_denom,
         mirror_oracle: deps.api.human_address(&config.mirror_oracle)?,
         anchor_oracle: deps.api.human_address(&config.anchor_oracle)?,
