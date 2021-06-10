@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    to_binary, Api, Decimal, Extern, HumanAddr, Querier, QueryRequest, StdResult, Storage,
+    to_binary, Api, Decimal, Extern, HumanAddr, Querier, QueryRequest, StdResult, Storage, Uint128,
     WasmQuery,
 };
 
@@ -38,9 +38,17 @@ pub fn compute_premium_rate<S: Storage, A: Api, Q: Querier>(
     }))?;
 
     let terraswap_price: Decimal = if pool.assets[0].is_native_token() {
-        Decimal::from_ratio(pool.assets[0].amount, pool.assets[1].amount)
+        if pool.assets[1].amount.is_zero() {
+            Decimal::from_ratio(pool.assets[0].amount, Uint128(1))
+        } else {
+            Decimal::from_ratio(pool.assets[0].amount, pool.assets[1].amount)
+        }
     } else {
-        Decimal::from_ratio(pool.assets[1].amount, pool.assets[0].amount)
+        if pool.assets[0].amount.is_zero() {
+            Decimal::from_ratio(pool.assets[1].amount, Uint128(1))
+        } else {
+            Decimal::from_ratio(pool.assets[1].amount, pool.assets[0].amount)
+        }
     };
     let oracle_price: Decimal =
         query_price(deps, oracle_contract, asset_token.to_string(), base_denom)?;
