@@ -164,16 +164,10 @@ pub fn revoke_collateral<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::unauthorized());
     }
 
-    let mut collateral_info: CollateralAssetInfo =
-        if let Ok(collateral) = read_collateral_info(&deps.storage, &asset.to_string()) {
-            collateral
-        } else {
-            return Err(StdError::generic_err("Collateral not found"));
-        };
-
-    collateral_info.is_revoked = true;
-
-    store_collateral_info(&mut deps.storage, &collateral_info)?;
+    if let Ok(mut collateral_info) = read_collateral_info(&deps.storage, &asset.to_string()) {
+        collateral_info.is_revoked = true;
+        store_collateral_info(&mut deps.storage, &collateral_info)?;
+    }
 
     Ok(HandleResponse::default())
 }
