@@ -7,7 +7,7 @@
     "creator",
     "deposit_amount",
     "description",
-    "end_height",
+    "end_time",
     "id",
     "no_votes",
     "status",
@@ -28,7 +28,7 @@
     "description": {
       "type": "string"
     },
-    "end_height": {
+    "end_time": {
       "type": "integer",
       "format": "uint64",
       "minimum": 0.0
