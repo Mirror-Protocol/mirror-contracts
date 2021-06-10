@@ -331,7 +331,7 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
         yes_votes: Uint128::zero(),
         no_votes: Uint128::zero(),
         abstain_votes: Uint128::zero(),
-        end_height: env.block.height + config.voting_period,
+        end_time: env.block.time + config.voting_period,
         title,
         description,
         link,
@@ -357,7 +357,7 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
                 deps.api.human_address(&new_poll.creator)?.as_str(),
             ),
             log("poll_id", &poll_id.to_string()),
-            log("end_height", new_poll.end_height),
+            log("end_time", new_poll.end_time),
         ],
         data: None,
     };
@@ -378,7 +378,7 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::generic_err("Poll is not in progress"));
     }
 
-    if a_poll.end_height > env.block.height {
+    if a_poll.end_time > env.block.time {
         return Err(StdError::generic_err("Voting period has not expired"));
     }
 
@@ -483,7 +483,7 @@ pub fn execute_poll<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::generic_err("Poll is not in passed status"));
     }
 
-    if a_poll.end_height + config.effective_delay > env.block.height {
+    if a_poll.end_time + config.effective_delay > env.block.time {
         return Err(StdError::generic_err("Effective delay has not expired"));
     }
 
@@ -534,8 +534,10 @@ pub fn expire_poll<S: Storage, A: Api, Q: Querier>(
         ));
     }
 
-    if a_poll.end_height + config.expiration_period > env.block.height {
-        return Err(StdError::generic_err("Expire height has not been reached"));
+    if a_poll.end_time + config.expiration_period > env.block.time {
+        return Err(StdError::generic_err(
+            "Expiration time has not been reached",
+        ));
     }
 
     poll_indexer_store(&mut deps.storage, &PollStatus::Passed).remove(&poll_id.to_be_bytes());
@@ -570,7 +572,7 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
     }
 
     let mut a_poll: Poll = poll_store(&mut deps.storage).load(&poll_id.to_be_bytes())?;
-    if a_poll.status != PollStatus::InProgress || env.block.height > a_poll.end_height {
+    if a_poll.status != PollStatus::InProgress || env.block.time > a_poll.end_time {
         return Err(StdError::generic_err("Poll is not in progress"));
     }
 
@@ -626,7 +628,7 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
         .save(&sender_address_raw.as_slice(), &vote_info)?;
 
     // processing snapshot
-    let time_to_end = a_poll.end_height - env.block.height;
+    let time_to_end = a_poll.end_time - env.block.time;
 
     if time_to_end < config.snapshot_period && a_poll.staked_amount.is_none() {
         a_poll.staked_amount = Some(total_balance);
@@ -663,7 +665,7 @@ pub fn snapshot_poll<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::generic_err("Poll is not in progress"));
     }
 
-    let time_to_end = a_poll.end_height - env.block.height;
+    let time_to_end = a_poll.end_time - env.block.time;
 
     if time_to_end > config.snapshot_period {
         return Err(StdError::generic_err("Cannot snapshot at this height"));
@@ -764,7 +766,7 @@ fn query_poll<S: Storage, A: Api, Q: Querier>(
         id: poll.id,
         creator: deps.api.human_address(&poll.creator).unwrap(),
         status: poll.status,
-        end_height: poll.end_height,
+        end_time: poll.end_time,
         title: poll.title,
         description: poll.description,
         link: poll.link,
@@ -801,7 +803,7 @@ fn query_polls<S: Storage, A: Api, Q: Querier>(
                 id: poll.id,
                 creator: deps.api.human_address(&poll.creator).unwrap(),
                 status: poll.status.clone(),
-                end_height: poll.end_height,
+                end_time: poll.end_time,
                 title: poll.title.to_string(),
                 description: poll.description.to_string(),
                 link: poll.link.clone(),
@@ -875,7 +877,7 @@ fn query_voters<S: Storage, A: Api, Q: Querier>(
 use crate::migrate::{migrate_config, migrate_poll_indexer, migrate_polls, migrate_state};
 pub fn migrate<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
-    _env: Env,
+    env: Env,
     msg: MigrateMsg,
 ) -> MigrateResult {
     // Currently support 2 migration processes
@@ -894,7 +896,7 @@ pub fn migrate<S: Storage, A: Api, Q: Querier>(
     // migrations for voting rewards and abstain votes
     migrate_config(&mut deps.storage, msg.voter_weight, msg.snapshot_period)?;
     migrate_state(&mut deps.storage)?;
-    migrate_polls(&mut deps.storage)?;
+    migrate_polls(&mut deps.storage, env)?;
 
     Ok(MigrateResponse::default())
 }

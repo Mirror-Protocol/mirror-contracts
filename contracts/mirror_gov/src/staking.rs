@@ -83,7 +83,8 @@ pub fn withdraw_voting_tokens<S: Storage, A: Api, Q: Querier>(
         )? - total_locked_balance)?
             .u128();
 
-        let user_locked_balance = compute_locked_balance(deps, &mut token_manager, &&sender_address_raw)?;
+        let user_locked_balance =
+            compute_locked_balance(deps, &mut token_manager, &&sender_address_raw)?;
         let user_locked_share = user_locked_balance * total_share / total_balance;
         let user_share = token_manager.share.u128();
 
@@ -330,7 +331,9 @@ fn get_withdrawable_polls<S: Storage>(
             (poll, voter_info_res)
         })
         .filter(|(poll, voter_info_res)| {
-            poll.status != PollStatus::InProgress && voter_info_res.is_ok() && !poll.voters_reward.is_zero()
+            poll.status != PollStatus::InProgress
+                && voter_info_res.is_ok()
+                && !poll.voters_reward.is_zero()
         })
         .map(|(poll, voter_info_res)| (poll, voter_info_res.unwrap()))
         .collect();
@@ -387,8 +390,7 @@ pub fn query_staker<S: Storage, A: Api, Q: Querier>(
         .iter()
         .map(|(poll, voting_info)| {
             // calculate reward share
-            let total_votes =
-                poll.no_votes + poll.yes_votes + poll.abstain_votes;
+            let total_votes = poll.no_votes + poll.yes_votes + poll.abstain_votes;
             let poll_voting_reward = poll
                 .voters_reward
                 .multiply_ratio(voting_info.balance, total_votes);

@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{CanonicalAddr, Decimal, Order, StdError, StdResult, Storage, Uint128};
+use cosmwasm_std::{CanonicalAddr, Decimal, Env, Order, StdError, StdResult, Storage, Uint128};
 use cosmwasm_storage::{singleton, singleton_read, Bucket, ReadonlySingleton, Singleton};
 
 use crate::state::{Config, ExecuteData, Poll, State};
@@ -153,7 +153,7 @@ pub fn migrate_state<S: Storage>(storage: &mut S) -> StdResult<()> {
     Ok(())
 }
 
-pub fn migrate_polls<S: Storage>(storage: &mut S) -> StdResult<()> {
+pub fn migrate_polls<S: Storage>(storage: &mut S, env: Env) -> StdResult<()> {
     let mut legacy_polls_bucket: Bucket<S, LegacyPoll> = Bucket::new(PREFIX_POLL, storage);
 
     let mut read_polls: Vec<(u64, LegacyPoll)> = vec![];
@@ -169,6 +169,15 @@ pub fn migrate_polls<S: Storage>(storage: &mut S) -> StdResult<()> {
     let mut new_polls_bucket: Bucket<S, Poll> = Bucket::new(PREFIX_POLL, storage);
 
     for (id, poll) in read_polls.into_iter() {
+        let end_time = if poll.end_height >= env.block.height {
+            let time_to_end: f64 = (poll.end_height - env.block.height) as f64 * 6.5; // 6.5 avg block time
+
+            env.block.time + time_to_end as u64
+        } else {
+            let time_since_end: f64 = (env.block.height - poll.end_height) as f64 * 6.5;
+
+            env.block.time - time_since_end as u64
+        };
         let new_poll = &Poll {
             id: poll.id,
             creator: poll.creator,
@@ -176,7 +185,7 @@ pub fn migrate_polls<S: Storage>(storage: &mut S) -> StdResult<()> {
             yes_votes: poll.yes_votes,
             no_votes: poll.no_votes,
             abstain_votes: Uint128::zero(),
-            end_height: poll.end_height,
+            end_time,
             title: poll.title,
             description: poll.description,
             link: poll.link,
@@ -196,6 +205,7 @@ pub fn migrate_polls<S: Storage>(storage: &mut S) -> StdResult<()> {
 mod migrate_tests {
     use super::*;
     use crate::state::poll_indexer_store;
+    use crate::tests::mock_env_height;
     use cosmwasm_std::testing::mock_dependencies;
 
     #[test]
@@ -237,10 +247,10 @@ mod migrate_tests {
                 &LegacyPoll {
                     id: 1u64,
                     creator: CanonicalAddr::default(),
-                    status: PollStatus::InProgress,
+                    status: PollStatus::Executed,
                     yes_votes: Uint128::zero(),
                     no_votes: Uint128::zero(),
-                    end_height: 1u64,
+                    end_height: 50u64,
                     title: "test".to_string(),
                     description: "description".to_string(),
                     link: None,
@@ -259,7 +269,7 @@ mod migrate_tests {
                     status: PollStatus::InProgress,
                     yes_votes: Uint128::zero(),
                     no_votes: Uint128::zero(),
-                    end_height: 1u64,
+                    end_height: 125u64,
                     title: "test2".to_string(),
                     description: "description".to_string(),
                     link: None,
@@ -270,7 +280,8 @@ mod migrate_tests {
             )
             .unwrap();
 
-        migrate_polls(&mut deps.storage).unwrap();
+        let env = mock_env_height("addr0000", &[], 100, 650);
+        migrate_polls(&mut deps.storage, env).unwrap();
 
         let poll1: Poll = poll_read(&mut deps.storage)
             .load(&1u64.to_be_bytes())
@@ -280,10 +291,10 @@ mod migrate_tests {
             Poll {
                 id: 1u64,
                 creator: CanonicalAddr::default(),
-                status: PollStatus::InProgress,
+                status: PollStatus::Executed,
                 yes_votes: Uint128::zero(),
                 no_votes: Uint128::zero(),
-                end_height: 1u64,
+                end_time: 325u64, // 650 - (100 - 50) * 6.5
                 title: "test".to_string(),
                 description: "description".to_string(),
                 link: None,
@@ -306,7 +317,7 @@ mod migrate_tests {
                 status: PollStatus::InProgress,
                 yes_votes: Uint128::zero(),
                 no_votes: Uint128::zero(),
-                end_height: 1u64,
+                end_time: 812u64, // 650 + 25 * 6.5
                 title: "test2".to_string(),
                 description: "description".to_string(),
                 link: None,

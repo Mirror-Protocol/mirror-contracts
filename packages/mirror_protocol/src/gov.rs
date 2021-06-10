@@ -134,7 +134,7 @@ pub struct PollResponse {
     pub id: u64,
     pub creator: HumanAddr,
     pub status: PollStatus,
-    pub end_height: u64,
+    pub end_time: u64,
     pub title: String,
     pub description: String,
     pub link: Option<String>,
