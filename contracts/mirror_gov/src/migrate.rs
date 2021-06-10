@@ -126,9 +126,9 @@ pub fn migrate_config<S: Storage>(
         owner: legacy_config.owner,
         quorum: legacy_config.quorum,
         threshold: legacy_config.threshold,
-        voting_period: (legacy_config.voting_period as f64 * 6.5) as u64,
-        effective_delay: (legacy_config.effective_delay as f64 * 6.5) as u64,
-        expiration_period: (legacy_config.expiration_period as f64 * 6.5) as u64,
+        voting_period: legacy_config.voting_period * 13 / 2,
+        effective_delay: legacy_config.effective_delay * 13 / 2,
+        expiration_period: legacy_config.expiration_period * 13 / 2,
         proposal_deposit: legacy_config.proposal_deposit,
         voter_weight: voter_weight,
         snapshot_period: snapshot_period,
@@ -170,11 +170,11 @@ pub fn migrate_polls<S: Storage>(storage: &mut S, env: Env) -> StdResult<()> {
 
     for (id, poll) in read_polls.into_iter() {
         let end_time = if poll.end_height >= env.block.height {
-            let time_to_end: f64 = (poll.end_height - env.block.height) as f64 * 6.5; // 6.5 avg block time
+            let time_to_end: u64 = (poll.end_height - env.block.height) * 13 / 2; // 6.5 avg block time
 
-            env.block.time + time_to_end as u64
+            env.block.time + time_to_end
         } else {
-            let time_since_end: f64 = (env.block.height - poll.end_height) as f64 * 6.5;
+            let time_since_end: u64 = (env.block.height - poll.end_height) * 13 / 2;
 
             env.block.time - time_since_end as u64
         };
