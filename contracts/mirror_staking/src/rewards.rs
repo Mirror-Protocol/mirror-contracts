@@ -37,7 +37,7 @@ pub fn adjust_premium<S: Storage, A: Api, Q: Querier>(
             asset_token,
             config.base_denom.to_string(),
         )?;
-        
+
         // if asset does not have price feed, set short reward weight directly to zero
         let short_reward_weight = if no_price_feed {
             Decimal::zero()

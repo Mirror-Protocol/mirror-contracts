@@ -53,7 +53,9 @@ pub fn compute_premium_rate<S: Storage, A: Api, Q: Querier>(
     let oracle_price: Decimal =
         query_price(deps, oracle_contract, asset_token.to_string(), base_denom)?;
 
-    if terraswap_price > oracle_price {
+    if oracle_price.is_zero() {
+        Ok((Decimal::zero(), true))
+    } else if terraswap_price > oracle_price {
         Ok((
             decimal_division(
                 decimal_subtraction(terraswap_price, oracle_price),
@@ -61,8 +63,6 @@ pub fn compute_premium_rate<S: Storage, A: Api, Q: Querier>(
             ),
             false,
         ))
-    } else if oracle_price.is_zero() {
-        Ok((Decimal::zero(), true))
     } else {
         Ok((Decimal::zero(), false))
     }
