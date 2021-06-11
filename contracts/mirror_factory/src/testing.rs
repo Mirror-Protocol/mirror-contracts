@@ -1008,6 +1008,10 @@ fn test_revocation() {
         (&"uusd".to_string(), &Decimal::one()),
         (&"asset0001".to_string(), &Decimal::percent(200)),
     ]);
+    deps.querier.with_mint_configs(&[(
+        &HumanAddr::from("asset0001"),
+        &(Decimal::percent(1), Decimal::percent(1)),
+    )]);
 
     let msg = InitMsg {
         base_denom: BASE_DENOM.to_string(),

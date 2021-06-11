@@ -554,6 +554,7 @@ pub fn revoke_asset<S: Storage, A: Api, Q: Querier>(
     let config: Config = read_config(&deps.storage)?;
     let asset_token_raw: CanonicalAddr = deps.api.canonical_address(&asset_token)?;
     let oracle: HumanAddr = deps.api.human_address(&config.oracle_contract)?;
+    let mint: HumanAddr = deps.api.human_address(&config.mint_contract)?;
     let sender_raw = deps.api.canonical_address(&env.message.sender)?;
 
     let end_price: Decimal = match end_price {
@@ -574,7 +575,12 @@ pub fn revoke_asset<S: Storage, A: Api, Q: Querier>(
                 return Err(StdError::unauthorized());
             }
 
-            query_last_price(&deps, &oracle, asset_token.to_string(), config.base_denom)?
+            // check if the asset has a preIPO price
+            let (_, _, pre_ipo_price) = load_mint_asset_config(&deps, &mint, &&asset_token_raw)?;
+            pre_ipo_price.unwrap_or(
+                // if there is no pre_ipo_price, fetch last reported price from oracle
+                query_last_price(&deps, &oracle, asset_token.to_string(), config.base_denom)?,
+            )
         }
     };
 
@@ -625,7 +631,7 @@ pub fn migrate_asset<S: Storage, A: Api, Q: Querier>(
     decrease_total_weight(&mut deps.storage, weight)?;
 
     let mint_contract = deps.api.human_address(&config.mint_contract)?;
-    let mint_config: (Decimal, Decimal) =
+    let mint_config: (Decimal, Decimal, _) =
         load_mint_asset_config(&deps, &mint_contract, &asset_token_raw)?;
 
     store_params(
