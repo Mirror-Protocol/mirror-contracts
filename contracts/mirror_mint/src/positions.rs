@@ -6,7 +6,7 @@ use cosmwasm_std::{
 use crate::{
     asserts::{
         assert_asset, assert_burn_period, assert_collateral, assert_migrated_asset,
-        assert_mint_period, assert_revoked_collateral,
+        assert_mint_period, assert_pre_ipo_collateral, assert_revoked_collateral,
     },
     math::{decimal_division, decimal_multiplication, decimal_subtraction, reverse_decimal},
     querier::{load_asset_price, load_collateral_info},
@@ -66,8 +66,9 @@ pub fn open_position<S: Storage, A: Api, Q: Querier>(
     let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
     assert_migrated_asset(&asset_config)?;
 
-    // for assets with limited minting period (preIPO assets), assert minting phase
+    // for assets with limited minting period (preIPO assets), assert minting phase as well as pre-ipo collateral
     assert_mint_period(&env, &asset_config)?;
+    assert_pre_ipo_collateral(config.base_denom.clone(), &asset_config, &collateral.info)?;
 
     if collateral_ratio
         < decimal_multiplication(asset_config.min_collateral_ratio, collateral_multiplier)

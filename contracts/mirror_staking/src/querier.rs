@@ -18,7 +18,7 @@ pub fn compute_premium_rate<S: Storage, A: Api, Q: Querier>(
     factory_contract: &HumanAddr,
     asset_token: &HumanAddr,
     base_denom: String,
-) -> StdResult<Decimal> {
+) -> StdResult<(Decimal, bool)> {
     let pair_info: PairInfo = query_pair_info(
         deps,
         &factory_contract,
@@ -54,12 +54,17 @@ pub fn compute_premium_rate<S: Storage, A: Api, Q: Querier>(
         query_price(deps, oracle_contract, asset_token.to_string(), base_denom)?;
 
     if terraswap_price > oracle_price {
-        Ok(decimal_division(
-            decimal_subtraction(terraswap_price, oracle_price),
-            oracle_price,
+        Ok((
+            decimal_division(
+                decimal_subtraction(terraswap_price, oracle_price),
+                oracle_price,
+            ),
+            false,
         ))
+    } else if oracle_price.is_zero() {
+        Ok((Decimal::zero(), true))
     } else {
-        Ok(Decimal::zero())
+        Ok((Decimal::zero(), false))
     }
 }
 

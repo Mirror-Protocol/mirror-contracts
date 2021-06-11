@@ -30,14 +30,20 @@ pub fn adjust_premium<S: Storage, A: Api, Q: Querier>(
             ));
         }
 
-        let premium_rate = compute_premium_rate(
+        let (premium_rate, no_price_feed) = compute_premium_rate(
             deps,
             &oracle_contract,
             &terraswap_factory,
             asset_token,
             config.base_denom.to_string(),
         )?;
-        let short_reward_weight = short_reward_weight(premium_rate);
+        
+        // if asset does not have price feed, set short reward weight directly to zero
+        let short_reward_weight = if no_price_feed {
+            Decimal::zero()
+        } else {
+            short_reward_weight(premium_rate)
+        };
 
         store_pool_info(
             &mut deps.storage,

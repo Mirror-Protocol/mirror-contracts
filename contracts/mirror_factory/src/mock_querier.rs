@@ -273,6 +273,7 @@ impl WasmMockQuerier {
                             token: api.canonical_address(&asset_token).unwrap(),
                             auction_discount: config.0,
                             min_collateral_ratio: config.1,
+                            ipo_params: None,
                         })
                         .unwrap(),
                     ))

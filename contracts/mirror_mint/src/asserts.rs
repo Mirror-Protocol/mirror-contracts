@@ -1,6 +1,6 @@
 use crate::state::{AssetConfig, Position};
 use cosmwasm_std::{Api, Decimal, Env, Extern, Querier, StdError, StdResult, Storage};
-use terraswap::asset::Asset;
+use terraswap::asset::{Asset, AssetInfo};
 
 // Check zero balance & same collateral with position
 pub fn assert_collateral<S: Storage, A: Api, Q: Querier>(
@@ -91,6 +91,32 @@ pub fn assert_mint_period(env: &Env, asset_config: &AssetConfig) -> StdResult<()
                 "The minting period for this asset ended at time {}",
                 ipo_params.mint_end
             )));
+        }
+    }
+    Ok(())
+}
+
+pub fn assert_pre_ipo_collateral(
+    base_denom: String,
+    asset_config: &AssetConfig,
+    collateral_info: &AssetInfo,
+) -> StdResult<()> {
+    if asset_config.ipo_params.is_some() {
+        match collateral_info {
+            AssetInfo::Token { .. } => {
+                return Err(StdError::generic_err(format!(
+                    "Only {} can be used as collateral for preIPO assets",
+                    base_denom
+                )))
+            }
+            AssetInfo::NativeToken { denom } => {
+                if *denom != base_denom {
+                    return Err(StdError::generic_err(format!(
+                        "Only {} can be used as collateral for preIPO assets",
+                        base_denom
+                    )));
+                }
+            }
         }
     }
     Ok(())
