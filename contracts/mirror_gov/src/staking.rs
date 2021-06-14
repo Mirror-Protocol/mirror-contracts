@@ -84,7 +84,7 @@ pub fn withdraw_voting_tokens<S: Storage, A: Api, Q: Querier>(
             .u128();
 
         let user_locked_balance =
-            compute_locked_balance(deps, &mut token_manager, &&sender_address_raw)?;
+            compute_locked_balance(deps, &mut token_manager, &sender_address_raw)?;
         let user_locked_share = user_locked_balance * total_share / total_balance;
         let user_share = token_manager.share.u128();
 

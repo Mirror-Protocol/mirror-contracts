@@ -185,6 +185,9 @@ pub struct MigrateMsg {
     pub version: u64, // current contract migration state version
     pub voter_weight: Decimal,
     pub snapshot_period: u64,
+    pub voting_period: u64,
+    pub effective_delay: u64,
+    pub expiration_period: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

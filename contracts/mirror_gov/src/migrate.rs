@@ -118,6 +118,9 @@ pub fn migrate_config<S: Storage>(
     storage: &mut S,
     voter_weight: Decimal,
     snapshot_period: u64,
+    voting_period: u64,
+    effective_delay: u64,
+    expiration_period: u64,
 ) -> StdResult<()> {
     let legacty_store: ReadonlySingleton<S, LegacyConfig> = singleton_read(storage, KEY_CONFIG);
     let legacy_config: LegacyConfig = legacty_store.load()?;
@@ -126,9 +129,9 @@ pub fn migrate_config<S: Storage>(
         owner: legacy_config.owner,
         quorum: legacy_config.quorum,
         threshold: legacy_config.threshold,
-        voting_period: legacy_config.voting_period * 13 / 2,
-        effective_delay: legacy_config.effective_delay * 13 / 2,
-        expiration_period: legacy_config.expiration_period * 13 / 2,
+        voting_period,
+        effective_delay,
+        expiration_period,
         proposal_deposit: legacy_config.proposal_deposit,
         voter_weight: voter_weight,
         snapshot_period: snapshot_period,
@@ -348,7 +351,15 @@ mod migrate_tests {
             })
             .unwrap();
 
-        migrate_config(&mut deps.storage, Decimal::percent(50u64), 50u64).unwrap();
+        migrate_config(
+            &mut deps.storage,
+            Decimal::percent(50u64),
+            50u64,
+            200u64,
+            100u64,
+            75u64,
+        )
+        .unwrap();
 
         let config: Config = config_read(&deps.storage).load().unwrap();
         assert_eq!(
@@ -358,9 +369,9 @@ mod migrate_tests {
                 owner: CanonicalAddr::default(),
                 quorum: Decimal::one(),
                 threshold: Decimal::one(),
-                voting_period: 650u64,
-                effective_delay: 650u64,
-                expiration_period: 650u64,
+                voting_period: 200u64,
+                effective_delay: 100u64,
+                expiration_period: 75u64,
                 proposal_deposit: Uint128(100000u128),
                 voter_weight: Decimal::percent(50u64),
                 snapshot_period: 50u64,

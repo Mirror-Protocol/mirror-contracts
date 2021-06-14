@@ -893,8 +893,15 @@ pub fn migrate<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::generic_err("Invalid migrate version number"));
     }
 
-    // migrations for voting rewards and abstain votes
-    migrate_config(&mut deps.storage, msg.voter_weight, msg.snapshot_period)?;
+    // migrations for voting rewards, abstain votes and new time unit
+    migrate_config(
+        &mut deps.storage,
+        msg.voter_weight,
+        msg.snapshot_period,
+        msg.voting_period,
+        msg.effective_delay,
+        msg.expiration_period,
+    )?;
     migrate_state(&mut deps.storage)?;
     migrate_polls(&mut deps.storage, env)?;
 
