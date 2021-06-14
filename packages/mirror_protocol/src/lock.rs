@@ -25,7 +25,7 @@ pub enum HandleMsg {
         receiver: HumanAddr,
     },
     UnlockPositionFunds {
-        position_idx: Uint128,
+        positions_idx: Vec<Uint128>,
     },
     ReleasePositionFunds {
         position_idx: Uint128,

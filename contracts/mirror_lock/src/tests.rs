@@ -207,7 +207,7 @@ fn unlock_position_funds() {
     );
 
     let msg = HandleMsg::UnlockPositionFunds {
-        position_idx: Uint128(1u128),
+        positions_idx: vec![Uint128(1u128)],
     };
 
     // unauthorized attempt
@@ -220,17 +220,16 @@ fn unlock_position_funds() {
     let res = handle(&mut deps, env, msg.clone()).unwrap_err();
     assert_eq!(
         res,
-        StdError::generic_err("Lock period has not expired yet. Unlocks at 110")
+        StdError::generic_err("Lock period for position 1 has not expired yet. Unlocks at 110")
     );
 
-    // unlock 100 UST
+    // unlock 200 UST
     let env = mock_env_with_block_time("addr0000", &[], 120u64);
     let res = handle(&mut deps, env, msg.clone()).unwrap();
     assert_eq!(
         res.log,
         vec![
             log("action", "unlock_shorting_funds"),
-            log("position_idx", "1"),
             log("unlocked_amount", "200uusd"),
             log("tax_amount", "2uusd"),
         ]
@@ -252,7 +251,51 @@ fn unlock_position_funds() {
     let res = handle(&mut deps, env, msg.clone()).unwrap_err();
     assert_eq!(
         res,
-        StdError::generic_err("There are no locked funds for this position idx")
+        StdError::generic_err("There are no locked funds for position 1")
+    );
+
+    // lock 2 different positions
+    let msg = HandleMsg::LockPositionFundsHook {
+        position_idx: Uint128(2u128),
+        receiver: HumanAddr::from("addr0000"),
+    };
+    let env = mock_env_with_block_time("mint0000", &[], 1u64);
+    deps.querier.with_bank_balance(
+        &HumanAddr::from(MOCK_CONTRACT_ADDR),
+        vec![Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(100u128), // lock 100uusd
+        }],
+    );
+    handle(&mut deps, env, msg.clone()).unwrap();
+
+    let msg = HandleMsg::LockPositionFundsHook {
+        position_idx: Uint128(3u128),
+        receiver: HumanAddr::from("addr0000"),
+    };
+    let env = mock_env_with_block_time("mint0000", &[], 2u64);
+    deps.querier.with_bank_balance(
+        &HumanAddr::from(MOCK_CONTRACT_ADDR),
+        vec![Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(300u128), // lock 200uusd
+        }],
+    );
+    handle(&mut deps, env, msg).unwrap();
+
+    // unlock both positions
+    let msg = HandleMsg::UnlockPositionFunds {
+        positions_idx: vec![Uint128(2u128), Uint128(3u128)],
+    };
+    let env = mock_env_with_block_time("addr0000", &[], 102);
+    let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
+    assert_eq!(
+        res.log,
+        vec![
+            log("action", "unlock_shorting_funds"),
+            log("unlocked_amount", "300uusd"),
+            log("tax_amount", "3uusd"),
+        ]
     );
 }
 

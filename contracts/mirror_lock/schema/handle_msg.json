@@ -81,11 +81,14 @@
         "unlock_position_funds": {
           "type": "object",
           "required": [
-            "position_idx"
+            "positions_idx"
           ],
           "properties": {
-            "position_idx": {
-              "$ref": "#/definitions/Uint128"
+            "positions_idx": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Uint128"
+              }
             }
           }
         }
