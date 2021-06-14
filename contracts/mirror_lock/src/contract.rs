@@ -171,47 +171,39 @@ pub fn unlock_positions_funds<S: Storage, A: Api, Q: Querier>(
     let config: Config = read_config(&deps.storage)?;
     let sender_addr_raw: CanonicalAddr = deps.api.canonical_address(&env.message.sender)?;
 
-    let mut unlock_amount = Uint128::zero();
-    for position_idx in positions_idx.iter() {
-        let lock_info: PositionLockInfo =
-            match read_position_lock_info(&deps.storage, *position_idx) {
-                Ok(lock_info) => lock_info,
-                Err(_) => {
-                    return Err(StdError::generic_err(format!(
-                        "There are no locked funds for position {}",
-                        position_idx
-                    )))
-                }
-            };
+    let unlockable_positions: Vec<PositionLockInfo> = positions_idx
+        .iter()
+        .filter_map(|position_idx| read_position_lock_info(&deps.storage, *position_idx).ok())
+        .filter(|lock_info| {
+            lock_info.receiver == sender_addr_raw && env.block.time >= lock_info.unlock_time
+        })
+        .collect();
 
-        // only position owner can unlock funds
-        if sender_addr_raw != lock_info.receiver {
-            return Err(StdError::unauthorized());
-        }
-
-        if env.block.time < lock_info.unlock_time {
-            return Err(StdError::generic_err(format!(
-                "Lock period for position {} has not expired yet. Unlocks at {}",
-                position_idx, lock_info.unlock_time
-            )));
-        }
-
-        unlock_amount += lock_info.locked_amount;
-
-        // remove lock record
-        remove_position_lock_info(&mut deps.storage, *position_idx);
-    }
+    let unlock_amount: u128 = unlockable_positions
+        .iter()
+        .map(|valid_lock_info| {
+            // remove lock record
+            remove_position_lock_info(&mut deps.storage, valid_lock_info.idx);
+            valid_lock_info.locked_amount.u128()
+        })
+        .sum();
 
     let unlock_asset = Asset {
         info: AssetInfo::NativeToken {
             denom: config.base_denom.clone(),
         },
-        amount: unlock_amount,
+        amount: Uint128(unlock_amount),
     };
+
+    if unlock_asset.amount.is_zero() {
+        return Err(StdError::generic_err(
+            "There are no unlockable funds for the provided positions",
+        ));
+    }
 
     // decrease total locked amount
     total_locked_funds_store(&mut deps.storage).update(|current| {
-        let new_total = (current - unlock_amount)?;
+        let new_total = (current - unlock_asset.amount)?;
         Ok(new_total)
     })?;
 

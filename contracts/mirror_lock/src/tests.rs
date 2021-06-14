@@ -213,14 +213,17 @@ fn unlock_position_funds() {
     // unauthorized attempt
     let env = mock_env("addr0001", &[]);
     let res = handle(&mut deps, env.clone(), msg.clone()).unwrap_err();
-    assert_eq!(res, StdError::unauthorized());
+    assert_eq!(
+        res,
+        StdError::generic_err("There are no unlockable funds for the provided positions")
+    );
 
     // nothing to unlock
     let env = mock_env_with_block_time("addr0000", &[], 50u64);
     let res = handle(&mut deps, env, msg.clone()).unwrap_err();
     assert_eq!(
         res,
-        StdError::generic_err("Lock period for position 1 has not expired yet. Unlocks at 110")
+        StdError::generic_err("There are no unlockable funds for the provided positions")
     );
 
     // unlock 200 UST
@@ -251,7 +254,7 @@ fn unlock_position_funds() {
     let res = handle(&mut deps, env, msg.clone()).unwrap_err();
     assert_eq!(
         res,
-        StdError::generic_err("There are no locked funds for position 1")
+        StdError::generic_err("There are no unlockable funds for the provided positions")
     );
 
     // lock 2 different positions
