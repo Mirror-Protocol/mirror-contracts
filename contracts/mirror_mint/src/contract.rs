@@ -500,7 +500,7 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
         lock: deps.api.human_address(&state.lock)?,
         base_denom: state.base_denom,
         token_code_id: state.token_code_id,
-        protocol_fee_rate: Decimal::percent(1),
+        protocol_fee_rate: state.protocol_fee_rate,
     };
 
     Ok(resp)
