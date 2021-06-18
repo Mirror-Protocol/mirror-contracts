@@ -179,7 +179,7 @@ fn _withdraw_reward<S: Storage>(
         reward_info.pending_reward = Uint128::zero();
 
         // Update rewards info
-        if reward_info.pending_reward.is_zero() && reward_info.bond_amount.is_zero() {
+        if reward_info.bond_amount.is_zero() {
             rewards_store(storage, &staker_addr, is_short).remove(asset_token_raw.as_slice());
         } else {
             rewards_store(storage, &staker_addr, is_short)
