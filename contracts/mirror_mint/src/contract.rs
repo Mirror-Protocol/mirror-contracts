@@ -43,7 +43,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         lock: deps.api.canonical_address(&msg.lock)?,
         base_denom: msg.base_denom,
         token_code_id: msg.token_code_id,
-        protocol_fee_rate: msg.protocol_fee_rate,
+        protocol_fee_rate: assert_protocol_fee(msg.protocol_fee_rate)?,
     };
 
     store_config(&mut deps.storage, &config)?;
@@ -249,8 +249,7 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     }
 
     if let Some(protocol_fee_rate) = protocol_fee_rate {
-        assert_protocol_fee(protocol_fee_rate)?;
-        config.protocol_fee_rate = protocol_fee_rate;
+        config.protocol_fee_rate = assert_protocol_fee(protocol_fee_rate)?;
     }
 
     store_config(&mut deps.storage, &config)?;
