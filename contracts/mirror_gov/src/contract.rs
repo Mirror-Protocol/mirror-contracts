@@ -38,6 +38,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
 ) -> InitResult {
     validate_quorum(msg.quorum)?;
     validate_threshold(msg.threshold)?;
+    validate_voter_weight(msg.voter_weight)?;
 
     let config = Config {
         mirror_token: deps.api.canonical_address(&msg.mirror_token)?,
