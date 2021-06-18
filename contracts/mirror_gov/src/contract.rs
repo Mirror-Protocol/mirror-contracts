@@ -29,6 +29,7 @@ const MIN_DESC_LENGTH: usize = 4;
 const MAX_DESC_LENGTH: usize = 256;
 const MIN_LINK_LENGTH: usize = 12;
 const MAX_LINK_LENGTH: usize = 128;
+const MAX_POLLS_IN_PROGRESS: usize = 50;
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -37,6 +38,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
 ) -> InitResult {
     validate_quorum(msg.quorum)?;
     validate_threshold(msg.threshold)?;
+    validate_voter_weight(msg.voter_weight)?;
 
     let config = Config {
         mirror_token: deps.api.canonical_address(&msg.mirror_token)?,
@@ -305,6 +307,19 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
             "Must deposit more than {} token",
             config.proposal_deposit
         )));
+    }
+
+    let polls_in_progress: usize = read_polls(
+        &deps.storage,
+        Some(PollStatus::InProgress),
+        None,
+        None,
+        None,
+        Some(true),
+    )?
+    .len();
+    if polls_in_progress.gt(&MAX_POLLS_IN_PROGRESS) {
+        return Err(StdError::generic_err("Too many polls in progress"));
     }
 
     let mut state: State = state_store(&mut deps.storage).load()?;
