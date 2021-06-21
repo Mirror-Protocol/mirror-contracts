@@ -1,5 +1,6 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::convert::TryInto;
 
 use cosmwasm_std::{CanonicalAddr, Decimal, Env, Order, StdError, StdResult, Storage, Uint128};
 use cosmwasm_storage::{singleton, singleton_read, Bucket, ReadonlySingleton, Singleton};
@@ -7,27 +8,13 @@ use cosmwasm_storage::{singleton, singleton_read, Bucket, ReadonlySingleton, Sin
 use crate::state::{Config, ExecuteData, Poll, State};
 use mirror_protocol::gov::PollStatus;
 
-use std::convert::TryInto;
-
 #[cfg(test)]
 use crate::state::{config_read, poll_read, state_read};
 
-static PREFIX_POLL_INDEXER_OLD: &[u8] = b"poll_voter";
-static PREFIX_POLL_INDEXER: &[u8] = b"poll_indexer";
 static KEY_CONFIG: &[u8] = b"config";
 static KEY_STATE: &[u8] = b"state";
 static PREFIX_POLL: &[u8] = b"poll";
 
-#[cfg(test)]
-pub fn poll_indexer_old_store<'a, S: Storage>(
-    storage: &'a mut S,
-    status: &PollStatus,
-) -> Bucket<'a, S, bool> {
-    Bucket::multilevel(
-        &[PREFIX_POLL_INDEXER_OLD, status.to_string().as_bytes()],
-        storage,
-    )
-}
 #[cfg(test)]
 pub fn polls_old_store<'a, S: Storage>(storage: &'a mut S) -> Bucket<'a, S, LegacyPoll> {
     Bucket::new(PREFIX_POLL, storage)
@@ -75,34 +62,6 @@ pub struct LegacyPoll {
     pub execute_data: Option<ExecuteData>,
     pub deposit_amount: Uint128,
     pub total_balance_at_end_poll: Option<Uint128>,
-}
-
-pub fn migrate_poll_indexer<S: Storage>(storage: &mut S, status: &PollStatus) -> StdResult<()> {
-    let mut old_indexer_bucket: Bucket<S, bool> = Bucket::multilevel(
-        &[PREFIX_POLL_INDEXER_OLD, status.to_string().as_bytes()],
-        storage,
-    );
-
-    let mut poll_ids: Vec<u64> = vec![];
-    for item in old_indexer_bucket.range(None, None, Order::Ascending) {
-        let (k, _) = item?;
-        poll_ids.push(bytes_to_u64(&k)?);
-    }
-
-    for id in poll_ids.clone().into_iter() {
-        old_indexer_bucket.remove(&id.to_be_bytes());
-    }
-
-    let mut new_indexer_bucket: Bucket<S, bool> = Bucket::multilevel(
-        &[PREFIX_POLL_INDEXER, status.to_string().as_bytes()],
-        storage,
-    );
-
-    for id in poll_ids.into_iter() {
-        new_indexer_bucket.save(&id.to_be_bytes(), &true)?;
-    }
-
-    return Ok(());
 }
 
 fn bytes_to_u64(data: &[u8]) -> StdResult<u64> {
@@ -207,39 +166,8 @@ pub fn migrate_polls<S: Storage>(storage: &mut S, env: Env) -> StdResult<()> {
 #[cfg(test)]
 mod migrate_tests {
     use super::*;
-    use crate::state::poll_indexer_store;
     use crate::tests::mock_env_height;
     use cosmwasm_std::testing::mock_dependencies;
-
-    #[test]
-    fn test_poll_indexer_migration() {
-        let mut deps = mock_dependencies(20, &[]);
-        poll_indexer_old_store(&mut deps.storage, &PollStatus::InProgress)
-            .save(&1u64.to_be_bytes(), &true)
-            .unwrap();
-
-        poll_indexer_old_store(&mut deps.storage, &PollStatus::Executed)
-            .save(&2u64.to_be_bytes(), &true)
-            .unwrap();
-
-        migrate_poll_indexer(&mut deps.storage, &PollStatus::InProgress).unwrap();
-        migrate_poll_indexer(&mut deps.storage, &PollStatus::Executed).unwrap();
-        migrate_poll_indexer(&mut deps.storage, &PollStatus::Passed).unwrap();
-
-        assert_eq!(
-            poll_indexer_store(&mut deps.storage, &PollStatus::InProgress)
-                .load(&1u64.to_be_bytes())
-                .unwrap(),
-            true
-        );
-
-        assert_eq!(
-            poll_indexer_store(&mut deps.storage, &PollStatus::Executed)
-                .load(&2u64.to_be_bytes())
-                .unwrap(),
-            true
-        );
-    }
 
     #[test]
     fn test_polls_migration() {

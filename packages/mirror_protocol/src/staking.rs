@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use cosmwasm_std::{Decimal, HumanAddr, Uint128};
 use cw20::Cw20ReceiveMsg;
 use terraswap::asset::Asset;
+use crate::common::Network;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
@@ -14,6 +15,7 @@ pub struct InitMsg {
     pub terraswap_factory: HumanAddr,
     pub base_denom: String,
     pub premium_min_update_interval: u64,
+    pub short_reward_contract: HumanAddr,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -27,6 +29,7 @@ pub enum HandleMsg {
     UpdateConfig {
         owner: Option<HumanAddr>,
         premium_min_update_interval: Option<u64>,
+        short_reward_contract: Option<HumanAddr>,
     },
     RegisterAsset {
         asset_token: HumanAddr,
@@ -90,11 +93,13 @@ pub enum Cw20HookMsg {
 /// We currently take no arguments for migrations
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct MigrateMsg {
-    pub mint_contract: HumanAddr,
-    pub oracle_contract: HumanAddr,
-    pub terraswap_factory: HumanAddr,
-    pub base_denom: String,
-    pub premium_min_update_interval: u64,
+    pub network: Network,
+    pub mint_contract: Option<HumanAddr>, // only mainnet
+    pub oracle_contract: Option<HumanAddr>, // only mainnet
+    pub terraswap_factory: Option<HumanAddr>, // only mainnet
+    pub base_denom: Option<String>, // only mainnet
+    pub premium_min_update_interval: Option<u64>, // only mainnet
+    pub short_reward_contract: HumanAddr,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -120,6 +125,7 @@ pub struct ConfigResponse {
     pub terraswap_factory: HumanAddr,
     pub base_denom: String,
     pub premium_min_update_interval: u64,
+    pub short_reward_contract: HumanAddr,
 }
 
 // We define a custom struct for each query response

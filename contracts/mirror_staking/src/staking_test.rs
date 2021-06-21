@@ -27,6 +27,7 @@ mod tests {
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
             premium_min_update_interval: 3600,
+            short_reward_contract: HumanAddr::from("short_reward"),
         };
 
         let env = mock_env("addr", &[]);
@@ -172,6 +173,7 @@ mod tests {
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
             premium_min_update_interval: 3600,
+            short_reward_contract: HumanAddr::from("short_reward"),
         };
 
         let env = mock_env("addr", &[]);
@@ -291,6 +293,7 @@ mod tests {
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
             premium_min_update_interval: 3600,
+            short_reward_contract: HumanAddr::from("short_reward"),
         };
 
         let env = mock_env("addr", &[]);
@@ -390,6 +393,7 @@ mod tests {
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
             premium_min_update_interval: 3600,
+            short_reward_contract: HumanAddr::from("short_reward"),
         };
 
         let env = mock_env("addr", &[]);
@@ -499,6 +503,7 @@ mod tests {
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
             premium_min_update_interval: 3600,
+            short_reward_contract: HumanAddr::from("short_reward"),
         };
 
         let env = mock_env("addr", &[]);

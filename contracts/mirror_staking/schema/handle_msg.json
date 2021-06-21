@@ -40,6 +40,16 @@
               ],
               "format": "uint64",
               "minimum": 0.0
+            },
+            "short_reward_contract": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             }
           }
         }

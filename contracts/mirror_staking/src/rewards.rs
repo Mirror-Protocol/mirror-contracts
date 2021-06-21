@@ -3,8 +3,7 @@ use cosmwasm_std::{
     HandleResult, HumanAddr, Order, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 
-use crate::math::short_reward_weight;
-use crate::querier::compute_premium_rate;
+use crate::querier::{compute_premium_rate, compute_short_reward_weight};
 use crate::state::{
     read_config, read_pool_info, rewards_read, rewards_store, store_pool_info, Config, PoolInfo,
     RewardInfo,
@@ -21,6 +20,7 @@ pub fn adjust_premium<S: Storage, A: Api, Q: Querier>(
     let config: Config = read_config(&deps.storage)?;
     let oracle_contract = deps.api.human_address(&config.oracle_contract)?;
     let terraswap_factory = deps.api.human_address(&config.terraswap_factory)?;
+    let short_reward_contract = deps.api.human_address(&config.short_reward_contract)?;
     for asset_token in asset_tokens.iter() {
         let asset_token_raw = deps.api.canonical_address(&asset_token)?;
         let pool_info: PoolInfo = read_pool_info(&deps.storage, &asset_token_raw)?;
@@ -42,7 +42,7 @@ pub fn adjust_premium<S: Storage, A: Api, Q: Querier>(
         let short_reward_weight = if no_price_feed {
             Decimal::zero()
         } else {
-            short_reward_weight(premium_rate)
+            compute_short_reward_weight(&deps.querier, &short_reward_contract, premium_rate)?
         };
 
         store_pool_info(

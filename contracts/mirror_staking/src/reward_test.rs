@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod tests {
     use crate::contract::{handle, init, query};
-    use crate::math::short_reward_weight;
     use crate::mock_querier::mock_dependencies_with_querier;
     use crate::state::{read_pool_info, rewards_read, store_pool_info, PoolInfo, RewardInfo};
     use cosmwasm_std::testing::{mock_dependencies, mock_env};
@@ -27,6 +26,7 @@ mod tests {
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
             premium_min_update_interval: 3600,
+            short_reward_contract: HumanAddr::from("short_reward"),
         };
 
         let env = mock_env("addr", &[]);
@@ -51,7 +51,7 @@ mod tests {
             &token_raw,
             &PoolInfo {
                 premium_rate: Decimal::percent(2),
-                short_reward_weight: short_reward_weight(Decimal::percent(2)),
+                short_reward_weight: Decimal::percent(20),
                 ..pool_info
             },
         )
@@ -130,7 +130,7 @@ mod tests {
                 reward_index: Decimal::zero(),
                 short_reward_index: Decimal::zero(),
                 premium_rate: Decimal::percent(10),
-                short_reward_weight: short_reward_weight(Decimal::percent(10)),
+                short_reward_weight: Decimal::percent(40),
                 ..pool_info
             },
         )
@@ -172,6 +172,7 @@ mod tests {
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
             premium_min_update_interval: 3600,
+            short_reward_contract: HumanAddr::from("short_reward"),
         };
 
         let env = mock_env("addr", &[]);
@@ -196,7 +197,7 @@ mod tests {
             &token_raw,
             &PoolInfo {
                 premium_rate: Decimal::percent(2),
-                short_reward_weight: short_reward_weight(Decimal::percent(2)),
+                short_reward_weight: Decimal::percent(20),
                 ..pool_info
             },
         )
@@ -252,7 +253,7 @@ mod tests {
                 pending_reward: Uint128::zero(),
                 short_pending_reward: Uint128::zero(),
                 premium_rate: Decimal::percent(10),
-                short_reward_weight: short_reward_weight(Decimal::percent(10)),
+                short_reward_weight: Decimal::percent(40),
                 ..pool_info
             },
         )
@@ -294,6 +295,7 @@ mod tests {
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
             premium_min_update_interval: 3600,
+            short_reward_contract: HumanAddr::from("short_reward"),
         };
 
         let env = mock_env("addr", &[]);
@@ -318,7 +320,7 @@ mod tests {
             &token_raw,
             &PoolInfo {
                 premium_rate: Decimal::percent(2),
-                short_reward_weight: short_reward_weight(Decimal::percent(2)),
+                short_reward_weight: Decimal::percent(20),
                 ..pool_info
             },
         )
@@ -453,6 +455,7 @@ mod tests {
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
             premium_min_update_interval: 3600,
+            short_reward_contract: HumanAddr::from("short_reward"),
         };
 
         let env = mock_env("addr", &[]);
@@ -477,7 +480,7 @@ mod tests {
             &token_raw,
             &PoolInfo {
                 premium_rate: Decimal::percent(2),
-                short_reward_weight: short_reward_weight(Decimal::percent(2)),
+                short_reward_weight: Decimal::percent(20),
                 ..pool_info
             },
         )
@@ -544,6 +547,7 @@ mod tests {
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
             premium_min_update_interval: 3600,
+            short_reward_contract: HumanAddr::from("short_reward"),
         };
 
         let env = mock_env("addr", &[]);
@@ -576,7 +580,7 @@ mod tests {
             &token_raw,
             &PoolInfo {
                 premium_rate: Decimal::percent(2),
-                short_reward_weight: short_reward_weight(Decimal::percent(2)),
+                short_reward_weight: Decimal::percent(20),
                 ..pool_info
             },
         )
@@ -593,7 +597,7 @@ mod tests {
             &token_raw,
             &PoolInfo {
                 premium_rate: Decimal::percent(2),
-                short_reward_weight: short_reward_weight(Decimal::percent(2)),
+                short_reward_weight: Decimal::percent(20),
                 ..pool_info
             },
         )
@@ -777,6 +781,7 @@ mod tests {
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
             premium_min_update_interval: 3600,
+            short_reward_contract: HumanAddr::from("short_reward"),
         };
 
         let env = mock_env("addr", &[]);
