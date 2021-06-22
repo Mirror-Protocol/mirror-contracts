@@ -48,8 +48,8 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             position_idx,
             receiver,
         } => lock_position_funds_hook(deps, env, position_idx, receiver),
-        HandleMsg::UnlockPositionFunds { position_idx } => {
-            unlock_position_funds(deps, env, position_idx)
+        HandleMsg::UnlockPositionFunds { positions_idx } => {
+            unlock_positions_funds(deps, env, positions_idx)
         }
         HandleMsg::ReleasePositionFunds { position_idx } => {
             release_position_funds(deps, env, position_idx)
@@ -163,48 +163,47 @@ pub fn lock_position_funds_hook<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-pub fn unlock_position_funds<S: Storage, A: Api, Q: Querier>(
+pub fn unlock_positions_funds<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    position_idx: Uint128,
+    positions_idx: Vec<Uint128>,
 ) -> StdResult<HandleResponse> {
     let config: Config = read_config(&deps.storage)?;
     let sender_addr_raw: CanonicalAddr = deps.api.canonical_address(&env.message.sender)?;
-    let lock_info: PositionLockInfo = match read_position_lock_info(&deps.storage, position_idx) {
-        Ok(lock_info) => lock_info,
-        Err(_) => {
-            return Err(StdError::generic_err(
-                "There are no locked funds for this position idx",
-            ))
-        }
-    };
 
-    // only position owner can unlock funds
-    if sender_addr_raw != lock_info.receiver {
-        return Err(StdError::unauthorized());
-    }
+    let unlockable_positions: Vec<PositionLockInfo> = positions_idx
+        .iter()
+        .filter_map(|position_idx| read_position_lock_info(&deps.storage, *position_idx).ok())
+        .filter(|lock_info| {
+            lock_info.receiver == sender_addr_raw && env.block.time >= lock_info.unlock_time
+        })
+        .collect();
 
-    if env.block.time < lock_info.unlock_time {
-        return Err(StdError::generic_err(format!(
-            "Lock period has not expired yet. Unlocks at {}",
-            lock_info.unlock_time
-        )));
-    }
+    let unlock_amount: u128 = unlockable_positions
+        .iter()
+        .map(|valid_lock_info| {
+            // remove lock record
+            remove_position_lock_info(&mut deps.storage, valid_lock_info.idx);
+            valid_lock_info.locked_amount.u128()
+        })
+        .sum();
 
-    let unlok_amount: Uint128 = lock_info.locked_amount;
     let unlock_asset = Asset {
         info: AssetInfo::NativeToken {
             denom: config.base_denom.clone(),
         },
-        amount: unlok_amount,
+        amount: Uint128(unlock_amount),
     };
 
-    // remove lock record
-    remove_position_lock_info(&mut deps.storage, position_idx);
+    if unlock_asset.amount.is_zero() {
+        return Err(StdError::generic_err(
+            "There are no unlockable funds for the provided positions",
+        ));
+    }
 
-    // decrease locked amount
+    // decrease total locked amount
     total_locked_funds_store(&mut deps.storage).update(|current| {
-        let new_total = (current - unlok_amount)?;
+        let new_total = (current - unlock_asset.amount)?;
         Ok(new_total)
     })?;
 
@@ -213,15 +212,10 @@ pub fn unlock_position_funds<S: Storage, A: Api, Q: Querier>(
     Ok(HandleResponse {
         log: vec![
             log("action", "unlock_shorting_funds"),
-            log("position_idx", position_idx.to_string()),
             log("unlocked_amount", unlock_asset.to_string()),
             log("tax_amount", tax_amount.to_string() + &config.base_denom),
         ],
-        messages: vec![unlock_asset.into_msg(
-            &deps,
-            env.contract.address,
-            deps.api.human_address(&lock_info.receiver)?,
-        )?],
+        messages: vec![unlock_asset.into_msg(&deps, env.contract.address, env.message.sender)?],
         data: None,
     })
 }
