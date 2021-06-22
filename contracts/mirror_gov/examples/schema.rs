@@ -4,7 +4,7 @@ use std::fs::create_dir_all;
 
 use mirror_protocol::gov::{
     ConfigResponse, Cw20HookMsg, ExecuteMsg, HandleMsg, InitMsg, MigrateMsg, PollCountResponse,
-    PollResponse, PollsResponse, QueryMsg, StakerResponse,
+    PollResponse, PollsResponse, QueryMsg, SharesResponse, StakerResponse,
 };
 
 fn main() {
@@ -23,5 +23,6 @@ fn main() {
     export_schema(&schema_for!(ExecuteMsg), &out_dir);
     export_schema(&schema_for!(PollsResponse), &out_dir);
     export_schema(&schema_for!(PollCountResponse), &out_dir);
+    export_schema(&schema_for!(SharesResponse), &out_dir);
     export_schema(&schema_for!(MigrateMsg), &out_dir);
 }
