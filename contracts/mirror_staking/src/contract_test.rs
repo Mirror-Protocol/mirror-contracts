@@ -21,6 +21,7 @@ mod tests {
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
             premium_min_update_interval: 3600,
+            short_reward_contract: HumanAddr::from("short_reward"),
         };
 
         let env = mock_env("addr", &[]);
@@ -40,6 +41,7 @@ mod tests {
                 terraswap_factory: HumanAddr::from("terraswap_factory"),
                 base_denom: "uusd".to_string(),
                 premium_min_update_interval: 3600,
+                short_reward_contract: HumanAddr::from("short_reward"),
             },
             config
         );
@@ -57,6 +59,7 @@ mod tests {
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
             premium_min_update_interval: 3600,
+            short_reward_contract: HumanAddr::from("short_reward"),
         };
 
         let env = mock_env("addr", &[]);
@@ -67,6 +70,7 @@ mod tests {
         let msg = HandleMsg::UpdateConfig {
             owner: Some(HumanAddr("owner2".to_string())),
             premium_min_update_interval: Some(7200),
+            short_reward_contract: Some(HumanAddr::from("new_short_reward")),
         };
 
         let res = handle(&mut deps, env, msg).unwrap();
@@ -84,6 +88,7 @@ mod tests {
                 terraswap_factory: HumanAddr::from("terraswap_factory"),
                 base_denom: "uusd".to_string(),
                 premium_min_update_interval: 7200,
+                short_reward_contract: HumanAddr::from("new_short_reward"),
             },
             config
         );
@@ -93,6 +98,7 @@ mod tests {
         let msg = HandleMsg::UpdateConfig {
             owner: None,
             premium_min_update_interval: Some(7200),
+            short_reward_contract: None,
         };
 
         let res = handle(&mut deps, env, msg);
@@ -114,6 +120,7 @@ mod tests {
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
             premium_min_update_interval: 3600,
+            short_reward_contract: HumanAddr::from("short_reward"),
         };
 
         let env = mock_env("addr", &[]);

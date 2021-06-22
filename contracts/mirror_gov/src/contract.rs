@@ -16,7 +16,7 @@ use cosmwasm_std::{
 };
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
 
-use mirror_protocol::common::OrderBy;
+use mirror_protocol::common::{Network, OrderBy};
 use mirror_protocol::gov::{
     ConfigResponse, Cw20HookMsg, ExecuteMsg, HandleMsg, InitMsg, MigrateMsg, PollResponse,
     PollStatus, PollsResponse, QueryMsg, StateResponse, VoteOption, VoterInfo, VotersResponse,
@@ -29,6 +29,7 @@ const MIN_DESC_LENGTH: usize = 4;
 const MAX_DESC_LENGTH: usize = 256;
 const MIN_LINK_LENGTH: usize = 12;
 const MAX_LINK_LENGTH: usize = 128;
+const MAX_POLLS_IN_PROGRESS: usize = 50;
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -37,6 +38,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
 ) -> InitResult {
     validate_quorum(msg.quorum)?;
     validate_threshold(msg.threshold)?;
+    validate_voter_weight(msg.voter_weight)?;
 
     let config = Config {
         mirror_token: deps.api.canonical_address(&msg.mirror_token)?,
@@ -305,6 +307,19 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
             "Must deposit more than {} token",
             config.proposal_deposit
         )));
+    }
+
+    let polls_in_progress: usize = read_polls(
+        &deps.storage,
+        Some(PollStatus::InProgress),
+        None,
+        None,
+        None,
+        Some(true),
+    )?
+    .len();
+    if polls_in_progress.gt(&MAX_POLLS_IN_PROGRESS) {
+        return Err(StdError::generic_err("Too many polls in progress"));
     }
 
     let mut state: State = state_store(&mut deps.storage).load()?;
@@ -874,36 +889,36 @@ fn query_voters<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-use crate::migrate::{migrate_config, migrate_poll_indexer, migrate_polls, migrate_state};
+use crate::migrate::{migrate_config, migrate_polls, migrate_state};
 pub fn migrate<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     msg: MigrateMsg,
 ) -> MigrateResult {
-    // Currently support 2 migration processes
-    //      - version 1 migrates poll indexers, config, state, and polls
-    //      - version 2 migrates config, state and polls
-    if msg.version.eq(&1u64) {
-        migrate_poll_indexer(&mut deps.storage, &PollStatus::InProgress)?;
-        migrate_poll_indexer(&mut deps.storage, &PollStatus::Passed)?;
-        migrate_poll_indexer(&mut deps.storage, &PollStatus::Rejected)?;
-        migrate_poll_indexer(&mut deps.storage, &PollStatus::Executed)?;
-        migrate_poll_indexer(&mut deps.storage, &PollStatus::Expired)?;
-    } else if !msg.version.eq(&2u64) {
-        return Err(StdError::generic_err("Invalid migrate version number"));
+    match msg.network {
+        Network::Mainnet => {
+            if msg.voter_weight.is_none()
+                || msg.snapshot_period.is_none()
+                || msg.voting_period.is_none()
+                || msg.effective_delay.is_none()
+                || msg.expiration_period.is_none()
+            {
+                return Err(StdError::generic_err("For mainnet migration, need to specify: 'voter_weight','snapshot_period','voting_period','effective_delay','expiration_period'"));
+            }
+
+            // migrations for voting rewards, abstain votes and new time unit
+            migrate_config(
+                &mut deps.storage,
+                msg.voter_weight.unwrap(),
+                msg.snapshot_period.unwrap(),
+                msg.voting_period.unwrap(),
+                msg.effective_delay.unwrap(),
+                msg.expiration_period.unwrap(),
+            )?;
+            migrate_state(&mut deps.storage)?;
+            migrate_polls(&mut deps.storage, env)?;
+        }
+        Network::Testnet => {}
     }
-
-    // migrations for voting rewards, abstain votes and new time unit
-    migrate_config(
-        &mut deps.storage,
-        msg.voter_weight,
-        msg.snapshot_period,
-        msg.voting_period,
-        msg.effective_delay,
-        msg.expiration_period,
-    )?;
-    migrate_state(&mut deps.storage)?;
-    migrate_polls(&mut deps.storage, env)?;
-
     Ok(MigrateResponse::default())
 }

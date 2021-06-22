@@ -4,13 +4,20 @@ mod tests {
     use cosmwasm_std::Api;
     use cosmwasm_std::{CanonicalAddr, Decimal, HumanAddr, StdResult, Storage, Uint128};
     use cosmwasm_storage::{singleton, Bucket};
+    use serde::{de::DeserializeOwned, Serialize};
 
-    use crate::migration::{migrate_config, migrate_pool_infos, LegacyConfig, LegacyPoolInfo};
+    use crate::migration::{
+        migrate_mainnet_config, migrate_pool_infos, migrate_testnet_config, LegacyPoolInfo,
+        MainnetLegacyConfig, TestnetLegacyConfig,
+    };
     use crate::state::{
         read_config, read_pool_info, Config, PoolInfo, KEY_CONFIG, PREFIX_POOL_INFO,
     };
 
-    fn store_legacy_config<S: Storage>(storage: &mut S, config: &LegacyConfig) -> StdResult<()> {
+    fn store_legacy_config<S: Storage, T: Serialize + DeserializeOwned>(
+        storage: &mut S,
+        config: &T,
+    ) -> StdResult<()> {
         singleton(storage, KEY_CONFIG).save(config)
     }
 
@@ -23,11 +30,11 @@ mod tests {
     }
 
     #[test]
-    fn test_config_migration() {
+    fn test_mainnet_config_migration() {
         let mut deps = mock_dependencies(20, &[]);
         store_legacy_config(
             &mut deps.storage,
-            &LegacyConfig {
+            &MainnetLegacyConfig {
                 owner: deps
                     .api
                     .canonical_address(&HumanAddr::from("owner"))
@@ -40,7 +47,7 @@ mod tests {
         )
         .unwrap();
 
-        migrate_config(
+        migrate_mainnet_config(
             &mut deps.storage,
             deps.api
                 .canonical_address(&HumanAddr::from("mint"))
@@ -53,6 +60,9 @@ mod tests {
                 .unwrap(),
             "uusd".to_string(),
             7200,
+            deps.api
+                .canonical_address(&HumanAddr::from("short_reward"))
+                .unwrap(),
         )
         .unwrap();
 
@@ -80,6 +90,83 @@ mod tests {
                     .unwrap(),
                 base_denom: "uusd".to_string(),
                 premium_min_update_interval: 7200,
+                short_reward_contract: deps
+                    .api
+                    .canonical_address(&HumanAddr::from("short_reward"))
+                    .unwrap()
+            },
+            read_config(&deps.storage).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_testnet_config_migration() {
+        let mut deps = mock_dependencies(20, &[]);
+        store_legacy_config(
+            &mut deps.storage,
+            &TestnetLegacyConfig {
+                owner: deps
+                    .api
+                    .canonical_address(&HumanAddr::from("owner"))
+                    .unwrap(),
+                mirror_token: deps
+                    .api
+                    .canonical_address(&HumanAddr::from("mirror"))
+                    .unwrap(),
+                mint_contract: deps
+                    .api
+                    .canonical_address(&HumanAddr::from("mint"))
+                    .unwrap(),
+                oracle_contract: deps
+                    .api
+                    .canonical_address(&HumanAddr::from("oracle"))
+                    .unwrap(),
+                terraswap_factory: deps
+                    .api
+                    .canonical_address(&HumanAddr::from("terraswap_factory"))
+                    .unwrap(),
+                base_denom: "uusd".to_string(),
+                premium_min_update_interval: 7200,
+            },
+        )
+        .unwrap();
+
+        migrate_testnet_config(
+            &mut deps.storage,
+            deps.api
+                .canonical_address(&HumanAddr::from("short_reward"))
+                .unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            Config {
+                owner: deps
+                    .api
+                    .canonical_address(&HumanAddr::from("owner"))
+                    .unwrap(),
+                mirror_token: deps
+                    .api
+                    .canonical_address(&HumanAddr::from("mirror"))
+                    .unwrap(),
+                mint_contract: deps
+                    .api
+                    .canonical_address(&HumanAddr::from("mint"))
+                    .unwrap(),
+                oracle_contract: deps
+                    .api
+                    .canonical_address(&HumanAddr::from("oracle"))
+                    .unwrap(),
+                terraswap_factory: deps
+                    .api
+                    .canonical_address(&HumanAddr::from("terraswap_factory"))
+                    .unwrap(),
+                base_denom: "uusd".to_string(),
+                premium_min_update_interval: 7200,
+                short_reward_contract: deps
+                    .api
+                    .canonical_address(&HumanAddr::from("short_reward"))
+                    .unwrap()
             },
             read_config(&deps.storage).unwrap()
         );

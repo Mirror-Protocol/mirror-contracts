@@ -19,12 +19,13 @@ use crate::{
 };
 
 use cw20::Cw20ReceiveMsg;
-use mirror_protocol::mint::{
-    AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrateMsg, QueryMsg,
-};
 use mirror_protocol::{
     collateral_oracle::{HandleMsg as CollateralOracleHandleMsg, SourceType},
+    common::Network,
     mint::IPOParams,
+    mint::{
+        AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrateMsg, QueryMsg,
+    },
 };
 use terraswap::asset::{Asset, AssetInfo};
 
@@ -43,7 +44,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         lock: deps.api.canonical_address(&msg.lock)?,
         base_denom: msg.base_denom,
         token_code_id: msg.token_code_id,
-        protocol_fee_rate: msg.protocol_fee_rate,
+        protocol_fee_rate: assert_protocol_fee(msg.protocol_fee_rate)?,
     };
 
     store_config(&mut deps.storage, &config)?;
@@ -249,8 +250,7 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     }
 
     if let Some(protocol_fee_rate) = protocol_fee_rate {
-        assert_protocol_fee(protocol_fee_rate)?;
-        config.protocol_fee_rate = protocol_fee_rate;
+        config.protocol_fee_rate = assert_protocol_fee(protocol_fee_rate)?;
     }
 
     store_config(&mut deps.storage, &config)?;
@@ -500,7 +500,7 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
         lock: deps.api.human_address(&state.lock)?,
         base_denom: state.base_denom,
         token_code_id: state.token_code_id,
-        protocol_fee_rate: Decimal::percent(1),
+        protocol_fee_rate: state.protocol_fee_rate,
     };
 
     Ok(resp)
@@ -529,17 +529,30 @@ pub fn migrate<S: Storage, A: Api, Q: Querier>(
     _env: Env,
     msg: MigrateMsg,
 ) -> MigrateResult {
-    // migrate config
-    migrate_config(
-        &mut deps.storage,
-        deps.api.canonical_address(&msg.staking)?,
-        deps.api.canonical_address(&msg.terraswap_factory)?,
-        deps.api.canonical_address(&msg.collateral_oracle)?,
-        deps.api.canonical_address(&msg.lock)?,
-    )?;
+    match msg.network {
+        Network::Mainnet => {
+            if msg.staking.is_none()
+                || msg.terraswap_factory.is_none()
+                || msg.collateral_oracle.is_none()
+                || msg.lock.is_none()
+            {
+                return Err(StdError::generic_err("For mainnet migration, need to specify: 'staking','terraswap_factory','collateral_oracle','lock'"));
+            }
+            // migrate config
+            migrate_config(
+                &mut deps.storage,
+                deps.api.canonical_address(&msg.staking.unwrap())?,
+                deps.api
+                    .canonical_address(&msg.terraswap_factory.unwrap())?,
+                deps.api
+                    .canonical_address(&msg.collateral_oracle.unwrap())?,
+                deps.api.canonical_address(&msg.lock.unwrap())?,
+            )?;
 
-    // migrate all asset configurations to use new add mint_end parameter
-    migrate_asset_configs(&mut deps.storage)?;
-
+            // migrate all asset configurations to use new add mint_end parameter
+            migrate_asset_configs(&mut deps.storage)?;
+        }
+        Network::Testnet => {}
+    }
     Ok(MigrateResponse::default())
 }

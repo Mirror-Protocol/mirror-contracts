@@ -4,7 +4,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-use crate::common::OrderBy;
+use crate::common::{OrderBy, Network};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
@@ -179,15 +179,14 @@ pub struct VotersResponse {
     pub voters: Vec<VotersResponseItem>,
 }
 
-/// Migrates the contract state, currently taking a state version argument
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct MigrateMsg {
-    pub version: u64, // current contract migration state version
-    pub voter_weight: Decimal,
-    pub snapshot_period: u64,
-    pub voting_period: u64,
-    pub effective_delay: u64,
-    pub expiration_period: u64,
+    pub network: Network,
+    pub voter_weight: Option<Decimal>, // only mainnet
+    pub snapshot_period: Option<u64>, // only mainnet
+    pub voting_period: Option<u64>, // only mainnet
+    pub effective_delay: Option<u64>, // only mainnet
+    pub expiration_period: Option<u64>, // only mainnet
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
