@@ -4,11 +4,12 @@ use cosmwasm_std::{
     Uint128,
 };
 
+use mirror_protocol::common::Network;
 use mirror_protocol::staking::{
     ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrateMsg, PoolInfoResponse, QueryMsg,
 };
 
-use crate::migration::{migrate_config, migrate_pool_infos};
+use crate::migration::{migrate_mainnet_config, migrate_pool_infos, migrate_testnet_config};
 use crate::rewards::{adjust_premium, deposit_reward, query_reward_info, withdraw_reward};
 use crate::staking::{
     auto_stake, auto_stake_hook, bond, decrease_short_token, increase_short_token, unbond,
@@ -32,6 +33,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
             terraswap_factory: deps.api.canonical_address(&msg.terraswap_factory)?,
             base_denom: msg.base_denom,
             premium_min_update_interval: msg.premium_min_update_interval,
+            short_reward_contract: deps.api.canonical_address(&msg.short_reward_contract)?,
         },
     )?;
 
@@ -48,7 +50,14 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::UpdateConfig {
             owner,
             premium_min_update_interval,
-        } => update_config(deps, env, owner, premium_min_update_interval),
+            short_reward_contract,
+        } => update_config(
+            deps,
+            env,
+            owner,
+            premium_min_update_interval,
+            short_reward_contract,
+        ),
         HandleMsg::RegisterAsset {
             asset_token,
             staking_token,
@@ -137,6 +146,7 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     env: Env,
     owner: Option<HumanAddr>,
     premium_min_update_interval: Option<u64>,
+    short_reward_contract: Option<HumanAddr>,
 ) -> StdResult<HandleResponse> {
     let mut config: Config = read_config(&deps.storage)?;
 
@@ -150,6 +160,10 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
 
     if let Some(premium_min_update_interval) = premium_min_update_interval {
         config.premium_min_update_interval = premium_min_update_interval;
+    }
+
+    if let Some(short_reward_contract) = short_reward_contract {
+        config.short_reward_contract = deps.api.canonical_address(&short_reward_contract)?;
     }
 
     store_config(&mut deps.storage, &config)?;
@@ -230,6 +244,7 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
         terraswap_factory: deps.api.human_address(&state.terraswap_factory)?,
         base_denom: state.base_denom,
         premium_min_update_interval: state.premium_min_update_interval,
+        short_reward_contract: deps.api.human_address(&state.short_reward_contract)?,
     };
 
     Ok(resp)
@@ -261,16 +276,36 @@ pub fn migrate<S: Storage, A: Api, Q: Querier>(
     _env: Env,
     msg: MigrateMsg,
 ) -> MigrateResult {
-    migrate_config(
-        &mut deps.storage,
-        deps.api.canonical_address(&msg.mint_contract)?,
-        deps.api.canonical_address(&msg.oracle_contract)?,
-        deps.api.canonical_address(&msg.terraswap_factory)?,
-        msg.base_denom,
-        msg.premium_min_update_interval,
-    )?;
+    match msg.network {
+        Network::Mainnet => {
+            if msg.mint_contract.is_none()
+                || msg.oracle_contract.is_none()
+                || msg.terraswap_factory.is_none()
+                || msg.base_denom.is_none()
+                || msg.premium_min_update_interval.is_none()
+            {
+                return Err(StdError::generic_err("For mainnet migration, need to specify: 'mint_contract','oracle_contract','terraswap_factory','base_denom','premium_min_update_interval'"));
+            }
+            migrate_mainnet_config(
+                &mut deps.storage,
+                deps.api.canonical_address(&msg.mint_contract.unwrap())?,
+                deps.api.canonical_address(&msg.oracle_contract.unwrap())?,
+                deps.api
+                    .canonical_address(&msg.terraswap_factory.unwrap())?,
+                msg.base_denom.unwrap(),
+                msg.premium_min_update_interval.unwrap(),
+                deps.api.canonical_address(&msg.short_reward_contract)?,
+            )?;
 
-    migrate_pool_infos(&mut deps.storage)?;
+            migrate_pool_infos(&mut deps.storage)?;
+        }
+        Network::Testnet => {
+            migrate_testnet_config(
+                &mut deps.storage,
+                deps.api.canonical_address(&msg.short_reward_contract)?,
+            )?;
+        }
+    }
 
     Ok(MigrateResponse::default())
 }

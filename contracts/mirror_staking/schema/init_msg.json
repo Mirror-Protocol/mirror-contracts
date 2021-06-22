@@ -9,6 +9,7 @@
     "oracle_contract",
     "owner",
     "premium_min_update_interval",
+    "short_reward_contract",
     "terraswap_factory"
   ],
   "properties": {
@@ -31,6 +32,9 @@
       "type": "integer",
       "format": "uint64",
       "minimum": 0.0
+    },
+    "short_reward_contract": {
+      "$ref": "#/definitions/HumanAddr"
     },
     "terraswap_factory": {
       "$ref": "#/definitions/HumanAddr"

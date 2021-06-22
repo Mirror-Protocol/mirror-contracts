@@ -4,12 +4,11 @@ use cosmwasm_std::{
     QuerierResult, QueryRequest, SystemError, Uint128, WasmQuery,
 };
 use cosmwasm_storage::to_length_prefixed;
-use mirror_protocol::oracle::{PriceResponse, QueryMsg as OracleQueryMsg};
+use mirror_protocol::oracle::PriceResponse;
+use mirror_protocol::short_reward::ShortRewardWeightResponse;
+use serde::Deserialize;
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
-use terraswap::{
-    asset::Asset, asset::AssetInfo, asset::PairInfo, factory::QueryMsg as FactoryQueryMsg,
-    pair::PoolResponse, pair::QueryMsg as PairQueryMsg,
-};
+use terraswap::{asset::Asset, asset::AssetInfo, asset::PairInfo, pair::PoolResponse};
 
 pub struct WasmMockQuerier {
     base: MockQuerier<TerraQueryWrapper>,
@@ -18,6 +17,7 @@ pub struct WasmMockQuerier {
     oracle_price: Decimal,
     token_balance: Uint128,
     tax: (Decimal, Uint128),
+    short_reward_weight: Decimal,
 }
 
 pub fn mock_dependencies_with_querier(
@@ -54,6 +54,22 @@ impl Querier for WasmMockQuerier {
     }
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MockQueryMsg {
+    Pair {
+        asset_infos: [AssetInfo; 2],
+    },
+    Price {
+        base_asset: String,
+        quote_asset: String,
+    },
+    Pool {},
+    ShortRewardWeight {
+        premium_rate: Decimal,
+    },
+}
+
 impl WasmMockQuerier {
     pub fn handle_query(&self, request: &QueryRequest<TerraQueryWrapper>) -> QuerierResult {
         match &request {
@@ -77,29 +93,29 @@ impl WasmMockQuerier {
             QueryRequest::Wasm(WasmQuery::Smart {
                 contract_addr: _,
                 msg,
-            }) => match from_binary(&msg) {
-                Ok(FactoryQueryMsg::Pair { asset_infos }) => Ok(to_binary(&PairInfo {
+            }) => match from_binary(&msg).unwrap() {
+                MockQueryMsg::Pair { asset_infos } => Ok(to_binary(&PairInfo {
                     asset_infos: asset_infos.clone(),
                     contract_addr: self.pair_addr.clone(),
                     liquidity_token: HumanAddr::from("lptoken"),
                 })),
-                _ => match from_binary(&msg) {
-                    Ok(PairQueryMsg::Pool {}) => Ok(to_binary(&PoolResponse {
-                        assets: self.pool_assets.clone(),
-                        total_share: Uint128::zero(),
-                    })),
-                    _ => match from_binary(&msg) {
-                        Ok(OracleQueryMsg::Price {
-                            base_asset: _,
-                            quote_asset: _,
-                        }) => Ok(to_binary(&PriceResponse {
-                            rate: self.oracle_price,
-                            last_updated_base: 100,
-                            last_updated_quote: 100,
-                        })),
-                        _ => panic!("DO NOT ENTER HERE"),
-                    },
-                },
+                MockQueryMsg::ShortRewardWeight { .. } => {
+                    Ok(to_binary(&ShortRewardWeightResponse {
+                        short_reward_weight: self.short_reward_weight,
+                    }))
+                }
+                MockQueryMsg::Pool {} => Ok(to_binary(&PoolResponse {
+                    assets: self.pool_assets.clone(),
+                    total_share: Uint128::zero(),
+                })),
+                MockQueryMsg::Price {
+                    base_asset: _,
+                    quote_asset: _,
+                } => Ok(to_binary(&PriceResponse {
+                    rate: self.oracle_price,
+                    last_updated_base: 100,
+                    last_updated_quote: 100,
+                })),
             },
             QueryRequest::Wasm(WasmQuery::Raw {
                 contract_addr: _,
@@ -144,6 +160,7 @@ impl WasmMockQuerier {
             oracle_price: Decimal::zero(),
             token_balance: Uint128::zero(),
             tax: (Decimal::percent(1), Uint128(1000000)),
+            short_reward_weight: Decimal::percent(20),
         }
     }
 

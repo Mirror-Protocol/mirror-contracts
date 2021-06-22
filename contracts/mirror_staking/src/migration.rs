@@ -7,9 +7,20 @@ use cosmwasm_storage::{singleton_read, ReadonlyBucket};
 use crate::state::{store_config, store_pool_info, Config, PoolInfo, KEY_CONFIG, PREFIX_POOL_INFO};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct LegacyConfig {
+pub struct MainnetLegacyConfig {
     pub owner: CanonicalAddr,
     pub mirror_token: CanonicalAddr,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct TestnetLegacyConfig {
+    pub owner: CanonicalAddr,
+    pub mirror_token: CanonicalAddr,
+    pub mint_contract: CanonicalAddr,
+    pub oracle_contract: CanonicalAddr,
+    pub terraswap_factory: CanonicalAddr,
+    pub base_denom: String,
+    pub premium_min_update_interval: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -20,7 +31,11 @@ pub struct LegacyPoolInfo {
     pub reward_index: Decimal,
 }
 
-fn read_legacy_config<S: Storage>(storage: &S) -> StdResult<LegacyConfig> {
+fn read_testnet_legacy_config<S: Storage>(storage: &S) -> StdResult<TestnetLegacyConfig> {
+    singleton_read(storage, KEY_CONFIG).load()
+}
+
+fn read_mainnet_legacy_config<S: Storage>(storage: &S) -> StdResult<MainnetLegacyConfig> {
     singleton_read(storage, KEY_CONFIG).load()
 }
 
@@ -38,15 +53,16 @@ fn read_legacy_pool_infos<S: Storage>(
         .collect()
 }
 
-pub fn migrate_config<S: Storage>(
+pub fn migrate_mainnet_config<S: Storage>(
     storage: &mut S,
     mint_contract: CanonicalAddr,
     oracle_contract: CanonicalAddr,
     terraswap_factory: CanonicalAddr,
     base_denom: String,
     premium_min_update_interval: u64,
+    short_reward_contract: CanonicalAddr,
 ) -> StdResult<()> {
-    let legacy_config = read_legacy_config(storage)?;
+    let legacy_config: MainnetLegacyConfig = read_mainnet_legacy_config(storage)?;
 
     store_config(
         storage,
@@ -58,6 +74,28 @@ pub fn migrate_config<S: Storage>(
             terraswap_factory,
             base_denom,
             premium_min_update_interval,
+            short_reward_contract,
+        },
+    )
+}
+
+pub fn migrate_testnet_config<S: Storage>(
+    storage: &mut S,
+    short_reward_contract: CanonicalAddr,
+) -> StdResult<()> {
+    let legacy_config: TestnetLegacyConfig = read_testnet_legacy_config(storage)?;
+
+    store_config(
+        storage,
+        &Config {
+            owner: legacy_config.owner,
+            mirror_token: legacy_config.mirror_token,
+            mint_contract: legacy_config.mint_contract,
+            oracle_contract: legacy_config.oracle_contract,
+            terraswap_factory: legacy_config.terraswap_factory,
+            base_denom: legacy_config.base_denom,
+            premium_min_update_interval: legacy_config.premium_min_update_interval,
+            short_reward_contract,
         },
     )
 }

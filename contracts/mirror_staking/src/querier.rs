@@ -10,7 +10,8 @@ use terraswap::{
 
 use crate::math::{decimal_division, decimal_subtraction};
 
-use mirror_protocol::{oracle::PriceResponse, oracle::QueryMsg as OracleQueryMsg};
+use mirror_protocol::oracle::{PriceResponse, QueryMsg as OracleQueryMsg};
+use mirror_protocol::short_reward::{QueryMsg as ShortRewardQueryMsg, ShortRewardWeightResponse};
 
 pub fn compute_premium_rate<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
@@ -66,6 +67,19 @@ pub fn compute_premium_rate<S: Storage, A: Api, Q: Querier>(
     } else {
         Ok((Decimal::zero(), false))
     }
+}
+
+pub fn compute_short_reward_weight<Q: Querier>(
+    querier: &Q,
+    short_reward_contract: &HumanAddr,
+    premium_rate: Decimal,
+) -> StdResult<Decimal> {
+    let res: ShortRewardWeightResponse = querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+        contract_addr: HumanAddr::from(short_reward_contract),
+        msg: to_binary(&ShortRewardQueryMsg::ShortRewardWeight { premium_rate })?,
+    }))?;
+
+    Ok(res.short_reward_weight)
 }
 
 pub fn query_price<S: Storage, A: Api, Q: Querier>(
