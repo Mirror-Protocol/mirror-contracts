@@ -4,13 +4,16 @@ use cosmwasm_std::{
     Uint128,
 };
 
+use mirror_protocol::common::Network;
 use mirror_protocol::staking::{
     ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrateMsg, PoolInfoResponse, QueryMsg,
 };
 
-use crate::migration::{migrate_config, migrate_pool_infos};
+use crate::migration::{migrate_mainnet_config, migrate_pool_infos, migrate_testnet_config};
 use crate::rewards::{adjust_premium, deposit_reward, query_reward_info, withdraw_reward};
-use crate::staking::{bond, decrease_short_token, increase_short_token, unbond};
+use crate::staking::{
+    auto_stake, auto_stake_hook, bond, decrease_short_token, increase_short_token, unbond,
+};
 use crate::state::{read_config, read_pool_info, store_config, store_pool_info, Config, PoolInfo};
 
 use cw20::Cw20ReceiveMsg;
@@ -29,9 +32,8 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
             oracle_contract: deps.api.canonical_address(&msg.oracle_contract)?,
             terraswap_factory: deps.api.canonical_address(&msg.terraswap_factory)?,
             base_denom: msg.base_denom,
-            premium_tolerance: msg.premium_tolerance,
-            short_reward_weight: msg.short_reward_weight,
-            premium_short_reward_weight: msg.premium_short_reward_weight,
+            premium_min_update_interval: msg.premium_min_update_interval,
+            short_reward_contract: deps.api.canonical_address(&msg.short_reward_contract)?,
         },
     )?;
 
@@ -47,16 +49,14 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::Receive(msg) => receive_cw20(deps, env, msg),
         HandleMsg::UpdateConfig {
             owner,
-            premium_tolerance,
-            short_reward_weight,
-            premium_short_reward_weight,
+            premium_min_update_interval,
+            short_reward_contract,
         } => update_config(
             deps,
             env,
             owner,
-            premium_tolerance,
-            short_reward_weight,
-            premium_short_reward_weight,
+            premium_min_update_interval,
+            short_reward_contract,
         ),
         HandleMsg::RegisterAsset {
             asset_token,
@@ -67,7 +67,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             amount,
         } => unbond(deps, env.message.sender, asset_token, amount),
         HandleMsg::Withdraw { asset_token } => withdraw_reward(deps, env, asset_token),
-        HandleMsg::AdjustPremium { asset_tokens } => adjust_premium(deps, asset_tokens),
+        HandleMsg::AdjustPremium { asset_tokens } => adjust_premium(deps, env, asset_tokens),
         HandleMsg::IncreaseShortToken {
             staker_addr,
             asset_token,
@@ -78,6 +78,23 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             asset_token,
             amount,
         } => decrease_short_token(deps, env, staker_addr, asset_token, amount),
+        HandleMsg::AutoStake {
+            assets,
+            slippage_tolerance,
+        } => auto_stake(deps, env, assets, slippage_tolerance),
+        HandleMsg::AutoStakeHook {
+            asset_token,
+            staking_token,
+            staker_addr,
+            prev_staking_token_amount,
+        } => auto_stake_hook(
+            deps,
+            env,
+            asset_token,
+            staking_token,
+            staker_addr,
+            prev_staking_token_amount,
+        ),
     }
 }
 
@@ -128,9 +145,8 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     owner: Option<HumanAddr>,
-    premium_tolerance: Option<Decimal>,
-    short_reward_weight: Option<Decimal>,
-    premium_short_reward_weight: Option<Decimal>,
+    premium_min_update_interval: Option<u64>,
+    short_reward_contract: Option<HumanAddr>,
 ) -> StdResult<HandleResponse> {
     let mut config: Config = read_config(&deps.storage)?;
 
@@ -142,16 +158,12 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
         config.owner = deps.api.canonical_address(&owner)?;
     }
 
-    if let Some(premium_tolerance) = premium_tolerance {
-        config.premium_tolerance = premium_tolerance;
+    if let Some(premium_min_update_interval) = premium_min_update_interval {
+        config.premium_min_update_interval = premium_min_update_interval;
     }
 
-    if let Some(short_reward_weight) = short_reward_weight {
-        config.short_reward_weight = short_reward_weight;
-    }
-
-    if let Some(premium_short_reward_weight) = premium_short_reward_weight {
-        config.premium_short_reward_weight = premium_short_reward_weight;
+    if let Some(short_reward_contract) = short_reward_contract {
+        config.short_reward_contract = deps.api.canonical_address(&short_reward_contract)?;
     }
 
     store_config(&mut deps.storage, &config)?;
@@ -191,6 +203,8 @@ fn register_asset<S: Storage, A: Api, Q: Querier>(
             pending_reward: Uint128::zero(),
             short_pending_reward: Uint128::zero(),
             premium_rate: Decimal::zero(),
+            short_reward_weight: Decimal::zero(),
+            premium_updated_time: 0,
         },
     )?;
 
@@ -229,9 +243,8 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
         oracle_contract: deps.api.human_address(&state.oracle_contract)?,
         terraswap_factory: deps.api.human_address(&state.terraswap_factory)?,
         base_denom: state.base_denom,
-        premium_tolerance: state.premium_tolerance,
-        short_reward_weight: state.short_reward_weight,
-        premium_short_reward_weight: state.premium_short_reward_weight,
+        premium_min_update_interval: state.premium_min_update_interval,
+        short_reward_contract: deps.api.human_address(&state.short_reward_contract)?,
     };
 
     Ok(resp)
@@ -253,6 +266,8 @@ pub fn query_pool_info<S: Storage, A: Api, Q: Querier>(
         pending_reward: pool_info.pending_reward,
         short_pending_reward: pool_info.short_pending_reward,
         premium_rate: pool_info.premium_rate,
+        short_reward_weight: pool_info.short_reward_weight,
+        premium_updated_time: pool_info.premium_updated_time,
     })
 }
 
@@ -261,18 +276,36 @@ pub fn migrate<S: Storage, A: Api, Q: Querier>(
     _env: Env,
     msg: MigrateMsg,
 ) -> MigrateResult {
-    migrate_config(
-        &mut deps.storage,
-        deps.api.canonical_address(&msg.mint_contract)?,
-        deps.api.canonical_address(&msg.oracle_contract)?,
-        deps.api.canonical_address(&msg.terraswap_factory)?,
-        msg.base_denom,
-        msg.premium_tolerance,
-        msg.short_reward_weight,
-        msg.premium_short_reward_weight,
-    )?;
+    match msg.network {
+        Network::Mainnet => {
+            if msg.mint_contract.is_none()
+                || msg.oracle_contract.is_none()
+                || msg.terraswap_factory.is_none()
+                || msg.base_denom.is_none()
+                || msg.premium_min_update_interval.is_none()
+            {
+                return Err(StdError::generic_err("For mainnet migration, need to specify: 'mint_contract','oracle_contract','terraswap_factory','base_denom','premium_min_update_interval'"));
+            }
+            migrate_mainnet_config(
+                &mut deps.storage,
+                deps.api.canonical_address(&msg.mint_contract.unwrap())?,
+                deps.api.canonical_address(&msg.oracle_contract.unwrap())?,
+                deps.api
+                    .canonical_address(&msg.terraswap_factory.unwrap())?,
+                msg.base_denom.unwrap(),
+                msg.premium_min_update_interval.unwrap(),
+                deps.api.canonical_address(&msg.short_reward_contract)?,
+            )?;
 
-    migrate_pool_infos(&mut deps.storage)?;
+            migrate_pool_infos(&mut deps.storage)?;
+        }
+        Network::Testnet => {
+            migrate_testnet_config(
+                &mut deps.storage,
+                deps.api.canonical_address(&msg.short_reward_contract)?,
+            )?;
+        }
+    }
 
     Ok(MigrateResponse::default())
 }

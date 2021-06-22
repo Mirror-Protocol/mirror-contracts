@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{Decimal, HumanAddr, Uint128};
 use cw20::Cw20ReceiveMsg;
+use terraswap::asset::Asset;
+use crate::common::Network;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
@@ -12,9 +14,8 @@ pub struct InitMsg {
     pub oracle_contract: HumanAddr,
     pub terraswap_factory: HumanAddr,
     pub base_denom: String,
-    pub premium_tolerance: Decimal,
-    pub short_reward_weight: Decimal,
-    pub premium_short_reward_weight: Decimal,
+    pub premium_min_update_interval: u64,
+    pub short_reward_contract: HumanAddr,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -27,9 +28,8 @@ pub enum HandleMsg {
     ////////////////////////
     UpdateConfig {
         owner: Option<HumanAddr>,
-        premium_tolerance: Option<Decimal>,
-        short_reward_weight: Option<Decimal>,
-        premium_short_reward_weight: Option<Decimal>,
+        premium_min_update_interval: Option<u64>,
+        short_reward_contract: Option<HumanAddr>,
     },
     RegisterAsset {
         asset_token: HumanAddr,
@@ -47,6 +47,18 @@ pub enum HandleMsg {
     Withdraw {
         // If the asset token is not given, then all rewards are withdrawn
         asset_token: Option<HumanAddr>,
+    },
+    /// Provides liquidity and automatically stakes the LP tokens
+    AutoStake {
+        assets: [Asset; 2],
+        slippage_tolerance: Option<Decimal>,
+    },
+    /// Hook to stake the minted LP tokens
+    AutoStakeHook {
+        asset_token: HumanAddr,
+        staking_token: HumanAddr,
+        staker_addr: HumanAddr,
+        prev_staking_token_amount: Uint128,
     },
 
     //////////////////////////////////
@@ -81,13 +93,13 @@ pub enum Cw20HookMsg {
 /// We currently take no arguments for migrations
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct MigrateMsg {
-    pub mint_contract: HumanAddr,
-    pub oracle_contract: HumanAddr,
-    pub terraswap_factory: HumanAddr,
-    pub base_denom: String,
-    pub premium_tolerance: Decimal,
-    pub short_reward_weight: Decimal,
-    pub premium_short_reward_weight: Decimal,
+    pub network: Network,
+    pub mint_contract: Option<HumanAddr>, // only mainnet
+    pub oracle_contract: Option<HumanAddr>, // only mainnet
+    pub terraswap_factory: Option<HumanAddr>, // only mainnet
+    pub base_denom: Option<String>, // only mainnet
+    pub premium_min_update_interval: Option<u64>, // only mainnet
+    pub short_reward_contract: HumanAddr,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -112,9 +124,8 @@ pub struct ConfigResponse {
     pub oracle_contract: HumanAddr,
     pub terraswap_factory: HumanAddr,
     pub base_denom: String,
-    pub premium_tolerance: Decimal,
-    pub short_reward_weight: Decimal,
-    pub premium_short_reward_weight: Decimal,
+    pub premium_min_update_interval: u64,
+    pub short_reward_contract: HumanAddr,
 }
 
 // We define a custom struct for each query response
@@ -129,6 +140,8 @@ pub struct PoolInfoResponse {
     pub pending_reward: Uint128,
     pub short_pending_reward: Uint128,
     pub premium_rate: Decimal,
+    pub short_reward_weight: Decimal,
+    pub premium_updated_time: u64,
 }
 
 // We define a custom struct for each query response

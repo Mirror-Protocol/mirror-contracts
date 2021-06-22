@@ -29,12 +29,9 @@ incremental = false
 overflow-checks = true
 
 [features]
-default = ["cranelift"]
 # for quicker tests, cargo test --lib
 # for more explicit tests, cargo test --features=backtraces
-backtraces = ["cosmwasm-std/backtraces", "cosmwasm-vm/backtraces"]
-cranelift = ["cosmwasm-vm/default-cranelift"]
-singlepass = ["cosmwasm-vm/default-singlepass"]
+backtraces = ["cosmwasm-std/backtraces"]
 
 [dependencies]
 cw20 = "0.2"
@@ -44,8 +41,8 @@ mirror-protocol = { version = "1.1.0", path = "../../packages/mirror_protocol" }
 terraswap = "1.1.0"
 schemars = "0.7"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
+terra-cosmwasm = "1.2.2"
+moneymarket = "0.1.0"
 
 [dev-dependencies]
-cosmwasm-vm = { version = "0.10.1", default-features = false }
 cosmwasm-schema = "0.10.1"
-terra-cosmwasm = "1.2.2"

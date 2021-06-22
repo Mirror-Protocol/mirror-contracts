@@ -4,7 +4,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-use crate::common::OrderBy;
+use crate::common::{OrderBy, Network};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
@@ -16,6 +16,7 @@ pub struct InitMsg {
     pub expiration_period: u64,
     pub proposal_deposit: Uint128,
     pub voter_weight: Decimal,
+    pub snapshot_period: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -31,6 +32,7 @@ pub enum HandleMsg {
         expiration_period: Option<u64>,
         proposal_deposit: Option<Uint128>,
         voter_weight: Option<Decimal>,
+        snapshot_period: Option<u64>,
     },
     CastVote {
         poll_id: u64,
@@ -41,6 +43,7 @@ pub enum HandleMsg {
         amount: Option<Uint128>,
     },
     WithdrawVotingRewards {},
+    StakeVotingRewards {},
     EndPoll {
         poll_id: u64,
     },
@@ -48,6 +51,9 @@ pub enum HandleMsg {
         poll_id: u64,
     },
     ExpirePoll {
+        poll_id: u64,
+    },
+    SnapshotPoll {
         poll_id: u64,
     },
 }
@@ -117,6 +123,7 @@ pub struct ConfigResponse {
     pub expiration_period: u64,
     pub proposal_deposit: Uint128,
     pub voter_weight: Decimal,
+    pub snapshot_period: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
@@ -132,7 +139,7 @@ pub struct PollResponse {
     pub id: u64,
     pub creator: HumanAddr,
     pub status: PollStatus,
-    pub end_height: u64,
+    pub end_time: u64,
     pub title: String,
     pub description: String,
     pub link: Option<String>,
@@ -143,6 +150,7 @@ pub struct PollResponse {
     pub abstain_votes: Uint128, // balance
     pub total_balance_at_end_poll: Option<Uint128>,
     pub voters_reward: Uint128,
+    pub staked_amount: Option<Uint128>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema)]
@@ -160,6 +168,7 @@ pub struct StakerResponse {
     pub balance: Uint128,
     pub share: Uint128,
     pub locked_balance: Vec<(u64, VoterInfo)>,
+    pub withdrawable_polls: Vec<(u64, Uint128)>,
     pub pending_voting_rewards: Uint128,
 }
 
@@ -186,10 +195,14 @@ pub struct VotersResponse {
     pub voters: Vec<VotersResponseItem>,
 }
 
-/// Migrates the contract state, currently taking a state version argument
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct MigrateMsg {
-    pub version: u64, // current contract migration state version
+    pub network: Network,
+    pub voter_weight: Option<Decimal>, // only mainnet
+    pub snapshot_period: Option<u64>, // only mainnet
+    pub voting_period: Option<u64>, // only mainnet
+    pub effective_delay: Option<u64>, // only mainnet
+    pub expiration_period: Option<u64>, // only mainnet
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

@@ -18,9 +18,8 @@ pub struct Config {
     pub oracle_contract: CanonicalAddr,
     pub terraswap_factory: CanonicalAddr,
     pub base_denom: String,
-    pub premium_tolerance: Decimal,
-    pub short_reward_weight: Decimal,
-    pub premium_short_reward_weight: Decimal,
+    pub premium_min_update_interval: u64,
+    pub short_reward_contract: CanonicalAddr,
 }
 
 pub fn store_config<S: Storage>(storage: &mut S, config: &Config) -> StdResult<()> {
@@ -41,6 +40,8 @@ pub struct PoolInfo {
     pub reward_index: Decimal,
     pub short_reward_index: Decimal,
     pub premium_rate: Decimal,
+    pub short_reward_weight: Decimal,
+    pub premium_updated_time: u64,
 }
 
 pub fn store_pool_info<S: Storage>(

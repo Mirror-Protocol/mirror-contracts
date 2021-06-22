@@ -7,10 +7,11 @@ use cosmwasm_std::{
 
 use cosmwasm_storage::{singleton, singleton_read, Bucket, ReadonlyBucket};
 use mirror_protocol::common::OrderBy;
+use mirror_protocol::mint::IPOParams;
 use std::convert::TryInto;
 use terraswap::asset::{AssetInfoRaw, AssetRaw};
 
-pub static PREFIX_ASSET_CONFIG: &[u8] = b"asset_config";
+static PREFIX_ASSET_CONFIG: &[u8] = b"asset_config";
 static PREFIX_POSITION: &[u8] = b"position";
 static PREFIX_INDEX_BY_USER: &[u8] = b"by_user";
 static PREFIX_INDEX_BY_ASSET: &[u8] = b"by_asset";
@@ -32,8 +33,10 @@ pub struct Config {
     pub owner: CanonicalAddr,
     pub oracle: CanonicalAddr,
     pub collector: CanonicalAddr,
+    pub collateral_oracle: CanonicalAddr,
     pub staking: CanonicalAddr,
     pub terraswap_factory: CanonicalAddr,
+    pub lock: CanonicalAddr,
     pub base_denom: String,
     pub token_code_id: u64,
     pub protocol_fee_rate: Decimal,
@@ -53,8 +56,7 @@ pub struct AssetConfig {
     pub auction_discount: Decimal,
     pub min_collateral_ratio: Decimal,
     pub end_price: Option<Decimal>,
-    pub mint_end: Option<u64>,
-    pub min_collateral_ratio_after_migration: Option<Decimal>,
+    pub ipo_params: Option<IPOParams>,
 }
 
 pub fn store_asset_config<S: Storage>(
@@ -79,14 +81,23 @@ pub fn read_asset_config<S: Storage>(
     }
 }
 
-pub fn read_end_price<S: Storage>(storage: &S, asset_info: &AssetInfoRaw) -> Option<Decimal> {
+// check if the asset has either end_price or pre_ipo_price
+pub fn read_fixed_price<S: Storage>(storage: &S, asset_info: &AssetInfoRaw) -> Option<Decimal> {
     match asset_info {
         AssetInfoRaw::Token { contract_addr } => {
             let asset_bucket: ReadonlyBucket<S, AssetConfig> =
                 ReadonlyBucket::new(PREFIX_ASSET_CONFIG, storage);
             let res = asset_bucket.load(contract_addr.as_slice());
             match res {
-                Ok(data) => data.end_price,
+                Ok(data) => {
+                    if data.end_price.is_some() {
+                        data.end_price
+                    } else if let Some(ipo_params) = data.ipo_params {
+                        Some(ipo_params.pre_ipo_price)
+                    } else {
+                        None
+                    }
+                }
                 _ => None,
             }
         }

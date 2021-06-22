@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PollCountResponse",
+  "type": "object",
+  "required": [
+    "poll_count"
+  ],
+  "properties": {
+    "poll_count": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    }
+  }
+}

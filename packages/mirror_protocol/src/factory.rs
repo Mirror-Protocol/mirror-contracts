@@ -63,9 +63,10 @@ pub enum HandleMsg {
 
     /// Revoke asset from MIR rewards pool
     /// and register end_price to mint contract
+    /// Only feeder can set end_price
     RevokeAsset {
         asset_token: HumanAddr,
-        end_price: Decimal,
+        end_price: Option<Decimal>,
     },
     /// Migrate asset to new asset by registering
     /// end_price to mint contract and add
@@ -128,6 +129,8 @@ pub struct Params {
     pub weight: Option<u32>,
     /// For pre-IPO assets, time period after asset creation in which minting is enabled
     pub mint_period: Option<u64>,
-    /// For pre-IPO assets, collateral ratio for the asset after migration
-    pub min_collateral_ratio_after_migration: Option<Decimal>,
+    /// For pre-IPO assets, collateral ratio for the asset after ipo
+    pub min_collateral_ratio_after_ipo: Option<Decimal>,
+    /// For pre-IPO assets, fixed price during minting period
+    pub pre_ipo_price: Option<Decimal>,
 }

@@ -37,6 +37,12 @@ mod tests {
             (&"asset0000".to_string(), &Decimal::percent(100)),
             (&"asset0001".to_string(), &Decimal::percent(50)),
         ]);
+        deps.querier.with_collateral_infos(&[(
+            &"asset0001".to_string(),
+            &Decimal::percent(50),
+            &Decimal::percent(200), // 2 collateral_multiplier
+            &false,
+        )]);
 
         let base_denom = "uusd".to_string();
 
@@ -44,8 +50,10 @@ mod tests {
             owner: HumanAddr::from("owner0000"),
             oracle: HumanAddr::from("oracle0000"),
             collector: HumanAddr::from("collector0000"),
+            collateral_oracle: HumanAddr::from("collateraloracle0000"),
             staking: HumanAddr::from("staking0000"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
+            lock: HumanAddr::from("lock0000"),
             base_denom: base_denom.clone(),
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
@@ -58,8 +66,7 @@ mod tests {
             asset_token: HumanAddr::from("asset0000"),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
-            mint_end: None,
-            min_collateral_ratio_after_migration: None,
+            ipo_params: None,
         };
 
         let env = mock_env("owner0000", &[]);
@@ -69,14 +76,31 @@ mod tests {
             asset_token: HumanAddr::from("asset0001"),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
-            mint_end: None,
-            min_collateral_ratio_after_migration: None,
+            ipo_params: None,
         };
 
         let env = mock_env("owner0000", &[]);
         let _res = handle(&mut deps, env, msg).unwrap();
 
-        // must be failed; collateral ratio is too low
+        // open position with unknown collateral
+        let msg = HandleMsg::Receive(Cw20ReceiveMsg {
+            msg: Some(
+                to_binary(&Cw20HookMsg::OpenPosition {
+                    asset_info: AssetInfo::Token {
+                        contract_addr: HumanAddr::from("asset9999"),
+                    },
+                    collateral_ratio: Decimal::percent(150),
+                    short_params: None,
+                })
+                .unwrap(),
+            ),
+            sender: HumanAddr::from("addr0000"),
+            amount: Uint128(1000000u128),
+        });
+        let env = mock_env_with_block_time("asset9999", &[], 1000);
+        let _res = handle(&mut deps, env, msg).unwrap_err(); // expect error
+
+        // must fail; collateral ratio is too low
         let msg = HandleMsg::OpenPosition {
             collateral: Asset {
                 info: AssetInfo::NativeToken {
@@ -107,6 +131,7 @@ mod tests {
             _ => panic!("DO NOT ENTER ERROR"),
         }
 
+        // successful attempt
         let msg = HandleMsg::OpenPosition {
             collateral: Asset {
                 info: AssetInfo::NativeToken {
@@ -237,7 +262,7 @@ mod tests {
                     asset_info: AssetInfo::Token {
                         contract_addr: HumanAddr::from("asset0000"),
                     },
-                    collateral_ratio: Decimal::percent(150),
+                    collateral_ratio: Decimal::percent(300), // 150 * 2 (multiplier)
                     short_params: None,
                 })
                 .unwrap(),
@@ -253,7 +278,7 @@ mod tests {
             vec![
                 log("action", "open_position"),
                 log("position_idx", "2"),
-                log("mint_amount", "333333asset0000"),
+                log("mint_amount", "166666asset0000"), // 1000000 * 0.5 (price to asset) * 0.5 multiplier / 1.5 (mcr)
                 log("collateral_amount", "1000000asset0001"),
                 log("is_short", "false"),
             ]
@@ -266,7 +291,7 @@ mod tests {
                 send: vec![],
                 msg: to_binary(&Cw20HandleMsg::Mint {
                     recipient: HumanAddr::from("addr0000"),
-                    amount: Uint128(333333u128),
+                    amount: Uint128(166666u128),
                 })
                 .unwrap(),
             })]
@@ -289,7 +314,7 @@ mod tests {
                     info: AssetInfo::Token {
                         contract_addr: HumanAddr::from("asset0000"),
                     },
-                    amount: Uint128(333333u128),
+                    amount: Uint128(166666u128),
                 },
                 collateral: Asset {
                     info: AssetInfo::Token {
@@ -325,7 +350,7 @@ mod tests {
                             info: AssetInfo::Token {
                                 contract_addr: HumanAddr::from("asset0000"),
                             },
-                            amount: Uint128(333333u128),
+                            amount: Uint128(166666u128),
                         },
                         collateral: Asset {
                             info: AssetInfo::Token {
@@ -400,6 +425,12 @@ mod tests {
             (&"asset0000".to_string(), &Decimal::percent(100)),
             (&"asset0001".to_string(), &Decimal::percent(50)),
         ]);
+        deps.querier.with_collateral_infos(&[(
+            &"asset0001".to_string(),
+            &Decimal::percent(50),
+            &Decimal::one(),
+            &false,
+        )]);
 
         let base_denom = "uusd".to_string();
 
@@ -407,8 +438,10 @@ mod tests {
             owner: HumanAddr::from("owner0000"),
             oracle: HumanAddr::from("oracle0000"),
             collector: HumanAddr::from("collector0000"),
+            collateral_oracle: HumanAddr::from("collateraloracle0000"),
             staking: HumanAddr::from("staking0000"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
+            lock: HumanAddr::from("lock0000"),
             base_denom: base_denom.clone(),
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
@@ -421,8 +454,7 @@ mod tests {
             asset_token: HumanAddr::from("asset0000"),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
-            mint_end: None,
-            min_collateral_ratio_after_migration: None,
+            ipo_params: None,
         };
 
         let env = mock_env("owner0000", &[]);
@@ -432,8 +464,7 @@ mod tests {
             asset_token: HumanAddr::from("asset0001"),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
-            mint_end: None,
-            min_collateral_ratio_after_migration: None,
+            ipo_params: None,
         };
 
         let env = mock_env("owner0000", &[]);
@@ -604,6 +635,12 @@ mod tests {
                 &Decimal::from_ratio(50u128, 1u128),
             ),
         ]);
+        deps.querier.with_collateral_infos(&[(
+            &"asset0001".to_string(),
+            &Decimal::from_ratio(50u128, 1u128),
+            &Decimal::one(),
+            &false,
+        )]);
 
         let base_denom = "uusd".to_string();
 
@@ -611,8 +648,10 @@ mod tests {
             owner: HumanAddr::from("owner0000"),
             oracle: HumanAddr::from("oracle0000"),
             collector: HumanAddr::from("collector0000"),
+            collateral_oracle: HumanAddr::from("collateraloracle0000"),
             staking: HumanAddr::from("staking0000"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
+            lock: HumanAddr::from("lock0000"),
             base_denom: base_denom.clone(),
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
@@ -625,8 +664,7 @@ mod tests {
             asset_token: HumanAddr::from("asset0000"),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
-            mint_end: None,
-            min_collateral_ratio_after_migration: None,
+            ipo_params: None,
         };
 
         let env = mock_env("owner0000", &[]);
@@ -636,8 +674,7 @@ mod tests {
             asset_token: HumanAddr::from("asset0001"),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
-            mint_end: None,
-            min_collateral_ratio_after_migration: None,
+            ipo_params: None,
         };
 
         let env = mock_env("owner0000", &[]);
@@ -844,6 +881,12 @@ mod tests {
                 &Decimal::from_ratio(50u128, 1u128),
             ),
         ]);
+        deps.querier.with_collateral_infos(&[(
+            &"asset0001".to_string(),
+            &Decimal::from_ratio(50u128, 1u128),
+            &Decimal::one(),
+            &false,
+        )]);
 
         let base_denom = "uusd".to_string();
 
@@ -851,8 +894,10 @@ mod tests {
             owner: HumanAddr::from("owner0000"),
             oracle: HumanAddr::from("oracle0000"),
             collector: HumanAddr::from("collector0000"),
+            collateral_oracle: HumanAddr::from("collateraloracle0000"),
             staking: HumanAddr::from("staking0000"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
+            lock: HumanAddr::from("lock0000"),
             base_denom: base_denom.clone(),
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
@@ -865,8 +910,7 @@ mod tests {
             asset_token: HumanAddr::from("asset0000"),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
-            mint_end: None,
-            min_collateral_ratio_after_migration: None,
+            ipo_params: None,
         };
 
         let env = mock_env("owner0000", &[]);
@@ -876,8 +920,7 @@ mod tests {
             asset_token: HumanAddr::from("asset0001"),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
-            mint_end: None,
-            min_collateral_ratio_after_migration: None,
+            ipo_params: None,
         };
 
         let env = mock_env("owner0000", &[]);
@@ -1001,7 +1044,7 @@ mod tests {
                 .unwrap(),
             ),
         });
-        let env = mock_env("asset0000", &[]);
+        let env = mock_env_with_block_time("asset0000", &[], 1000);
         let res = handle(&mut deps, env, msg).unwrap();
         assert_eq!(
             res.log,
@@ -1009,18 +1052,29 @@ mod tests {
                 log("action", "burn"),
                 log("position_idx", "1"),
                 log("burn_amount", "13333asset0000"),
+                log("protocol_fee", "13333uusd") // 13333 * 100 (price) * 0.01 (protocol_fee)
             ]
         );
         assert_eq!(
             res.messages,
-            vec![CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("asset0000"),
-                msg: to_binary(&Cw20HandleMsg::Burn {
-                    amount: Uint128(13333u128),
-                })
-                .unwrap(),
-                send: vec![],
-            })]
+            vec![
+                CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: HumanAddr::from("asset0000"),
+                    msg: to_binary(&Cw20HandleMsg::Burn {
+                        amount: Uint128(13333u128),
+                    })
+                    .unwrap(),
+                    send: vec![],
+                }),
+                CosmosMsg::Bank(BankMsg::Send {
+                    from_address: HumanAddr::from(MOCK_CONTRACT_ADDR),
+                    to_address: HumanAddr::from("collector0000"),
+                    amount: vec![Coin {
+                        denom: "uusd".to_string(),
+                        amount: Uint128(13333u128)
+                    }],
+                }),
+            ]
         );
 
         // mint other asset
@@ -1067,7 +1121,7 @@ mod tests {
                 .unwrap(),
             ),
         });
-        let env = mock_env("asset0000", &[]);
+        let env = mock_env_with_block_time("asset0000", &[], 1000);
         let res = handle(&mut deps, env, msg).unwrap();
         assert_eq!(
             res.log,
@@ -1075,18 +1129,30 @@ mod tests {
                 log("action", "burn"),
                 log("position_idx", "2"),
                 log("burn_amount", "666666asset0000"),
+                log("protocol_fee", "13333asset0001"), // 666666 * 100 * 0.01 / 50
             ]
         );
         assert_eq!(
             res.messages,
-            vec![CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("asset0000"),
-                msg: to_binary(&Cw20HandleMsg::Burn {
-                    amount: Uint128(666666u128),
+            vec![
+                CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: HumanAddr::from("asset0000"),
+                    msg: to_binary(&Cw20HandleMsg::Burn {
+                        amount: Uint128(666666u128),
+                    })
+                    .unwrap(),
+                    send: vec![],
+                }),
+                CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: HumanAddr::from("asset0001"),
+                    msg: to_binary(&Cw20HandleMsg::Transfer {
+                        recipient: HumanAddr::from("collector0000"),
+                        amount: Uint128(13333u128)
+                    })
+                    .unwrap(),
+                    send: vec![],
                 })
-                .unwrap(),
-                send: vec![],
-            })]
+            ]
         );
     }
 
@@ -1097,7 +1163,6 @@ mod tests {
             Decimal::percent(1),
             &[(&"uusd".to_string(), &Uint128(1000000u128))],
         );
-
         deps.querier.with_oracle_price(&[
             (&"uusd".to_string(), &Decimal::one()),
             (
@@ -1109,6 +1174,12 @@ mod tests {
                 &Decimal::from_ratio(50u128, 1u128),
             ),
         ]);
+        deps.querier.with_collateral_infos(&[(
+            &"asset0001".to_string(),
+            &Decimal::from_ratio(50u128, 1u128),
+            &Decimal::one(),
+            &false,
+        )]);
 
         let base_denom = "uusd".to_string();
 
@@ -1116,8 +1187,10 @@ mod tests {
             owner: HumanAddr::from("owner0000"),
             oracle: HumanAddr::from("oracle0000"),
             collector: HumanAddr::from("collector0000"),
+            collateral_oracle: HumanAddr::from("collateraloracle0000"),
             staking: HumanAddr::from("staking0000"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
+            lock: HumanAddr::from("lock0000"),
             base_denom: base_denom.clone(),
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
@@ -1130,8 +1203,7 @@ mod tests {
             asset_token: HumanAddr::from("asset0000"),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
-            mint_end: None,
-            min_collateral_ratio_after_migration: None,
+            ipo_params: None,
         };
 
         let env = mock_env("owner0000", &[]);
@@ -1141,8 +1213,7 @@ mod tests {
             asset_token: HumanAddr::from("asset0001"),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
-            mint_end: None,
-            min_collateral_ratio_after_migration: None,
+            ipo_params: None,
         };
 
         let env = mock_env("owner0000", &[]);
@@ -1194,12 +1265,12 @@ mod tests {
         // due to min collateral ratio
         let msg = HandleMsg::Withdraw {
             position_idx: Uint128(1u128),
-            collateral: Asset {
+            collateral: Some(Asset {
                 info: AssetInfo::NativeToken {
                     denom: "uusd".to_string(),
                 },
                 amount: Uint128(101u128),
-            },
+            }),
         };
         let env = mock_env_with_block_time("addr0000", &[], 1000u64);
         let res = handle(&mut deps, env, msg).unwrap_err();
@@ -1213,12 +1284,12 @@ mod tests {
 
         let msg = HandleMsg::Withdraw {
             position_idx: Uint128(1u128),
-            collateral: Asset {
+            collateral: Some(Asset {
                 info: AssetInfo::NativeToken {
                     denom: "uusd".to_string(),
                 },
                 amount: Uint128(100u128),
-            },
+            }),
         };
         let env = mock_env_with_block_time("addr0000", &[], 1000u64);
         let res = handle(&mut deps, env, msg).unwrap();
@@ -1227,9 +1298,8 @@ mod tests {
             vec![
                 log("action", "withdraw"),
                 log("position_idx", "1"),
-                log("withdraw_amount", "99uusd"),
+                log("withdraw_amount", "100uusd"),
                 log("tax_amount", "1uusd"),
-                log("protocol_fee", "1uusd"),
             ]
         );
 
@@ -1237,12 +1307,12 @@ mod tests {
         // due to min collateral ratio
         let msg = HandleMsg::Withdraw {
             position_idx: Uint128(2u128),
-            collateral: Asset {
+            collateral: Some(Asset {
                 info: AssetInfo::Token {
                     contract_addr: HumanAddr::from("asset0001"),
                 },
                 amount: Uint128(2u128),
-            },
+            }),
         };
         let env = mock_env_with_block_time("addr0000", &[], 1000u64);
         let res = handle(&mut deps, env, msg).unwrap_err();
@@ -1256,12 +1326,12 @@ mod tests {
 
         let msg = HandleMsg::Withdraw {
             position_idx: Uint128(2u128),
-            collateral: Asset {
+            collateral: Some(Asset {
                 info: AssetInfo::Token {
                     contract_addr: HumanAddr::from("asset0001"),
                 },
                 amount: Uint128(1u128),
-            },
+            }),
         };
         let env = mock_env_with_block_time("addr0000", &[], 1000u64);
         let res = handle(&mut deps, env, msg).unwrap();
@@ -1272,7 +1342,6 @@ mod tests {
                 log("position_idx", "2"),
                 log("withdraw_amount", "1asset0001"),
                 log("tax_amount", "0asset0001"),
-                log("protocol_fee", "0asset0001"),
             ]
         );
     }
@@ -1284,7 +1353,6 @@ mod tests {
             Decimal::percent(5u64),
             &[(&"uusd".to_string(), &Uint128(1000000u128))],
         );
-
         deps.querier.with_oracle_price(&[
             (&"uusd".to_string(), &Decimal::one()),
             (
@@ -1296,6 +1364,20 @@ mod tests {
                 &Decimal::from_ratio(50u128, 1u128),
             ),
         ]);
+        deps.querier.with_collateral_infos(&[
+            (
+                &"asset0000".to_string(),
+                &Decimal::from_ratio(100u128, 1u128),
+                &Decimal::one(),
+                &false,
+            ),
+            (
+                &"asset0001".to_string(),
+                &Decimal::from_ratio(50u128, 1u128),
+                &Decimal::one(),
+                &false,
+            ),
+        ]);
 
         let base_denom = "uusd".to_string();
 
@@ -1303,8 +1385,10 @@ mod tests {
             owner: HumanAddr::from("owner0000"),
             oracle: HumanAddr::from("oracle0000"),
             collector: HumanAddr::from("collector0000"),
+            collateral_oracle: HumanAddr::from("collateraloracle0000"),
             staking: HumanAddr::from("staking0000"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
+            lock: HumanAddr::from("lock0000"),
             base_denom: base_denom.clone(),
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
@@ -1317,8 +1401,7 @@ mod tests {
             asset_token: HumanAddr::from("asset0000"),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(130),
-            mint_end: None,
-            min_collateral_ratio_after_migration: None,
+            ipo_params: None,
         };
 
         let env = mock_env("owner0000", &[]);
@@ -1328,8 +1411,7 @@ mod tests {
             asset_token: HumanAddr::from("asset0001"),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
-            mint_end: None,
-            min_collateral_ratio_after_migration: None,
+            ipo_params: None,
         };
 
         let env = mock_env("owner0000", &[]);
@@ -1439,6 +1521,20 @@ mod tests {
                 &Decimal::from_ratio(50u128, 1u128),
             ),
         ]);
+        deps.querier.with_collateral_infos(&[
+            (
+                &"asset0000".to_string(),
+                &Decimal::from_ratio(116u128, 1u128),
+                &Decimal::one(),
+                &false,
+            ),
+            (
+                &"asset0001".to_string(),
+                &Decimal::from_ratio(50u128, 1u128),
+                &Decimal::one(),
+                &false,
+            ),
+        ]);
 
         // auction failed; liquidation amount is bigger than position amount
         let msg = HandleMsg::Receive(Cw20ReceiveMsg {
@@ -1510,7 +1606,7 @@ mod tests {
                 CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: HumanAddr::from("asset0000"),
                     msg: to_binary(&Cw20HandleMsg::Burn {
-                        amount: Uint128(6666u128),
+                        amount: Uint128(6666u128), // asset value in collateral = 6666 * 116  = 773256 -- protocol fee = 7732
                     })
                     .unwrap(),
                     send: vec![],
@@ -1521,9 +1617,9 @@ mod tests {
                     amount: vec![Coin {
                         denom: "uusd".to_string(),
                         // Origin:          966,570
-                        // ProtocolFee(1%): -9,665
-                        // Tax(5%):         -45,567
-                        amount: Uint128(911338u128)
+                        // ProtocolFee(1%): -7,732
+                        // Tax(5%):         -45,659
+                        amount: Uint128(913179u128)
                     }],
                 }),
                 CosmosMsg::Bank(BankMsg::Send {
@@ -1531,9 +1627,9 @@ mod tests {
                     to_address: HumanAddr::from("collector0000"),
                     amount: vec![Coin {
                         denom: "uusd".to_string(),
-                        // Origin:  9,665
-                        // Tax(5%): -461
-                        amount: Uint128(9204u128)
+                        // Origin:  7732
+                        // Tax(5%): -369
+                        amount: Uint128(7363u128)
                     }]
                 })
             ],
@@ -1544,10 +1640,10 @@ mod tests {
                 log("action", "auction"),
                 log("position_idx", "1"),
                 log("owner", "addr0000"),
-                log("return_collateral_amount", "956905uusd"),
+                log("return_collateral_amount", "958838uusd"),
                 log("liquidated_amount", "6666asset0000"),
-                log("tax_amount", "45567uusd"),
-                log("protocol_fee", "9665uusd"),
+                log("tax_amount", "45659uusd"),
+                log("protocol_fee", "7732uusd"),
             ]
         );
 
@@ -1557,6 +1653,20 @@ mod tests {
             (&"uusd".to_string(), &Decimal::one()),
             (&"asset0000".to_string(), &Decimal::percent(200)),
             (&"asset0001".to_string(), &Decimal::percent(50)),
+        ]);
+        deps.querier.with_collateral_infos(&[
+            (
+                &"asset0000".to_string(),
+                &Decimal::percent(200),
+                &Decimal::one(),
+                &false,
+            ),
+            (
+                &"asset0001".to_string(),
+                &Decimal::percent(50),
+                &Decimal::one(),
+                &false,
+            ),
         ]);
 
         let msg = HandleMsg::Receive(Cw20ReceiveMsg {
@@ -1590,7 +1700,7 @@ mod tests {
                 CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: HumanAddr::from("asset0000"),
                     msg: to_binary(&Cw20HandleMsg::Burn {
-                        amount: Uint128(200000u128),
+                        amount: Uint128(200000u128), // asset value in collateral = 200000 * 200 / 50 = 800000 -- protocol fee = 8000
                     })
                     .unwrap(),
                     send: vec![],
@@ -1599,7 +1709,7 @@ mod tests {
                     contract_addr: HumanAddr::from("asset0001"),
                     msg: to_binary(&Cw20HandleMsg::Transfer {
                         recipient: HumanAddr::from("addr0001"),
-                        amount: Uint128(990000u128), // protocol fee = 200000 * 0.01 = 2000
+                        amount: Uint128(992000u128), // protocol fee = 200000 * 0.01 = 2000
                     })
                     .unwrap(),
                     send: vec![],
@@ -1608,7 +1718,7 @@ mod tests {
                     contract_addr: HumanAddr::from("asset0001"),
                     msg: to_binary(&Cw20HandleMsg::Transfer {
                         recipient: HumanAddr::from("collector0000"),
-                        amount: Uint128(10000u128),
+                        amount: Uint128(8000u128),
                     })
                     .unwrap(),
                     send: vec![],
@@ -1621,10 +1731,10 @@ mod tests {
                 log("action", "auction"),
                 log("position_idx", "2"),
                 log("owner", "addr0000"),
-                log("return_collateral_amount", "990000asset0001"),
+                log("return_collateral_amount", "992000asset0001"),
                 log("liquidated_amount", "200000asset0000"),
                 log("tax_amount", "0asset0001"),
-                log("protocol_fee", "10000asset0001"),
+                log("protocol_fee", "8000asset0001"),
             ]
         );
     }

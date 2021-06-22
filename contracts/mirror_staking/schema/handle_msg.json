@@ -33,30 +33,18 @@
                 }
               ]
             },
-            "premium_short_reward_weight": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/Decimal"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+            "premium_min_update_interval": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
             },
-            "premium_tolerance": {
+            "short_reward_contract": {
               "anyOf": [
                 {
-                  "$ref": "#/definitions/Decimal"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "short_reward_weight": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/Decimal"
+                  "$ref": "#/definitions/HumanAddr"
                 },
                 {
                   "type": "null"
@@ -133,6 +121,73 @@
                   "type": "null"
                 }
               ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "Provides liquidity and automatically stakes the LP tokens",
+      "type": "object",
+      "required": [
+        "auto_stake"
+      ],
+      "properties": {
+        "auto_stake": {
+          "type": "object",
+          "required": [
+            "assets"
+          ],
+          "properties": {
+            "assets": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Asset"
+              },
+              "maxItems": 2,
+              "minItems": 2
+            },
+            "slippage_tolerance": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Decimal"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "Hook to stake the minted LP tokens",
+      "type": "object",
+      "required": [
+        "auto_stake_hook"
+      ],
+      "properties": {
+        "auto_stake_hook": {
+          "type": "object",
+          "required": [
+            "asset_token",
+            "prev_staking_token_amount",
+            "staker_addr",
+            "staking_token"
+          ],
+          "properties": {
+            "asset_token": {
+              "$ref": "#/definitions/HumanAddr"
+            },
+            "prev_staking_token_amount": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "staker_addr": {
+              "$ref": "#/definitions/HumanAddr"
+            },
+            "staking_token": {
+              "$ref": "#/definitions/HumanAddr"
             }
           }
         }
@@ -218,6 +273,63 @@
     }
   ],
   "definitions": {
+    "Asset": {
+      "type": "object",
+      "required": [
+        "amount",
+        "info"
+      ],
+      "properties": {
+        "amount": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "info": {
+          "$ref": "#/definitions/AssetInfo"
+        }
+      }
+    },
+    "AssetInfo": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "token"
+          ],
+          "properties": {
+            "token": {
+              "type": "object",
+              "required": [
+                "contract_addr"
+              ],
+              "properties": {
+                "contract_addr": {
+                  "$ref": "#/definitions/HumanAddr"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "native_token"
+          ],
+          "properties": {
+            "native_token": {
+              "type": "object",
+              "required": [
+                "denom"
+              ],
+              "properties": {
+                "denom": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
     "Binary": {
       "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>",
       "type": "string"
@@ -249,7 +361,7 @@
       }
     },
     "Decimal": {
-      "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0 The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
+      "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0\n\nThe greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
       "type": "string"
     },
     "HumanAddr": {

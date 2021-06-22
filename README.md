@@ -18,7 +18,10 @@ Mirror depends on [Terraswap](https://terraswap.io) and uses its [implementation
 | [`mirror_gov`](./contracts/mirror_gov)              | [doc](https://docs.mirror.finance/contracts/gov)       | Allows other Mirror contracts to be controlled by decentralized governance, distributes MIR received from Collector to MIR stakers |
 | [`mirror_mint`](./contracts/mirror_mint)            | [doc](https://docs.mirror.finance/contracts/mint)      | Handles CDP creation, management and liquidation                                                                                   |
 | [`mirror_oracle`](./contracts/mirror_oracle)        | [doc](https://docs.mirror.finance/contracts/oracle)    | Provides interface for oracle feeders to post prices for mAssets                                                                   |
-| [`mirror_staking`](./contracts/mirror_staking)      | [doc](https://docs.mirror.finance/contracts/staking)   | Distributes MIR rewards from block reward to LP stakers                                                                            |
+| [`mirror_staking`](./contracts/mirror_staking)      | [doc](https://docs.mirror.finance/contracts/staking)   | Distributes MIR rewards from block reward to LP stakers          
+| [`mirror_lock`](./contracts/mirror_lock)      | [doc](https://docs.mirror.finance/contracts/lock)   | Locks the UST obtained from selling mAssets on shorting positions |
+| [`mirror_collateral_oracle`](./contracts/mirror_collateral_oracle)      | [doc](https://docs.mirror.finance/contracts/collateral-oracle)   | Directory of whitelisted collateral assets, acts as a proxy to different price sources on the Terra ecosystem |
+| [`mirror_limit_order`](./contracts/mirror_limit_order)      | [doc](https://docs.mirror.finance/contracts/limit-order)   | Provides a limit order intrface for bidders and arbitrage opportunities for market makers |
 
 ## Development
 
@@ -41,11 +44,10 @@ rustup target add wasm32-unknown-unknown
 
 ### Unit / Integration Tests
 
-Each contract contains Rust unit and integration tests embedded within the contract source directories. You can run:
+Each contract contains Rust unit tests embedded within the contract source directories. You can run:
 
 ```sh
 cargo unit-test
-cargo integration-test
 ```
 
 ### Compiling

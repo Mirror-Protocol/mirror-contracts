@@ -1,16 +1,17 @@
 use cosmwasm_std::{
-    from_binary, log, to_binary, Api, Binary, Decimal, Env, Extern, HandleResponse, HandleResult,
-    HumanAddr, InitResponse, MigrateResponse, MigrateResult, Querier, StdError, StdResult, Storage,
-    Uint128,
+    from_binary, log, to_binary, Api, Binary, CanonicalAddr, CosmosMsg, Decimal, Env, Extern,
+    HandleResponse, HandleResult, HumanAddr, InitResponse, MigrateResponse, MigrateResult, Querier,
+    StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 
 use crate::{
-    asserts::{assert_auction_discount, assert_min_collateral_ratio},
+    asserts::{assert_auction_discount, assert_min_collateral_ratio, assert_protocol_fee},
     migration::{migrate_asset_configs, migrate_config},
     positions::{
         auction, burn, deposit, mint, open_position, query_next_position_idx, query_position,
         query_positions, withdraw,
     },
+    querier::load_oracle_feeder,
     state::{
         read_asset_config, read_config, store_asset_config, store_config, store_position_idx,
         AssetConfig, Config,
@@ -18,8 +19,13 @@ use crate::{
 };
 
 use cw20::Cw20ReceiveMsg;
-use mirror_protocol::mint::{
-    AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrateMsg, QueryMsg,
+use mirror_protocol::{
+    collateral_oracle::{HandleMsg as CollateralOracleHandleMsg, SourceType},
+    common::Network,
+    mint::IPOParams,
+    mint::{
+        AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrateMsg, QueryMsg,
+    },
 };
 use terraswap::asset::{Asset, AssetInfo};
 
@@ -32,11 +38,13 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         owner: deps.api.canonical_address(&msg.owner)?,
         oracle: deps.api.canonical_address(&msg.oracle)?,
         collector: deps.api.canonical_address(&msg.collector)?,
+        collateral_oracle: deps.api.canonical_address(&msg.collateral_oracle)?,
         staking: deps.api.canonical_address(&msg.staking)?,
         terraswap_factory: deps.api.canonical_address(&msg.terraswap_factory)?,
+        lock: deps.api.canonical_address(&msg.lock)?,
         base_denom: msg.base_denom,
         token_code_id: msg.token_code_id,
-        protocol_fee_rate: msg.protocol_fee_rate,
+        protocol_fee_rate: assert_protocol_fee(msg.protocol_fee_rate)?,
     };
 
     store_config(&mut deps.storage, &config)?;
@@ -55,7 +63,9 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             owner,
             oracle,
             collector,
+            collateral_oracle,
             terraswap_factory,
+            lock,
             token_code_id,
             protocol_fee_rate,
         } => update_config(
@@ -64,7 +74,9 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             owner,
             oracle,
             collector,
+            collateral_oracle,
             terraswap_factory,
+            lock,
             token_code_id,
             protocol_fee_rate,
         ),
@@ -72,32 +84,33 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             asset_token,
             auction_discount,
             min_collateral_ratio,
+            ipo_params,
         } => update_asset(
             deps,
             env,
             asset_token,
             auction_discount,
             min_collateral_ratio,
+            ipo_params,
         ),
         HandleMsg::RegisterAsset {
             asset_token,
             auction_discount,
             min_collateral_ratio,
-            mint_end,
-            min_collateral_ratio_after_migration,
+            ipo_params,
         } => register_asset(
             deps,
             env,
             asset_token,
             auction_discount,
             min_collateral_ratio,
-            mint_end,
-            min_collateral_ratio_after_migration,
+            ipo_params,
         ),
         HandleMsg::RegisterMigration {
             asset_token,
             end_price,
         } => register_migration(deps, env, asset_token, end_price),
+        HandleMsg::TriggerIPO { asset_token } => trigger_ipo(deps, env, asset_token),
         HandleMsg::OpenPosition {
             collateral,
             asset_info,
@@ -196,7 +209,9 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     owner: Option<HumanAddr>,
     oracle: Option<HumanAddr>,
     collector: Option<HumanAddr>,
+    collateral_oracle: Option<HumanAddr>,
     terraswap_factory: Option<HumanAddr>,
+    lock: Option<HumanAddr>,
     token_code_id: Option<u64>,
     protocol_fee_rate: Option<Decimal>,
 ) -> StdResult<HandleResponse> {
@@ -218,8 +233,16 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
         config.collector = deps.api.canonical_address(&collector)?;
     }
 
+    if let Some(collateral_oracle) = collateral_oracle {
+        config.collateral_oracle = deps.api.canonical_address(&collateral_oracle)?;
+    }
+
     if let Some(terraswap_factory) = terraswap_factory {
         config.terraswap_factory = deps.api.canonical_address(&terraswap_factory)?;
+    }
+
+    if let Some(lock) = lock {
+        config.lock = deps.api.canonical_address(&lock)?;
     }
 
     if let Some(token_code_id) = token_code_id {
@@ -227,7 +250,7 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     }
 
     if let Some(protocol_fee_rate) = protocol_fee_rate {
-        config.protocol_fee_rate = protocol_fee_rate;
+        config.protocol_fee_rate = assert_protocol_fee(protocol_fee_rate)?;
     }
 
     store_config(&mut deps.storage, &config)?;
@@ -244,6 +267,7 @@ pub fn update_asset<S: Storage, A: Api, Q: Querier>(
     asset_token: HumanAddr,
     auction_discount: Option<Decimal>,
     min_collateral_ratio: Option<Decimal>,
+    ipo_params: Option<IPOParams>,
 ) -> StdResult<HandleResponse> {
     let config: Config = read_config(&deps.storage)?;
     let asset_token_raw = deps.api.canonical_address(&asset_token)?;
@@ -263,6 +287,11 @@ pub fn update_asset<S: Storage, A: Api, Q: Querier>(
         asset.min_collateral_ratio = min_collateral_ratio;
     }
 
+    if let Some(ipo_params) = ipo_params {
+        assert_min_collateral_ratio(ipo_params.min_collateral_ratio_after_ipo)?;
+        asset.ipo_params = Some(ipo_params);
+    }
+
     store_asset_config(&mut deps.storage, &asset_token_raw, &asset)?;
     Ok(HandleResponse {
         messages: vec![],
@@ -277,8 +306,7 @@ pub fn register_asset<S: Storage, A: Api, Q: Querier>(
     asset_token: HumanAddr,
     auction_discount: Decimal,
     min_collateral_ratio: Decimal,
-    mint_end: Option<u64>,
-    min_collateral_ratio_after_migration: Option<Decimal>,
+    ipo_params: Option<IPOParams>,
 ) -> StdResult<HandleResponse> {
     assert_auction_discount(auction_discount)?;
     assert_min_collateral_ratio(min_collateral_ratio)?;
@@ -295,6 +323,26 @@ pub fn register_asset<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::generic_err("Asset was already registered"));
     }
 
+    let mut messages: Vec<CosmosMsg> = vec![];
+
+    // check if it is a preIPO asset
+    if let Some(params) = ipo_params.clone() {
+        assert_min_collateral_ratio(params.min_collateral_ratio_after_ipo)?;
+    } else {
+        // only non-preIPO assets can be used as collateral
+        messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: deps.api.human_address(&config.collateral_oracle)?,
+            send: vec![],
+            msg: to_binary(&CollateralOracleHandleMsg::RegisterCollateralAsset {
+                asset: AssetInfo::Token {
+                    contract_addr: asset_token.clone(),
+                },
+                multiplier: Decimal::one(), // default collateral multiplier for new mAssets
+                price_source: SourceType::MirrorOracle {},
+            })?,
+        }));
+    }
+
     // Store temp info into base asset store
     store_asset_config(
         &mut deps.storage,
@@ -304,13 +352,12 @@ pub fn register_asset<S: Storage, A: Api, Q: Querier>(
             auction_discount,
             min_collateral_ratio,
             end_price: None,
-            mint_end,
-            min_collateral_ratio_after_migration,
+            ipo_params,
         },
     )?;
 
     Ok(HandleResponse {
-        messages: vec![],
+        messages,
         log: vec![log("action", "register"), log("asset_token", asset_token)],
         data: None,
     })
@@ -337,17 +384,77 @@ pub fn register_migration<S: Storage, A: Api, Q: Querier>(
         &AssetConfig {
             end_price: Some(end_price),
             min_collateral_ratio: Decimal::percent(100),
-            mint_end: None,
+            ipo_params: None,
             ..asset_config
         },
     )?;
 
+    // flag asset as revoked in the collateral oracle
     Ok(HandleResponse {
-        messages: vec![],
+        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: deps.api.human_address(&config.collateral_oracle)?,
+            send: vec![],
+            msg: to_binary(&CollateralOracleHandleMsg::RevokeCollateralAsset {
+                asset: AssetInfo::Token {
+                    contract_addr: asset_token.clone(),
+                },
+            })?,
+        })],
         log: vec![
             log("action", "migrate_asset"),
             log("asset_token", asset_token.as_str()),
             log("end_price", end_price.to_string()),
+        ],
+        data: None,
+    })
+}
+
+pub fn trigger_ipo<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    asset_token: HumanAddr,
+) -> StdResult<HandleResponse> {
+    let config = read_config(&deps.storage)?;
+    let asset_token_raw: CanonicalAddr = deps.api.canonical_address(&&asset_token)?;
+    let oracle_feeder: HumanAddr = deps.api.human_address(&load_oracle_feeder(
+        &deps,
+        &deps.api.human_address(&config.oracle)?,
+        &asset_token_raw,
+    )?)?;
+
+    // only asset feeder can trigger ipo
+    if oracle_feeder != env.message.sender {
+        return Err(StdError::unauthorized());
+    }
+
+    let mut asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
+
+    let ipo_params: IPOParams = match asset_config.ipo_params {
+        Some(v) => v,
+        None => return Err(StdError::generic_err("Asset does not have IPO params")),
+    };
+
+    asset_config.min_collateral_ratio = ipo_params.min_collateral_ratio_after_ipo;
+    asset_config.ipo_params = None;
+
+    store_asset_config(&mut deps.storage, &asset_token_raw, &asset_config)?;
+
+    // register asset in collateral oracle
+    Ok(HandleResponse {
+        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: deps.api.human_address(&config.collateral_oracle)?,
+            send: vec![],
+            msg: to_binary(&CollateralOracleHandleMsg::RegisterCollateralAsset {
+                asset: AssetInfo::Token {
+                    contract_addr: asset_token.clone(),
+                },
+                multiplier: Decimal::one(), // default collateral multiplier for new mAssets
+                price_source: SourceType::MirrorOracle {},
+            })?,
+        })],
+        log: vec![
+            log("action", "trigger_ipo"),
+            log("asset_token", asset_token.as_str()),
         ],
         data: None,
     })
@@ -388,10 +495,12 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
         oracle: deps.api.human_address(&state.oracle)?,
         staking: deps.api.human_address(&state.staking)?,
         collector: deps.api.human_address(&state.collector)?,
+        collateral_oracle: deps.api.human_address(&state.collateral_oracle)?,
         terraswap_factory: deps.api.human_address(&state.terraswap_factory)?,
+        lock: deps.api.human_address(&state.lock)?,
         base_denom: state.base_denom,
         token_code_id: state.token_code_id,
-        protocol_fee_rate: Decimal::percent(1),
+        protocol_fee_rate: state.protocol_fee_rate,
     };
 
     Ok(resp)
@@ -409,8 +518,7 @@ pub fn query_asset_config<S: Storage, A: Api, Q: Querier>(
         auction_discount: asset_config.auction_discount,
         min_collateral_ratio: asset_config.min_collateral_ratio,
         end_price: asset_config.end_price,
-        mint_end: asset_config.mint_end,
-        min_collateral_ratio_after_migration: asset_config.min_collateral_ratio_after_migration,
+        ipo_params: asset_config.ipo_params,
     };
 
     Ok(resp)
@@ -421,15 +529,30 @@ pub fn migrate<S: Storage, A: Api, Q: Querier>(
     _env: Env,
     msg: MigrateMsg,
 ) -> MigrateResult {
-    // migrate config
-    migrate_config(
-        &mut deps.storage,
-        deps.api.canonical_address(&msg.staking)?,
-        deps.api.canonical_address(&msg.terraswap_factory)?,
-    )?;
+    match msg.network {
+        Network::Mainnet => {
+            if msg.staking.is_none()
+                || msg.terraswap_factory.is_none()
+                || msg.collateral_oracle.is_none()
+                || msg.lock.is_none()
+            {
+                return Err(StdError::generic_err("For mainnet migration, need to specify: 'staking','terraswap_factory','collateral_oracle','lock'"));
+            }
+            // migrate config
+            migrate_config(
+                &mut deps.storage,
+                deps.api.canonical_address(&msg.staking.unwrap())?,
+                deps.api
+                    .canonical_address(&msg.terraswap_factory.unwrap())?,
+                deps.api
+                    .canonical_address(&msg.collateral_oracle.unwrap())?,
+                deps.api.canonical_address(&msg.lock.unwrap())?,
+            )?;
 
-    // migrate all asset configurations to use new add mint_end parameter
-    migrate_asset_configs(&mut deps.storage)?;
-
+            // migrate all asset configurations to use new add mint_end parameter
+            migrate_asset_configs(&mut deps.storage)?;
+        }
+        Network::Testnet => {}
+    }
     Ok(MigrateResponse::default())
 }

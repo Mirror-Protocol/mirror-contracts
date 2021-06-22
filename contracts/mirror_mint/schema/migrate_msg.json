@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MigrateMsg",
+  "type": "object",
+  "required": [
+    "network"
+  ],
+  "properties": {
+    "collateral_oracle": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/HumanAddr"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "lock": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/HumanAddr"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "network": {
+      "$ref": "#/definitions/Network"
+    },
+    "staking": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/HumanAddr"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "terraswap_factory": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/HumanAddr"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "definitions": {
+    "HumanAddr": {
+      "type": "string"
+    },
+    "Network": {
+      "type": "string",
+      "enum": [
+        "mainnet",
+        "testnet"
+      ]
+    }
+  }
+}

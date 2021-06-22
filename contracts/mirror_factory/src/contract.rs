@@ -1,10 +1,10 @@
 use cosmwasm_std::{
     log, to_binary, Api, Binary, CanonicalAddr, CosmosMsg, Decimal, Env, Extern, HandleResponse,
-    HandleResult, HumanAddr, InitResponse, MigrateResponse, MigrateResult, Querier, StdError,
-    StdResult, Storage, Uint128, WasmMsg,
+    HandleResult, HumanAddr, InitResponse, LogAttribute, MigrateResponse, MigrateResult, Querier,
+    StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 
-use crate::querier::{load_mint_asset_config, load_oracle_feeder};
+use crate::querier::{load_mint_asset_config, load_oracle_feeder, query_last_price};
 use crate::state::{
     decrease_total_weight, increase_total_weight, read_all_weight, read_config,
     read_last_distributed, read_params, read_total_weight, read_weight, remove_params,
@@ -15,7 +15,7 @@ use crate::state::{
 use mirror_protocol::factory::{
     ConfigResponse, DistributionInfoResponse, HandleMsg, InitMsg, MigrateMsg, Params, QueryMsg,
 };
-use mirror_protocol::mint::HandleMsg as MintHandleMsg;
+use mirror_protocol::mint::{HandleMsg as MintHandleMsg, IPOParams};
 use mirror_protocol::oracle::HandleMsg as OracleHandleMsg;
 use mirror_protocol::staking::Cw20HookMsg as StakingCw20HookMsg;
 use mirror_protocol::staking::HandleMsg as StakingHandleMsg;
@@ -330,12 +330,34 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
     // Remove params == clear flag
     remove_params(&mut deps.storage);
 
-    // If it is a pre-IPO asset, calculate the end of the minting period
-    let mint_end = if let Some(mint_period) = params.mint_period {
-        Some(env.block.height + mint_period)
-    } else {
-        None
-    };
+    let mut logs: Vec<LogAttribute> = vec![];
+
+    // Check if all IPO params exist
+    let ipo_params: Option<IPOParams> =
+        if let (Some(mint_period), Some(min_collateral_ratio_after_ipo), Some(pre_ipo_price)) = (
+            params.mint_period,
+            params.min_collateral_ratio_after_ipo,
+            params.pre_ipo_price,
+        ) {
+            let mint_end: u64 = env.block.time + mint_period;
+            logs = vec![
+                log("is_pre_ipo", true),
+                log("mint_end", mint_end.to_string()),
+                log(
+                    "min_collateral_ratio_after_ipo",
+                    min_collateral_ratio_after_ipo.to_string(),
+                ),
+                log("pre_ipo_price", pre_ipo_price.to_string()),
+            ];
+            Some(IPOParams {
+                mint_end: mint_end,
+                min_collateral_ratio_after_ipo,
+                pre_ipo_price,
+            })
+        } else {
+            logs.push(log("is_pre_ipo", false));
+            None
+        };
 
     // Register asset to mint contract
     // Register asset to oracle contract
@@ -349,9 +371,7 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
                     asset_token: asset_token.clone(),
                     auction_discount: params.auction_discount,
                     min_collateral_ratio: params.min_collateral_ratio,
-                    mint_end,
-                    min_collateral_ratio_after_migration: params
-                        .min_collateral_ratio_after_migration,
+                    ipo_params,
                 })?,
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
@@ -383,7 +403,7 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
                 })?,
             }),
         ],
-        log: vec![log("asset_token_addr", asset_token.as_str())],
+        log: vec![vec![log("asset_token_addr", asset_token.as_str())], logs].concat(),
         data: None,
     })
 }
@@ -410,7 +430,7 @@ pub fn terraswap_creation_hook<S: Storage, A: Api, Q: Querier>(
 
     let asset_infos = [
         AssetInfo::NativeToken {
-            denom: "uusd".to_string(),
+            denom: config.base_denom,
         },
         AssetInfo::Token {
             contract_addr: asset_token.clone(),
@@ -480,8 +500,9 @@ pub fn distribute<S: Storage, A: Api, Q: Querier>(
     let rewards: Vec<(HumanAddr, Uint128)> = weights
         .iter()
         .map(|w| {
-            let amount =
-                target_distribution_amount * Decimal::from_ratio(w.1 as u128, total_weight as u128);
+            let amount = Uint128::from(
+                target_distribution_amount.u128() * (w.1 as u128) / (total_weight as u128),
+            );
 
             if amount.is_zero() {
                 return Err(StdError::generic_err("cannot distribute zero amount"));
@@ -496,17 +517,26 @@ pub fn distribute<S: Storage, A: Api, Q: Querier>(
     // store last distributed
     store_last_distributed(&mut deps.storage, env.block.time)?;
 
+    const SPLIT_UNIT: usize = 10;
+    let rewards_vec: Vec<Vec<(HumanAddr, Uint128)>> =
+        rewards.chunks(SPLIT_UNIT).map(|v| v.to_vec()).collect();
+
     // mint token to self and try send minted tokens to staking contract
     Ok(HandleResponse {
-        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: mirror_token.clone(),
-            msg: to_binary(&Cw20HandleMsg::Send {
-                contract: staking_contract.clone(),
-                amount: distribution_amount,
-                msg: Some(to_binary(&StakingCw20HookMsg::DepositReward { rewards })?),
-            })?,
-            send: vec![],
-        })],
+        messages: rewards_vec
+            .into_iter()
+            .map(|rewards| {
+                Ok(CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: mirror_token.clone(),
+                    msg: to_binary(&Cw20HandleMsg::Send {
+                        contract: staking_contract.clone(),
+                        amount: rewards.iter().map(|v| v.1.u128()).sum::<u128>().into(),
+                        msg: Some(to_binary(&StakingCw20HookMsg::DepositReward { rewards })?),
+                    })?,
+                    send: vec![],
+                }))
+            })
+            .collect::<StdResult<Vec<CosmosMsg>>>()?,
         log: vec![
             log("action", "distribute"),
             log("distribution_amount", distribution_amount.to_string()),
@@ -519,24 +549,44 @@ pub fn revoke_asset<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     asset_token: HumanAddr,
-    end_price: Decimal,
+    end_price: Option<Decimal>,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
     let asset_token_raw: CanonicalAddr = deps.api.canonical_address(&asset_token)?;
-    let oracle_feeder: HumanAddr = deps.api.human_address(&load_oracle_feeder(
-        &deps,
-        &deps.api.human_address(&config.oracle_contract)?,
-        &asset_token_raw,
-    )?)?;
+    let oracle: HumanAddr = deps.api.human_address(&config.oracle_contract)?;
+    let mint: HumanAddr = deps.api.human_address(&config.mint_contract)?;
     let sender_raw = deps.api.canonical_address(&env.message.sender)?;
 
-    // revoke asset can only be executed by the feeder or the owner (gov contract)
-    if oracle_feeder != env.message.sender && config.owner != sender_raw {
-        return Err(StdError::unauthorized());
-    }
+    let end_price: Decimal = match end_price {
+        Some(value) => {
+            // only feeder can revoke_asset with end_price
+            let oracle_feeder: HumanAddr =
+                deps.api
+                    .human_address(&load_oracle_feeder(&deps, &oracle, &asset_token_raw)?)?;
+            if oracle_feeder != env.message.sender {
+                return Err(StdError::unauthorized());
+            }
 
+            value
+        }
+        None => {
+            // revoke asset without end_price can be called by owner
+            if config.owner != sender_raw {
+                return Err(StdError::unauthorized());
+            }
+
+            // check if the asset has a preIPO price
+            let (_, _, pre_ipo_price) = load_mint_asset_config(&deps, &mint, &&asset_token_raw)?;
+            pre_ipo_price.unwrap_or(
+                // if there is no pre_ipo_price, fetch last reported price from oracle
+                query_last_price(&deps, &oracle, asset_token.to_string(), config.base_denom)?,
+            )
+        }
+    };
+
+    let weight = read_weight(&deps.storage, &asset_token_raw)?;
     remove_weight(&mut deps.storage, &asset_token_raw);
-    decrease_total_weight(&mut deps.storage, NORMAL_TOKEN_WEIGHT)?;
+    decrease_total_weight(&mut deps.storage, weight)?;
 
     Ok(HandleResponse {
         messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
@@ -578,27 +628,21 @@ pub fn migrate_asset<S: Storage, A: Api, Q: Querier>(
 
     let weight = read_weight(&deps.storage, &asset_token_raw)?;
     remove_weight(&mut deps.storage, &asset_token_raw);
-    decrease_total_weight(&mut deps.storage, NORMAL_TOKEN_WEIGHT)?;
+    decrease_total_weight(&mut deps.storage, weight)?;
 
     let mint_contract = deps.api.human_address(&config.mint_contract)?;
-    let mint_config: (Decimal, Decimal, Option<Decimal>) =
+    let mint_config: (Decimal, Decimal, _) =
         load_mint_asset_config(&deps, &mint_contract, &asset_token_raw)?;
-
-    // check if the asset being migrated specifies a min CR after migration
-    let min_collateral_ratio = if let Some(min_collateral_ratio_after_migration) = mint_config.2 {
-        min_collateral_ratio_after_migration
-    } else {
-        mint_config.1
-    };
 
     store_params(
         &mut deps.storage,
         &Params {
             auction_discount: mint_config.0,
-            min_collateral_ratio,
+            min_collateral_ratio: mint_config.1,
             weight: Some(weight),
             mint_period: None,
-            min_collateral_ratio_after_migration: None,
+            min_collateral_ratio_after_ipo: None,
+            pre_ipo_price: None,
         },
     )?;
 

@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "QueryMsg",
+  "anyOf": [
+    {
+      "type": "object",
+      "required": [
+        "config"
+      ],
+      "properties": {
+        "config": {
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "position_lock_info"
+      ],
+      "properties": {
+        "position_lock_info": {
+          "type": "object",
+          "required": [
+            "position_idx"
+          ],
+          "properties": {
+            "position_idx": {
+              "$ref": "#/definitions/Uint128"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "Uint128": {
+      "type": "string"
+    }
+  }
+}

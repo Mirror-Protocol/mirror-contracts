@@ -20,9 +20,8 @@ mod tests {
             oracle_contract: HumanAddr::from("oracle"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
-            premium_tolerance: Decimal::percent(2),
-            short_reward_weight: Decimal::percent(20),
-            premium_short_reward_weight: Decimal::percent(40),
+            premium_min_update_interval: 3600,
+            short_reward_contract: HumanAddr::from("short_reward"),
         };
 
         let env = mock_env("addr", &[]);
@@ -41,9 +40,8 @@ mod tests {
                 oracle_contract: HumanAddr::from("oracle"),
                 terraswap_factory: HumanAddr::from("terraswap_factory"),
                 base_denom: "uusd".to_string(),
-                premium_tolerance: Decimal::percent(2),
-                short_reward_weight: Decimal::percent(20),
-                premium_short_reward_weight: Decimal::percent(40),
+                premium_min_update_interval: 3600,
+                short_reward_contract: HumanAddr::from("short_reward"),
             },
             config
         );
@@ -60,9 +58,8 @@ mod tests {
             oracle_contract: HumanAddr::from("oracle"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
-            premium_tolerance: Decimal::percent(2),
-            short_reward_weight: Decimal::percent(20),
-            premium_short_reward_weight: Decimal::percent(40),
+            premium_min_update_interval: 3600,
+            short_reward_contract: HumanAddr::from("short_reward"),
         };
 
         let env = mock_env("addr", &[]);
@@ -72,9 +69,8 @@ mod tests {
         let env = mock_env("owner", &[]);
         let msg = HandleMsg::UpdateConfig {
             owner: Some(HumanAddr("owner2".to_string())),
-            premium_tolerance: Some(Decimal::percent(5)),
-            short_reward_weight: Some(Decimal::percent(30)),
-            premium_short_reward_weight: Some(Decimal::percent(60)),
+            premium_min_update_interval: Some(7200),
+            short_reward_contract: Some(HumanAddr::from("new_short_reward")),
         };
 
         let res = handle(&mut deps, env, msg).unwrap();
@@ -91,9 +87,8 @@ mod tests {
                 oracle_contract: HumanAddr::from("oracle"),
                 terraswap_factory: HumanAddr::from("terraswap_factory"),
                 base_denom: "uusd".to_string(),
-                premium_tolerance: Decimal::percent(5),
-                short_reward_weight: Decimal::percent(30),
-                premium_short_reward_weight: Decimal::percent(60),
+                premium_min_update_interval: 7200,
+                short_reward_contract: HumanAddr::from("new_short_reward"),
             },
             config
         );
@@ -102,9 +97,8 @@ mod tests {
         let env = mock_env("owner", &[]);
         let msg = HandleMsg::UpdateConfig {
             owner: None,
-            premium_tolerance: Some(Decimal::percent(5)),
-            short_reward_weight: Some(Decimal::percent(30)),
-            premium_short_reward_weight: Some(Decimal::percent(60)),
+            premium_min_update_interval: Some(7200),
+            short_reward_contract: None,
         };
 
         let res = handle(&mut deps, env, msg);
@@ -125,9 +119,8 @@ mod tests {
             oracle_contract: HumanAddr::from("oracle"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
-            premium_tolerance: Decimal::percent(2),
-            short_reward_weight: Decimal::percent(20),
-            premium_short_reward_weight: Decimal::percent(40),
+            premium_min_update_interval: 3600,
+            short_reward_contract: HumanAddr::from("short_reward"),
         };
 
         let env = mock_env("addr", &[]);
@@ -175,6 +168,8 @@ mod tests {
                 pending_reward: Uint128::zero(),
                 short_pending_reward: Uint128::zero(),
                 premium_rate: Decimal::zero(),
+                short_reward_weight: Decimal::zero(),
+                premium_updated_time: 0,
             }
         );
     }

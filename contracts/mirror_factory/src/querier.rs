@@ -1,9 +1,11 @@
 use cosmwasm_std::{
-    from_binary, Api, Binary, CanonicalAddr, Decimal, Extern, HumanAddr, Querier, QueryRequest,
-    StdError, StdResult, Storage, WasmQuery,
+    from_binary, to_binary, Api, Binary, CanonicalAddr, Decimal, Extern, HumanAddr, Querier,
+    QueryRequest, StdError, StdResult, Storage, WasmQuery,
 };
 
 use cosmwasm_storage::to_length_prefixed;
+use mirror_protocol::mint::IPOParams;
+use mirror_protocol::oracle::{PriceResponse, QueryMsg as OracleQueryMsg};
 use serde::{Deserialize, Serialize};
 
 pub fn load_oracle_feeder<S: Storage, A: Api, Q: Querier>(
@@ -22,7 +24,7 @@ pub fn load_oracle_feeder<S: Storage, A: Api, Q: Querier>(
     let res = match res {
         Ok(v) => v,
         Err(_) => {
-            return Err(StdError::generic_err("Falied to fetch the oracle feeder"));
+            return Err(StdError::generic_err("Failed to fetch the oracle feeder"));
         }
     };
 
@@ -30,11 +32,29 @@ pub fn load_oracle_feeder<S: Storage, A: Api, Q: Querier>(
     let feeder: CanonicalAddr = match feeder {
         Ok(v) => v,
         Err(_) => {
-            return Err(StdError::generic_err("Falied to fetch the oracle feeder"));
+            return Err(StdError::generic_err("Failed to fetch the oracle feeder"));
         }
     };
 
     Ok(feeder)
+}
+
+/// Query asset price igonoring price age
+pub fn query_last_price<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    oracle: &HumanAddr,
+    base_asset: String,
+    quote_asset: String,
+) -> StdResult<Decimal> {
+    let res: PriceResponse = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+        contract_addr: HumanAddr::from(oracle),
+        msg: to_binary(&OracleQueryMsg::Price {
+            base_asset,
+            quote_asset,
+        })?,
+    }))?;
+
+    Ok(res.rate)
 }
 
 #[derive(Serialize, Deserialize)]
@@ -42,7 +62,7 @@ pub struct MintAssetConfig {
     pub token: CanonicalAddr,
     pub auction_discount: Decimal,
     pub min_collateral_ratio: Decimal,
-    pub min_collateral_ratio_after_migration: Option<Decimal>,
+    pub ipo_params: Option<IPOParams>,
 }
 
 pub fn load_mint_asset_config<S: Storage, A: Api, Q: Querier>(
@@ -62,7 +82,7 @@ pub fn load_mint_asset_config<S: Storage, A: Api, Q: Querier>(
         Ok(v) => v,
         Err(_) => {
             return Err(StdError::generic_err(
-                "Falied to fetch the mint asset config",
+                "Failed to fetch the mint asset config",
             ));
         }
     };
@@ -72,15 +92,21 @@ pub fn load_mint_asset_config<S: Storage, A: Api, Q: Querier>(
         Ok(v) => v,
         Err(_) => {
             return Err(StdError::generic_err(
-                "Falied to fetch the mint asset config",
+                "Failed to fetch the mint asset config",
             ));
         }
+    };
+
+    let pre_ipo_price: Option<Decimal> = if let Some(ipo_params) = asset_config.ipo_params {
+        Some(ipo_params.pre_ipo_price)
+    } else {
+        None
     };
 
     Ok((
         asset_config.auction_discount,
         asset_config.min_collateral_ratio,
-        asset_config.min_collateral_ratio_after_migration,
+        pre_ipo_price,
     ))
 }
 

@@ -1,9 +1,9 @@
 use cosmwasm_std::{
     log, to_binary, Api, CanonicalAddr, CosmosMsg, Decimal, Env, Extern, HandleResponse,
-    HandleResult, HumanAddr, Order, Querier, StdResult, Storage, Uint128, WasmMsg,
+    HandleResult, HumanAddr, Order, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 
-use crate::querier::compute_premium_rate;
+use crate::querier::{compute_premium_rate, compute_short_reward_weight};
 use crate::state::{
     read_config, read_pool_info, rewards_read, rewards_store, store_pool_info, Config, PoolInfo,
     RewardInfo,
@@ -14,13 +14,23 @@ use cw20::Cw20HandleMsg;
 
 pub fn adjust_premium<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
+    env: Env,
     asset_tokens: Vec<HumanAddr>,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
     let oracle_contract = deps.api.human_address(&config.oracle_contract)?;
     let terraswap_factory = deps.api.human_address(&config.terraswap_factory)?;
+    let short_reward_contract = deps.api.human_address(&config.short_reward_contract)?;
     for asset_token in asset_tokens.iter() {
-        let premium_rate = compute_premium_rate(
+        let asset_token_raw = deps.api.canonical_address(&asset_token)?;
+        let pool_info: PoolInfo = read_pool_info(&deps.storage, &asset_token_raw)?;
+        if env.block.time < pool_info.premium_updated_time + config.premium_min_update_interval {
+            return Err(StdError::generic_err(
+                "cannot adjust premium before premium_min_update_interval passed",
+            ));
+        }
+
+        let (premium_rate, no_price_feed) = compute_premium_rate(
             deps,
             &oracle_contract,
             &terraswap_factory,
@@ -28,13 +38,20 @@ pub fn adjust_premium<S: Storage, A: Api, Q: Querier>(
             config.base_denom.to_string(),
         )?;
 
-        let asset_token_raw = deps.api.canonical_address(&asset_token)?;
-        let pool_info = read_pool_info(&deps.storage, &asset_token_raw)?;
+        // if asset does not have price feed, set short reward weight directly to zero
+        let short_reward_weight = if no_price_feed {
+            Decimal::zero()
+        } else {
+            compute_short_reward_weight(&deps.querier, &short_reward_contract, premium_rate)?
+        };
+
         store_pool_info(
             &mut deps.storage,
             &asset_token_raw,
             &PoolInfo {
                 premium_rate,
+                short_reward_weight,
+                premium_updated_time: env.block.time,
                 ..pool_info
             },
         )?;
@@ -52,20 +69,15 @@ pub fn deposit_reward<S: Storage, A: Api, Q: Querier>(
     rewards: Vec<(HumanAddr, Uint128)>,
     rewards_amount: Uint128,
 ) -> HandleResult {
-    let config: Config = read_config(&deps.storage)?;
     for (asset_token, amount) in rewards.iter() {
         let asset_token_raw: CanonicalAddr = deps.api.canonical_address(&asset_token)?;
         let mut pool_info: PoolInfo = read_pool_info(&deps.storage, &asset_token_raw)?;
 
-        // Depends on the last premium, apply different short_reward_weight
-        let short_reward_weight = if pool_info.premium_rate > config.premium_tolerance {
-            config.premium_short_reward_weight
-        } else {
-            config.short_reward_weight
-        };
-
+        // Decimal::from_ratio(1, 5).mul()
+        // erf(pool_info.premium_rate.0)
+        // 3.0f64
         let total_reward = *amount;
-        let mut short_reward = total_reward * short_reward_weight;
+        let mut short_reward = total_reward * pool_info.short_reward_weight;
         let mut normal_reward = (total_reward - short_reward).unwrap();
 
         if pool_info.total_bond_amount.is_zero() {
@@ -167,7 +179,7 @@ fn _withdraw_reward<S: Storage>(
         reward_info.pending_reward = Uint128::zero();
 
         // Update rewards info
-        if reward_info.pending_reward.is_zero() && reward_info.bond_amount.is_zero() {
+        if reward_info.bond_amount.is_zero() {
             rewards_store(storage, &staker_addr, is_short).remove(asset_token_raw.as_slice());
         } else {
             rewards_store(storage, &staker_addr, is_short)

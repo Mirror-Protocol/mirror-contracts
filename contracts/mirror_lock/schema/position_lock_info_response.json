@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PositionLockInfoResponse",
+  "type": "object",
+  "required": [
+    "idx",
+    "locked_amount",
+    "receiver",
+    "unlock_time"
+  ],
+  "properties": {
+    "idx": {
+      "$ref": "#/definitions/Uint128"
+    },
+    "locked_amount": {
+      "$ref": "#/definitions/Uint128"
+    },
+    "receiver": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "unlock_time": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    }
+  },
+  "definitions": {
+    "HumanAddr": {
+      "type": "string"
+    },
+    "Uint128": {
+      "type": "string"
+    }
+  }
+}

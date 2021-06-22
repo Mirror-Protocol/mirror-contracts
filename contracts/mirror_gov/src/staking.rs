@@ -33,11 +33,12 @@ pub fn stake_voting_tokens<S: Storage, A: Api, Q: Querier>(
     let mut state: State = state_store(&mut deps.storage).load()?;
 
     // balance already increased, so subtract deposit amount
+    let total_locked_balance = state.total_deposit + state.pending_voting_rewards;
     let total_balance = (load_token_balance(
         &deps,
         &deps.api.human_address(&config.mirror_token)?,
         &state.contract_addr,
-    )? - (state.total_deposit + amount))?;
+    )? - (total_locked_balance + amount))?;
 
     let share = if total_balance.is_zero() || state.total_share.is_zero() {
         amount
@@ -86,7 +87,8 @@ pub fn withdraw_voting_tokens<S: Storage, A: Api, Q: Querier>(
         )? - total_locked_balance)?
             .u128();
 
-        let user_locked_balance = compute_locked_balance(deps, &mut token_manager)?;
+        let user_locked_balance =
+            compute_locked_balance(deps, &mut token_manager, &sender_address_raw)?;
         let user_locked_share = user_locked_balance * total_share / total_balance;
         let user_share = token_manager.share.u128();
 
@@ -127,12 +129,18 @@ pub fn withdraw_voting_tokens<S: Storage, A: Api, Q: Querier>(
 fn compute_locked_balance<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     token_manager: &mut TokenManager,
+    voter: &CanonicalAddr,
 ) -> StdResult<u128> {
     // filter out not in-progress polls
     token_manager.locked_balance.retain(|(poll_id, _)| {
         let poll: Poll = poll_read(&deps.storage)
             .load(&poll_id.to_be_bytes())
             .unwrap();
+
+        // cleanup not needed information, voting info in polls with no rewards
+        if poll.status != PollStatus::InProgress && poll.voters_reward.is_zero() {
+            poll_voter_store(&mut deps.storage, *poll_id).remove(&voter.as_slice());
+        }
 
         poll.status == PollStatus::InProgress
     });
@@ -213,24 +221,11 @@ pub fn withdraw_voting_rewards<S: Storage, A: Api, Q: Querier>(
         .load(key)
         .or(Err(StdError::generic_err("Nothing staked")))?;
 
-    let w_polls: Vec<(Poll, VoterInfo)> =
-        get_withdrawable_polls(&deps.storage, &token_manager, &sender_address_raw);
-
-    let user_reward_amount: u128 = w_polls
-        .iter()
-        .map(|(poll, voting_info)| {
-            // remove voter info from the poll
-            poll_voter_store(&mut deps.storage, poll.id).remove(&sender_address_raw.as_slice());
-
-            // calculate reward share
-            let total_votes =
-                poll.no_votes.u128() + poll.yes_votes.u128() + poll.abstain_votes.u128();
-            let poll_voting_reward = poll
-                .voters_reward
-                .multiply_ratio(voting_info.balance, total_votes);
-            poll_voting_reward.u128()
-        })
-        .sum();
+    let user_reward_amount: u128 =
+        withdraw_user_voting_rewards(&mut deps.storage, &sender_address_raw, &token_manager);
+    if user_reward_amount.eq(&0u128) {
+        return Err(StdError::generic_err("Nothing to withdraw"));
+    }
 
     state_store(&mut deps.storage).update(|mut state| {
         state.pending_voting_rewards =
@@ -245,6 +240,84 @@ pub fn withdraw_voting_rewards<S: Storage, A: Api, Q: Querier>(
         user_reward_amount,
         "withdraw_voting_rewards",
     )
+}
+
+pub fn stake_voting_rewards<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+) -> HandleResult {
+    let config: Config = config_store(&mut deps.storage).load()?;
+    let mut state: State = state_store(&mut deps.storage).load()?;
+    let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
+    let key = sender_address_raw.as_slice();
+
+    let mut token_manager = bank_read(&deps.storage)
+        .load(key)
+        .or(Err(StdError::generic_err("Nothing staked")))?;
+
+    let user_reward_amount: u128 =
+        withdraw_user_voting_rewards(&mut deps.storage, &sender_address_raw, &token_manager);
+    if user_reward_amount.eq(&0u128) {
+        return Err(StdError::generic_err("Nothing to withdraw"));
+    }
+
+    // add the withdrawn rewards to stake pool and calculate share
+    let total_locked_balance = state.total_deposit + state.pending_voting_rewards;
+    let total_balance = (load_token_balance(
+        &deps,
+        &deps.api.human_address(&config.mirror_token)?,
+        &state.contract_addr,
+    )? - total_locked_balance)?;
+
+    state.pending_voting_rewards = (state.pending_voting_rewards - Uint128(user_reward_amount))?;
+
+    let share: Uint128 = if total_balance.is_zero() || state.total_share.is_zero() {
+        Uint128(user_reward_amount)
+    } else {
+        Uint128(user_reward_amount).multiply_ratio(state.total_share, total_balance)
+    };
+
+    token_manager.share += share;
+    state.total_share += share;
+
+    state_store(&mut deps.storage).save(&state)?;
+    bank_store(&mut deps.storage).save(key, &token_manager)?;
+
+    Ok(HandleResponse {
+        messages: vec![],
+        data: None,
+        log: vec![
+            log("action", "stake_voting_rewards"),
+            log("staker", env.message.sender.as_str()),
+            log("share", share.to_string()),
+            log("amount", user_reward_amount.to_string()),
+        ],
+    })
+}
+
+fn withdraw_user_voting_rewards<S: Storage>(
+    storage: &mut S,
+    user_address: &CanonicalAddr,
+    token_manager: &TokenManager,
+) -> u128 {
+    let w_polls: Vec<(Poll, VoterInfo)> =
+        get_withdrawable_polls(storage, token_manager, user_address);
+    let user_reward_amount: u128 = w_polls
+        .iter()
+        .map(|(poll, voting_info)| {
+            // remove voter info from the poll
+            poll_voter_store(storage, poll.id).remove(user_address.as_slice());
+
+            // calculate reward share
+            let total_votes =
+                poll.no_votes.u128() + poll.yes_votes.u128() + poll.abstain_votes.u128();
+            let poll_voting_reward = poll
+                .voters_reward
+                .multiply_ratio(voting_info.balance, total_votes);
+            poll_voting_reward.u128()
+        })
+        .sum();
+    user_reward_amount
 }
 
 fn get_withdrawable_polls<S: Storage>(
@@ -262,7 +335,9 @@ fn get_withdrawable_polls<S: Storage>(
             (poll, voter_info_res)
         })
         .filter(|(poll, voter_info_res)| {
-            poll.status != PollStatus::InProgress && voter_info_res.is_ok()
+            poll.status != PollStatus::InProgress
+                && voter_info_res.is_ok()
+                && !poll.voters_reward.is_zero()
         })
         .map(|(poll, voter_info_res)| (poll, voter_info_res.unwrap()))
         .collect();
@@ -313,18 +388,21 @@ pub fn query_staker<S: Storage, A: Api, Q: Querier>(
     // calculate pending voting rewards
     let w_polls: Vec<(Poll, VoterInfo)> =
         get_withdrawable_polls(&deps.storage, &token_manager, &addr_raw);
-    let user_reward_amount: u128 = w_polls
+
+    let mut user_reward_amount = Uint128::zero();
+    let w_polls_res: Vec<(u64, Uint128)> = w_polls
         .iter()
         .map(|(poll, voting_info)| {
             // calculate reward share
-            let total_votes =
-                poll.no_votes.u128() + poll.yes_votes.u128() + poll.abstain_votes.u128();
+            let total_votes = poll.no_votes + poll.yes_votes + poll.abstain_votes;
             let poll_voting_reward = poll
                 .voters_reward
                 .multiply_ratio(voting_info.balance, total_votes);
-            poll_voting_reward.u128()
+            user_reward_amount += poll_voting_reward;
+
+            (poll.id, poll_voting_reward)
         })
-        .sum();
+        .collect();
 
     // filter out not in-progress polls
     token_manager.locked_balance.retain(|(poll_id, _)| {
@@ -352,7 +430,8 @@ pub fn query_staker<S: Storage, A: Api, Q: Querier>(
         },
         share: token_manager.share,
         locked_balance: token_manager.locked_balance,
-        pending_voting_rewards: Uint128(user_reward_amount),
+        pending_voting_rewards: user_reward_amount,
+        withdrawable_polls: w_polls_res,
     })
 }
 

@@ -1,24 +1,18 @@
 #[cfg(test)]
 mod tests {
     use crate::contract::{handle, init, query};
+    use crate::mock_querier::mock_dependencies_with_querier;
     use crate::state::{read_pool_info, rewards_read, store_pool_info, PoolInfo, RewardInfo};
-    use cosmwasm_std::testing::{
-        mock_dependencies, mock_env, MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR,
-    };
+    use cosmwasm_std::testing::{mock_dependencies, mock_env};
     use cosmwasm_std::{
-        from_binary, from_slice, to_binary, Api, Coin, CosmosMsg, Decimal, Empty, Extern,
-        HumanAddr, Querier, QuerierResult, QueryRequest, SystemError, Uint128, WasmMsg, WasmQuery,
+        from_binary, to_binary, Api, CosmosMsg, Decimal, HumanAddr, StdError, Uint128, WasmMsg,
     };
     use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
-    use mirror_protocol::oracle::{PriceResponse, QueryMsg as OracleQueryMsg};
     use mirror_protocol::staking::{
         Cw20HookMsg, HandleMsg, InitMsg, PoolInfoResponse, QueryMsg, RewardInfoResponse,
         RewardInfoResponseItem,
     };
-    use terraswap::{
-        asset::Asset, asset::AssetInfo, asset::PairInfo, factory::QueryMsg as FactoryQueryMsg,
-        pair::PoolResponse, pair::QueryMsg as PairQueryMsg,
-    };
+    use terraswap::asset::{Asset, AssetInfo};
 
     #[test]
     fn test_deposit_reward() {
@@ -31,9 +25,8 @@ mod tests {
             oracle_contract: HumanAddr::from("oracle"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
-            premium_tolerance: Decimal::percent(2),
-            short_reward_weight: Decimal::percent(20),
-            premium_short_reward_weight: Decimal::percent(40),
+            premium_min_update_interval: 3600,
+            short_reward_contract: HumanAddr::from("short_reward"),
         };
 
         let env = mock_env("addr", &[]);
@@ -46,6 +39,23 @@ mod tests {
 
         let env = mock_env("owner", &[]);
         let _res = handle(&mut deps, env, msg.clone()).unwrap();
+
+        // store 3% premium rate
+        let token_raw = deps
+            .api
+            .canonical_address(&HumanAddr::from("asset"))
+            .unwrap();
+        let pool_info = read_pool_info(&deps.storage, &token_raw).unwrap();
+        store_pool_info(
+            &mut deps.storage,
+            &token_raw,
+            &PoolInfo {
+                premium_rate: Decimal::percent(2),
+                short_reward_weight: Decimal::percent(20),
+                ..pool_info
+            },
+        )
+        .unwrap();
 
         // bond 100 tokens
         let msg = HandleMsg::Receive(Cw20ReceiveMsg {
@@ -120,6 +130,7 @@ mod tests {
                 reward_index: Decimal::zero(),
                 short_reward_index: Decimal::zero(),
                 premium_rate: Decimal::percent(10),
+                short_reward_weight: Decimal::percent(40),
                 ..pool_info
             },
         )
@@ -160,9 +171,8 @@ mod tests {
             oracle_contract: HumanAddr::from("oracle"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
-            premium_tolerance: Decimal::percent(2),
-            short_reward_weight: Decimal::percent(20),
-            premium_short_reward_weight: Decimal::percent(40),
+            premium_min_update_interval: 3600,
+            short_reward_contract: HumanAddr::from("short_reward"),
         };
 
         let env = mock_env("addr", &[]);
@@ -175,6 +185,23 @@ mod tests {
 
         let env = mock_env("owner", &[]);
         let _res = handle(&mut deps, env, msg.clone()).unwrap();
+
+        // store 3% premium rate
+        let token_raw = deps
+            .api
+            .canonical_address(&HumanAddr::from("asset"))
+            .unwrap();
+        let pool_info = read_pool_info(&deps.storage, &token_raw).unwrap();
+        store_pool_info(
+            &mut deps.storage,
+            &token_raw,
+            &PoolInfo {
+                premium_rate: Decimal::percent(2),
+                short_reward_weight: Decimal::percent(20),
+                ..pool_info
+            },
+        )
+        .unwrap();
 
         // factory deposit 100 reward tokens
         // premium is 0, so rewards distributed 80:20
@@ -226,6 +253,7 @@ mod tests {
                 pending_reward: Uint128::zero(),
                 short_pending_reward: Uint128::zero(),
                 premium_rate: Decimal::percent(10),
+                short_reward_weight: Decimal::percent(40),
                 ..pool_info
             },
         )
@@ -266,9 +294,8 @@ mod tests {
             oracle_contract: HumanAddr::from("oracle"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
-            premium_tolerance: Decimal::percent(2),
-            short_reward_weight: Decimal::percent(20),
-            premium_short_reward_weight: Decimal::percent(40),
+            premium_min_update_interval: 3600,
+            short_reward_contract: HumanAddr::from("short_reward"),
         };
 
         let env = mock_env("addr", &[]);
@@ -281,6 +308,23 @@ mod tests {
 
         let env = mock_env("owner", &[]);
         let _res = handle(&mut deps, env, msg.clone()).unwrap();
+
+        // store 3% premium rate
+        let token_raw = deps
+            .api
+            .canonical_address(&HumanAddr::from("asset"))
+            .unwrap();
+        let pool_info = read_pool_info(&deps.storage, &token_raw).unwrap();
+        store_pool_info(
+            &mut deps.storage,
+            &token_raw,
+            &PoolInfo {
+                premium_rate: Decimal::percent(2),
+                short_reward_weight: Decimal::percent(20),
+                ..pool_info
+            },
+        )
+        .unwrap();
 
         // bond 100 tokens
         let msg = HandleMsg::Receive(Cw20ReceiveMsg {
@@ -410,9 +454,8 @@ mod tests {
             oracle_contract: HumanAddr::from("oracle"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
-            premium_tolerance: Decimal::percent(2),
-            short_reward_weight: Decimal::percent(20),
-            premium_short_reward_weight: Decimal::percent(40),
+            premium_min_update_interval: 3600,
+            short_reward_contract: HumanAddr::from("short_reward"),
         };
 
         let env = mock_env("addr", &[]);
@@ -425,6 +468,23 @@ mod tests {
 
         let env = mock_env("owner", &[]);
         let _res = handle(&mut deps, env, msg.clone()).unwrap();
+
+        // store 3% premium rate
+        let token_raw = deps
+            .api
+            .canonical_address(&HumanAddr::from("asset"))
+            .unwrap();
+        let pool_info = read_pool_info(&deps.storage, &token_raw).unwrap();
+        store_pool_info(
+            &mut deps.storage,
+            &token_raw,
+            &PoolInfo {
+                premium_rate: Decimal::percent(2),
+                short_reward_weight: Decimal::percent(20),
+                ..pool_info
+            },
+        )
+        .unwrap();
 
         // bond 100 tokens
         let msg = HandleMsg::Receive(Cw20ReceiveMsg {
@@ -486,9 +546,8 @@ mod tests {
             oracle_contract: HumanAddr::from("oracle"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
-            premium_tolerance: Decimal::percent(2),
-            short_reward_weight: Decimal::percent(20),
-            premium_short_reward_weight: Decimal::percent(40),
+            premium_min_update_interval: 3600,
+            short_reward_contract: HumanAddr::from("short_reward"),
         };
 
         let env = mock_env("addr", &[]);
@@ -509,6 +568,40 @@ mod tests {
 
         let env = mock_env("owner", &[]);
         let _res = handle(&mut deps, env, msg.clone()).unwrap();
+
+        // store 3% premium rate
+        let token_raw = deps
+            .api
+            .canonical_address(&HumanAddr::from("asset"))
+            .unwrap();
+        let pool_info = read_pool_info(&deps.storage, &token_raw).unwrap();
+        store_pool_info(
+            &mut deps.storage,
+            &token_raw,
+            &PoolInfo {
+                premium_rate: Decimal::percent(2),
+                short_reward_weight: Decimal::percent(20),
+                ..pool_info
+            },
+        )
+        .unwrap();
+
+        // store 3% premium rate for asset2
+        let token_raw = deps
+            .api
+            .canonical_address(&HumanAddr::from("asset2"))
+            .unwrap();
+        let pool_info = read_pool_info(&deps.storage, &token_raw).unwrap();
+        store_pool_info(
+            &mut deps.storage,
+            &token_raw,
+            &PoolInfo {
+                premium_rate: Decimal::percent(2),
+                short_reward_weight: Decimal::percent(20),
+                ..pool_info
+            },
+        )
+        .unwrap();
 
         // bond 100 tokens
         let msg = HandleMsg::Receive(Cw20ReceiveMsg {
@@ -687,9 +780,8 @@ mod tests {
             oracle_contract: HumanAddr::from("oracle"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
             base_denom: "uusd".to_string(),
-            premium_tolerance: Decimal::percent(2),
-            short_reward_weight: Decimal::percent(20),
-            premium_short_reward_weight: Decimal::percent(40),
+            premium_min_update_interval: 3600,
+            short_reward_contract: HumanAddr::from("short_reward"),
         };
 
         let env = mock_env("addr", &[]);
@@ -706,7 +798,7 @@ mod tests {
         let msg = HandleMsg::AdjustPremium {
             asset_tokens: vec![HumanAddr::from("asset")],
         };
-        let env = mock_env("addr", &[]);
+        let mut env = mock_env("addr", &[]);
         let _ = handle(&mut deps, env.clone(), msg.clone()).unwrap();
 
         // Check pool state
@@ -721,6 +813,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(res.premium_rate, Decimal::zero());
+        assert_eq!(res.premium_updated_time, env.block.time);
 
         // terraswap price = 90
         // premium rate = 0
@@ -739,6 +832,17 @@ mod tests {
             },
         ]);
 
+        // assert premium update interval
+        let res = handle(&mut deps, env.clone(), msg.clone());
+        match res {
+            Err(StdError::GenericErr { msg, .. }) => assert_eq!(
+                msg,
+                "cannot adjust premium before premium_min_update_interval passed"
+            ),
+            _ => panic!("DO NOT ENTER HERE"),
+        }
+
+        env.block.time += 3600;
         let _ = handle(&mut deps, env.clone(), msg.clone()).unwrap();
 
         // Check pool state
@@ -753,6 +857,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(res.premium_rate, Decimal::zero());
+        assert_eq!(res.premium_updated_time, env.block.time);
 
         // terraswap price = 105
         // premium rate = 5%
@@ -771,6 +876,7 @@ mod tests {
             },
         ]);
 
+        env.block.time += 3600;
         let _ = handle(&mut deps, env.clone(), msg.clone()).unwrap();
 
         // Check pool state
@@ -785,119 +891,6 @@ mod tests {
         )
         .unwrap();
         assert_eq!(res.premium_rate, Decimal::percent(5));
-    }
-
-    ////////////////////////////////////////////
-    /// Custom Querier for premium adjustment
-    pub struct WasmMockQuerier {
-        base: MockQuerier,
-        pair_addr: HumanAddr,
-        pool_assets: [Asset; 2],
-        oracle_price: Decimal,
-    }
-
-    fn mock_dependencies_with_querier(
-        canonical_length: usize,
-        contract_balance: &[Coin],
-    ) -> Extern<MockStorage, MockApi, WasmMockQuerier> {
-        let contract_addr = HumanAddr::from(MOCK_CONTRACT_ADDR);
-        let custom_querier: WasmMockQuerier = WasmMockQuerier::new(
-            MockQuerier::new(&[(&contract_addr, contract_balance)]),
-            MockApi::new(canonical_length),
-            canonical_length,
-        );
-
-        Extern {
-            storage: MockStorage::default(),
-            api: MockApi::new(canonical_length),
-            querier: custom_querier,
-        }
-    }
-
-    impl Querier for WasmMockQuerier {
-        fn raw_query(&self, bin_request: &[u8]) -> QuerierResult {
-            // MockQuerier doesn't support Custom, so we ignore it completely here
-            let request: QueryRequest<Empty> = match from_slice(bin_request) {
-                Ok(v) => v,
-                Err(e) => {
-                    return Err(SystemError::InvalidRequest {
-                        error: format!("Parsing query request: {}", e),
-                        request: bin_request.into(),
-                    })
-                }
-            };
-            self.handle_query(&request)
-        }
-    }
-
-    impl WasmMockQuerier {
-        pub fn handle_query(&self, request: &QueryRequest<Empty>) -> QuerierResult {
-            match &request {
-                QueryRequest::Wasm(WasmQuery::Smart {
-                    contract_addr: _,
-                    msg,
-                }) => match from_binary(&msg) {
-                    Ok(FactoryQueryMsg::Pair { asset_infos }) => Ok(to_binary(&PairInfo {
-                        asset_infos: asset_infos.clone(),
-                        contract_addr: self.pair_addr.clone(),
-                        liquidity_token: HumanAddr::default(),
-                    })),
-                    _ => match from_binary(&msg) {
-                        Ok(PairQueryMsg::Pool {}) => Ok(to_binary(&PoolResponse {
-                            assets: self.pool_assets.clone(),
-                            total_share: Uint128::zero(),
-                        })),
-                        _ => match from_binary(&msg) {
-                            Ok(OracleQueryMsg::Price {
-                                base_asset: _,
-                                quote_asset: _,
-                            }) => Ok(to_binary(&PriceResponse {
-                                rate: self.oracle_price,
-                                last_updated_base: 100,
-                                last_updated_quote: 100,
-                            })),
-                            _ => panic!("DO NOT ENTER HERE"),
-                        },
-                    },
-                },
-                _ => self.base.handle_query(request),
-            }
-        }
-    }
-
-    impl WasmMockQuerier {
-        pub fn new<A: Api>(base: MockQuerier<Empty>, _api: A, _canonical_length: usize) -> Self {
-            WasmMockQuerier {
-                base,
-                pair_addr: HumanAddr::default(),
-                pool_assets: [
-                    Asset {
-                        info: AssetInfo::NativeToken {
-                            denom: "uusd".to_string(),
-                        },
-                        amount: Uint128::zero(),
-                    },
-                    Asset {
-                        info: AssetInfo::Token {
-                            contract_addr: HumanAddr::from("asset"),
-                        },
-                        amount: Uint128::zero(),
-                    },
-                ],
-                oracle_price: Decimal::zero(),
-            }
-        }
-
-        pub fn with_pair_info(&mut self, pair_addr: HumanAddr) {
-            self.pair_addr = pair_addr;
-        }
-
-        pub fn with_pool_assets(&mut self, pool_assets: [Asset; 2]) {
-            self.pool_assets = pool_assets;
-        }
-
-        pub fn with_oracle_price(&mut self, oracle_price: Decimal) {
-            self.oracle_price = oracle_price;
-        }
+        assert_eq!(res.premium_updated_time, env.block.time);
     }
 }

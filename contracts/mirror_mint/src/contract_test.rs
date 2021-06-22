@@ -3,10 +3,12 @@ mod tests {
     use crate::contract::{handle, init, query};
     use crate::mock_querier::mock_dependencies;
     use cosmwasm_std::testing::mock_env;
-    use cosmwasm_std::{from_binary, Decimal, HumanAddr, StdError};
+    use cosmwasm_std::{from_binary, to_binary, CosmosMsg, Decimal, HumanAddr, StdError, WasmMsg};
+    use mirror_protocol::collateral_oracle::{HandleMsg::RegisterCollateralAsset, SourceType};
     use mirror_protocol::mint::{
-        AssetConfigResponse, ConfigResponse, HandleMsg, InitMsg, QueryMsg,
+        AssetConfigResponse, ConfigResponse, HandleMsg, IPOParams, InitMsg, QueryMsg,
     };
+    use terraswap::asset::AssetInfo;
 
     static TOKEN_CODE_ID: u64 = 10u64;
 
@@ -17,8 +19,10 @@ mod tests {
             owner: HumanAddr::from("owner0000"),
             oracle: HumanAddr::from("oracle0000"),
             collector: HumanAddr::from("collector0000"),
+            collateral_oracle: HumanAddr::from("collateraloracle0000"),
             staking: HumanAddr::from("staking0000"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
+            lock: HumanAddr::from("lock0000"),
             base_denom: "uusd".to_string(),
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
@@ -35,6 +39,7 @@ mod tests {
         assert_eq!("staking0000", config.staking.as_str());
         assert_eq!("collector0000", config.collector.as_str());
         assert_eq!("terraswap_factory", config.terraswap_factory.as_str());
+        assert_eq!("lock0000", config.lock.as_str());
         assert_eq!(TOKEN_CODE_ID, config.token_code_id);
         assert_eq!(Decimal::percent(1), config.protocol_fee_rate);
     }
@@ -45,8 +50,10 @@ mod tests {
             owner: HumanAddr::from("owner0000"),
             oracle: HumanAddr::from("oracle0000"),
             collector: HumanAddr::from("collector0000"),
+            collateral_oracle: HumanAddr::from("collateraloracle0000"),
             staking: HumanAddr::from("staking0000"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
+            lock: HumanAddr::from("lock0000"),
             base_denom: "uusd".to_string(),
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
@@ -60,8 +67,10 @@ mod tests {
             oracle: None,
             collector: None,
             terraswap_factory: None,
+            lock: None,
             token_code_id: Some(100u64),
             protocol_fee_rate: None,
+            collateral_oracle: None,
         };
         let res = handle(&mut deps, env, msg).unwrap();
         assert_eq!(0, res.messages.len());
@@ -77,8 +86,10 @@ mod tests {
             oracle: None,
             collector: None,
             terraswap_factory: None,
+            lock: None,
             token_code_id: None,
             protocol_fee_rate: None,
+            collateral_oracle: None,
         };
         let res = handle(&mut deps, env, msg);
         match res {
@@ -94,8 +105,10 @@ mod tests {
             owner: HumanAddr::from("owner0000"),
             oracle: HumanAddr::from("oracle0000"),
             collector: HumanAddr::from("collector0000"),
+            collateral_oracle: HumanAddr::from("collateraloracle0000"),
             staking: HumanAddr::from("staking0000"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
+            lock: HumanAddr::from("lock0000"),
             base_denom: base_denom.clone(),
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
@@ -106,12 +119,26 @@ mod tests {
             asset_token: HumanAddr::from("asset0000"),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
-            mint_end: None,
-            min_collateral_ratio_after_migration: None,
+            ipo_params: None,
         };
         let env = mock_env("owner0000", &[]);
         let res = handle(&mut deps, env, msg).unwrap();
-        assert_eq!(res.messages, vec![],);
+        assert_eq!(
+            res.messages,
+            vec![CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from("collateraloracle0000"),
+                send: vec![],
+                msg: to_binary(&RegisterCollateralAsset {
+                    asset: AssetInfo::Token {
+                        contract_addr: HumanAddr::from("asset0000"),
+                    },
+                    multiplier: Decimal::one(),
+                    price_source: SourceType::MirrorOracle {},
+                })
+                .unwrap(),
+            })]
+        );
+
         let res = query(
             &deps,
             QueryMsg::AssetConfig {
@@ -127,8 +154,7 @@ mod tests {
                 auction_discount: Decimal::percent(20),
                 min_collateral_ratio: Decimal::percent(150),
                 end_price: None,
-                mint_end: None,
-                min_collateral_ratio_after_migration: None,
+                ipo_params: None,
             }
         );
         // must be failed with the already registered token error
@@ -136,8 +162,7 @@ mod tests {
             asset_token: HumanAddr::from("asset0000"),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
-            mint_end: None,
-            min_collateral_ratio_after_migration: None,
+            ipo_params: None,
         };
         let env = mock_env("owner0000", &[]);
         let res = handle(&mut deps, env, msg).unwrap_err();
@@ -150,8 +175,7 @@ mod tests {
             asset_token: HumanAddr::from("asset0000"),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
-            mint_end: None,
-            min_collateral_ratio_after_migration: None,
+            ipo_params: None,
         };
         let env = mock_env("owner0001", &[]);
         let res = handle(&mut deps, env, msg).unwrap_err();
@@ -164,8 +188,7 @@ mod tests {
             asset_token: HumanAddr::from("asset0000"),
             auction_discount: Decimal::percent(150),
             min_collateral_ratio: Decimal::percent(150),
-            mint_end: None,
-            min_collateral_ratio_after_migration: None,
+            ipo_params: None,
         };
         let env = mock_env("owner0000", &[]);
         let res = handle(&mut deps, env, msg).unwrap_err();
@@ -180,8 +203,7 @@ mod tests {
             asset_token: HumanAddr::from("asset0000"),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(50),
-            mint_end: None,
-            min_collateral_ratio_after_migration: None,
+            ipo_params: None,
         };
         let env = mock_env("owner0000", &[]);
         let res = handle(&mut deps, env, msg).unwrap_err();
@@ -200,8 +222,10 @@ mod tests {
             owner: HumanAddr::from("owner0000"),
             oracle: HumanAddr::from("oracle0000"),
             collector: HumanAddr::from("collector0000"),
+            collateral_oracle: HumanAddr::from("collateraloracle0000"),
             staking: HumanAddr::from("staking0000"),
             terraswap_factory: HumanAddr::from("terraswap_factory"),
+            lock: HumanAddr::from("lock0000"),
             base_denom: base_denom.clone(),
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
@@ -212,8 +236,7 @@ mod tests {
             asset_token: HumanAddr::from("asset0000"),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
-            mint_end: None,
-            min_collateral_ratio_after_migration: None,
+            ipo_params: None,
         };
         let env = mock_env("owner0000", &[]);
         let _res = handle(&mut deps, env, msg).unwrap();
@@ -221,6 +244,11 @@ mod tests {
             asset_token: HumanAddr::from("asset0000"),
             auction_discount: Some(Decimal::percent(30)),
             min_collateral_ratio: Some(Decimal::percent(200)),
+            ipo_params: Some(IPOParams {
+                min_collateral_ratio_after_ipo: Decimal::percent(150),
+                mint_end: 10000u64,
+                pre_ipo_price: Decimal::percent(1),
+            }),
         };
         let env = mock_env("owner0000", &[]);
         let _res = handle(&mut deps, env, msg).unwrap();
@@ -239,14 +267,18 @@ mod tests {
                 auction_discount: Decimal::percent(30),
                 min_collateral_ratio: Decimal::percent(200),
                 end_price: None,
-                mint_end: None,
-                min_collateral_ratio_after_migration: None,
+                ipo_params: Some(IPOParams {
+                    min_collateral_ratio_after_ipo: Decimal::percent(150),
+                    mint_end: 10000u64,
+                    pre_ipo_price: Decimal::percent(1)
+                }),
             }
         );
         let msg = HandleMsg::UpdateAsset {
             asset_token: HumanAddr::from("asset0000"),
             auction_discount: Some(Decimal::percent(130)),
             min_collateral_ratio: Some(Decimal::percent(150)),
+            ipo_params: None,
         };
         let env = mock_env("owner0000", &[]);
         let res = handle(&mut deps, env, msg).unwrap_err();
@@ -260,6 +292,7 @@ mod tests {
             asset_token: HumanAddr::from("asset0000"),
             auction_discount: Some(Decimal::percent(30)),
             min_collateral_ratio: Some(Decimal::percent(50)),
+            ipo_params: None,
         };
         let env = mock_env("owner0000", &[]);
         let res = handle(&mut deps, env, msg).unwrap_err();
@@ -273,6 +306,7 @@ mod tests {
             asset_token: HumanAddr::from("asset0000"),
             auction_discount: Some(Decimal::percent(30)),
             min_collateral_ratio: Some(Decimal::percent(200)),
+            ipo_params: None,
         };
         let env = mock_env("owner0001", &[]);
         let res = handle(&mut deps, env, msg).unwrap_err();

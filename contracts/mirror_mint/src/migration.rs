@@ -4,9 +4,10 @@ use serde::{Deserialize, Serialize};
 use cosmwasm_std::{CanonicalAddr, Decimal, Order, StdResult, Storage};
 use cosmwasm_storage::{singleton_read, ReadonlyBucket};
 
-use crate::state::{
-    store_asset_config, store_config, AssetConfig, Config, KEY_CONFIG, PREFIX_ASSET_CONFIG,
-};
+use crate::state::{store_asset_config, store_config, AssetConfig, Config};
+
+static PREFIX_ASSET_CONFIG: &[u8] = b"asset_config";
+static KEY_CONFIG: &[u8] = b"config";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct LegacyConfig {
@@ -18,6 +19,14 @@ pub struct LegacyConfig {
     pub protocol_fee_rate: Decimal,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct LegacyAssetConfig {
+    pub token: CanonicalAddr,
+    pub auction_discount: Decimal,
+    pub min_collateral_ratio: Decimal,
+    pub end_price: Option<Decimal>,
+}
+
 fn read_legacy_config<S: Storage>(storage: &S) -> StdResult<LegacyConfig> {
     singleton_read(storage, KEY_CONFIG).load()
 }
@@ -26,13 +35,17 @@ pub fn migrate_config<S: Storage>(
     storage: &mut S,
     staking: CanonicalAddr,
     terraswap_factory: CanonicalAddr,
+    collateral_oracle: CanonicalAddr,
+    lock: CanonicalAddr,
 ) -> StdResult<()> {
     let legacy_config: LegacyConfig = read_legacy_config(storage)?;
     store_config(
         storage,
         &Config {
-            staking: staking,
+            staking,
             terraswap_factory,
+            collateral_oracle,
+            lock,
             owner: legacy_config.owner,
             oracle: legacy_config.oracle,
             collector: legacy_config.collector,
@@ -43,14 +56,6 @@ pub fn migrate_config<S: Storage>(
     )?;
 
     Ok(())
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct LegacyAssetConfig {
-    pub token: CanonicalAddr,
-    pub auction_discount: Decimal,
-    pub min_collateral_ratio: Decimal,
-    pub end_price: Option<Decimal>,
 }
 
 fn read_legacy_asset_configs<S: Storage>(storage: &S) -> StdResult<Vec<LegacyAssetConfig>> {
@@ -77,8 +82,7 @@ pub fn migrate_asset_configs<S: Storage>(storage: &mut S) -> StdResult<()> {
                 auction_discount: legacy_config.auction_discount,
                 min_collateral_ratio: legacy_config.min_collateral_ratio,
                 end_price: legacy_config.end_price,
-                mint_end: None,
-                min_collateral_ratio_after_migration: None,
+                ipo_params: None,
             },
         )?
     }
@@ -130,6 +134,14 @@ mod migrate_tests {
             .api
             .canonical_address(&HumanAddr::from("terraswap_factory"))
             .unwrap();
+        let collateral_oracle = deps
+            .api
+            .canonical_address(&HumanAddr::from("collateral_oracle"))
+            .unwrap();
+        let lock = deps
+            .api
+            .canonical_address(&HumanAddr::from("lock0000"))
+            .unwrap();
         store_legacy_config(
             &mut deps.storage,
             &LegacyConfig {
@@ -147,6 +159,8 @@ mod migrate_tests {
             &mut deps.storage,
             staking.clone(),
             terraswap_factory.clone(),
+            collateral_oracle.clone(),
+            lock.clone(),
         )
         .unwrap();
         assert_eq!(
@@ -157,6 +171,8 @@ mod migrate_tests {
                 staking,
                 collector,
                 terraswap_factory,
+                lock,
+                collateral_oracle,
                 base_denom: "uusd".to_string(),
                 token_code_id: 10,
                 protocol_fee_rate: Decimal::percent(1),
@@ -205,8 +221,7 @@ mod migrate_tests {
                 auction_discount: legacy_asset_config.auction_discount,
                 min_collateral_ratio: legacy_asset_config.min_collateral_ratio,
                 end_price: legacy_asset_config.end_price,
-                mint_end: None,
-                min_collateral_ratio_after_migration: None,
+                ipo_params: None,
             }
         );
         assert_eq!(
@@ -216,8 +231,7 @@ mod migrate_tests {
                 auction_discount: legacy_asset_config_2.auction_discount,
                 min_collateral_ratio: legacy_asset_config_2.min_collateral_ratio,
                 end_price: legacy_asset_config_2.end_price,
-                mint_end: None,
-                min_collateral_ratio_after_migration: None,
+                ipo_params: None,
             }
         );
     }

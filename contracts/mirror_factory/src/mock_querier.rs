@@ -8,7 +8,9 @@ use cosmwasm_std::{
 };
 use cosmwasm_storage::to_length_prefixed;
 
+use crate::math::decimal_division;
 use crate::querier::MintAssetConfig;
+use mirror_protocol::oracle::PriceResponse;
 use std::collections::HashMap;
 use terraswap::asset::{AssetInfo, PairInfo};
 
@@ -36,6 +38,7 @@ pub struct WasmMockQuerier {
     base: MockQuerier<Empty>,
     terraswap_factory_querier: TerraswapFactoryQuerier,
     oracle_querier: OracleQuerier,
+    oracle_price_querier: OraclePriceQuerier,
     mint_querier: MintQuerier,
     canonical_length: usize,
 }
@@ -59,6 +62,31 @@ pub(crate) fn pairs_to_map(pairs: &[(&String, &HumanAddr)]) -> HashMap<String, H
         pairs_map.insert(key.to_string(), HumanAddr::from(pair));
     }
     pairs_map
+}
+
+#[derive(Clone, Default)]
+pub struct OraclePriceQuerier {
+    // this lets us iterate over all pairs that match the first string
+    oracle_price: HashMap<String, Decimal>,
+}
+
+impl OraclePriceQuerier {
+    pub fn new(oracle_price: &[(&String, &Decimal)]) -> Self {
+        OraclePriceQuerier {
+            oracle_price: oracle_price_to_map(oracle_price),
+        }
+    }
+}
+
+pub(crate) fn oracle_price_to_map(
+    oracle_price: &[(&String, &Decimal)],
+) -> HashMap<String, Decimal> {
+    let mut oracle_price_map: HashMap<String, Decimal> = HashMap::new();
+    for (base_quote, oracle_price) in oracle_price.iter() {
+        oracle_price_map.insert((*base_quote).clone(), **oracle_price);
+    }
+
+    oracle_price_map
 }
 
 #[derive(Clone, Default)]
@@ -86,11 +114,11 @@ pub(crate) fn address_pair_to_map(
 
 #[derive(Clone, Default)]
 pub struct MintQuerier {
-    configs: HashMap<HumanAddr, (Decimal, Decimal, Option<Decimal>)>,
+    configs: HashMap<HumanAddr, (Decimal, Decimal)>,
 }
 
 impl MintQuerier {
-    pub fn new(configs: &[(&HumanAddr, &(Decimal, Decimal, Option<Decimal>))]) -> Self {
+    pub fn new(configs: &[(&HumanAddr, &(Decimal, Decimal))]) -> Self {
         MintQuerier {
             configs: configs_to_map(configs),
         }
@@ -98,14 +126,11 @@ impl MintQuerier {
 }
 
 pub(crate) fn configs_to_map(
-    configs: &[(&HumanAddr, &(Decimal, Decimal, Option<Decimal>))],
-) -> HashMap<HumanAddr, (Decimal, Decimal, Option<Decimal>)> {
-    let mut configs_map: HashMap<HumanAddr, (Decimal, Decimal, Option<Decimal>)> = HashMap::new();
+    configs: &[(&HumanAddr, &(Decimal, Decimal))],
+) -> HashMap<HumanAddr, (Decimal, Decimal)> {
+    let mut configs_map: HashMap<HumanAddr, (Decimal, Decimal)> = HashMap::new();
     for (contract_addr, touple) in configs.iter() {
-        configs_map.insert(
-            HumanAddr::from(contract_addr),
-            (touple.0, touple.1, touple.2),
-        );
+        configs_map.insert(HumanAddr::from(contract_addr), (touple.0, touple.1));
     }
     configs_map
 }
@@ -129,7 +154,13 @@ impl Querier for WasmMockQuerier {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
-    Pair { asset_infos: [AssetInfo; 2] },
+    Pair {
+        asset_infos: [AssetInfo; 2],
+    },
+    Price {
+        base_asset: String,
+        quote_asset: String,
+    },
 }
 
 impl WasmMockQuerier {
@@ -160,6 +191,28 @@ impl WasmMockQuerier {
                         }),
                     }
                 }
+                QueryMsg::Price {
+                    base_asset,
+                    quote_asset,
+                } => match self.oracle_price_querier.oracle_price.get(&base_asset) {
+                    Some(base_price) => {
+                        match self.oracle_price_querier.oracle_price.get(&quote_asset) {
+                            Some(quote_price) => Ok(to_binary(&PriceResponse {
+                                rate: decimal_division(*base_price, *quote_price),
+                                last_updated_base: 1000u64,
+                                last_updated_quote: 1000u64,
+                            })),
+                            None => Err(SystemError::InvalidRequest {
+                                error: "No oracle price exists".to_string(),
+                                request: msg.as_slice().into(),
+                            }),
+                        }
+                    }
+                    None => Err(SystemError::InvalidRequest {
+                        error: "No oracle price exists".to_string(),
+                        request: msg.as_slice().into(),
+                    }),
+                },
             },
             QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
                 let key: &[u8] = key.as_slice();
@@ -220,7 +273,7 @@ impl WasmMockQuerier {
                             token: api.canonical_address(&asset_token).unwrap(),
                             auction_discount: config.0,
                             min_collateral_ratio: config.1,
-                            min_collateral_ratio_after_migration: config.2,
+                            ipo_params: None,
                         })
                         .unwrap(),
                     ))
@@ -240,6 +293,7 @@ impl WasmMockQuerier {
             terraswap_factory_querier: TerraswapFactoryQuerier::default(),
             mint_querier: MintQuerier::default(),
             oracle_querier: OracleQuerier::default(),
+            oracle_price_querier: OraclePriceQuerier::default(),
             canonical_length,
         }
     }
@@ -253,10 +307,12 @@ impl WasmMockQuerier {
         self.oracle_querier = OracleQuerier::new(feeders);
     }
 
-    pub fn with_mint_configs(
-        &mut self,
-        configs: &[(&HumanAddr, &(Decimal, Decimal, Option<Decimal>))],
-    ) {
+    pub fn with_mint_configs(&mut self, configs: &[(&HumanAddr, &(Decimal, Decimal))]) {
         self.mint_querier = MintQuerier::new(configs);
+    }
+
+    // configure the oracle price mock querier
+    pub fn with_oracle_price(&mut self, oracle_price: &[(&String, &Decimal)]) {
+        self.oracle_price_querier = OraclePriceQuerier::new(oracle_price);
     }
 }

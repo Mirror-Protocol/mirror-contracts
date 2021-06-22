@@ -1,0 +1,74 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MigrateMsg",
+  "description": "We currently take no arguments for migrations",
+  "type": "object",
+  "required": [
+    "network",
+    "short_reward_contract"
+  ],
+  "properties": {
+    "base_denom": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "mint_contract": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/HumanAddr"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "network": {
+      "$ref": "#/definitions/Network"
+    },
+    "oracle_contract": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/HumanAddr"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "premium_min_update_interval": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0.0
+    },
+    "short_reward_contract": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "terraswap_factory": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/HumanAddr"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "definitions": {
+    "HumanAddr": {
+      "type": "string"
+    },
+    "Network": {
+      "type": "string",
+      "enum": [
+        "mainnet",
+        "test_net"
+      ]
+    }
+  }
+}

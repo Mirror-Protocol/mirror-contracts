@@ -31,6 +31,7 @@ pub struct Config {
     pub expiration_period: u64,
     pub proposal_deposit: Uint128,
     pub voter_weight: Decimal,
+    pub snapshot_period: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -57,7 +58,7 @@ pub struct Poll {
     pub yes_votes: Uint128,
     pub no_votes: Uint128,
     pub abstain_votes: Uint128,
-    pub end_height: u64,
+    pub end_time: u64,
     pub title: String,
     pub description: String,
     pub link: Option<String>,
@@ -66,6 +67,7 @@ pub struct Poll {
     /// Total balance at the end poll
     pub total_balance_at_end_poll: Option<Uint128>,
     pub voters_reward: Uint128,
+    pub staked_amount: Option<Uint128>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
