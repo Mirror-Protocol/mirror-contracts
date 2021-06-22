@@ -5,6 +5,8 @@ use cosmwasm_std::{to_binary, Coin, CosmosMsg, Decimal, Uint128, WasmMsg};
 use cw20::Cw20ExecuteMsg;
 use mirror_protocol::collector::{ConfigResponse, ExecuteMsg, InstantiateMsg};
 use mirror_protocol::gov::Cw20HookMsg::DepositReward;
+use moneymarket::market::Cw20HookMsg::RedeemStable;
+use terra_cosmwasm::{TerraMsg, TerraMsgWrapper, TerraRoute};
 use terraswap::asset::{Asset, AssetInfo};
 use terraswap::pair::{Cw20HookMsg as TerraswapCw20HookMsg, ExecuteMsg as TerraswapExecuteMsg};
 
@@ -13,10 +15,15 @@ fn proper_initialization() {
     let mut deps = mock_dependencies(&[]);
 
     let msg = InstantiateMsg {
+        owner: "owner0000".to_string(),
         terraswap_factory: "terraswapfactory".to_string(),
         distribution_contract: "gov0000".to_string(),
         mirror_token: "mirror0000".to_string(),
         base_denom: "uusd".to_string(),
+        aust_token: "aust0000".to_string(),
+        anchor_market: "anchormarket0000".to_string(),
+        bluna_token: "bluna0000".to_string(),
+        bluna_swap_denom: "uluna".to_string()
     };
 
     let info = mock_info("addr0000", &[]);
@@ -57,10 +64,15 @@ fn test_convert() {
     ]);
 
     let msg = InstantiateMsg {
+        owner: "owner0000".to_string(),
         terraswap_factory: "terraswapfactory".to_string(),
         distribution_contract: "gov0000".to_string(),
         mirror_token: "tokenMIRROR".to_string(),
         base_denom: "uusd".to_string(),
+        aust_token: "aust0000".to_string(),
+        anchor_market: "anchormarket0000".to_string(),
+        bluna_token: "bluna0000".to_string(),
+        bluna_swap_denom: "uluna".to_string()
     };
 
     let info = mock_info("addr0000", &[]);
@@ -127,6 +139,139 @@ fn test_convert() {
 }
 
 #[test]
+fn test_convert_aust() {
+    let mut deps = mock_dependencies(
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(100u128),
+        }],
+    );
+    deps.querier.with_token_balances(&[(
+        &"aust0000".to_string(),
+        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128(100u128))],
+    )]);
+
+    let msg = InstantiateMsg {
+        owner: "owner0000".to_string(),
+        terraswap_factory: "terraswapfactory".to_string(),
+        distribution_contract: "gov0000".to_string(),
+        mirror_token: "mirror0000".to_string(),
+        base_denom: "uusd".to_string(),
+        aust_token: "aust0000".to_string(),
+        anchor_market: "anchormarket0000".to_string(),
+        bluna_token: "bluna0000".to_string(),
+        bluna_swap_denom: "uluna".to_string(),
+    };
+
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    let msg = ExecuteMsg::Convert {
+        asset_token: "aust0000".to_string(),
+    };
+
+    let info = mock_info("addr0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+    assert_eq!(
+        res.messages,
+        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: "aust0000".to_string(),
+            msg: to_binary(&Cw20ExecuteMsg::Send {
+                contract: "anchormarket0000".to_string(),
+                amount: Uint128(100u128),
+                msg: Some(to_binary(&RedeemStable {}).unwrap()),
+            })
+            .unwrap(),
+            send: vec![],
+        })]
+    );
+}
+
+#[test]
+fn test_convert_bluna() {
+    let mut deps = mock_dependencies(
+        &[Coin {
+            denom: "uluna".to_string(),
+            amount: Uint128(100u128),
+        }],
+    );
+    deps.querier.with_token_balances(&[(
+        &"bluna0000".to_string(),
+        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128(100u128))],
+    )]);
+
+    deps.querier
+        .with_terraswap_pairs(&[(&"ulunabluna0000".to_string(), &"pairbLuna".to_string())]);
+
+    let msg = InstantiateMsg {
+        owner: "owner0000".to_string(),
+        terraswap_factory: "terraswapfactory".to_string(),
+        distribution_contract: "gov0000".to_string(),
+        mirror_token: "mirror0000".to_string(),
+        base_denom: "uusd".to_string(),
+        aust_token: "aust0000".to_string(),
+        anchor_market: "anchormarket0000".to_string(),
+        bluna_token: "bluna0000".to_string(),
+        bluna_swap_denom: "uluna".to_string(),
+    };
+
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    let msg = ExecuteMsg::Convert {
+        asset_token: "bluna0000".to_string(),
+    };
+
+    let info = mock_info("addr0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+    assert_eq!(
+        res.messages,
+        vec![
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "bluna0000".to_string(),
+                msg: to_binary(&Cw20ExecuteMsg::Send {
+                    contract: "pairbLuna".to_string(),
+                    amount: Uint128(100u128),
+                    msg: Some(
+                        to_binary(&TerraswapCw20HookMsg::Swap {
+                            max_spread: None,
+                            belief_price: None,
+                            to: None,
+                        })
+                        .unwrap()
+                    ),
+                })
+                .unwrap(),
+                send: vec![],
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: MOCK_CONTRACT_ADDR.to_string(),
+                msg: to_binary(&ExecuteMsg::LunaSwapHook {}).unwrap(),
+                send: vec![],
+            }),
+        ]
+    );
+
+    // suppose we sell the bluna for 100uluna
+    let msg = ExecuteMsg::LunaSwapHook {};
+    let info = mock_info("owner0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+    assert_eq!(
+        res.messages,
+        vec![CosmosMsg::Custom(TerraMsgWrapper {
+            route: TerraRoute::Market,
+            msg_data: TerraMsg::Swap {
+                offer_coin: Coin {
+                    amount: Uint128(100),
+                    denom: "uluna".to_string()
+                },
+                ask_denom: "uusd".to_string(),
+            },
+        })],
+    )
+}
+
+#[test]
 fn test_send() {
     let mut deps = mock_dependencies(&[]);
     deps.querier.with_token_balances(&[(
@@ -135,10 +280,15 @@ fn test_send() {
     )]);
 
     let msg = InstantiateMsg {
+        owner: "owner0000".to_string(),
         terraswap_factory: "terraswapfactory".to_string(),
         distribution_contract: "gov0000".to_string(),
         mirror_token: "mirror0000".to_string(),
         base_denom: "uusd".to_string(),
+        aust_token: "aust0000".to_string(),
+        anchor_market: "anchormarket0000".to_string(),
+        bluna_token: "bluna0000".to_string(),
+        bluna_swap_denom: "uluna".to_string()
     };
 
     let info = mock_info("addr0000", &[]);

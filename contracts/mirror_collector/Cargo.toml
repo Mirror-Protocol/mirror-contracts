@@ -38,10 +38,11 @@ cw20 = "0.6"
 cosmwasm-std = { version = "0.14.0" }
 cosmwasm-storage = { version = "0.14.0" }
 mirror-protocol = { version = "2.0.0", path = "../../packages/mirror_protocol" }
-terraswap = "2.1.0"
 schemars = "0.8.1"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
+terra-cosmwasm = "2.0.0"
+terraswap = "2.1.0"
+moneymarket = "0.1.0"
 
 [dev-dependencies]
 cosmwasm-schema = "0.14.0"
-terra-cosmwasm = "2.0.0"

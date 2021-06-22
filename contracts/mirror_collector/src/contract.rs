@@ -1,18 +1,20 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{
-    attr, to_binary, Binary, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response,
-    StdResult, WasmMsg,
-};
 
+use crate::migration::migrate_config;
 use crate::state::{read_config, store_config, Config};
+use crate::swap::{convert, luna_swap_hook};
+
+use cosmwasm_std::{
+    attr, to_binary, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response,
+    StdError, StdResult, WasmMsg,
+};
 
 use cw20::Cw20ExecuteMsg;
 use mirror_protocol::collector::{ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use mirror_protocol::gov::Cw20HookMsg::DepositReward;
-use terraswap::asset::{Asset, AssetInfo, PairInfo};
-use terraswap::pair::{Cw20HookMsg as TerraswapCw20HookMsg, ExecuteMsg as TerraswapExecuteMsg};
-use terraswap::querier::{query_balance, query_pair_info, query_token_balance};
+use terra_cosmwasm::TerraMsgWrapper;
+use terraswap::querier::{query_token_balance};
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -24,10 +26,15 @@ pub fn instantiate(
     store_config(
         deps.storage,
         &Config {
+            owner: deps.api.addr_canonicalize(&msg.owner)?,
             distribution_contract: deps.api.addr_canonicalize(&msg.distribution_contract)?,
             terraswap_factory: deps.api.addr_canonicalize(&msg.terraswap_factory)?,
             mirror_token: deps.api.addr_canonicalize(&msg.mirror_token)?,
             base_denom: msg.base_denom,
+            aust_token: deps.api.addr_canonicalize(&msg.aust_token)?,
+            anchor_market: deps.api.addr_canonicalize(&msg.anchor_market)?,
+            bluna_token: deps.api.addr_canonicalize(&msg.bluna_token)?,
+            bluna_swap_denom: msg.bluna_swap_denom,
         },
     )?;
 
@@ -38,97 +45,100 @@ pub fn instantiate(
 pub fn execute(
     deps: DepsMut,
     env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     msg: ExecuteMsg,
-) -> StdResult<Response> {
+) -> StdResult<Response<TerraMsgWrapper>> {
     match msg {
-        ExecuteMsg::Convert { asset_token } => convert(deps, env, asset_token),
+        ExecuteMsg::UpdateConfig {
+            owner,
+            distribution_contract,
+            terraswap_factory,
+            mirror_token,
+            base_denom,
+            aust_token,
+            anchor_market,
+            bluna_token,
+            bluna_swap_denom,
+        } => update_config(
+            deps,
+            info,
+            distribution_contract,
+            owner,
+            terraswap_factory,
+            mirror_token,
+            base_denom,
+            aust_token,
+            anchor_market,
+            bluna_token,
+            bluna_swap_denom,
+        ),
+        ExecuteMsg::Convert { asset_token } => {
+            let asset_addr = deps.api.addr_validate(&asset_token)?;
+            convert(deps, env, asset_addr)
+        },
         ExecuteMsg::Distribute {} => distribute(deps, env),
+        ExecuteMsg::LunaSwapHook {} => luna_swap_hook(deps, env, info),
     }
 }
 
-/// Convert
-/// Anyone can execute convert function to swap
-/// asset token => collateral token
-/// collateral token => MIR token
-pub fn convert(
+pub fn update_config(
     deps: DepsMut,
-    env: Env,
-    asset_token: String,
-) -> StdResult<Response> {
-    let config: Config = read_config(deps.storage)?;
-    let asset_token_raw = deps.api.addr_canonicalize(&asset_token)?;
-    let asset_token_validated = deps.api.addr_validate(&asset_token)?;
-    let terraswap_factory_raw = deps.api.addr_humanize(&config.terraswap_factory)?;
+    info: MessageInfo,
+    owner: Option<String>,
+    distribution_contract: Option<String>,
+    terraswap_factory: Option<String>,
+    mirror_token: Option<String>,
+    base_denom: Option<String>,
+    aust_token: Option<String>,
+    anchor_market: Option<String>,
+    bluna_token: Option<String>,
+    bluna_swap_denom: Option<String>,
+) -> StdResult<Response<TerraMsgWrapper>> {
+    let mut config: Config = read_config(deps.storage)?;
+    if config.owner != deps.api.addr_canonicalize(info.sender.as_str())? {
+        return Err(StdError::generic_err("unauthorized"));
+    }
 
-    let pair_info: PairInfo = query_pair_info(
-        &deps.querier,
-        terraswap_factory_raw,
-        &[
-            AssetInfo::NativeToken {
-                denom: config.base_denom.to_string(),
-            },
-            AssetInfo::Token {
-                contract_addr: asset_token_validated.clone(),
-            },
-        ],
-    )?;
+    if let Some(owner) = owner {
+        config.owner = deps.api.addr_canonicalize(&owner)?;
+    }
 
-    let messages: Vec<CosmosMsg>;
-    if config.mirror_token == asset_token_raw {
-        // collateral token => MIR token
-        let amount = query_balance(&deps.querier, env.contract.address, config.base_denom.to_string())?;
-        let swap_asset = Asset {
-            info: AssetInfo::NativeToken {
-                denom: config.base_denom.clone(),
-            },
-            amount,
-        };
+    if let Some(distribution_contract) = distribution_contract {
+        config.distribution_contract = deps.api.addr_canonicalize(&distribution_contract)?;
+    }
 
-        // deduct tax first
-        let amount = (swap_asset.deduct_tax(&deps.querier)?).amount;
-        messages = vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: pair_info.contract_addr.to_string(),
-            msg: to_binary(&TerraswapExecuteMsg::Swap {
-                offer_asset: Asset {
-                    amount,
-                    ..swap_asset
-                },
-                max_spread: None,
-                belief_price: None,
-                to: None,
-            })?,
-            send: vec![Coin {
-                denom: config.base_denom,
-                amount,
-            }],
-        })];
-    } else {
-        // asset token => collateral token
-        let amount = query_token_balance(&deps.querier, deps.api, asset_token_validated.clone(), env.contract.address)?;
+    if let Some(terraswap_factory) = terraswap_factory {
+        config.terraswap_factory = deps.api.addr_canonicalize(&terraswap_factory)?;
+    }
 
-        messages = vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: asset_token.clone(),
-            msg: to_binary(&Cw20ExecuteMsg::Send {
-                contract: pair_info.contract_addr.to_string(),
-                amount,
-                msg: Some(to_binary(&TerraswapCw20HookMsg::Swap {
-                    max_spread: None,
-                    belief_price: None,
-                    to: None,
-                })?),
-            })?,
-            send: vec![],
-        })];
+    if let Some(mirror_token) = mirror_token {
+        config.mirror_token = deps.api.addr_canonicalize(&mirror_token)?;
+    }
+
+    if let Some(base_denom) = base_denom {
+        config.base_denom = base_denom;
+    }
+
+    if let Some(aust_token) = aust_token {
+        config.aust_token = deps.api.addr_canonicalize(&aust_token)?;
+    }
+
+    if let Some(anchor_market) = anchor_market {
+        config.anchor_market = deps.api.addr_canonicalize(&anchor_market)?;
+    }
+
+    if let Some(bluna_token) = bluna_token {
+        config.bluna_token = deps.api.addr_canonicalize(&bluna_token)?;
+    }
+
+    if let Some(bluna_swap_denom) = bluna_swap_denom {
+        config.bluna_swap_denom = bluna_swap_denom;
     }
 
     Ok(Response {
-        messages,
+        messages: vec![],
         submessages: vec![],
-        attributes: vec![
-            attr("action", "convert"),
-            attr("asset_token", asset_token.as_str()),
-        ],
+        attributes: vec![attr("action", "update_config")],
         data: None,
     })
 }
@@ -137,7 +147,7 @@ pub fn convert(
 pub fn distribute(
     deps: DepsMut,
     env: Env,
-) -> StdResult<Response> {
+) -> StdResult<Response<TerraMsgWrapper>> {
     let config: Config = read_config(deps.storage)?;
     let amount = query_token_balance(
         &deps.querier,
@@ -181,10 +191,15 @@ pub fn query_config(
 ) -> StdResult<ConfigResponse> {
     let state = read_config(deps.storage)?;
     let resp = ConfigResponse {
+        owner: deps.api.addr_humanize(&state.owner)?.to_string(),
         distribution_contract: deps.api.addr_humanize(&state.distribution_contract)?.to_string(),
         terraswap_factory: deps.api.addr_humanize(&state.terraswap_factory)?.to_string(),
         mirror_token: deps.api.addr_humanize(&state.mirror_token)?.to_string(),
         base_denom: state.base_denom,
+        aust_token: deps.api.addr_humanize(&state.aust_token)?.to_string(),
+        anchor_market: deps.api.addr_humanize(&state.anchor_market)?.to_string(),
+        bluna_token: deps.api.addr_humanize(&state.bluna_token)?.to_string(),
+        bluna_swap_denom: state.bluna_swap_denom,
     };
 
     Ok(resp)
@@ -192,9 +207,19 @@ pub fn query_config(
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(
-    _deps: DepsMut,
+    deps: DepsMut,
     _env: Env,
-    _msg: MigrateMsg,
+    msg: MigrateMsg,
 ) -> StdResult<Response> {
+    // migrate config
+    migrate_config(
+        deps.storage,
+        deps.api.addr_canonicalize(&msg.owner)?,
+        deps.api.addr_canonicalize(&msg.aust_token)?,
+        deps.api.addr_canonicalize(&msg.anchor_market)?,
+        deps.api.addr_canonicalize(&msg.bluna_token)?,
+        msg.bluna_swap_denom,
+    )?;
+
     Ok(Response::default())
 }
