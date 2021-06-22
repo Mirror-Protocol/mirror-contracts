@@ -1,7 +1,8 @@
 use crate::querier::load_token_balance;
 use crate::state::{
     bank_read, bank_store, config_read, config_store, poll_read, poll_store, poll_voter_read,
-    poll_voter_store, read_polls, state_read, state_store, Config, Poll, State, TokenManager,
+    poll_voter_store, read_bank_stakers, read_polls, state_read, state_store, Config, Poll, State,
+    TokenManager,
 };
 
 use cosmwasm_std::{
@@ -9,7 +10,10 @@ use cosmwasm_std::{
     HumanAddr, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 use cw20::Cw20HandleMsg;
-use mirror_protocol::gov::{PollStatus, StakerResponse, VoterInfo};
+use mirror_protocol::common::OrderBy;
+use mirror_protocol::gov::{
+    PollStatus, SharesResponse, SharesResponseItem, StakerResponse, VoterInfo,
+};
 
 pub fn stake_voting_tokens<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -428,5 +432,38 @@ pub fn query_staker<S: Storage, A: Api, Q: Querier>(
         locked_balance: token_manager.locked_balance,
         pending_voting_rewards: user_reward_amount,
         withdrawable_polls: w_polls_res,
+    })
+}
+
+pub fn query_shares<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    start_after: Option<HumanAddr>,
+    limit: Option<u32>,
+    order_by: Option<OrderBy>,
+) -> StdResult<SharesResponse> {
+    let stakers: Vec<(CanonicalAddr, TokenManager)> = if let Some(start_after) = start_after {
+        read_bank_stakers(
+            &deps.storage,
+            Some(deps.api.canonical_address(&start_after)?),
+            limit,
+            order_by,
+        )?
+    } else {
+        read_bank_stakers(&deps.storage, None, limit, order_by)?
+    };
+
+    let stakers_shares: Vec<SharesResponseItem> = stakers
+        .iter()
+        .map(|item| {
+            let (k, v) = item;
+            SharesResponseItem {
+                staker: deps.api.human_address(&k).unwrap(),
+                share: v.share,
+            }
+        })
+        .collect();
+
+    Ok(SharesResponse {
+        stakers: stakers_shares,
     })
 }

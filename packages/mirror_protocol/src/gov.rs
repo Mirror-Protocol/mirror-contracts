@@ -105,6 +105,11 @@ pub enum QueryMsg {
         limit: Option<u32>,
         order_by: Option<OrderBy>,
     },
+    Shares {
+        start_after: Option<HumanAddr>,
+        limit: Option<u32>,
+        order_by: Option<OrderBy>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
@@ -165,6 +170,17 @@ pub struct StakerResponse {
     pub locked_balance: Vec<(u64, VoterInfo)>,
     pub withdrawable_polls: Vec<(u64, Uint128)>,
     pub pending_voting_rewards: Uint128,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema)]
+pub struct SharesResponseItem {
+    pub staker: HumanAddr,
+    pub share: Uint128,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema)]
+pub struct SharesResponse {
+    pub stakers: Vec<SharesResponseItem>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema)]

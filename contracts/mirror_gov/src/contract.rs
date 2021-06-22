@@ -1,7 +1,7 @@
 use crate::querier::load_token_balance;
 use crate::staking::{
     deposit_reward, query_staker, stake_voting_rewards, stake_voting_tokens,
-    withdraw_voting_rewards, withdraw_voting_tokens,
+    withdraw_voting_rewards, withdraw_voting_tokens, query_shares,
 };
 use crate::state::{
     bank_read, bank_store, config_read, config_store, poll_indexer_store, poll_read, poll_store,
@@ -736,6 +736,11 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
             limit,
             order_by,
         } => to_binary(&query_voters(deps, poll_id, start_after, limit, order_by)?),
+        QueryMsg::Shares {
+            start_after,
+            limit,
+            order_by,
+        } => to_binary(&query_shares(&deps, start_after, limit, order_by)?),
     }
 }
 
