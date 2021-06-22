@@ -117,19 +117,6 @@ fn feed_price() {
     let info = mock_info("owner0000", &[]);
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    // try register the asset is already exists
-    let msg = ExecuteMsg::RegisterAsset {
-        asset_token: "mAAPL".to_string(),
-        feeder: "addr0000".to_string(),
-    };
-
-    let info = mock_info("owner0000", &[]);
-    let res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap_err();
-    match res {
-        StdError::GenericErr { msg, .. } => assert_eq!(msg, "Asset was already registered"),
-        _ => panic!("DO NOT ENTER HERE"),
-    }
-
     let res = query(deps.as_ref(), mock_env(), QueryMsg::Feeder { 
         asset_token: "mAAPL".to_string()
     }).unwrap();

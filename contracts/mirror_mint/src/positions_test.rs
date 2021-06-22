@@ -262,7 +262,7 @@ mod tests {
                     asset_info: AssetInfo::Token {
                         contract_addr: Addr::unchecked("asset0000"),
                     },
-                    collateral_ratio: Decimal::percent(150),
+                    collateral_ratio: Decimal::percent(300), // 15 * 2 (multiplier)
                     short_params: None,
                 })
                 .unwrap(),

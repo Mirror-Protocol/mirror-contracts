@@ -6,7 +6,8 @@
     "balance",
     "locked_balance",
     "pending_voting_rewards",
-    "share"
+    "share",
+    "withdrawable_polls"
   ],
   "properties": {
     "balance": {
@@ -35,6 +36,24 @@
     },
     "share": {
       "$ref": "#/definitions/Uint128"
+    },
+    "withdrawable_polls": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": [
+          {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0.0
+          },
+          {
+            "$ref": "#/definitions/Uint128"
+          }
+        ],
+        "maxItems": 2,
+        "minItems": 2
+      }
     }
   },
   "definitions": {

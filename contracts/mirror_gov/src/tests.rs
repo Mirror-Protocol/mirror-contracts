@@ -799,6 +799,7 @@ fn happy_days_end_poll() {
             share: Uint128(stake_amount),
             locked_balance: vec![],
             pending_voting_rewards: Uint128::zero(),
+            withdrawable_polls: vec![],
         }
     );
 }
@@ -1410,6 +1411,7 @@ fn happy_days_cast_vote() {
                 }
             )],
             pending_voting_rewards: Uint128::zero(),
+            withdrawable_polls: vec![],
         }
     );
 
@@ -2642,6 +2644,7 @@ fn stake_voting_rewards() {
             share: Uint128(stake_amount + 33u128),
             locked_balance: vec![],
             pending_voting_rewards: Uint128(0u128),
+            withdrawable_polls: vec![],
         }
     );
 }
@@ -3110,6 +3113,9 @@ fn test_staking_and_voting_rewards() {
             share: Uint128(ALICE_STAKE),
             locked_balance: vec![],
             pending_voting_rewards: Uint128(750_000_000u128),
+            withdrawable_polls: vec![
+                (1u64, Uint128(750_000_000u128))
+            ],
         }
     );
     let res = query(
@@ -3128,6 +3134,9 @@ fn test_staking_and_voting_rewards() {
             share: Uint128(BOB_STAKE),
             locked_balance: vec![],
             pending_voting_rewards: Uint128(250_000_000u128),
+            withdrawable_polls: vec![
+                (1u64, Uint128(250_000_000u128))
+            ],
         }
     );
 

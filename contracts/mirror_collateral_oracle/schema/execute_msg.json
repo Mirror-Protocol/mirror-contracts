@@ -11,6 +11,18 @@
         "update_config": {
           "type": "object",
           "properties": {
+            "anchor_oracle": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "band_oracle": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "base_denom": {
               "type": [
                 "string",
@@ -24,6 +36,12 @@
               ]
             },
             "mint_contract": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "mirror_oracle": {
               "type": [
                 "string",
                 "null"
@@ -187,10 +205,6 @@
         }
       ]
     },
-    "Binary": {
-      "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>",
-      "type": "string"
-    },
     "Decimal": {
       "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0\n\nThe greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
       "type": "string"
@@ -200,19 +214,23 @@
         {
           "type": "object",
           "required": [
-            "terra_oracle"
+            "mirror_oracle"
           ],
           "properties": {
-            "terra_oracle": {
-              "type": "object",
-              "required": [
-                "terra_oracle_query"
-              ],
-              "properties": {
-                "terra_oracle_query": {
-                  "$ref": "#/definitions/Binary"
-                }
-              }
+            "mirror_oracle": {
+              "type": "object"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "anchor_oracle"
+          ],
+          "properties": {
+            "anchor_oracle": {
+              "type": "object"
             }
           },
           "additionalProperties": false
@@ -224,15 +242,7 @@
           ],
           "properties": {
             "band_oracle": {
-              "type": "object",
-              "required": [
-                "band_oracle_query"
-              ],
-              "properties": {
-                "band_oracle_query": {
-                  "$ref": "#/definitions/Binary"
-                }
-              }
+              "type": "object"
             }
           },
           "additionalProperties": false
@@ -266,7 +276,7 @@
             "terraswap": {
               "type": "object",
               "required": [
-                "terraswap_query"
+                "terraswap_pair_addr"
               ],
               "properties": {
                 "intermediate_denom": {
@@ -275,8 +285,8 @@
                     "null"
                   ]
                 },
-                "terraswap_query": {
-                  "$ref": "#/definitions/Binary"
+                "terraswap_pair_addr": {
+                  "type": "string"
                 }
               }
             }
@@ -292,11 +302,11 @@
             "anchor_market": {
               "type": "object",
               "required": [
-                "anchor_market_query"
+                "anchor_market_addr"
               ],
               "properties": {
-                "anchor_market_query": {
-                  "$ref": "#/definitions/Binary"
+                "anchor_market_addr": {
+                  "type": "string"
                 }
               }
             }

@@ -3,11 +3,11 @@ use cosmwasm_std::entry_point;
 
 use cosmwasm_std::{
     from_binary, attr, to_binary, Addr, Binary, CanonicalAddr, CosmosMsg, Decimal, Deps, DepsMut, 
-    Env, MessageInfo, Response, StdError, StdResult, Uint128, WasmMsg, WasmQuery,
+    Env, MessageInfo, Response, StdError, StdResult, Uint128, WasmMsg,
 };
 
 use crate::{
-    asserts::{assert_auction_discount, assert_min_collateral_ratio},
+    asserts::{assert_auction_discount, assert_min_collateral_ratio, assert_protocol_fee},
     migration::{migrate_asset_configs, migrate_config},
     positions::{
         auction, burn, deposit, mint, open_position, query_next_position_idx, query_position,
@@ -25,7 +25,6 @@ use mirror_protocol::collateral_oracle::{ExecuteMsg as CollateralOracleExecuteMs
 use mirror_protocol::mint::{
     AssetConfigResponse, ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, IPOParams, MigrateMsg, QueryMsg,
 };
-use mirror_protocol::oracle::QueryMsg as OracleQueryMsg;
 use terraswap::asset::{Asset, AssetInfo};
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -67,7 +66,6 @@ pub fn execute(
             oracle,
             collector,
             collateral_oracle,
-            staking,
             terraswap_factory,
             lock,
             token_code_id,
@@ -79,7 +77,6 @@ pub fn execute(
             oracle,
             collector,
             collateral_oracle,
-            staking,
             terraswap_factory,
             lock,
             token_code_id,
@@ -229,7 +226,6 @@ pub fn update_config(
     oracle: Option<String>,
     collector: Option<String>,
     collateral_oracle: Option<String>,
-    staking: Option<String>,
     terraswap_factory: Option<String>,
     lock: Option<String>,
     token_code_id: Option<u64>,
@@ -257,10 +253,6 @@ pub fn update_config(
         config.collateral_oracle = deps.api.addr_canonicalize(&collateral_oracle)?;
     }
 
-    if let Some(staking) = staking {
-        config.staking = deps.api.addr_canonicalize(&staking)?;
-    }
-
     if let Some(terraswap_factory) = terraswap_factory {
         config.terraswap_factory = deps.api.addr_canonicalize(&terraswap_factory)?;
     }
@@ -274,6 +266,7 @@ pub fn update_config(
     }
 
     if let Some(protocol_fee_rate) = protocol_fee_rate {
+        assert_protocol_fee(protocol_fee_rate)?;
         config.protocol_fee_rate = protocol_fee_rate;
     }
 
@@ -364,15 +357,7 @@ pub fn register_asset(
                     contract_addr: asset_token.clone(),
                 },
                 multiplier: Decimal::one(), // default collateral multiplier for new mAssets
-                price_source: SourceType::TerraOracle {
-                    terra_oracle_query: to_binary(&WasmQuery::Smart {
-                        contract_addr: deps.api.addr_humanize(&config.oracle)?.to_string(),
-                        msg: to_binary(&OracleQueryMsg::Price {
-                            base_asset: config.base_denom,
-                            quote_asset: asset_token.to_string(),
-                        })?,
-                    })?,
-                },
+                price_source: SourceType::MirrorOracle {},
             })?,
         }));
     }
@@ -485,15 +470,7 @@ pub fn trigger_ipo(
                     contract_addr: asset_token.clone(),
                 },
                 multiplier: Decimal::one(), // default collateral multiplier for new mAssets
-                price_source: SourceType::TerraOracle {
-                    terra_oracle_query: to_binary(&WasmQuery::Smart {
-                        contract_addr: deps.api.addr_humanize(&config.oracle)?.to_string(),
-                        msg: to_binary(&OracleQueryMsg::Price {
-                            base_asset: config.base_denom,
-                            quote_asset: asset_token.to_string(),
-                        })?,
-                    })?,
-                },
+                price_source: SourceType::MirrorOracle {},
             })?,
         })],
         submessages: vec![],

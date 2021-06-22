@@ -83,19 +83,20 @@ pub fn try_register_asset(
     }
 
     let asset_token_raw = deps.api.addr_canonicalize(&asset_token)?;
-    if read_feeder(deps.storage, &asset_token_raw).is_ok() {
-        return Err(StdError::generic_err("Asset was already registered"));
+
+    // check if it is a new asset
+    if read_feeder(deps.storage, &asset_token_raw).is_err() {
+        store_price(
+            deps.storage,
+            &asset_token_raw,
+            &PriceInfo {
+                price: Decimal::zero(),
+                last_updated_time: 0u64,
+            },
+        )?;
     }
 
-    store_price(
-        deps.storage,
-        &asset_token_raw,
-        &PriceInfo {
-            price: Decimal::zero(),
-            last_updated_time: 0u64,
-        },
-    )?;
-
+    // update/store feeder
     store_feeder(
         deps.storage,
         &asset_token_raw,

@@ -4,13 +4,12 @@ mod tests {
     use crate::mock_querier::mock_dependencies;
     use cosmwasm_std::testing::{mock_env, mock_info};
     use cosmwasm_std::{
-        from_binary, to_binary, Addr, CosmosMsg, Decimal, StdError, WasmMsg, WasmQuery,
+        from_binary, to_binary, Addr, CosmosMsg, Decimal, StdError, WasmMsg,
     };
     use mirror_protocol::collateral_oracle::{ExecuteMsg::RegisterCollateralAsset, SourceType};
     use mirror_protocol::mint::{
         AssetConfigResponse, ConfigResponse, ExecuteMsg, IPOParams, InstantiateMsg, QueryMsg,
     };
-    use mirror_protocol::oracle::QueryMsg::Price;
     use terraswap::asset::AssetInfo;
 
     static TOKEN_CODE_ID: u64 = 10u64;
@@ -74,7 +73,6 @@ mod tests {
             token_code_id: Some(100u64),
             protocol_fee_rate: None,
             collateral_oracle: None,
-            staking: None,
         };
         let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
@@ -94,7 +92,6 @@ mod tests {
             token_code_id: None,
             protocol_fee_rate: None,
             collateral_oracle: None,
-            staking: None,
         };
         let res = execute(deps.as_mut(), mock_env(), info, msg);
         match res {
@@ -138,17 +135,7 @@ mod tests {
                         contract_addr: Addr::unchecked("asset0000"),
                     },
                     multiplier: Decimal::one(),
-                    price_source: SourceType::TerraOracle {
-                        terra_oracle_query: to_binary(&WasmQuery::Smart {
-                            contract_addr: "oracle0000".to_string(),
-                            msg: to_binary(&Price {
-                                base_asset: "uusd".to_string(),
-                                quote_asset: "asset0000".to_string(),
-                            })
-                            .unwrap()
-                        })
-                        .unwrap(),
-                    },
+                    price_source: SourceType::MirrorOracle {},
                 })
                 .unwrap(),
             })]

@@ -5,14 +5,13 @@ mod tests {
     use cosmwasm_std::testing::{mock_env, mock_info};
     use cosmwasm_std::{
         from_binary, attr, to_binary, Addr, BlockInfo, Coin, CosmosMsg, Decimal, Env, StdError, 
-        Timestamp, Uint128, WasmMsg, WasmQuery
+        Timestamp, Uint128, WasmMsg
     };
     use cw20::Cw20ReceiveMsg;
     use mirror_protocol::collateral_oracle::{ExecuteMsg::RegisterCollateralAsset, SourceType};
     use mirror_protocol::mint::{
         AssetConfigResponse, Cw20HookMsg, ExecuteMsg, IPOParams, InstantiateMsg, QueryMsg
     };
-    use mirror_protocol::oracle::QueryMsg::Price;
     use terraswap::asset::{Asset, AssetInfo};
 
     static TOKEN_CODE_ID: u64 = 10u64;
@@ -260,17 +259,7 @@ mod tests {
                         contract_addr: Addr::unchecked("preIPOAsset0000"),
                     },
                     multiplier: Decimal::one(),
-                    price_source: SourceType::TerraOracle {
-                        terra_oracle_query: to_binary(&WasmQuery::Smart {
-                            contract_addr: "oracle0000".to_string(),
-                            msg: to_binary(&Price {
-                                base_asset: "uusd".to_string(),
-                                quote_asset: "preIPOAsset0000".to_string(),
-                            })
-                            .unwrap()
-                        })
-                        .unwrap(),
-                    },
+                    price_source: SourceType::MirrorOracle {},
                 })
                 .unwrap(),
             })]

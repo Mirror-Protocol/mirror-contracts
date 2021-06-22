@@ -36,7 +36,6 @@ pub enum ExecuteMsg {
         oracle: Option<String>,
         collector: Option<String>,
         collateral_oracle: Option<String>,
-        staking: Option<String>,
         terraswap_factory: Option<String>,
         lock: Option<String>,
         token_code_id: Option<u64>,

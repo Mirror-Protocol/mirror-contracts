@@ -120,7 +120,8 @@ fn lock_position_funds() {
             attr("action", "lock_position_funds_hook"),
             attr("position_idx", "1"),
             attr("locked_amount", "100uusd"),
-            attr("lock_time", "20"),
+            attr("total_locked_amount", "100uusd"),
+            attr("unlock_time", "120"),
         ]
     );
 
@@ -141,7 +142,8 @@ fn lock_position_funds() {
         PositionLockInfoResponse {
             idx: Uint128(1u128),
             receiver: "addr0000".to_string(),
-            locked_funds: vec![(20u64, Uint128(100u128)),]
+            locked_amount: Uint128(100u128),
+            unlock_time: 120u64,
         }
     );
 }
@@ -191,18 +193,6 @@ fn unlock_position_funds() {
     );
     let _res = execute(deps.as_mut(), env, info, msg.clone()).unwrap();
 
-    let env = mock_env_with_block_time(20u64);
-    let info = mock_info("mint0000", &[]);
-
-    deps.querier.with_bank_balance(
-        &MOCK_CONTRACT_ADDR.to_string(),
-        vec![Coin {
-            denom: "uusd".to_string(),
-            amount: Uint128(300u128), // lock 100uusd more
-        }],
-    );
-    let _res = execute(deps.as_mut(), env, info, msg.clone()).unwrap();
-
     // query lock info
     let res: PositionLockInfoResponse = from_binary(
         &query(
@@ -220,11 +210,8 @@ fn unlock_position_funds() {
         PositionLockInfoResponse {
             idx: Uint128(1u128),
             receiver: "addr0000".to_string(),
-            locked_funds: vec![
-                (1u64, Uint128(100u128)),
-                (10u64, Uint128(100u128)),
-                (20u64, Uint128(100u128)),
-            ]
+            locked_amount: Uint128(200),
+            unlock_time: 10u64 + 100u64, // from last lock time
         }
     );
 
@@ -241,47 +228,15 @@ fn unlock_position_funds() {
     let env = mock_env_with_block_time(50u64);
     let info = mock_info("addr0000", &[]);
     let res = execute(deps.as_mut(), env, info, msg.clone()).unwrap_err();
-    assert_eq!(res, StdError::generic_err("Nothing to unlock"));
-
-    // unlock 100 UST
-    let env = mock_env_with_block_time(101u64);
-    let info = mock_info("addr0000", &[]);
-    let res = execute(deps.as_mut(), env, info, msg.clone()).unwrap();
-    assert_eq!(
-        res.attributes,
-        vec![
-            attr("action", "unlock_shorting_funds"),
-            attr("position_idx", "1"),
-            attr("unlocked_amount", "100uusd"),
-            attr("tax_amount", "1uusd"),
-        ]
-    );
-
-    // query lock info
-    let res: PositionLockInfoResponse = from_binary(
-        &query(
-            deps.as_ref(),
-            mock_env(),
-            QueryMsg::PositionLockInfo {
-                position_idx: Uint128(1u128),
-            },
-        )
-        .unwrap(),
-    )
-    .unwrap();
     assert_eq!(
         res,
-        PositionLockInfoResponse {
-            idx: Uint128(1u128),
-            receiver: "addr0000".to_string(),
-            locked_funds: vec![(10u64, Uint128(100u128)), (20u64, Uint128(100u128)),]
-        }
+        StdError::generic_err("Lock period has not expired yet. Unlocks at 110")
     );
 
-    // unlock everything else
+    // unlock 100 UST
     let env = mock_env_with_block_time(120u64);
     let info = mock_info("addr0000", &[]);
-    let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
+    let res = execute(deps.as_mut(), env, info, msg.clone()).unwrap();
     assert_eq!(
         res.attributes,
         vec![
@@ -297,12 +252,14 @@ fn unlock_position_funds() {
             to_address: "addr0000".to_string(),
             amount: vec![Coin {
                 denom: "uusd".to_string(),
-                amount: Uint128(198u128),
+                amount: Uint128(198u128), // minus tax
             }]
         })]
     );
 
     // lock info does not exist anymore
+    let env = mock_env_with_block_time(120u64);
+    let info = mock_info("addr0000", &[]);
     let res = execute(deps.as_mut(), env, info, msg.clone()).unwrap_err();
     assert_eq!(
         res,
@@ -359,7 +316,7 @@ fn release_position_funds() {
     assert_eq!(
         res.attributes,
         vec![
-            attr("action", "unlock_shorting_funds"),
+            attr("action", "release_shorting_funds"),
             attr("position_idx", "1"),
             attr("unlocked_amount", "100uusd"),
             attr("tax_amount", "1uusd"),
@@ -367,9 +324,6 @@ fn release_position_funds() {
     );
 
     // lock info does not exist anymore
-    let res = execute(deps.as_mut(), env, info, msg.clone()).unwrap_err();
-    assert_eq!(
-        res,
-        StdError::generic_err("There are no locked funds for this position idx")
-    );
+    let res = execute(deps.as_mut(), env, info, msg.clone()).unwrap();
+    assert_eq!(res.attributes.len(), 0);
 }

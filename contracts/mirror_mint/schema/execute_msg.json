@@ -64,12 +64,6 @@
                 }
               ]
             },
-            "staking": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
             "terraswap_factory": {
               "type": [
                 "string",

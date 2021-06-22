@@ -1,15 +1,35 @@
 use cosmwasm_std::{
-    from_binary, Decimal, Deps, QueryRequest, QuerierWrapper, StdError, StdResult,
+    to_binary, Decimal, Deps, QueryRequest, QuerierWrapper, StdError, StdResult,
     Uint128, WasmQuery,
 };
 use std::str::FromStr;
 
 use crate::math::decimal_multiplication;
-use cosmwasm_bignumber::Decimal256;
+use crate::state::Config;
+use cosmwasm_bignumber::{Decimal256, Uint256};
 use mirror_protocol::collateral_oracle::SourceType;
 use serde::{Deserialize, Serialize};
 use terra_cosmwasm::{ExchangeRatesResponse, TerraQuerier};
 use terraswap::asset::{Asset, AssetInfo};
+use terraswap::pair::QueryMsg as TerraswapPairQueryMsg;
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceQueryMsg {
+    Price {
+        base_asset: String,
+        quote_asset: String,
+    },
+    Pool {},
+    GetReferenceData {
+        base_symbol: String,
+        quote_symbol: String,
+    },
+    EpochState {
+        block_heigth: Option<u64>,
+        distributed_interest: Option<Uint256>,
+    },
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct TerraOracleResponse {
@@ -36,36 +56,67 @@ pub struct AnchorMarketResponse {
 
 pub fn query_price(
     deps: Deps,
-    price_source: SourceType,
-    base_denom: String,
+    config: &Config,
+    asset: &String,
+    price_source: &SourceType,
 ) -> StdResult<(Decimal, u64)> {
     match price_source {
-        SourceType::BandOracle { band_oracle_query } => {
-            let wasm_query: WasmQuery = from_binary(&band_oracle_query)?;
-            let res: BandOracleResponse = deps.querier.query(&QueryRequest::Wasm(wasm_query))?;
+        SourceType::BandOracle {} => {
+            let res: BandOracleResponse =
+                deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+                    contract_addr: deps.api.addr_humanize(&config.band_oracle)?.to_string(),
+                    msg: to_binary(&SourceQueryMsg::GetReferenceData {
+                        base_symbol: asset.to_string(),
+                        quote_symbol: config.base_denom.clone(),
+                    })
+                    .unwrap(),
+                }))?;
             let rate: Decimal = parse_band_rate(res.rate)?;
 
             Ok((rate, res.last_updated_base))
         }
-        SourceType::FixedPrice { price } => return Ok((price, u64::MAX)),
-        SourceType::TerraOracle { terra_oracle_query } => {
-            let wasm_query: WasmQuery = from_binary(&terra_oracle_query)?;
-            let res: TerraOracleResponse = deps.querier.query(&QueryRequest::Wasm(wasm_query))?;
+        SourceType::FixedPrice { price } => return Ok((*price, u64::MAX)),
+        SourceType::MirrorOracle {} => {
+            let res: TerraOracleResponse =
+                deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+                    contract_addr: deps.api.addr_humanize(&config.mirror_oracle)?.to_string(),
+                    msg: to_binary(&SourceQueryMsg::Price {
+                        base_asset: asset.to_string(),
+                        quote_asset: config.base_denom.clone(),
+                    })
+                    .unwrap(),
+                }))?;
+
+            Ok((res.rate, res.last_updated_base))
+        }
+        SourceType::AnchorOracle {} => {
+            let res: TerraOracleResponse =
+                deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+                    contract_addr: deps.api.addr_humanize(&config.anchor_oracle)?.to_string(),
+                    msg: to_binary(&SourceQueryMsg::Price {
+                        base_asset: asset.to_string(),
+                        quote_asset: config.base_denom.clone(),
+                    })
+                    .unwrap(),
+                }))?;
 
             Ok((res.rate, res.last_updated_base))
         }
         SourceType::Terraswap {
-            terraswap_query,
+            terraswap_pair_addr,
             intermediate_denom,
         } => {
-            let wasm_query: WasmQuery = from_binary(&terraswap_query)?;
-            let res: TerraswapResponse = deps.querier.query(&QueryRequest::Wasm(wasm_query))?;
+            let res: TerraswapResponse =
+                deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+                    contract_addr: terraswap_pair_addr.to_string(),
+                    msg: to_binary(&TerraswapPairQueryMsg::Pool {}).unwrap(),
+                }))?;
             let assets: [Asset; 2] = res.assets;
 
             // query intermediate denom if it exists
             let query_denom: String = match intermediate_denom.clone() {
                 Some(v) => v,
-                None => base_denom.clone(),
+                None => config.base_denom.clone(),
             };
 
             let queried_rate: Decimal = if assets[0].info.equal(&AssetInfo::NativeToken {
@@ -79,12 +130,11 @@ pub fn query_price(
             } else {
                 return Err(StdError::generic_err("Invalid pool"));
             };
-
             // if intermediate denom exists, calculate final rate
             let rate: Decimal = if intermediate_denom.is_some() {
                 // (query_denom / intermediate_denom) * (intermedaite_denom / base_denom) = (query_denom / base_denom)
                 let native_rate: Decimal =
-                    query_native_rate(&deps.querier, query_denom, base_denom)?;
+                    query_native_rate(&deps.querier, query_denom, config.base_denom.clone())?;
                 decimal_multiplication(queried_rate, native_rate)
             } else {
                 queried_rate
@@ -92,17 +142,26 @@ pub fn query_price(
 
             Ok((rate, u64::MAX))
         }
-        SourceType::AnchorMarket {
-            anchor_market_query,
-        } => {
-            let wasm_query: WasmQuery = from_binary(&anchor_market_query)?;
-            let res: AnchorMarketResponse = deps.querier.query(&QueryRequest::Wasm(wasm_query))?;
+        SourceType::AnchorMarket { anchor_market_addr } => {
+            let res: AnchorMarketResponse =
+                deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+                    contract_addr: anchor_market_addr.to_string(),
+                    msg: to_binary(&SourceQueryMsg::EpochState {
+                        block_heigth: None,
+                        distributed_interest: None,
+                    })
+                    .unwrap(),
+                }))?;
             let rate: Decimal = res.exchange_rate.into();
 
             Ok((rate, u64::MAX))
         }
         SourceType::Native { native_denom } => {
-            let rate: Decimal = query_native_rate(&deps.querier, native_denom, base_denom)?;
+            let rate: Decimal = query_native_rate(
+                &deps.querier,
+                native_denom.clone(),
+                config.base_denom.clone(),
+            )?;
 
             Ok((rate, u64::MAX))
         }

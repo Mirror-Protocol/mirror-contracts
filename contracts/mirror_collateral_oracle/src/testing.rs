@@ -1,14 +1,12 @@
 use crate::contract::{execute, instantiate, query_collateral_info, query_collateral_price, query_config};
-use crate::mock_querier::{mock_dependencies, QueryMsg as MockQueryMsg};
+use crate::mock_querier::{mock_dependencies};
 use cosmwasm_std::testing::{mock_env, mock_info};
-use cosmwasm_std::{to_binary, Addr, Decimal, StdError, Uint128, WasmQuery};
+use cosmwasm_std::{Addr, Decimal, StdError, Uint128};
 use mirror_protocol::collateral_oracle::{
     CollateralInfoResponse, CollateralPriceResponse, ExecuteMsg, InstantiateMsg, SourceType,
 };
-use mirror_protocol::oracle::QueryMsg as OracleQueryMsg;
 use std::str::FromStr;
 use terraswap::asset::AssetInfo;
-use terraswap::pair::QueryMsg as TerraswapPairQueryMsg;
 
 #[test]
 fn proper_initialization() {
@@ -19,6 +17,9 @@ fn proper_initialization() {
         mint_contract: "mint0000".to_string(),
         factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
+        mirror_oracle: "mirrororacle0000".to_string(),
+        anchor_oracle: "anchororacle0000".to_string(),
+        band_oracle: "bandoracle0000".to_string(),
     };
 
     let info = mock_info("addr0000", &[]);
@@ -44,6 +45,9 @@ fn update_config() {
         mint_contract: "mint0000".to_string(),
         factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
+        mirror_oracle: "mirrororacle0000".to_string(),
+        anchor_oracle: "anchororacle0000".to_string(),
+        band_oracle: "bandoracle0000".to_string(),
     };
 
     let info = mock_info("addr0000", &[]);
@@ -56,6 +60,9 @@ fn update_config() {
         mint_contract: Some("mint0001".to_string()),
         factory_contract: Some("factory0001".to_string()),
         base_denom: Some("uluna".to_string()),
+        mirror_oracle: Some("mirrororacle0001".to_string()),
+        anchor_oracle: Some("anchororacle0001".to_string()),
+        band_oracle: Some("bandoracle0001".to_string()),
     };
 
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -67,6 +74,9 @@ fn update_config() {
     assert_eq!("mint0001", value.mint_contract.as_str());
     assert_eq!("factory0001", value.factory_contract.as_str());
     assert_eq!("uluna", value.base_denom.as_str());
+    assert_eq!("mirrororacle0001", value.mirror_oracle.as_str());
+    assert_eq!("anchororacle0001", value.anchor_oracle.as_str());
+    assert_eq!("bandoracle0001", value.band_oracle.as_str());
 
     // Unauthorized err
     let info = mock_info("owner0000", &[]);
@@ -75,6 +85,9 @@ fn update_config() {
         mint_contract: None,
         factory_contract: None,
         base_denom: None,
+        mirror_oracle: None,
+        anchor_oracle: None,
+        band_oracle: None,
     };
 
     let res = execute(deps.as_mut(), mock_env(), info, msg);
@@ -97,27 +110,20 @@ fn register_collateral() {
         mint_contract: "mint0000".to_string(),
         factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
+        mirror_oracle: "mirrororacle0000".to_string(),
+        anchor_oracle: "anchororacle0000".to_string(),
+        band_oracle: "bandoracle0000".to_string(),
     };
 
     let info = mock_info("addr0000", &[]);
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-    let wasm_query: WasmQuery = WasmQuery::Smart {
-        contract_addr: "oracle0000".to_string(),
-        msg: to_binary(&OracleQueryMsg::Price {
-            base_asset: "uusd".to_string(),
-            quote_asset: "mTSLA".to_string(),
-        })
-        .unwrap(),
-    };
-    let terra_oracle_query = to_binary(&wasm_query).unwrap();
 
     let msg = ExecuteMsg::RegisterCollateralAsset {
         asset: AssetInfo::Token {
             contract_addr: Addr::unchecked("mTSLA"),
         },
         multiplier: Decimal::percent(100),
-        price_source: SourceType::TerraOracle { terra_oracle_query },
+        price_source: SourceType::MirrorOracle {},
     };
 
     // unauthorized attempt
@@ -136,7 +142,7 @@ fn register_collateral() {
         query_res,
         CollateralInfoResponse {
             asset: "mTSLA".to_string(),
-            source_type: "terra_oracle".to_string(),
+            source_type: "mirror_oracle".to_string(),
             multiplier: Decimal::percent(100),
             is_revoked: false,
         }
@@ -156,27 +162,20 @@ fn update_collateral() {
         mint_contract: "mint0000".to_string(),
         factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
+        mirror_oracle: "mirrororacle0000".to_string(),
+        anchor_oracle: "anchororacle0000".to_string(),
+        band_oracle: "bandoracle0000".to_string(),
     };
 
     let info = mock_info("addr0000", &[]);
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-    let wasm_query: WasmQuery = WasmQuery::Smart {
-        contract_addr: "oracle0000".to_string(),
-        msg: to_binary(&OracleQueryMsg::Price {
-            base_asset: "uusd".to_string(),
-            quote_asset: "mTSLA".to_string(),
-        })
-        .unwrap(),
-    };
-    let terra_oracle_query = to_binary(&wasm_query).unwrap();
 
     let msg = ExecuteMsg::RegisterCollateralAsset {
         asset: AssetInfo::Token {
             contract_addr: Addr::unchecked("mTSLA"),
         },
         multiplier: Decimal::percent(100),
-        price_source: SourceType::TerraOracle { terra_oracle_query },
+        price_source: SourceType::MirrorOracle {},
     };
 
     // successfull attempt
@@ -190,7 +189,7 @@ fn update_collateral() {
         query_res,
         CollateralInfoResponse {
             asset: "mTSLA".to_string(),
-            source_type: "terra_oracle".to_string(),
+            source_type: "mirror_oracle".to_string(),
             multiplier: Decimal::percent(100),
             is_revoked: false,
         }
@@ -288,6 +287,9 @@ fn get_oracle_price() {
         mint_contract: "mint0000".to_string(),
         factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
+        mirror_oracle: "mirrororacle0000".to_string(),
+        anchor_oracle: "anchororacle0000".to_string(),
+        band_oracle: "bandoracle0000".to_string(),
     };
 
     let info = mock_info("addr0000", &[]);
@@ -298,17 +300,7 @@ fn get_oracle_price() {
             contract_addr: Addr::unchecked("mTSLA"),
         },
         multiplier: Decimal::percent(100),
-        price_source: SourceType::TerraOracle {
-            terra_oracle_query: to_binary(&WasmQuery::Smart {
-                contract_addr: "oracle0000".to_string(),
-                msg: to_binary(&OracleQueryMsg::Price {
-                    base_asset: "uusd".to_string(),
-                    quote_asset: "mTSLA".to_string(),
-                })
-                .unwrap(),
-            })
-            .unwrap(),
-        },
+        price_source: SourceType::MirrorOracle {},
     };
 
     let info = mock_info("owner0000", &[]);
@@ -357,6 +349,9 @@ fn get_terraswap_price() {
         mint_contract: "mint0000".to_string(),
         factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
+        mirror_oracle: "mirrororacle0000".to_string(),
+        anchor_oracle: "anchororacle0000".to_string(),
+        band_oracle: "bandoracle0000".to_string(),
     };
 
     let info = mock_info("addr0000", &[]);
@@ -368,11 +363,7 @@ fn get_terraswap_price() {
         },
         multiplier: Decimal::percent(100),
         price_source: SourceType::Terraswap {
-            terraswap_query: to_binary(&WasmQuery::Smart {
-                contract_addr: "ustancpair0000".to_string(),
-                msg: to_binary(&TerraswapPairQueryMsg::Pool {}).unwrap(),
-            })
-            .unwrap(),
+            terraswap_pair_addr: "ustancpair0000".to_string(),
             intermediate_denom: None,
         },
     };
@@ -400,11 +391,7 @@ fn get_terraswap_price() {
         },
         multiplier: Decimal::percent(100),
         price_source: SourceType::Terraswap {
-            terraswap_query: to_binary(&WasmQuery::Smart {
-                contract_addr: "lunablunapair0000".to_string(),
-                msg: to_binary(&TerraswapPairQueryMsg::Pool {}).unwrap(),
-            })
-            .unwrap(),
+            terraswap_pair_addr: "lunablunapair0000".to_string(),
             intermediate_denom: Some("uluna".to_string()),
         },
     };
@@ -435,6 +422,9 @@ fn get_fixed_price() {
         mint_contract: "mint0000".to_string(),
         factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
+        mirror_oracle: "mirrororacle0000".to_string(),
+        anchor_oracle: "anchororacle0000".to_string(),
+        band_oracle: "bandoracle0000".to_string(),
     };
 
     let info = mock_info("addr0000", &[]);
@@ -476,6 +466,9 @@ fn get_band_oracle_price() {
         mint_contract: "mint0000".to_string(),
         factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
+        mirror_oracle: "mirrororacle0000".to_string(),
+        anchor_oracle: "anchororacle0000".to_string(),
+        band_oracle: "bandoracle0000".to_string(),
     };
 
     let info = mock_info("addr0000", &[]);
@@ -486,17 +479,7 @@ fn get_band_oracle_price() {
             denom: "uluna".to_string(),
         },
         multiplier: Decimal::percent(100),
-        price_source: SourceType::BandOracle {
-            band_oracle_query: to_binary(&WasmQuery::Smart {
-                contract_addr: "bandoracle0000".to_string(),
-                msg: to_binary(&MockQueryMsg::GetReferenceData {
-                    base_symbol: "LUNA".to_string(),
-                    quote_symbol: "USD".to_string(),
-                })
-                .unwrap(),
-            })
-            .unwrap(),
-        },
+        price_source: SourceType::BandOracle {},
     };
 
     let info = mock_info("owner0000", &[]);
@@ -525,6 +508,9 @@ fn get_anchor_market_price() {
         mint_contract: "mint0000".to_string(),
         factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
+        mirror_oracle: "mirrororacle0000".to_string(),
+        anchor_oracle: "anchororacle0000".to_string(),
+        band_oracle: "bandoracle0000".to_string(),
     };
 
     let info = mock_info("addr0000", &[]);
@@ -536,15 +522,7 @@ fn get_anchor_market_price() {
         },
         multiplier: Decimal::percent(100),
         price_source: SourceType::AnchorMarket {
-            anchor_market_query: to_binary(&WasmQuery::Smart {
-                contract_addr: "anchormarket0000".to_string(),
-                msg: to_binary(&MockQueryMsg::EpochState {
-                    block_heigth: None,
-                    distributed_interest: None,
-                })
-                .unwrap(),
-            })
-            .unwrap(),
+            anchor_market_addr: "anchormarket0000".to_string(),
         },
     };
 
@@ -574,6 +552,9 @@ fn get_native_price() {
         mint_contract: "mint0000".to_string(),
         factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
+        mirror_oracle: "mirrororacle0000".to_string(),
+        anchor_oracle: "anchororacle0000".to_string(),
+        band_oracle: "bandoracle0000".to_string(),
     };
 
     let info = mock_info("addr0000", &[]);
@@ -615,6 +596,9 @@ fn revoke_collateral() {
         mint_contract: "mint0000".to_string(),
         factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
+        mirror_oracle: "mirrororacle0000".to_string(),
+        anchor_oracle: "anchororacle0000".to_string(),
+        band_oracle: "bandoracle0000".to_string(),
     };
 
     let info = mock_info("addr0000", &[]);
