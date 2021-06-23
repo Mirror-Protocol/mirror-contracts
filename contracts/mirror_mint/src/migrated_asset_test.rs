@@ -410,14 +410,7 @@ mod tests {
                     to_address: "addr0000".to_string(),
                     amount: vec![Coin {
                         denom: "uusd".to_string(),
-                        amount: Uint128(330001u128),
-                    }]
-                }),
-                CosmosMsg::Bank(BankMsg::Send {
-                    to_address: "collector0000".to_string(),
-                    amount: vec![Coin {
-                        denom: "uusd".to_string(),
-                        amount: Uint128(3333u128),
+                        amount: Uint128(333334u128),
                     }]
                 })
             ]
@@ -472,15 +465,22 @@ mod tests {
                     contract_addr: "asset0000".to_string(),
                     send: vec![],
                     msg: to_binary(&Cw20ExecuteMsg::Burn {
-                        amount: Uint128::from(666666u128),
+                        amount: Uint128::from(666666u128), // value 666666 -- protocol fee = 6666
                     })
                     .unwrap(),
+                }),
+                CosmosMsg::Bank(BankMsg::Send {
+                    to_address: "collector0000".to_string(),
+                    amount: vec![Coin {
+                        denom: "uusd".to_string(),
+                        amount: Uint128(6666u128),
+                    }]
                 }),
                 CosmosMsg::Bank(BankMsg::Send {
                     to_address: "addr0001".to_string(),
                     amount: vec![Coin {
                         denom: "uusd".to_string(),
-                        amount: Uint128::from(666666u128),
+                        amount: Uint128::from(660000u128), // 666666 - 6666 = 660000
                     }],
                 }),
             ]
@@ -492,7 +492,8 @@ mod tests {
                 attr("action", "burn"),
                 attr("position_idx", "1"),
                 attr("burn_amount", "666666asset0000"),
-                attr("refund_collateral_amount", "666666uusd")
+                attr("protocol_fee", "6666uusd"),
+                attr("refund_collateral_amount", "660000uusd")
             ]
         );
 
@@ -625,19 +626,10 @@ mod tests {
                     send: vec![],
                     msg: to_binary(&Cw20ExecuteMsg::Transfer {
                         recipient: "addr0000".to_string(),
-                        amount: Uint128::from(330001u128),
+                        amount: Uint128::from(333334u128),
                     })
                     .unwrap(),
-                }),
-                CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: "asset0000".to_string(),
-                    send: vec![],
-                    msg: to_binary(&Cw20ExecuteMsg::Transfer {
-                        recipient: "collector0000".to_string(),
-                        amount: Uint128::from(3333u128),
-                    })
-                    .unwrap(),
-                }),
+                })
             ]
         );
 
@@ -691,7 +683,16 @@ mod tests {
                     contract_addr: "asset0001".to_string(),
                     send: vec![],
                     msg: to_binary(&Cw20ExecuteMsg::Burn {
-                        amount: Uint128::from(1333333u128),
+                        amount: Uint128::from(1333333u128), // asset value in collateral 1333333 * 
+                    })                                      // 0.5 = 666666 -- protocol fee 6666
+                    .unwrap(),
+                }),
+                CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: "asset0000".to_string(),
+                    send: vec![],
+                    msg: to_binary(&Cw20ExecuteMsg::Transfer {
+                        recipient: "collector0000".to_string(),
+                        amount: Uint128::from(6666u128),
                     })
                     .unwrap(),
                 }),
@@ -700,7 +701,7 @@ mod tests {
                     send: vec![],
                     msg: to_binary(&Cw20ExecuteMsg::Transfer {
                         recipient: "addr0001".to_string(),
-                        amount: Uint128::from(666665u128), // rounding
+                        amount: Uint128::from(659999u128), // rounding
                     })
                     .unwrap(),
                 }),
@@ -713,7 +714,8 @@ mod tests {
                 attr("action", "burn"),
                 attr("position_idx", "1"),
                 attr("burn_amount", "1333333asset0001"),
-                attr("refund_collateral_amount", "666665asset0000") // rounding
+                attr("protocol_fee", "6666asset0000"),
+                attr("refund_collateral_amount", "659999asset0000") // rounding
             ]
         );
 
@@ -881,8 +883,9 @@ mod tests {
                 })
                 .unwrap(),
         });
+        let env = mock_env_with_block_time(1000);
         let info = mock_info("asset0000", &[]);
-        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
+        let res = execute(deps.as_mut(), env, info, msg).unwrap_err();
         assert_eq!(res, StdError::generic_err("unauthorized"));
         // sucessful attempt
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
@@ -893,8 +896,9 @@ mod tests {
                 })
                 .unwrap(),
         });
+        let env = mock_env_with_block_time(1000);
         let info = mock_info("asset0000", &[]);
-        let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+        let _res = execute(deps.as_mut(), env, info, msg).unwrap();
 
         // owner can withdraw revoked collateral
         let msg = ExecuteMsg::Withdraw {

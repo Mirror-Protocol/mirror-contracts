@@ -456,15 +456,17 @@ mod test {
                 })
                 .unwrap(),
         });
+        let env = mock_env_with_block_time(1000);
         let info = mock_info("asset0000", &[]);
-        let res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+        let res = execute(deps.as_mut(), env, info.clone(), msg).unwrap();
 
         assert_eq!(
             res.attributes,
             vec![
                 attr("action", "burn"),
                 attr("position_idx", "1"),
-                attr("burn_amount", "100asset0000"),
+                attr("burn_amount", "100asset0000"), // value = 100
+                attr("protocol_fee", "1uusd"),
             ]
         );
 
@@ -478,6 +480,13 @@ mod test {
                         amount: Uint128(100u128),
                     })
                     .unwrap(),
+                }),
+                CosmosMsg::Bank(BankMsg::Send {
+                    to_address: "collector0000".to_string(),
+                    amount: vec![Coin {
+                        denom: "uusd".to_string(),
+                        amount: Uint128(1u128)
+                    }],
                 }),
                 CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: "staking0000".to_string(),
@@ -723,8 +732,9 @@ mod test {
                 })
                 .unwrap(),
         });
+        let env = mock_env_with_block_time(1000);
         let info = mock_info("asset0000", &[]);
-        let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+        let _res = execute(deps.as_mut(), env, info, msg).unwrap();
 
         // withdraw all collateral
         let msg = ExecuteMsg::Withdraw {
@@ -733,7 +743,7 @@ mod test {
                 info: AssetInfo::NativeToken {
                     denom: "uusd".to_string(),
                 },
-                amount: Uint128(200u128),
+                amount: Uint128(199u128), // 1 collateral spent as protocol fee
             },
         };
         let env = mock_env_with_block_time(1000);
