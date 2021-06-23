@@ -28,7 +28,7 @@ pub fn load_oracle_feeder(
     let feeder: CanonicalAddr = match res {
         Ok(v) => v,
         Err(_) => {
-            return Err(StdError::generic_err("Falied to fetch the oracle feeder"));
+            return Err(StdError::generic_err("Failed to fetch the oracle feeder"));
         }
     };
 

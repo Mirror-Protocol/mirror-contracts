@@ -22,7 +22,7 @@ pub fn load_oracle_feeder(
     let feeder: CanonicalAddr = match res {
         Ok(v) => v,
         Err(_) => {
-            return Err(StdError::generic_err("Falied to fetch the oracle feeder"));
+            return Err(StdError::generic_err("Failed to fetch the oracle feeder"));
         }
     };
 
@@ -49,21 +49,12 @@ pub fn load_mint_asset_config(
         )),
     }));
 
-    // let res = match res {
-    //     Ok(v) => v,
-    //     Err(_) => {
-    //         return Err(StdError::generic_err(
-    //             "Falied to fetch the mint asset config",
-    //         ));
-    //     }
-    // };
-
     // let asset_config: StdResult<MintAssetConfig> = from_binary(&res);
     let asset_config: MintAssetConfig = match res {
         Ok(v) => v,
         Err(_) => {
             return Err(StdError::generic_err(
-                "Falied to fetch the mint asset config",
+                "Failed to fetch the mint asset config",
             ));
         }
     };
