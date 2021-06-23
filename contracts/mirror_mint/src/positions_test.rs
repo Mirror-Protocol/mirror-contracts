@@ -1259,12 +1259,12 @@ mod tests {
         // due to min collateral ratio
         let msg = ExecuteMsg::Withdraw {
             position_idx: Uint128(1u128),
-            collateral: Asset {
+            collateral: Some(Asset {
                 info: AssetInfo::NativeToken {
                     denom: "uusd".to_string(),
                 },
                 amount: Uint128(101u128),
-            },
+            }),
         };
         let env = mock_env_with_block_time(1000u64);
         let info = mock_info("addr0000", &[]);
@@ -1279,12 +1279,12 @@ mod tests {
 
         let msg = ExecuteMsg::Withdraw {
             position_idx: Uint128(1u128),
-            collateral: Asset {
+            collateral: Some(Asset {
                 info: AssetInfo::NativeToken {
                     denom: "uusd".to_string(),
                 },
                 amount: Uint128(100u128),
-            },
+            }),
         };
         let env = mock_env_with_block_time(1000u64);
         let info = mock_info("addr0000", &[]);
@@ -1303,12 +1303,12 @@ mod tests {
         // due to min collateral ratio
         let msg = ExecuteMsg::Withdraw {
             position_idx: Uint128(2u128),
-            collateral: Asset {
+            collateral: Some(Asset {
                 info: AssetInfo::Token {
                     contract_addr: Addr::unchecked("asset0001"),
                 },
                 amount: Uint128(2u128),
-            },
+            }),
         };
         let env = mock_env_with_block_time(1000u64);
         let info = mock_info("addr0000", &[]);
@@ -1323,12 +1323,12 @@ mod tests {
 
         let msg = ExecuteMsg::Withdraw {
             position_idx: Uint128(2u128),
-            collateral: Asset {
+            collateral: Some(Asset {
                 info: AssetInfo::Token {
                     contract_addr: Addr::unchecked("asset0001"),
                 },
                 amount: Uint128(1u128),
-            },
+            }),
         };
         let env = mock_env_with_block_time(1000u64);
         let info = mock_info("addr0000", &[]);
