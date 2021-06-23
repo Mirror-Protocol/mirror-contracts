@@ -7,7 +7,8 @@ use crate::state::{read_config, Config};
 
 use cw20::Cw20ExecuteMsg;
 use mirror_protocol::collector::ExecuteMsg;
-use moneymarket::market::Cw20HookMsg::RedeemStable;
+use mirror_protocol::collector::MoneyMarketCw20HookMsg::RedeemStable;
+// use moneymarket::market::Cw20HookMsg::RedeemStable; TODO: Use when moneymarket is on std 0.14
 use terra_cosmwasm::{create_swap_msg, TerraMsgWrapper};
 use terraswap::asset::{Asset, AssetInfo, PairInfo};
 use terraswap::pair::{Cw20HookMsg as TerraswapCw20HookMsg, ExecuteMsg as TerraswapExecuteMsg};

@@ -42,6 +42,15 @@ pub enum QueryMsg {
     Config {},
 }
 
+// TODO: Delete when moneymarket is upgraded to std 0.14
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum MoneyMarketCw20HookMsg {
+    /// Return stable coins to a user
+    /// according to exchange rate
+    RedeemStable {},
+}
+
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ConfigResponse {

@@ -42,7 +42,7 @@ schemars = "0.8.1"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 terra-cosmwasm = "2.0.0"
 terraswap = "2.1.0"
-moneymarket = "0.1.0"
+moneymarket = "0.1.0" # TODO: Upgrade when updated to std 0.14
 
 [dev-dependencies]
 cosmwasm-schema = "0.14.0"
