@@ -56,3 +56,6 @@ pub struct PositionLockInfoResponse {
     pub locked_amount: Uint128,
     pub unlock_time: u64,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct MigrateMsg {}

@@ -5,10 +5,10 @@ use crate::state::{
 };
 use cosmwasm_std::{
     log, to_binary, Api, Binary, CanonicalAddr, Env, Extern, HandleResponse, HumanAddr,
-    InitResponse, Querier, StdError, StdResult, Storage, Uint128,
+    InitResponse, MigrateResponse, MigrateResult, Querier, StdError, StdResult, Storage, Uint128,
 };
 use mirror_protocol::lock::{
-    ConfigResponse, HandleMsg, InitMsg, PositionLockInfoResponse, QueryMsg,
+    ConfigResponse, HandleMsg, InitMsg, MigrateMsg, PositionLockInfoResponse, QueryMsg,
 };
 use terraswap::{
     asset::{Asset, AssetInfo},
@@ -315,4 +315,12 @@ pub fn query_position_lock_info<S: Storage, A: Api, Q: Querier>(
     };
 
     Ok(resp)
+}
+
+pub fn migrate<S: Storage, A: Api, Q: Querier>(
+    _deps: &mut Extern<S, A, Q>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> MigrateResult {
+    Ok(MigrateResponse::default())
 }
