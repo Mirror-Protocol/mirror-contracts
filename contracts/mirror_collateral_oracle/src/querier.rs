@@ -59,6 +59,7 @@ pub fn query_price<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     config: &Config,
     asset: &String,
+    block_height: Option<u64>,
     price_source: &SourceType,
 ) -> StdResult<(Decimal, u64)> {
     match price_source {
@@ -149,7 +150,7 @@ pub fn query_price<S: Storage, A: Api, Q: Querier>(
                 deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
                     contract_addr: HumanAddr::from(anchor_market_addr),
                     msg: to_binary(&SourceQueryMsg::EpochState {
-                        block_heigth: None,
+                        block_heigth: block_height,
                         distributed_interest: None,
                     })
                     .unwrap(),

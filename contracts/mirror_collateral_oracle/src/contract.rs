@@ -235,7 +235,10 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
-        QueryMsg::CollateralPrice { asset } => to_binary(&query_collateral_price(deps, asset)?),
+        QueryMsg::CollateralPrice {
+            asset,
+            block_height,
+        } => to_binary(&query_collateral_price(deps, asset, block_height)?),
         QueryMsg::CollateralAssetInfo { asset } => to_binary(&query_collateral_info(deps, asset)?),
         QueryMsg::CollateralAssetInfos {} => to_binary(&query_collateral_infos(deps)?),
     }
@@ -260,6 +263,7 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
 pub fn query_collateral_price<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     quote_asset: String,
+    block_height: Option<u64>,
 ) -> StdResult<CollateralPriceResponse> {
     let config: Config = read_config(&deps.storage)?;
 
@@ -270,8 +274,13 @@ pub fn query_collateral_price<S: Storage, A: Api, Q: Querier>(
             return Err(StdError::generic_err("Collateral asset not found"));
         };
 
-    let (price, last_updated): (Decimal, u64) =
-        query_price(deps, &config, &quote_asset, &collateral.price_source)?;
+    let (price, last_updated): (Decimal, u64) = query_price(
+        deps,
+        &config,
+        &quote_asset,
+        block_height,
+        &collateral.price_source,
+    )?;
 
     Ok(CollateralPriceResponse {
         asset: collateral.asset,
