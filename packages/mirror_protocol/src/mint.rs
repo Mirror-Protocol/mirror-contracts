@@ -5,7 +5,7 @@ use cosmwasm_std::{Decimal, HumanAddr, Uint128};
 use cw20::Cw20ReceiveMsg;
 use terraswap::asset::{Asset, AssetInfo};
 
-use crate::common::{OrderBy, Network};
+use crate::common::OrderBy;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
@@ -187,10 +187,4 @@ pub struct NextPositionIdxResponse {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct MigrateMsg {
-    pub network: Network,
-    pub collateral_oracle: Option<HumanAddr>, // only mainnet
-    pub staking: Option<HumanAddr>, // only mainnet
-    pub terraswap_factory: Option<HumanAddr>, // only mainnet
-    pub lock: Option<HumanAddr>, // only mainnet
-}
+pub struct MigrateMsg {}
