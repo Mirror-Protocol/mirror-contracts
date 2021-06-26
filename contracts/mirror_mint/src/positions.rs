@@ -54,6 +54,7 @@ pub fn open_position<S: Storage, A: Api, Q: Querier>(
             &collateral_oracle,
             &collateral_info_raw,
             Some(env.block.time),
+            Some(env.block.height),
         )?)?;
 
     // assert asset migrated
@@ -232,6 +233,7 @@ pub fn deposit<S: Storage, A: Api, Q: Querier>(
         &collateral_oracle,
         &position.collateral.info,
         None,
+        None,
     )?)?;
 
     // assert asset migrated
@@ -306,6 +308,7 @@ pub fn withdraw<S: Storage, A: Api, Q: Querier>(
             &collateral_oracle,
             &position.collateral.info,
             Some(env.block.time),
+            Some(env.block.height),
         )?;
 
     // ignre multiplier for delisted assets
@@ -406,6 +409,7 @@ pub fn mint<S: Storage, A: Api, Q: Querier>(
             &collateral_oracle,
             &position.collateral.info,
             Some(env.block.time),
+            Some(env.block.height),
         )?)?;
 
     // for assets with limited minting period (preIPO assets), assert minting phase
@@ -577,6 +581,7 @@ pub fn burn<S: Storage, A: Api, Q: Querier>(
         &collateral_oracle,
         &position.collateral.info,
         Some(env.block.time),
+        Some(env.block.height),
     )?;
 
     // If the collateral is default denom asset and the asset is deprecated,
@@ -743,6 +748,7 @@ pub fn auction<S: Storage, A: Api, Q: Querier>(
         &collateral_oracle,
         &position.collateral.info,
         Some(env.block.time),
+        Some(env.block.height),
     )?;
 
     // Compute collateral price in asset unit

@@ -6,7 +6,6 @@ use cosmwasm_std::{
 
 use crate::{
     asserts::{assert_auction_discount, assert_min_collateral_ratio, assert_protocol_fee},
-    migration::{migrate_asset_configs, migrate_config},
     positions::{
         auction, burn, deposit, mint, open_position, query_next_position_idx, query_position,
         query_positions, withdraw,
@@ -21,7 +20,6 @@ use crate::{
 use cw20::Cw20ReceiveMsg;
 use mirror_protocol::{
     collateral_oracle::{HandleMsg as CollateralOracleHandleMsg, SourceType},
-    common::Network,
     mint::IPOParams,
     mint::{
         AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrateMsg, QueryMsg,
@@ -525,34 +523,9 @@ pub fn query_asset_config<S: Storage, A: Api, Q: Querier>(
 }
 
 pub fn migrate<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+    _deps: &mut Extern<S, A, Q>,
     _env: Env,
-    msg: MigrateMsg,
+    _msg: MigrateMsg,
 ) -> MigrateResult {
-    match msg.network {
-        Network::Mainnet => {
-            if msg.staking.is_none()
-                || msg.terraswap_factory.is_none()
-                || msg.collateral_oracle.is_none()
-                || msg.lock.is_none()
-            {
-                return Err(StdError::generic_err("For mainnet migration, need to specify: 'staking','terraswap_factory','collateral_oracle','lock'"));
-            }
-            // migrate config
-            migrate_config(
-                &mut deps.storage,
-                deps.api.canonical_address(&msg.staking.unwrap())?,
-                deps.api
-                    .canonical_address(&msg.terraswap_factory.unwrap())?,
-                deps.api
-                    .canonical_address(&msg.collateral_oracle.unwrap())?,
-                deps.api.canonical_address(&msg.lock.unwrap())?,
-            )?;
-
-            // migrate all asset configurations to use new add mint_end parameter
-            migrate_asset_configs(&mut deps.storage)?;
-        }
-        Network::Testnet => {}
-    }
     Ok(MigrateResponse::default())
 }
