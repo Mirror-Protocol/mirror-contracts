@@ -4,7 +4,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-use crate::common::{OrderBy, Network};
+use crate::common::OrderBy;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
@@ -200,14 +200,7 @@ pub struct VotersResponse {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct MigrateMsg {
-    pub network: Network,
-    pub voter_weight: Option<Decimal>, // only mainnet
-    pub snapshot_period: Option<u64>, // only mainnet
-    pub voting_period: Option<u64>, // only mainnet
-    pub effective_delay: Option<u64>, // only mainnet
-    pub expiration_period: Option<u64>, // only mainnet
-}
+pub struct MigrateMsg {}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct VoterInfo {

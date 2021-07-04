@@ -2415,7 +2415,9 @@ fn distribute_voting_rewards() {
     let _res = handle(&mut deps, env.clone(), msg).unwrap();
 
     // SUCCESS
-    let msg = HandleMsg::WithdrawVotingRewards { poll_id: Some(1u64) };
+    let msg = HandleMsg::WithdrawVotingRewards {
+        poll_id: Some(1u64),
+    };
     let env = mock_env_height(TEST_VOTER, &[], 0, 10000);
     let res = handle(&mut deps, env.clone(), msg).unwrap();
 
@@ -4191,7 +4193,6 @@ fn test_unstake_before_claiming_voting_rewards() {
     let env = mock_env(VOTING_TOKEN.to_string(), &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
-
     // END POLL
     let env = mock_env_height(TEST_VOTER, &[], 10000, poll_end_time);
     let msg = HandleMsg::EndPoll { poll_id: 1 };
@@ -4206,9 +4207,7 @@ fn test_unstake_before_claiming_voting_rewards() {
     )]);
 
     // UNSTAKE VOTING TOKENS
-    let msg = HandleMsg::WithdrawVotingTokens {
-        amount: None,
-    };
+    let msg = HandleMsg::WithdrawVotingTokens { amount: None };
     let env = mock_env(TEST_VOTER.to_string(), &[]);
     let res = handle(&mut deps, env, msg).unwrap();
     assert_eq!(
@@ -4220,15 +4219,24 @@ fn test_unstake_before_claiming_voting_rewards() {
         ]
     );
 
-    let token_manager = bank_read(&mut deps.storage).load(&deps.api.canonical_address(&HumanAddr::from(TEST_VOTER)).unwrap().as_slice()).unwrap();
+    let token_manager = bank_read(&mut deps.storage)
+        .load(
+            &deps
+                .api
+                .canonical_address(&HumanAddr::from(TEST_VOTER))
+                .unwrap()
+                .as_slice(),
+        )
+        .unwrap();
     assert_eq!(
         token_manager.locked_balance,
-        vec![
-            (1u64, VoterInfo {
+        vec![(
+            1u64,
+            VoterInfo {
                 vote: VoteOption::Yes,
                 balance: Uint128::from(stake_amount),
-            })
-        ]
+            }
+        )]
     );
 
     // SUCCESS
@@ -4247,11 +4255,24 @@ fn test_unstake_before_claiming_voting_rewards() {
     );
 
     // make sure now the state is clean
-    let token_manager = bank_read(&mut deps.storage).load(&deps.api.canonical_address(&HumanAddr::from(TEST_VOTER)).unwrap().as_slice()).unwrap();
-    assert_eq!(
-        token_manager.locked_balance,
-        vec![]
-    );
+    let token_manager = bank_read(&mut deps.storage)
+        .load(
+            &deps
+                .api
+                .canonical_address(&HumanAddr::from(TEST_VOTER))
+                .unwrap()
+                .as_slice(),
+        )
+        .unwrap();
+    assert_eq!(token_manager.locked_balance, vec![]);
     // expect err
-    poll_voter_read(&mut deps.storage, 1u64).load(&deps.api.canonical_address(&HumanAddr::from(TEST_VOTER)).unwrap().as_slice()).unwrap_err();
+    poll_voter_read(&mut deps.storage, 1u64)
+        .load(
+            &deps
+                .api
+                .canonical_address(&HumanAddr::from(TEST_VOTER))
+                .unwrap()
+                .as_slice(),
+        )
+        .unwrap_err();
 }

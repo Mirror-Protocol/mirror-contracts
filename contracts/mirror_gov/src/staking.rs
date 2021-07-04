@@ -133,7 +133,8 @@ fn compute_locked_balance<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<u128> {
     // filter out not in-progress polls and get max locked
     let mut lock_entries_to_remove: Vec<u64> = vec![];
-    let max_locked = token_manager.locked_balance
+    let max_locked = token_manager
+        .locked_balance
         .iter()
         .filter(|(poll_id, _)| {
             let poll: Poll = poll_read(&deps.storage)
@@ -151,11 +152,11 @@ fn compute_locked_balance<S: Storage, A: Api, Q: Querier>(
         .map(|(_, v)| v.balance.u128())
         .max()
         .unwrap_or_default();
-    
+
     // cleanup, check if there was any voter info removed
-    token_manager.locked_balance.retain(|(poll_id, _)| {
-        !lock_entries_to_remove.contains(poll_id)
-    });
+    token_manager
+        .locked_balance
+        .retain(|(poll_id, _)| !lock_entries_to_remove.contains(poll_id));
 
     Ok(max_locked)
 }
@@ -229,16 +230,20 @@ pub fn withdraw_voting_rewards<S: Storage, A: Api, Q: Querier>(
         .load(key)
         .or(Err(StdError::generic_err("Nothing staked")))?;
 
-    let (user_reward_amount, w_polls) =
-        withdraw_user_voting_rewards(&mut deps.storage, &sender_address_raw, &token_manager, poll_id)?;
+    let (user_reward_amount, w_polls) = withdraw_user_voting_rewards(
+        &mut deps.storage,
+        &sender_address_raw,
+        &token_manager,
+        poll_id,
+    )?;
     if user_reward_amount.eq(&0u128) {
         return Err(StdError::generic_err("Nothing to withdraw"));
     }
 
     // cleanup, remove from locked_balance the polls from which we withdrew the rewards
-    token_manager.locked_balance.retain(|(poll_id, _)| {
-        !w_polls.contains(poll_id)
-    });
+    token_manager
+        .locked_balance
+        .retain(|(poll_id, _)| !w_polls.contains(poll_id));
     bank_store(&mut deps.storage).save(key, &token_manager)?;
 
     state_store(&mut deps.storage).update(|mut state| {
@@ -270,8 +275,12 @@ pub fn stake_voting_rewards<S: Storage, A: Api, Q: Querier>(
         .load(key)
         .or(Err(StdError::generic_err("Nothing staked")))?;
 
-    let (user_reward_amount, w_polls) =
-        withdraw_user_voting_rewards(&mut deps.storage, &sender_address_raw, &token_manager, poll_id)?;
+    let (user_reward_amount, w_polls) = withdraw_user_voting_rewards(
+        &mut deps.storage,
+        &sender_address_raw,
+        &token_manager,
+        poll_id,
+    )?;
     if user_reward_amount.eq(&0u128) {
         return Err(StdError::generic_err("Nothing to withdraw"));
     }
@@ -296,9 +305,9 @@ pub fn stake_voting_rewards<S: Storage, A: Api, Q: Querier>(
     state.total_share += share;
 
     // cleanup, remove from locked_balance the polls from which we withdrew the rewards
-    token_manager.locked_balance.retain(|(poll_id, _)| {
-        !w_polls.contains(poll_id)
-    });
+    token_manager
+        .locked_balance
+        .retain(|(poll_id, _)| !w_polls.contains(poll_id));
 
     state_store(&mut deps.storage).save(&state)?;
     bank_store(&mut deps.storage).save(key, &token_manager)?;
@@ -325,9 +334,9 @@ fn withdraw_user_voting_rewards<S: Storage>(
         Some(poll_id) => {
             let poll: Poll = poll_read(storage).load(&poll_id.to_be_bytes())?;
             let voter_info = poll_voter_read(storage, poll_id).load(&user_address.as_slice())?;
-            vec![(poll,voter_info)]
+            vec![(poll, voter_info)]
         }
-        None => get_withdrawable_polls(storage, token_manager, user_address)
+        None => get_withdrawable_polls(storage, token_manager, user_address),
     };
     let user_reward_amount: u128 = w_polls
         .iter()
@@ -344,7 +353,10 @@ fn withdraw_user_voting_rewards<S: Storage>(
             poll_voting_reward.u128()
         })
         .sum();
-    Ok((user_reward_amount, w_polls.iter().map(|(poll, _)| poll.id).collect()))
+    Ok((
+        user_reward_amount,
+        w_polls.iter().map(|(poll, _)| poll.id).collect(),
+    ))
 }
 
 fn get_withdrawable_polls<S: Storage>(
