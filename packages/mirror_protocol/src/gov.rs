@@ -42,8 +42,12 @@ pub enum HandleMsg {
     WithdrawVotingTokens {
         amount: Option<Uint128>,
     },
-    WithdrawVotingRewards {},
-    StakeVotingRewards {},
+    WithdrawVotingRewards {
+        poll_id: Option<u64>,
+    },
+    StakeVotingRewards {
+        poll_id: Option<u64>,
+    },
     EndPoll {
         poll_id: u64,
     },

@@ -98,8 +98,8 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             snapshot_period,
         ),
         HandleMsg::WithdrawVotingTokens { amount } => withdraw_voting_tokens(deps, env, amount),
-        HandleMsg::WithdrawVotingRewards {} => withdraw_voting_rewards(deps, env),
-        HandleMsg::StakeVotingRewards {} => stake_voting_rewards(deps, env),
+        HandleMsg::WithdrawVotingRewards { poll_id } => withdraw_voting_rewards(deps, env, poll_id),
+        HandleMsg::StakeVotingRewards { poll_id } => stake_voting_rewards(deps, env, poll_id),
         HandleMsg::CastVote {
             poll_id,
             vote,

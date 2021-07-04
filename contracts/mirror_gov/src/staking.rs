@@ -219,6 +219,7 @@ pub fn deposit_reward<S: Storage, A: Api, Q: Querier>(
 pub fn withdraw_voting_rewards<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
+    poll_id: Option<u64>,
 ) -> HandleResult {
     let config: Config = config_store(&mut deps.storage).load()?;
     let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
@@ -229,7 +230,7 @@ pub fn withdraw_voting_rewards<S: Storage, A: Api, Q: Querier>(
         .or(Err(StdError::generic_err("Nothing staked")))?;
 
     let (user_reward_amount, w_polls) =
-        withdraw_user_voting_rewards(&mut deps.storage, &sender_address_raw, &token_manager);
+        withdraw_user_voting_rewards(&mut deps.storage, &sender_address_raw, &token_manager, poll_id)?;
     if user_reward_amount.eq(&0u128) {
         return Err(StdError::generic_err("Nothing to withdraw"));
     }
@@ -258,6 +259,7 @@ pub fn withdraw_voting_rewards<S: Storage, A: Api, Q: Querier>(
 pub fn stake_voting_rewards<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
+    poll_id: Option<u64>,
 ) -> HandleResult {
     let config: Config = config_store(&mut deps.storage).load()?;
     let mut state: State = state_store(&mut deps.storage).load()?;
@@ -269,7 +271,7 @@ pub fn stake_voting_rewards<S: Storage, A: Api, Q: Querier>(
         .or(Err(StdError::generic_err("Nothing staked")))?;
 
     let (user_reward_amount, w_polls) =
-        withdraw_user_voting_rewards(&mut deps.storage, &sender_address_raw, &token_manager);
+        withdraw_user_voting_rewards(&mut deps.storage, &sender_address_raw, &token_manager, poll_id)?;
     if user_reward_amount.eq(&0u128) {
         return Err(StdError::generic_err("Nothing to withdraw"));
     }
@@ -317,9 +319,16 @@ fn withdraw_user_voting_rewards<S: Storage>(
     storage: &mut S,
     user_address: &CanonicalAddr,
     token_manager: &TokenManager,
-) -> (u128, Vec<u64>) {
-    let w_polls: Vec<(Poll, VoterInfo)> =
-        get_withdrawable_polls(storage, token_manager, user_address);
+    poll_id: Option<u64>,
+) -> StdResult<(u128, Vec<u64>)> {
+    let w_polls: Vec<(Poll, VoterInfo)> = match poll_id {
+        Some(poll_id) => {
+            let poll: Poll = poll_read(storage).load(&poll_id.to_be_bytes())?;
+            let voter_info = poll_voter_read(storage, poll_id).load(&user_address.as_slice())?;
+            vec![(poll,voter_info)]
+        }
+        None => get_withdrawable_polls(storage, token_manager, user_address)
+    };
     let user_reward_amount: u128 = w_polls
         .iter()
         .map(|(poll, voting_info)| {
@@ -335,7 +344,7 @@ fn withdraw_user_voting_rewards<S: Storage>(
             poll_voting_reward.u128()
         })
         .sum();
-    (user_reward_amount, w_polls.iter().map(|(poll, _)| poll.id).collect())
+    Ok((user_reward_amount, w_polls.iter().map(|(poll, _)| poll.id).collect()))
 }
 
 fn get_withdrawable_polls<S: Storage>(

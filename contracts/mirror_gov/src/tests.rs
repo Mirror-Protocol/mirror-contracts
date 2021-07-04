@@ -2405,7 +2405,7 @@ fn distribute_voting_rewards() {
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // FAIL - there is no finished polls, amount to withdraw is 0, returning error
-    let msg = HandleMsg::WithdrawVotingRewards {};
+    let msg = HandleMsg::WithdrawVotingRewards { poll_id: None };
     let env = mock_env_height(TEST_VOTER, &[], 0, 10000);
     let res = handle(&mut deps, env, msg).unwrap_err();
     assert_eq!(res, StdError::generic_err("Nothing to withdraw"));
@@ -2415,7 +2415,7 @@ fn distribute_voting_rewards() {
     let _res = handle(&mut deps, env.clone(), msg).unwrap();
 
     // SUCCESS
-    let msg = HandleMsg::WithdrawVotingRewards {};
+    let msg = HandleMsg::WithdrawVotingRewards { poll_id: Some(1u64) };
     let env = mock_env_height(TEST_VOTER, &[], 0, 10000);
     let res = handle(&mut deps, env.clone(), msg).unwrap();
 
@@ -2532,7 +2532,7 @@ fn stake_voting_rewards() {
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // FAIL - there is no finished polls, amount to withdraw is 0, returning error
-    let msg = HandleMsg::StakeVotingRewards {};
+    let msg = HandleMsg::StakeVotingRewards { poll_id: None };
     let env = mock_env_height(TEST_VOTER, &[], 0, 0);
     let res = handle(&mut deps, env, msg).unwrap_err();
     assert_eq!(res, StdError::generic_err("Nothing to withdraw"));
@@ -2550,7 +2550,7 @@ fn stake_voting_rewards() {
     )]);
 
     // SUCCESS
-    let msg = HandleMsg::StakeVotingRewards {};
+    let msg = HandleMsg::StakeVotingRewards { poll_id: None };
     let env = mock_env_height(TEST_VOTER, &[], 0, 0);
     let res = handle(&mut deps, env.clone(), msg).unwrap();
 
@@ -2567,7 +2567,7 @@ fn stake_voting_rewards() {
     assert_eq!(res.messages, vec![]);
 
     // FAIL - already withdrawn
-    let msg = HandleMsg::StakeVotingRewards {};
+    let msg = HandleMsg::StakeVotingRewards { poll_id: None };
     let env = mock_env_height(TEST_VOTER, &[], 0, 0);
     let res = handle(&mut deps, env, msg).unwrap_err();
     assert_eq!(res, StdError::generic_err("Nothing to withdraw"));
@@ -2748,7 +2748,7 @@ fn distribute_voting_rewards_with_multiple_active_polls_and_voters() {
     let msg = HandleMsg::EndPoll { poll_id: 2 };
     let _res = handle(&mut deps, env.clone(), msg).unwrap();
 
-    let msg = HandleMsg::WithdrawVotingRewards {};
+    let msg = HandleMsg::WithdrawVotingRewards { poll_id: None };
     // ALICE withdraws voting rewards
     let env = mock_env_height(ALICE, &[], 0, 0);
     let res = handle(&mut deps, env, msg.clone()).unwrap();
@@ -3077,7 +3077,7 @@ fn test_staking_and_voting_rewards() {
         }
     );
 
-    let msg = HandleMsg::WithdrawVotingRewards {};
+    let msg = HandleMsg::WithdrawVotingRewards { poll_id: None };
     // ALICE withdraws voting rewards
     let env = mock_env_height(ALICE, &[], 0, 0);
     let res = handle(&mut deps, env, msg.clone()).unwrap();
@@ -4232,7 +4232,7 @@ fn test_unstake_before_claiming_voting_rewards() {
     );
 
     // SUCCESS
-    let msg = HandleMsg::WithdrawVotingRewards {};
+    let msg = HandleMsg::WithdrawVotingRewards { poll_id: None };
     let env = mock_env_height(TEST_VOTER, &[], 0, 10000);
     let res = handle(&mut deps, env.clone(), msg).unwrap();
 
