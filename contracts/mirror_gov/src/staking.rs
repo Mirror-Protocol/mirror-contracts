@@ -334,6 +334,12 @@ fn withdraw_user_voting_rewards<S: Storage>(
         Some(poll_id) => {
             let poll: Poll = poll_read(storage).load(&poll_id.to_be_bytes())?;
             let voter_info = poll_voter_read(storage, poll_id).load(&user_address.as_slice())?;
+            if poll.status == PollStatus::InProgress {
+                return Err(StdError::generic_err("This poll is still in progress"));
+            }
+            if poll.voters_reward.is_zero() {
+                return Err(StdError::generic_err("This poll has no voting rewards"));
+            }
             vec![(poll, voter_info)]
         }
         None => get_withdrawable_polls(storage, token_manager, user_address),
