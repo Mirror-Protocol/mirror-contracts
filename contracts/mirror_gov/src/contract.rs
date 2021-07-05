@@ -858,15 +858,7 @@ fn query_voters<S: Storage, A: Api, Q: Querier>(
     limit: Option<u32>,
     order_by: Option<OrderBy>,
 ) -> StdResult<VotersResponse> {
-    let poll: Poll = match poll_read(&deps.storage).may_load(&poll_id.to_be_bytes())? {
-        Some(poll) => Some(poll),
-        None => return Err(StdError::generic_err("Poll does not exist")),
-    }
-    .unwrap();
-
-    let voters = if poll.status != PollStatus::InProgress {
-        vec![]
-    } else if let Some(start_after) = start_after {
+    let voters = if let Some(start_after) = start_after {
         read_poll_voters(
             &deps.storage,
             poll_id,
