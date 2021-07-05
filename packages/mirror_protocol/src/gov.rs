@@ -103,6 +103,10 @@ pub enum QueryMsg {
         limit: Option<u32>,
         order_by: Option<OrderBy>,
     },
+    Voter {
+        poll_id: u64,
+        address: HumanAddr,
+    },
     Voters {
         poll_id: u64,
         start_after: Option<HumanAddr>,

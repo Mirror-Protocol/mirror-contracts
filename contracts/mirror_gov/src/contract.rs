@@ -10,9 +10,9 @@ use crate::state::{
 };
 
 use cosmwasm_std::{
-    from_binary, log, to_binary, Api, Binary, CosmosMsg, Decimal, Env, Extern, HandleResponse,
-    HandleResult, HumanAddr, InitResponse, InitResult, MigrateResponse, MigrateResult, Querier,
-    StdError, StdResult, Storage, Uint128, WasmMsg,
+    from_binary, log, to_binary, Api, Binary, CanonicalAddr, CosmosMsg, Decimal, Env, Extern,
+    HandleResponse, HandleResult, HumanAddr, InitResponse, InitResult, MigrateResponse,
+    MigrateResult, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
 
@@ -730,6 +730,7 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
             limit,
             order_by,
         } => to_binary(&query_polls(deps, filter, start_after, limit, order_by)?),
+        QueryMsg::Voter { poll_id, address } => to_binary(&query_voter(deps, poll_id, address)?),
         QueryMsg::Voters {
             poll_id,
             start_after,
@@ -848,6 +849,21 @@ fn query_polls<S: Storage, A: Api, Q: Querier>(
 
     Ok(PollsResponse {
         polls: poll_responses?,
+    })
+}
+
+fn query_voter<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    poll_id: u64,
+    address: HumanAddr,
+) -> StdResult<VotersResponseItem> {
+    let address_raw: CanonicalAddr = deps.api.canonical_address(&address)?;
+    let voter: VoterInfo = poll_voter_read(&deps.storage, poll_id).load(&address_raw.as_slice())?;
+
+    Ok(VotersResponseItem {
+        voter: address,
+        vote: voter.vote,
+        balance: voter.balance,
     })
 }
 
