@@ -758,20 +758,6 @@ fn happy_days_end_poll() {
     let response: PollsResponse = from_binary(&res).unwrap();
     assert_eq!(response.polls.len(), 1);
 
-    // voter info must be deleted
-    let res = query(
-        &deps,
-        QueryMsg::Voters {
-            poll_id: 1u64,
-            start_after: None,
-            limit: None,
-            order_by: None,
-        },
-    )
-    .unwrap();
-    let response: VotersResponse = from_binary(&res).unwrap();
-    assert_eq!(response.voters.len(), 0);
-
     // staker locked token must disappeared
     let res = query(
         &deps,
