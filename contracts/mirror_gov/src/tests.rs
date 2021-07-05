@@ -2405,7 +2405,7 @@ fn distribute_voting_rewards() {
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // FAIL - there is no finished polls, amount to withdraw is 0, returning error
-    let msg = HandleMsg::WithdrawVotingRewards {};
+    let msg = HandleMsg::WithdrawVotingRewards { poll_id: None };
     let env = mock_env_height(TEST_VOTER, &[], 0, 10000);
     let res = handle(&mut deps, env, msg).unwrap_err();
     assert_eq!(res, StdError::generic_err("Nothing to withdraw"));
@@ -2415,7 +2415,9 @@ fn distribute_voting_rewards() {
     let _res = handle(&mut deps, env.clone(), msg).unwrap();
 
     // SUCCESS
-    let msg = HandleMsg::WithdrawVotingRewards {};
+    let msg = HandleMsg::WithdrawVotingRewards {
+        poll_id: Some(1u64),
+    };
     let env = mock_env_height(TEST_VOTER, &[], 0, 10000);
     let res = handle(&mut deps, env.clone(), msg).unwrap();
 
@@ -2532,7 +2534,7 @@ fn stake_voting_rewards() {
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // FAIL - there is no finished polls, amount to withdraw is 0, returning error
-    let msg = HandleMsg::StakeVotingRewards {};
+    let msg = HandleMsg::StakeVotingRewards { poll_id: None };
     let env = mock_env_height(TEST_VOTER, &[], 0, 0);
     let res = handle(&mut deps, env, msg).unwrap_err();
     assert_eq!(res, StdError::generic_err("Nothing to withdraw"));
@@ -2550,7 +2552,7 @@ fn stake_voting_rewards() {
     )]);
 
     // SUCCESS
-    let msg = HandleMsg::StakeVotingRewards {};
+    let msg = HandleMsg::StakeVotingRewards { poll_id: None };
     let env = mock_env_height(TEST_VOTER, &[], 0, 0);
     let res = handle(&mut deps, env.clone(), msg).unwrap();
 
@@ -2567,7 +2569,7 @@ fn stake_voting_rewards() {
     assert_eq!(res.messages, vec![]);
 
     // FAIL - already withdrawn
-    let msg = HandleMsg::StakeVotingRewards {};
+    let msg = HandleMsg::StakeVotingRewards { poll_id: None };
     let env = mock_env_height(TEST_VOTER, &[], 0, 0);
     let res = handle(&mut deps, env, msg).unwrap_err();
     assert_eq!(res, StdError::generic_err("Nothing to withdraw"));
@@ -2748,7 +2750,7 @@ fn distribute_voting_rewards_with_multiple_active_polls_and_voters() {
     let msg = HandleMsg::EndPoll { poll_id: 2 };
     let _res = handle(&mut deps, env.clone(), msg).unwrap();
 
-    let msg = HandleMsg::WithdrawVotingRewards {};
+    let msg = HandleMsg::WithdrawVotingRewards { poll_id: None };
     // ALICE withdraws voting rewards
     let env = mock_env_height(ALICE, &[], 0, 0);
     let res = handle(&mut deps, env, msg.clone()).unwrap();
@@ -3077,7 +3079,7 @@ fn test_staking_and_voting_rewards() {
         }
     );
 
-    let msg = HandleMsg::WithdrawVotingRewards {};
+    let msg = HandleMsg::WithdrawVotingRewards { poll_id: None };
     // ALICE withdraws voting rewards
     let env = mock_env_height(ALICE, &[], 0, 0);
     let res = handle(&mut deps, env, msg.clone()).unwrap();
@@ -4114,4 +4116,163 @@ fn happy_days_end_poll_with_controlled_quorum() {
     .unwrap();
 
     assert_eq!(actual_staked_weight.u128(), (10 * stake_amount))
+}
+
+#[test]
+fn test_unstake_before_claiming_voting_rewards() {
+    let mut deps = mock_dependencies(20, &[]);
+    let msg = InitMsg {
+        mirror_token: HumanAddr::from(VOTING_TOKEN),
+        quorum: Decimal::percent(DEFAULT_QUORUM),
+        threshold: Decimal::percent(DEFAULT_THRESHOLD),
+        voting_period: DEFAULT_VOTING_PERIOD,
+        effective_delay: DEFAULT_EFFECTIVE_DELAY,
+        expiration_period: DEFAULT_EXPIRATION_PERIOD,
+        proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+        voter_weight: Decimal::percent(50), // distribute 50% rewards to voters
+        snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
+    };
+
+    let env = mock_env(TEST_CREATOR, &[]);
+    let _res = init(&mut deps, env, msg).expect("contract successfully handles InitMsg");
+
+    let env = mock_env_height(VOTING_TOKEN, &coins(2, VOTING_TOKEN), 0, 10000);
+    let poll_end_time = env.block.time.clone() + DEFAULT_VOTING_PERIOD;
+    let msg = create_poll_msg("test".to_string(), "test".to_string(), None, None);
+    let handle_res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
+
+    assert_create_poll_result(
+        1,
+        env.block.time + DEFAULT_VOTING_PERIOD,
+        TEST_CREATOR,
+        handle_res,
+        &mut deps,
+    );
+
+    let stake_amount = 100u128;
+
+    deps.querier.with_token_balances(&[(
+        &HumanAddr::from(VOTING_TOKEN),
+        &[(
+            &HumanAddr::from(MOCK_CONTRACT_ADDR),
+            &Uint128((stake_amount + DEFAULT_PROPOSAL_DEPOSIT) as u128),
+        )],
+    )]);
+
+    let msg = HandleMsg::Receive(Cw20ReceiveMsg {
+        sender: HumanAddr::from(TEST_VOTER),
+        amount: Uint128::from(stake_amount),
+        msg: Some(to_binary(&Cw20HookMsg::StakeVotingTokens {}).unwrap()),
+    });
+
+    let env = mock_env(VOTING_TOKEN.to_string(), &[]);
+    let _res = handle(&mut deps, env, msg).unwrap();
+
+    let msg = HandleMsg::CastVote {
+        poll_id: 1,
+        vote: VoteOption::Yes,
+        amount: Uint128::from(stake_amount),
+    };
+    let env = mock_env_height(TEST_VOTER, &[], 0, 10000);
+    let _res = handle(&mut deps, env, msg).unwrap();
+
+    deps.querier.with_token_balances(&[(
+        &HumanAddr::from(VOTING_TOKEN),
+        &[(
+            &HumanAddr::from(MOCK_CONTRACT_ADDR),
+            &Uint128((stake_amount + DEFAULT_PROPOSAL_DEPOSIT + 100u128) as u128),
+        )],
+    )]);
+
+    let msg = HandleMsg::Receive(Cw20ReceiveMsg {
+        sender: HumanAddr::from(TEST_COLLECTOR),
+        amount: Uint128::from(100u128),
+        msg: Some(to_binary(&Cw20HookMsg::DepositReward {}).unwrap()),
+    });
+
+    let env = mock_env(VOTING_TOKEN.to_string(), &[]);
+    let _res = handle(&mut deps, env, msg).unwrap();
+
+    // END POLL
+    let env = mock_env_height(TEST_VOTER, &[], 10000, poll_end_time);
+    let msg = HandleMsg::EndPoll { poll_id: 1 };
+    let _res = handle(&mut deps, env.clone(), msg).unwrap();
+
+    deps.querier.with_token_balances(&[(
+        &HumanAddr::from(VOTING_TOKEN),
+        &[(
+            &HumanAddr::from(MOCK_CONTRACT_ADDR),
+            &Uint128((stake_amount + 100u128) as u128),
+        )],
+    )]);
+
+    // UNSTAKE VOTING TOKENS
+    let msg = HandleMsg::WithdrawVotingTokens { amount: None };
+    let env = mock_env(TEST_VOTER.to_string(), &[]);
+    let res = handle(&mut deps, env, msg).unwrap();
+    assert_eq!(
+        res.log,
+        vec![
+            log("action", "withdraw"),
+            log("recipient", TEST_VOTER),
+            log("amount", (stake_amount + 50u128).to_string()), // 100 + 50% of 100
+        ]
+    );
+
+    let token_manager = bank_read(&mut deps.storage)
+        .load(
+            &deps
+                .api
+                .canonical_address(&HumanAddr::from(TEST_VOTER))
+                .unwrap()
+                .as_slice(),
+        )
+        .unwrap();
+    assert_eq!(
+        token_manager.locked_balance,
+        vec![(
+            1u64,
+            VoterInfo {
+                vote: VoteOption::Yes,
+                balance: Uint128::from(stake_amount),
+            }
+        )]
+    );
+
+    // SUCCESS
+    let msg = HandleMsg::WithdrawVotingRewards { poll_id: None };
+    let env = mock_env_height(TEST_VOTER, &[], 0, 10000);
+    let res = handle(&mut deps, env.clone(), msg).unwrap();
+
+    // user can withdraw 50% of total staked (weight = 50% poll share = 100%)
+    assert_eq!(
+        res.log,
+        vec![
+            log("action", "withdraw_voting_rewards"),
+            log("recipient", TEST_VOTER),
+            log("amount", 50),
+        ]
+    );
+
+    // make sure now the state is clean
+    let token_manager = bank_read(&mut deps.storage)
+        .load(
+            &deps
+                .api
+                .canonical_address(&HumanAddr::from(TEST_VOTER))
+                .unwrap()
+                .as_slice(),
+        )
+        .unwrap();
+    assert_eq!(token_manager.locked_balance, vec![]);
+    // expect err
+    poll_voter_read(&mut deps.storage, 1u64)
+        .load(
+            &deps
+                .api
+                .canonical_address(&HumanAddr::from(TEST_VOTER))
+                .unwrap()
+                .as_slice(),
+        )
+        .unwrap_err();
 }
