@@ -6,15 +6,17 @@ use crate::state::{read_config, store_config, Config};
 use crate::swap::{convert, luna_swap_hook};
 
 use cosmwasm_std::{
-    attr, to_binary, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response,
-    StdError, StdResult, WasmMsg,
+    attr, to_binary, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response, StdError,
+    StdResult, WasmMsg,
 };
 
 use cw20::Cw20ExecuteMsg;
-use mirror_protocol::collector::{ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
+use mirror_protocol::collector::{
+    ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
+};
 use mirror_protocol::gov::Cw20HookMsg::DepositReward;
 use terra_cosmwasm::TerraMsgWrapper;
-use terraswap::querier::{query_token_balance};
+use terraswap::querier::query_token_balance;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -75,7 +77,7 @@ pub fn execute(
         ExecuteMsg::Convert { asset_token } => {
             let asset_addr = deps.api.addr_validate(&asset_token)?;
             convert(deps, env, asset_addr)
-        },
+        }
         ExecuteMsg::Distribute {} => distribute(deps, env),
         ExecuteMsg::LunaSwapHook {} => luna_swap_hook(deps, env, info),
     }
@@ -144,10 +146,7 @@ pub fn update_config(
 }
 
 // Anyone can execute send function to receive staking token rewards
-pub fn distribute(
-    deps: DepsMut,
-    env: Env,
-) -> StdResult<Response<TerraMsgWrapper>> {
+pub fn distribute(deps: DepsMut, env: Env) -> StdResult<Response<TerraMsgWrapper>> {
     let config: Config = read_config(deps.storage)?;
     let amount = query_token_balance(
         &deps.querier,
@@ -160,7 +159,10 @@ pub fn distribute(
         messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps.api.addr_humanize(&config.mirror_token)?.to_string(),
             msg: to_binary(&Cw20ExecuteMsg::Send {
-                contract: deps.api.addr_humanize(&config.distribution_contract)?.to_string(),
+                contract: deps
+                    .api
+                    .addr_humanize(&config.distribution_contract)?
+                    .to_string(),
                 amount,
                 msg: Some(to_binary(&DepositReward {})?),
             })?,
@@ -176,24 +178,24 @@ pub fn distribute(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(
-    deps: Deps,
-    _env: Env,
-    msg: QueryMsg,
-) -> StdResult<Binary> {
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
     }
 }
 
-pub fn query_config(
-    deps: Deps,
-) -> StdResult<ConfigResponse> {
+pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     let state = read_config(deps.storage)?;
     let resp = ConfigResponse {
         owner: deps.api.addr_humanize(&state.owner)?.to_string(),
-        distribution_contract: deps.api.addr_humanize(&state.distribution_contract)?.to_string(),
-        terraswap_factory: deps.api.addr_humanize(&state.terraswap_factory)?.to_string(),
+        distribution_contract: deps
+            .api
+            .addr_humanize(&state.distribution_contract)?
+            .to_string(),
+        terraswap_factory: deps
+            .api
+            .addr_humanize(&state.terraswap_factory)?
+            .to_string(),
         mirror_token: deps.api.addr_humanize(&state.mirror_token)?.to_string(),
         base_denom: state.base_denom,
         aust_token: deps.api.addr_humanize(&state.aust_token)?.to_string(),
@@ -206,11 +208,7 @@ pub fn query_config(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(
-    deps: DepsMut,
-    _env: Env,
-    msg: MigrateMsg,
-) -> StdResult<Response> {
+pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
     // migrate config
     migrate_config(
         deps.storage,

@@ -7,7 +7,7 @@ use crate::state::{
     PositionLockInfo,
 };
 use cosmwasm_std::{
-    attr, to_binary, Binary, CanonicalAddr, Deps, DepsMut, Env, MessageInfo, Response, StdError, 
+    attr, to_binary, Binary, CanonicalAddr, Deps, DepsMut, Env, MessageInfo, Response, StdError,
     StdResult, Uint128,
 };
 use mirror_protocol::lock::{
@@ -38,12 +38,7 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn execute(
-    deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    msg: ExecuteMsg,
-) -> StdResult<Response> {
+pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
     match msg {
         ExecuteMsg::UpdateConfig {
             owner,
@@ -116,8 +111,11 @@ pub fn lock_position_funds_hook(
         return Err(StdError::generic_err("unauthorized"));
     }
 
-    let current_balance: Uint128 =
-        query_balance(&deps.querier, env.contract.address, config.base_denom.clone())?;
+    let current_balance: Uint128 = query_balance(
+        &deps.querier,
+        env.contract.address,
+        config.base_denom.clone(),
+    )?;
     let locked_funds: Uint128 = total_locked_funds_read(deps.storage).load()?;
     let position_locked_amount: Uint128 = current_balance.checked_sub(locked_funds)?;
 
@@ -181,8 +179,7 @@ pub fn unlock_position_funds(
 ) -> StdResult<Response> {
     let config: Config = read_config(deps.storage)?;
     let sender_addr_raw: CanonicalAddr = deps.api.addr_canonicalize(info.sender.as_str())?;
-    let lock_info: PositionLockInfo = match read_position_lock_info(deps.storage, position_idx)
-    {
+    let lock_info: PositionLockInfo = match read_position_lock_info(deps.storage, position_idx) {
         Ok(lock_info) => lock_info,
         Err(_) => {
             return Err(StdError::generic_err(
@@ -216,7 +213,9 @@ pub fn unlock_position_funds(
 
     // decrease locked amount
     total_locked_funds_store(deps.storage).update(|current| {
-        current.checked_sub(unlock_amount).map_err(StdError::overflow)
+        current
+            .checked_sub(unlock_amount)
+            .map_err(StdError::overflow)
     })?;
 
     let tax_amount: Uint128 = unlock_asset.compute_tax(&deps.querier)?;
@@ -228,10 +227,9 @@ pub fn unlock_position_funds(
             attr("unlocked_amount", unlock_asset.to_string()),
             attr("tax_amount", tax_amount.to_string() + &config.base_denom),
         ],
-        messages: vec![unlock_asset.into_msg(
-            &deps.querier,
-            deps.api.addr_humanize(&lock_info.receiver)?,
-        )?],
+        messages: vec![
+            unlock_asset.into_msg(&deps.querier, deps.api.addr_humanize(&lock_info.receiver)?)?
+        ],
         submessages: vec![],
         data: None,
     })
@@ -271,7 +269,9 @@ pub fn release_position_funds(
 
     // decrease locked amount
     total_locked_funds_store(deps.storage).update(|current| {
-        current.checked_sub(unlock_amount).map_err(StdError::overflow)
+        current
+            .checked_sub(unlock_amount)
+            .map_err(StdError::overflow)
     })?;
 
     let tax_amount: Uint128 = unlock_asset.compute_tax(&deps.querier)?;
@@ -283,21 +283,16 @@ pub fn release_position_funds(
             attr("unlocked_amount", unlock_asset.to_string()),
             attr("tax_amount", tax_amount.to_string() + &config.base_denom),
         ],
-        messages: vec![unlock_asset.into_msg(
-            &deps.querier,
-            deps.api.addr_humanize(&lock_info.receiver)?,
-        )?],
+        messages: vec![
+            unlock_asset.into_msg(&deps.querier, deps.api.addr_humanize(&lock_info.receiver)?)?
+        ],
         submessages: vec![],
         data: None,
     })
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(
-    deps: Deps,
-    _env: Env,
-    msg: QueryMsg,
-) -> StdResult<Binary> {
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::PositionLockInfo { position_idx } => {
@@ -306,9 +301,7 @@ pub fn query(
     }
 }
 
-pub fn query_config(
-    deps: Deps,
-) -> StdResult<ConfigResponse> {
+pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     let state = read_config(deps.storage)?;
     let resp = ConfigResponse {
         owner: deps.api.addr_humanize(&state.owner)?.to_string(),

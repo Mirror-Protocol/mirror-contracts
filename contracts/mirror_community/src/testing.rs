@@ -21,7 +21,8 @@ fn proper_initialization() {
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // it worked, let's query the state
-    let config: ConfigResponse = from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+    let config: ConfigResponse =
+        from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
     assert_eq!("owner0000", config.owner.as_str());
     assert_eq!("mirror0000", config.mirror_token.as_str());
     assert_eq!(Uint128::from(1000000u128), config.spend_limit);
@@ -43,7 +44,8 @@ fn update_config() {
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // it worked, let's query the state
-    let config: ConfigResponse = from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+    let config: ConfigResponse =
+        from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
     assert_eq!("owner0000", config.owner.as_str());
     assert_eq!("mirror0000", config.mirror_token.as_str());
     assert_eq!(Uint128::from(1000000u128), config.spend_limit);
@@ -64,7 +66,8 @@ fn update_config() {
 
     let info = mock_info("owner0000", &[]);
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-    let config: ConfigResponse = from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+    let config: ConfigResponse =
+        from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
     assert_eq!(
         config,
         ConfigResponse {
@@ -81,7 +84,8 @@ fn update_config() {
     };
     let info = mock_info("owner0001", &[]);
     let _res = execute(deps.as_mut(), mock_env(), info, msg);
-    let config: ConfigResponse = from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+    let config: ConfigResponse =
+        from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
     assert_eq!(
         config,
         ConfigResponse {

@@ -111,10 +111,7 @@ pub fn poll_voter_store(storage: &mut dyn Storage, poll_id: u64) -> Bucket<Voter
     Bucket::multilevel(storage, &[PREFIX_POLL_VOTER, &poll_id.to_be_bytes()])
 }
 
-pub fn poll_voter_read(
-    storage: &dyn Storage,
-    poll_id: u64,
-) -> ReadonlyBucket<VoterInfo> {
+pub fn poll_voter_read(storage: &dyn Storage, poll_id: u64) -> ReadonlyBucket<VoterInfo> {
     ReadonlyBucket::multilevel(storage, &[PREFIX_POLL_VOTER, &poll_id.to_be_bytes()])
 }
 

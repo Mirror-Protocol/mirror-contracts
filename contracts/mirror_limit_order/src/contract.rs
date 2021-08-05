@@ -2,8 +2,7 @@
 use cosmwasm_std::entry_point;
 
 use cosmwasm_std::{
-    from_binary, to_binary, Binary, Deps, DepsMut, Env, MessageInfo,
-    Response, StdError, StdResult,
+    from_binary, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
 };
 
 use crate::order::{
@@ -56,12 +55,7 @@ pub fn execute(
             }
 
             execute_asset.assert_sent_native_token_balance(&info)?;
-            execute_order(
-                deps,
-                info.sender,
-                execute_asset,
-                order_id,
-            )
+            execute_order(deps, info.sender, execute_asset, order_id)
         }
     }
 }
@@ -71,7 +65,6 @@ pub fn receive_cw20(
     info: MessageInfo,
     cw20_msg: Cw20ReceiveMsg,
 ) -> StdResult<Response> {
-
     let sender = deps.api.addr_validate(cw20_msg.sender.as_str())?;
 
     let provided_asset = Asset {
@@ -82,28 +75,18 @@ pub fn receive_cw20(
     };
 
     match from_binary(&cw20_msg.msg) {
-        Ok(Cw20HookMsg::SubmitOrder { ask_asset }) => submit_order(
-            deps, 
-            sender, 
-            provided_asset,
-            ask_asset
-        ),
-        Ok(Cw20HookMsg::ExecuteOrder { order_id }) => execute_order(
-            deps,
-            sender,
-            provided_asset,
-            order_id,
-        ),
+        Ok(Cw20HookMsg::SubmitOrder { ask_asset }) => {
+            submit_order(deps, sender, provided_asset, ask_asset)
+        }
+        Ok(Cw20HookMsg::ExecuteOrder { order_id }) => {
+            execute_order(deps, sender, provided_asset, order_id)
+        }
         Err(_) => Err(StdError::generic_err("data should be given")),
     }
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(
-    deps: Deps,
-    _env: Env,
-    msg: QueryMsg,
-) -> StdResult<Binary> {
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Order { order_id } => to_binary(&query_order(deps, order_id)?),
         QueryMsg::Orders {
@@ -123,10 +106,6 @@ pub fn query(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(
-    _deps: DepsMut,
-    _env: Env,
-    _msg: MigrateMsg,
-) -> StdResult<Response> {
+pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
     Ok(Response::default())
 }

@@ -1,6 +1,6 @@
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Addr, Coin, ContractResult, Decimal, OwnedDeps, Querier, 
+    from_binary, from_slice, to_binary, Addr, Coin, ContractResult, Decimal, OwnedDeps, Querier,
     QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, WasmQuery,
 };
 use schemars::JsonSchema;
@@ -70,7 +70,6 @@ pub struct TerraswapPoolsQuerier {
 
 impl TerraswapPoolsQuerier {
     pub fn new(pools: &[(&String, (&String, &Uint128, &String, &Uint128))]) -> Self {
-
         TerraswapPoolsQuerier {
             pools: pools_to_map(pools),
         }
@@ -173,12 +172,13 @@ impl WasmMockQuerier {
                 } => match self.oracle_price_querier.oracle_price.get(&base_asset) {
                     Some(base_price) => {
                         match self.oracle_price_querier.oracle_price.get(&quote_asset) {
-                            Some(quote_price) => SystemResult::Ok(ContractResult::from(
-                                to_binary(&PriceResponse {
-                                rate: decimal_division(*base_price, *quote_price),
-                                last_updated_base: 1000u64,
-                                last_updated_quote: 1000u64,
-                            }))),
+                            Some(quote_price) => {
+                                SystemResult::Ok(ContractResult::from(to_binary(&PriceResponse {
+                                    rate: decimal_division(*base_price, *quote_price),
+                                    last_updated_base: 1000u64,
+                                    last_updated_quote: 1000u64,
+                                })))
+                            }
                             None => SystemResult::Err(SystemError::InvalidRequest {
                                 error: "No oracle price exists".to_string(),
                                 request: msg.as_slice().into(),
@@ -211,17 +211,19 @@ impl WasmMockQuerier {
                         request: msg.as_slice().into(),
                     }),
                 },
-                QueryMsg::GetReferenceData { .. } => SystemResult::Ok(ContractResult::from(
-                    to_binary(&ReferenceData {
-                    rate: Uint128(3465211050000000000000),
-                    last_updated_base: 100u64,
-                    last_updated_quote: 100u64,
-                }))),
-                QueryMsg::EpochState { .. } => SystemResult::Ok(ContractResult::from(
-                    to_binary(&EpochStateResponse {
-                    exchange_rate: Decimal256::from_ratio(10, 3),
-                    aterra_supply: Uint256::from_str("123123123").unwrap(),
-                }))),
+                QueryMsg::GetReferenceData { .. } => {
+                    SystemResult::Ok(ContractResult::from(to_binary(&ReferenceData {
+                        rate: Uint128(3465211050000000000000),
+                        last_updated_base: 100u64,
+                        last_updated_quote: 100u64,
+                    })))
+                }
+                QueryMsg::EpochState { .. } => {
+                    SystemResult::Ok(ContractResult::from(to_binary(&EpochStateResponse {
+                        exchange_rate: Decimal256::from_ratio(10, 3),
+                        aterra_supply: Uint256::from_str("123123123").unwrap(),
+                    })))
+                }
             },
             _ => self.base.handle_query(request),
         }

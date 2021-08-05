@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    attr, to_binary, Addr, Coin, CosmosMsg, DepsMut, Env, MessageInfo, Response, 
-    StdError, StdResult, WasmMsg,
+    attr, to_binary, Addr, Coin, CosmosMsg, DepsMut, Env, MessageInfo, Response, StdError,
+    StdResult, WasmMsg,
 };
 
 use crate::state::{read_config, Config};
@@ -18,11 +18,7 @@ use terraswap::querier::{query_balance, query_pair_info, query_token_balance};
 /// Anyone can execute convert function to swap
 /// asset token => collateral token
 /// collateral token => MIR token
-pub fn convert(
-    deps: DepsMut,
-    env: Env,
-    asset_token: Addr,
-) -> StdResult<Response<TerraMsgWrapper>> {
+pub fn convert(deps: DepsMut, env: Env, asset_token: Addr) -> StdResult<Response<TerraMsgWrapper>> {
     let config: Config = read_config(deps.storage)?;
     let asset_token_raw = deps.api.addr_canonicalize(asset_token.as_str())?;
 
@@ -60,7 +56,11 @@ fn direct_swap(
     let messages: Vec<CosmosMsg<TerraMsgWrapper>>;
     if config.mirror_token == asset_token_raw {
         // collateral token => MIR token
-        let amount = query_balance(&deps.querier, env.contract.address, config.base_denom.clone())?;
+        let amount = query_balance(
+            &deps.querier,
+            env.contract.address,
+            config.base_denom.clone(),
+        )?;
         let swap_asset = Asset {
             info: AssetInfo::NativeToken {
                 denom: config.base_denom.clone(),
@@ -89,10 +89,10 @@ fn direct_swap(
     } else {
         // asset token => collateral token
         let amount = query_token_balance(
-            &deps.querier, 
+            &deps.querier,
             deps.api,
-            asset_token.clone(), 
-            env.contract.address
+            asset_token.clone(),
+            env.contract.address,
         )?;
 
         messages = vec![CosmosMsg::Wasm(WasmMsg::Execute {
@@ -131,8 +131,8 @@ fn anchor_redeem(
     let amount = query_token_balance(
         &deps.querier,
         deps.api,
-        asset_token.clone(), 
-        env.contract.address
+        asset_token.clone(),
+        env.contract.address,
     )?;
 
     Ok(Response {
@@ -177,9 +177,9 @@ fn bluna_swap(
     )?;
 
     let amount = query_token_balance(
-        &deps.querier, 
+        &deps.querier,
         deps.api,
-        asset_token.clone(), 
+        asset_token.clone(),
         env.contract.address.clone(),
     )?;
 
@@ -226,9 +226,9 @@ pub fn luna_swap_hook(
     }
 
     let amount = query_balance(
-        &deps.querier, 
-        env.contract.address.clone(), 
-        config.bluna_swap_denom.clone()
+        &deps.querier,
+        env.contract.address.clone(),
+        config.bluna_swap_denom.clone(),
     )?;
     let offer_coin = Coin {
         amount,
@@ -236,10 +236,7 @@ pub fn luna_swap_hook(
     };
 
     Ok(Response {
-        messages: vec![create_swap_msg(
-            offer_coin,
-            config.base_denom,
-        )],
+        messages: vec![create_swap_msg(offer_coin, config.base_denom)],
         submessages: vec![],
         attributes: vec![attr("action", "luna_swap_hook")],
         data: None,

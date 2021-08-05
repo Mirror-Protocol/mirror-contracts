@@ -4,7 +4,7 @@ mod test {
     use crate::mock_querier::mock_dependencies;
     use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
     use cosmwasm_std::{
-        from_binary, attr, to_binary, Addr, BankMsg, BlockInfo, Coin, CosmosMsg, Decimal, Env,
+        attr, from_binary, to_binary, Addr, BankMsg, BlockInfo, Coin, CosmosMsg, Decimal, Env,
         Timestamp, Uint128, WasmMsg,
     };
     use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
@@ -112,7 +112,7 @@ mod test {
             &[Coin {
                 denom: "uusd".to_string(),
                 amount: Uint128(1000000u128),
-            }]
+            }],
         );
         let res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
@@ -287,7 +287,7 @@ mod test {
             &[Coin {
                 denom: "uusd".to_string(),
                 amount: Uint128(1000000u128),
-            }]
+            }],
         );
         let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
@@ -443,7 +443,7 @@ mod test {
             &[Coin {
                 denom: "uusd".to_string(),
                 amount: Uint128(1000000u128),
-            }]
+            }],
         );
         let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
@@ -452,9 +452,9 @@ mod test {
             sender: "addr0000".to_string(),
             amount: Uint128(100u128),
             msg: to_binary(&Cw20HookMsg::Burn {
-                    position_idx: Uint128(1u128),
-                })
-                .unwrap(),
+                position_idx: Uint128(1u128),
+            })
+            .unwrap(),
         });
         let env = mock_env_with_block_time(1000);
         let info = mock_info("asset0000", &[]);
@@ -579,7 +579,7 @@ mod test {
             &[Coin {
                 denom: "uusd".to_string(),
                 amount: Uint128(1000000u128),
-            }]
+            }],
         );
         let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
@@ -594,9 +594,9 @@ mod test {
             sender: "addr0000".to_string(),
             amount: Uint128(100u128),
             msg: to_binary(&Cw20HookMsg::Auction {
-                    position_idx: Uint128(1u128),
-                })
-                .unwrap(),
+                position_idx: Uint128(1u128),
+            })
+            .unwrap(),
         });
         let env = mock_env_with_block_time(1000);
         let info = mock_info("asset0000", &[]);
@@ -719,7 +719,7 @@ mod test {
             &[Coin {
                 denom: "uusd".to_string(),
                 amount: Uint128(200u128),
-            }]
+            }],
         );
         let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
@@ -728,9 +728,9 @@ mod test {
             sender: "addr0000".to_string(),
             amount: Uint128(100u128),
             msg: to_binary(&Cw20HookMsg::Burn {
-                    position_idx: Uint128(1u128),
-                })
-                .unwrap(),
+                position_idx: Uint128(1u128),
+            })
+            .unwrap(),
         });
         let env = mock_env_with_block_time(1000);
         let info = mock_info("asset0000", &[]);

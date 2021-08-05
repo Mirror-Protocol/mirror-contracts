@@ -7,8 +7,8 @@ use crate::state::{
     CollateralAssetInfo, Config,
 };
 use cosmwasm_std::{
-    to_binary, Binary, CanonicalAddr, Decimal, Deps, DepsMut, Env, MessageInfo, Response,
-    StdError, StdResult,
+    to_binary, Binary, CanonicalAddr, Decimal, Deps, DepsMut, Env, MessageInfo, Response, StdError,
+    StdResult,
 };
 
 use mirror_protocol::collateral_oracle::{
@@ -251,11 +251,7 @@ pub fn update_collateral_multiplier(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(
-    deps: Deps,
-    _env: Env,
-    msg: QueryMsg,
-) -> StdResult<Binary> {
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::CollateralPrice { asset } => to_binary(&query_collateral_price(deps, asset)?),
@@ -264,14 +260,15 @@ pub fn query(
     }
 }
 
-pub fn query_config(
-    deps: Deps,
-) -> StdResult<ConfigResponse> {
+pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     let config = read_config(deps.storage)?;
     let resp = ConfigResponse {
         owner: deps.api.addr_humanize(&config.owner)?.to_string(),
         mint_contract: deps.api.addr_humanize(&config.mint_contract)?.to_string(),
-        factory_contract: deps.api.addr_humanize(&config.factory_contract)?.to_string(),
+        factory_contract: deps
+            .api
+            .addr_humanize(&config.factory_contract)?
+            .to_string(),
         base_denom: config.base_denom,
         mirror_oracle: deps.api.addr_humanize(&config.mirror_oracle)?.to_string(),
         anchor_oracle: deps.api.addr_humanize(&config.anchor_oracle)?.to_string(),
@@ -306,10 +303,7 @@ pub fn query_collateral_price(
     })
 }
 
-pub fn query_collateral_info(
-    deps: Deps,
-    quote_asset: String,
-) -> StdResult<CollateralInfoResponse> {
+pub fn query_collateral_info(deps: Deps, quote_asset: String) -> StdResult<CollateralInfoResponse> {
     let collateral: CollateralAssetInfo =
         if let Ok(res) = read_collateral_info(deps.storage, &quote_asset) {
             res
@@ -325,19 +319,13 @@ pub fn query_collateral_info(
     })
 }
 
-pub fn query_collateral_infos(
-    deps: Deps,
-) -> StdResult<CollateralInfosResponse> {
+pub fn query_collateral_infos(deps: Deps) -> StdResult<CollateralInfosResponse> {
     let infos: Vec<CollateralInfoResponse> = read_collateral_infos(deps.storage)?;
 
     Ok(CollateralInfosResponse { collaterals: infos })
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(
-    _deps: DepsMut,
-    _env: Env,
-    _msg: MigrateMsg,
-) -> StdResult<Response> {
+pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
     Ok(Response::default())
 }

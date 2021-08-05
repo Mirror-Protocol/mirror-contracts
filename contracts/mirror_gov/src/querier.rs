@@ -1,7 +1,4 @@
-use cosmwasm_std::{
-    Binary, CanonicalAddr, Deps, QueryRequest,
-    StdResult, Uint128, WasmQuery,
-};
+use cosmwasm_std::{Binary, CanonicalAddr, Deps, QueryRequest, StdResult, Uint128, WasmQuery};
 
 use cosmwasm_storage::to_length_prefixed;
 
@@ -20,9 +17,7 @@ pub fn load_token_balance(
                 account_addr.as_slice(),
             )),
         }))
-        .unwrap_or_else(|_| {
-            Uint128::zero()
-        });
+        .unwrap_or_else(|_| Uint128::zero());
 
     Ok(res)
 }

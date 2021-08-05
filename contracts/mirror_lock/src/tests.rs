@@ -2,8 +2,8 @@ use crate::contract::{execute, instantiate, query};
 use crate::mock_querier::mock_dependencies;
 use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, attr, BankMsg, BlockInfo, Coin, CosmosMsg, Decimal, Env, StdError,
-    Timestamp, Uint128,
+    attr, from_binary, BankMsg, BlockInfo, Coin, CosmosMsg, Decimal, Env, StdError, Timestamp,
+    Uint128,
 };
 use mirror_protocol::lock::{
     ConfigResponse, ExecuteMsg, InstantiateMsg, PositionLockInfoResponse, QueryMsg,

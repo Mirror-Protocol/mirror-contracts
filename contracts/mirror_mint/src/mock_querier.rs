@@ -1,7 +1,7 @@
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Addr, Api, CanonicalAddr, Coin, ContractResult, Decimal, OwnedDeps,
-    Querier, QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, WasmQuery,
+    from_binary, from_slice, to_binary, Addr, Api, CanonicalAddr, Coin, ContractResult, Decimal,
+    OwnedDeps, Querier, QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, WasmQuery,
 };
 use cosmwasm_storage::to_length_prefixed;
 use schemars::JsonSchema;
@@ -19,9 +19,8 @@ use terraswap::{asset::AssetInfo, asset::PairInfo};
 pub fn mock_dependencies(
     contract_balance: &[Coin],
 ) -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier> {
-    let custom_querier: WasmMockQuerier = WasmMockQuerier::new(
-        MockQuerier::new(&[(&MOCK_CONTRACT_ADDR, contract_balance)]),
-    );
+    let custom_querier: WasmMockQuerier =
+        WasmMockQuerier::new(MockQuerier::new(&[(&MOCK_CONTRACT_ADDR, contract_balance)]));
 
     OwnedDeps {
         api: MockApi::default(),
@@ -186,9 +185,7 @@ impl OracleQuerier {
     }
 }
 
-pub(crate) fn address_pair_to_map(
-    address_pair: &[(&String, &String)],
-) -> HashMap<String, String> {
+pub(crate) fn address_pair_to_map(address_pair: &[(&String, &String)]) -> HashMap<String, String> {
     let mut address_pair_map: HashMap<String, String> = HashMap::new();
     for (addr1, addr2) in address_pair.iter() {
         address_pair_map.insert(addr1.to_string(), addr2.to_string());
@@ -265,12 +262,13 @@ impl WasmMockQuerier {
                 } => match self.oracle_price_querier.oracle_price.get(&base_asset) {
                     Some(base_price) => {
                         match self.oracle_price_querier.oracle_price.get(&quote_asset) {
-                            Some(quote_price) => SystemResult::Ok(ContractResult::from(
-                                to_binary(&PriceResponse {
-                                rate: decimal_division(*base_price, *quote_price),
-                                last_updated_base: 1000u64,
-                                last_updated_quote: 1000u64,
-                            }))),
+                            Some(quote_price) => {
+                                SystemResult::Ok(ContractResult::from(to_binary(&PriceResponse {
+                                    rate: decimal_division(*base_price, *quote_price),
+                                    last_updated_base: 1000u64,
+                                    last_updated_quote: 1000u64,
+                                })))
+                            }
                             None => SystemResult::Err(SystemError::InvalidRequest {
                                 error: "No oracle price exists".to_string(),
                                 request: msg.as_slice().into(),
@@ -284,14 +282,15 @@ impl WasmMockQuerier {
                 },
                 MockQueryMsg::CollateralPrice { asset } => {
                     match self.collateral_oracle_querier.collateral_infos.get(&asset) {
-                        Some(collateral_info) => SystemResult::Ok(ContractResult::from(
-                            to_binary(&CollateralPriceResponse {
-                            asset,
-                            rate: collateral_info.0,
-                            last_updated: 1000u64,
-                            multiplier: collateral_info.1,
-                            is_revoked: collateral_info.2,
-                        }))),
+                        Some(collateral_info) => SystemResult::Ok(ContractResult::from(to_binary(
+                            &CollateralPriceResponse {
+                                asset,
+                                rate: collateral_info.0,
+                                last_updated: 1000u64,
+                                multiplier: collateral_info.1,
+                                is_revoked: collateral_info.2,
+                            },
+                        ))),
                         None => SystemResult::Err(SystemError::InvalidRequest {
                             error: "Collateral info does not exist".to_string(),
                             request: msg.as_slice().into(),
@@ -306,12 +305,13 @@ impl WasmMockQuerier {
                         .pairs
                         .get(&(asset_infos[0].to_string() + &asset_infos[1].to_string()))
                     {
-                        Some(pair) => SystemResult::Ok(ContractResult::from(
-                            to_binary(&PairInfo {
-                            asset_infos,
-                            contract_addr: api.addr_validate(pair.clone().as_str()).unwrap(),
-                            liquidity_token: Addr::unchecked("liquidity"),
-                        }))),
+                        Some(pair) => {
+                            SystemResult::Ok(ContractResult::from(to_binary(&PairInfo {
+                                asset_infos,
+                                contract_addr: api.addr_validate(pair.clone().as_str()).unwrap(),
+                                liquidity_token: Addr::unchecked("liquidity"),
+                            })))
+                        }
                         None => SystemResult::Err(SystemError::InvalidRequest {
                             error: "No pair exists".to_string(),
                             request: msg.as_slice().into(),
@@ -365,7 +365,9 @@ impl WasmMockQuerier {
                         }
                     };
 
-                    SystemResult::Ok(ContractResult::from(to_binary(&to_binary(&balance).unwrap())))
+                    SystemResult::Ok(ContractResult::from(to_binary(
+                        &to_binary(&balance).unwrap(),
+                    )))
                 } else if key.len() > prefix_feeder.len()
                     && key[..prefix_feeder.len()].to_vec() == prefix_feeder
                 {
@@ -375,7 +377,8 @@ impl WasmMockQuerier {
                     if contract_addr == "oracle0000" {
                         let asset_token = api
                             .addr_humanize(&(CanonicalAddr::from(rest_key.to_vec())))
-                            .unwrap().to_string();
+                            .unwrap()
+                            .to_string();
 
                         let feeder = match self.oracle_querier.feeders.get(&asset_token) {
                             Some(v) => v,
@@ -406,9 +409,7 @@ impl WasmMockQuerier {
 }
 
 impl WasmMockQuerier {
-    pub fn new(
-        base: MockQuerier<TerraQueryWrapper>,
-    ) -> Self {
+    pub fn new(base: MockQuerier<TerraQueryWrapper>) -> Self {
         WasmMockQuerier {
             base,
             token_querier: TokenQuerier::default(),

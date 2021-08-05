@@ -29,16 +29,14 @@ pub enum ExecuteMsg {
     },
     ReleasePositionFunds {
         position_idx: Uint128,
-    }
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     Config {},
-    PositionLockInfo {
-        position_idx: Uint128,
-    },
+    PositionLockInfo { position_idx: Uint128 },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

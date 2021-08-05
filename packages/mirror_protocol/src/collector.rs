@@ -28,9 +28,11 @@ pub enum ExecuteMsg {
         aust_token: Option<String>,
         anchor_market: Option<String>,
         bluna_token: Option<String>,
-        bluna_swap_denom: Option<String>,  
+        bluna_swap_denom: Option<String>,
     },
-    Convert { asset_token: String },
+    Convert {
+        asset_token: String,
+    },
     Distribute {},
     /// Internal operation to swap Luna for UST
     LunaSwapHook {},

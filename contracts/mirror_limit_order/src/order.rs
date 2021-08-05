@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    attr, Addr, CosmosMsg, Decimal, Deps, DepsMut, MessageInfo, Response,
-    StdError, StdResult, Uint128,
+    attr, Addr, CosmosMsg, Decimal, Deps, DepsMut, MessageInfo, Response, StdError, StdResult,
+    Uint128,
 };
 
 use terraswap::asset::Asset;
@@ -48,18 +48,17 @@ pub fn submit_order(
     })
 }
 
-pub fn cancel_order(
-    deps: DepsMut,
-    info: MessageInfo,
-    order_id: u64,
-) -> StdResult<Response> {
+pub fn cancel_order(deps: DepsMut, info: MessageInfo, order_id: u64) -> StdResult<Response> {
     let order: Order = read_order(deps.storage, order_id)?;
     if order.bidder_addr != deps.api.addr_canonicalize(info.sender.as_str())? {
         return Err(StdError::generic_err("unauthorized"));
     }
 
     // Compute refund asset
-    let left_offer_amount = order.offer_asset.amount.checked_sub(order.filled_offer_amount)?;
+    let left_offer_amount = order
+        .offer_asset
+        .amount
+        .checked_sub(order.filled_offer_amount)?;
     let bidder_refund = Asset {
         info: order.offer_asset.info.to_normal(deps.api)?,
         amount: left_offer_amount,
@@ -67,9 +66,7 @@ pub fn cancel_order(
 
     // Build refund msg
     let messages = if left_offer_amount > Uint128::zero() {
-        vec![bidder_refund
-            .clone()
-            .into_msg(&deps.querier, info.sender)?]
+        vec![bidder_refund.clone().into_msg(&deps.querier, info.sender)?]
     } else {
         vec![]
     };
@@ -103,8 +100,14 @@ pub fn execute_order(
     }
 
     // Compute left offer & ask amount
-    let left_offer_amount = order.offer_asset.amount.checked_sub(order.filled_offer_amount)?;
-    let left_ask_amount = order.ask_asset.amount.checked_sub(order.filled_ask_amount)?;
+    let left_offer_amount = order
+        .offer_asset
+        .amount
+        .checked_sub(order.filled_offer_amount)?;
+    let left_ask_amount = order
+        .ask_asset
+        .amount
+        .checked_sub(order.filled_ask_amount)?;
     if left_ask_amount < execute_asset.amount || left_offer_amount.is_zero() {
         return Err(StdError::generic_err("insufficient order amount left"));
     }
@@ -118,8 +121,7 @@ pub fn execute_order(
             std::cmp::min(
                 left_offer_amount,
                 execute_asset.amount
-                    * Decimal::from_ratio(order.offer_asset.amount,
-                                          order.ask_asset.amount),
+                    * Decimal::from_ratio(order.offer_asset.amount, order.ask_asset.amount),
             )
         },
     };
@@ -166,10 +168,7 @@ pub fn execute_order(
     })
 }
 
-pub fn query_order(
-    deps: Deps,
-    order_id: u64,
-) -> StdResult<OrderResponse> {
+pub fn query_order(deps: Deps, order_id: u64) -> StdResult<OrderResponse> {
     let order: Order = read_order(deps.storage, order_id)?;
     let resp = OrderResponse {
         order_id: order.order_id,
@@ -222,9 +221,7 @@ pub fn query_orders(
     Ok(resp)
 }
 
-pub fn query_last_order_id(
-    deps: Deps,
-) -> StdResult<LastOrderIdResponse> {
+pub fn query_last_order_id(deps: Deps) -> StdResult<LastOrderIdResponse> {
     let last_order_id = read_last_order_id(deps.storage)?;
     let resp = LastOrderIdResponse { last_order_id };
 

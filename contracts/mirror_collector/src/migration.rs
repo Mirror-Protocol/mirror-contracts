@@ -52,13 +52,10 @@ mod migrate_tests {
     use super::*;
     use crate::state::read_config;
     use cosmwasm_std::testing::mock_dependencies;
-    use cosmwasm_std::{Api};
+    use cosmwasm_std::Api;
     use cosmwasm_storage::singleton;
 
-    pub fn store_legacy_config(
-        storage: &mut dyn Storage,
-        config: &LegacyConfig,
-    ) -> StdResult<()> {
+    pub fn store_legacy_config(storage: &mut dyn Storage, config: &LegacyConfig) -> StdResult<()> {
         singleton(storage, KEY_CONFIG).save(config)
     }
 
@@ -66,34 +63,13 @@ mod migrate_tests {
     fn test_config_migration() {
         let mut deps = mock_dependencies(&[]);
 
-        let owner = deps
-            .api
-            .addr_canonicalize(&"owner0000")
-            .unwrap();
-        let distribution_contract = deps
-            .api
-            .addr_canonicalize(&"distribution0000")
-            .unwrap();
-        let terraswap_factory = deps
-            .api
-            .addr_canonicalize(&"terraswapfactory0000")
-            .unwrap();
-        let mirror_token = deps
-            .api
-            .addr_canonicalize(&"mir0000")
-            .unwrap();
-        let aust_token = deps
-            .api
-            .addr_canonicalize(&"aust0000")
-            .unwrap();
-        let anchor_market = deps
-            .api
-            .addr_canonicalize(&"anchormarket0000")
-            .unwrap();
-        let bluna_token = deps
-            .api
-            .addr_canonicalize(&"bluna0000")
-            .unwrap();
+        let owner = deps.api.addr_canonicalize(&"owner0000").unwrap();
+        let distribution_contract = deps.api.addr_canonicalize(&"distribution0000").unwrap();
+        let terraswap_factory = deps.api.addr_canonicalize(&"terraswapfactory0000").unwrap();
+        let mirror_token = deps.api.addr_canonicalize(&"mir0000").unwrap();
+        let aust_token = deps.api.addr_canonicalize(&"aust0000").unwrap();
+        let anchor_market = deps.api.addr_canonicalize(&"anchormarket0000").unwrap();
+        let bluna_token = deps.api.addr_canonicalize(&"bluna0000").unwrap();
 
         store_legacy_config(
             deps.as_mut().storage,

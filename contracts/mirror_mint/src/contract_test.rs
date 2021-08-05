@@ -3,9 +3,7 @@ mod tests {
     use crate::contract::{execute, instantiate, query};
     use crate::mock_querier::mock_dependencies;
     use cosmwasm_std::testing::{mock_env, mock_info};
-    use cosmwasm_std::{
-        from_binary, to_binary, Addr, CosmosMsg, Decimal, StdError, WasmMsg,
-    };
+    use cosmwasm_std::{from_binary, to_binary, Addr, CosmosMsg, Decimal, StdError, WasmMsg};
     use mirror_protocol::collateral_oracle::{ExecuteMsg::RegisterCollateralAsset, SourceType};
     use mirror_protocol::mint::{
         AssetConfigResponse, ConfigResponse, ExecuteMsg, IPOParams, InstantiateMsg, QueryMsg,

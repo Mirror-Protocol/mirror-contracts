@@ -45,10 +45,7 @@ pub fn store_collateral_info(
     collaterals_bucket.save(collateral.asset.as_bytes(), collateral)
 }
 
-pub fn read_collateral_info(
-    storage: &dyn Storage,
-    id: &String,
-) -> StdResult<CollateralAssetInfo> {
+pub fn read_collateral_info(storage: &dyn Storage, id: &String) -> StdResult<CollateralAssetInfo> {
     let price_bucket: ReadonlyBucket<CollateralAssetInfo> =
         ReadonlyBucket::new(storage, PREFIX_COLLATERAL_ASSET_INFO);
     price_bucket.load(id.as_bytes())

@@ -5,17 +5,13 @@ use crate::state::{
 };
 
 use cosmwasm_std::{
-    attr, to_binary, CanonicalAddr, CosmosMsg, Deps, DepsMut, MessageInfo, 
-    Response, StdError, StdResult, Storage, Uint128, WasmMsg,
+    attr, to_binary, CanonicalAddr, CosmosMsg, Deps, DepsMut, MessageInfo, Response, StdError,
+    StdResult, Storage, Uint128, WasmMsg,
 };
 use cw20::Cw20ExecuteMsg;
 use mirror_protocol::gov::{PollStatus, StakerResponse, VoterInfo};
 
-pub fn stake_voting_tokens(
-    deps: DepsMut,
-    sender: String,
-    amount: Uint128,
-) -> StdResult<Response> {
+pub fn stake_voting_tokens(deps: DepsMut, sender: String, amount: Uint128) -> StdResult<Response> {
     if amount.is_zero() {
         return Err(StdError::generic_err("Insufficient funds sent"));
     }
@@ -34,7 +30,8 @@ pub fn stake_voting_tokens(
         deps.as_ref(),
         deps.api.addr_humanize(&config.mirror_token)?.to_string(),
         &state.contract_addr,
-    )?.checked_sub(total_locked_balance + amount)?;
+    )?
+    .checked_sub(total_locked_balance + amount)?;
 
     let share = if total_balance.is_zero() || state.total_share.is_zero() {
         amount
@@ -81,10 +78,12 @@ pub fn withdraw_voting_tokens(
             deps.as_ref(),
             deps.api.addr_humanize(&config.mirror_token)?.to_string(),
             &state.contract_addr,
-        )?.checked_sub(total_locked_balance))?
-            .u128();
+        )?
+        .checked_sub(total_locked_balance))?
+        .u128();
 
-        let user_locked_balance = compute_locked_balance(deps.storage, &mut token_manager, &&sender_address_raw)?;
+        let user_locked_balance =
+            compute_locked_balance(deps.storage, &mut token_manager, &&sender_address_raw)?;
         let user_locked_share = user_locked_balance * total_share / total_balance;
         let user_share = token_manager.share.u128();
 
@@ -129,9 +128,7 @@ fn compute_locked_balance(
 ) -> StdResult<u128> {
     // filter out not in-progress polls
     token_manager.locked_balance.retain(|(poll_id, _)| {
-        let poll: Poll = poll_read(storage)
-            .load(&poll_id.to_be_bytes())
-            .unwrap();
+        let poll: Poll = poll_read(storage).load(&poll_id.to_be_bytes()).unwrap();
 
         // cleanup not needed information, voting info in polls with no rewards
         if poll.status != PollStatus::InProgress && poll.voters_reward.is_zero() {
@@ -149,10 +146,7 @@ fn compute_locked_balance(
         .unwrap_or_default())
 }
 
-pub fn deposit_reward(
-    deps: DepsMut,
-    amount: Uint128,
-) -> StdResult<Response> {
+pub fn deposit_reward(deps: DepsMut, amount: Uint128) -> StdResult<Response> {
     let config = config_read(deps.storage).load()?;
 
     let mut polls_in_progress = read_polls(
@@ -205,10 +199,7 @@ pub fn deposit_reward(
     })
 }
 
-pub fn withdraw_voting_rewards(
-    deps: DepsMut,
-    info: MessageInfo,
-) -> StdResult<Response> {
+pub fn withdraw_voting_rewards(deps: DepsMut, info: MessageInfo) -> StdResult<Response> {
     let config: Config = config_store(deps.storage).load()?;
     let sender_address_raw = deps.api.addr_canonicalize(info.sender.as_str())?;
     let key = sender_address_raw.as_slice();
@@ -224,8 +215,9 @@ pub fn withdraw_voting_rewards(
     }
 
     state_store(deps.storage).update(|mut state| -> StdResult<_> {
-        state.pending_voting_rewards =
-            state.pending_voting_rewards.checked_sub(Uint128(user_reward_amount))?;
+        state.pending_voting_rewards = state
+            .pending_voting_rewards
+            .checked_sub(Uint128(user_reward_amount))?;
         Ok(state)
     })?;
 
@@ -238,10 +230,7 @@ pub fn withdraw_voting_rewards(
     )
 }
 
-pub fn stake_voting_rewards(
-    deps: DepsMut,
-    info: MessageInfo,
-) -> StdResult<Response> {
+pub fn stake_voting_rewards(deps: DepsMut, info: MessageInfo) -> StdResult<Response> {
     let config: Config = config_store(deps.storage).load()?;
     let mut state: State = state_store(deps.storage).load()?;
     let sender_address_raw = deps.api.addr_canonicalize(info.sender.as_str())?;
@@ -263,9 +252,12 @@ pub fn stake_voting_rewards(
         deps.as_ref(),
         deps.api.addr_humanize(&config.mirror_token)?.to_string(),
         &state.contract_addr,
-    )?.checked_sub(total_locked_balance)?;
+    )?
+    .checked_sub(total_locked_balance)?;
 
-    state.pending_voting_rewards = state.pending_voting_rewards.checked_sub(Uint128(user_reward_amount))?;
+    state.pending_voting_rewards = state
+        .pending_voting_rewards
+        .checked_sub(Uint128(user_reward_amount))?;
 
     let share: Uint128 = if total_balance.is_zero() || state.total_share.is_zero() {
         Uint128(user_reward_amount)
@@ -332,8 +324,9 @@ fn get_withdrawable_polls(
             (poll, voter_info_res)
         })
         .filter(|(poll, voter_info_res)| {
-            poll.status != PollStatus::InProgress && voter_info_res.is_ok() && 
-            !poll.voters_reward.is_zero()
+            poll.status != PollStatus::InProgress
+                && voter_info_res.is_ok()
+                && !poll.voters_reward.is_zero()
         })
         .map(|(poll, voter_info_res)| (poll, voter_info_res.unwrap()))
         .collect();
@@ -371,10 +364,7 @@ fn send_tokens(
     Ok(r)
 }
 
-pub fn query_staker(
-    deps: Deps,
-    address: String,
-) -> StdResult<StakerResponse> {
+pub fn query_staker(deps: Deps, address: String) -> StdResult<StakerResponse> {
     let addr_raw = deps.api.addr_canonicalize(&address).unwrap();
     let config: Config = config_read(deps.storage).load()?;
     let state: State = state_read(deps.storage).load()?;
@@ -385,14 +375,13 @@ pub fn query_staker(
     // calculate pending voting rewards
     let w_polls: Vec<(Poll, VoterInfo)> =
         get_withdrawable_polls(deps.storage, &token_manager, &addr_raw);
-    
+
     let mut user_reward_amount = Uint128::zero();
     let w_polls_res: Vec<(u64, Uint128)> = w_polls
         .iter()
         .map(|(poll, voting_info)| {
             // calculate reward share
-            let total_votes =
-                poll.no_votes + poll.yes_votes + poll.abstain_votes;
+            let total_votes = poll.no_votes + poll.yes_votes + poll.abstain_votes;
             let poll_voting_reward = poll
                 .voters_reward
                 .multiply_ratio(voting_info.balance, total_votes);
@@ -416,7 +405,8 @@ pub fn query_staker(
         deps,
         deps.api.addr_humanize(&config.mirror_token)?.to_string(),
         &state.contract_addr,
-    )?.checked_sub(total_locked_balance)?;
+    )?
+    .checked_sub(total_locked_balance)?;
 
     Ok(StakerResponse {
         balance: if !state.total_share.is_zero() {

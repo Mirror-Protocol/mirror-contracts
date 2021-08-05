@@ -1,9 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{
-    CanonicalAddr, Decimal, StdError, StdResult, Storage, Uint128,
-};
+use cosmwasm_std::{CanonicalAddr, Decimal, StdError, StdResult, Storage, Uint128};
 
 use cosmwasm_storage::{singleton, singleton_read, Bucket, ReadonlyBucket};
 use mirror_protocol::common::OrderBy;
@@ -189,8 +187,7 @@ pub fn remove_position(storage: &mut dyn Storage, idx: Uint128) -> StdResult<()>
 
 /// read position from store with position idx
 pub fn read_position(storage: &dyn Storage, idx: Uint128) -> StdResult<Position> {
-    let position_bucket: ReadonlyBucket<Position> =
-        ReadonlyBucket::new(storage, PREFIX_POSITION);
+    let position_bucket: ReadonlyBucket<Position> = ReadonlyBucket::new(storage, PREFIX_POSITION);
     position_bucket.load(&idx.u128().to_be_bytes())
 }
 
@@ -203,8 +200,7 @@ pub fn read_positions(
     limit: Option<u32>,
     order_by: Option<OrderBy>,
 ) -> StdResult<Vec<Position>> {
-    let position_bucket: ReadonlyBucket<Position> =
-        ReadonlyBucket::new(storage, PREFIX_POSITION);
+    let position_bucket: ReadonlyBucket<Position> = ReadonlyBucket::new(storage, PREFIX_POSITION);
 
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
     let start = calc_range_start(start_after);

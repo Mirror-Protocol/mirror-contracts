@@ -100,10 +100,7 @@ impl WasmMockQuerier {
 }
 
 impl WasmMockQuerier {
-    pub fn new<A: Api>(
-        base: MockQuerier<TerraQueryWrapper>,
-        _api: A,
-    ) -> Self {
+    pub fn new<A: Api>(base: MockQuerier<TerraQueryWrapper>, _api: A) -> Self {
         WasmMockQuerier {
             base,
             tax_querier: TaxQuerier::default(),

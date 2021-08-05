@@ -1,6 +1,6 @@
 use cosmwasm_std::testing::{mock_env, mock_info};
 use cosmwasm_std::{
-    from_binary, attr, to_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, StdError, Uint128,
+    attr, from_binary, to_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, StdError, Uint128,
     WasmMsg,
 };
 
@@ -10,7 +10,8 @@ use crate::testing::mock_querier::mock_dependencies;
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 use mirror_protocol::common::OrderBy;
 use mirror_protocol::limit_order::{
-    Cw20HookMsg, ExecuteMsg, InstantiateMsg, LastOrderIdResponse, OrderResponse, OrdersResponse, QueryMsg,
+    Cw20HookMsg, ExecuteMsg, InstantiateMsg, LastOrderIdResponse, OrderResponse, OrdersResponse,
+    QueryMsg,
 };
 use terraswap::asset::{Asset, AssetInfo};
 
@@ -117,8 +118,10 @@ fn submit_order() {
     );
 
     assert_eq!(
-        from_binary::<LastOrderIdResponse>(&query(deps.as_ref(), mock_env(), QueryMsg::LastOrderId {}).unwrap())
-            .unwrap(),
+        from_binary::<LastOrderIdResponse>(
+            &query(deps.as_ref(), mock_env(), QueryMsg::LastOrderId {}).unwrap()
+        )
+        .unwrap(),
         LastOrderIdResponse { last_order_id: 1 }
     );
 
@@ -126,14 +129,14 @@ fn submit_order() {
         sender: "addr0000".to_string(),
         amount: Uint128(1000000u128),
         msg: to_binary(&Cw20HookMsg::SubmitOrder {
-                ask_asset: Asset {
-                    amount: Uint128::from(1000000u128),
-                    info: AssetInfo::NativeToken {
-                        denom: "uusd".to_string(),
-                    },
+            ask_asset: Asset {
+                amount: Uint128::from(1000000u128),
+                info: AssetInfo::NativeToken {
+                    denom: "uusd".to_string(),
                 },
-            })
-            .unwrap(),
+            },
+        })
+        .unwrap(),
     });
 
     let info = mock_info("mAAPL", &[]);
@@ -149,8 +152,10 @@ fn submit_order() {
         ]
     );
     assert_eq!(
-        from_binary::<LastOrderIdResponse>(&query(deps.as_ref(), mock_env(), QueryMsg::LastOrderId {}).unwrap())
-            .unwrap(),
+        from_binary::<LastOrderIdResponse>(
+            &query(deps.as_ref(), mock_env(), QueryMsg::LastOrderId {}).unwrap()
+        )
+        .unwrap(),
         LastOrderIdResponse { last_order_id: 2 }
     );
 }
@@ -246,14 +251,14 @@ fn cancel_order_token() {
         sender: "addr0000".to_string(),
         amount: Uint128(1000000u128),
         msg: to_binary(&Cw20HookMsg::SubmitOrder {
-                ask_asset: Asset {
-                    amount: Uint128::from(1000000u128),
-                    info: AssetInfo::NativeToken {
-                        denom: "uusd".to_string(),
-                    },
+            ask_asset: Asset {
+                amount: Uint128::from(1000000u128),
+                info: AssetInfo::NativeToken {
+                    denom: "uusd".to_string(),
                 },
-            })
-            .unwrap(),
+            },
+        })
+        .unwrap(),
     });
 
     let info = mock_info("mAAPL", &[]);
@@ -419,7 +424,8 @@ fn execute_order_native_token() {
     );
 
     let resp: OrderResponse =
-        from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Order { order_id: 1 }).unwrap()).unwrap();
+        from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Order { order_id: 1 }).unwrap())
+            .unwrap();
     assert_eq!(resp.filled_ask_amount, Uint128(500000u128));
     assert_eq!(resp.filled_offer_amount, Uint128(500000u128));
 
@@ -454,7 +460,10 @@ fn execute_order_native_token() {
         ]
     );
 
-    assert_eq!(true, query(deps.as_ref(), mock_env(), QueryMsg::Order { order_id: 1 }).is_err());
+    assert_eq!(
+        true,
+        query(deps.as_ref(), mock_env(), QueryMsg::Order { order_id: 1 }).is_err()
+    );
 }
 
 #[test]
@@ -478,14 +487,14 @@ fn execute_order_token() {
         sender: "addr0000".to_string(),
         amount: Uint128::from(1000000u128),
         msg: to_binary(&Cw20HookMsg::SubmitOrder {
-                ask_asset: Asset {
-                    amount: Uint128::from(1000000u128),
-                    info: AssetInfo::Token {
-                        contract_addr: Addr::unchecked("token0001"),
-                    },
+            ask_asset: Asset {
+                amount: Uint128::from(1000000u128),
+                info: AssetInfo::Token {
+                    contract_addr: Addr::unchecked("token0001"),
                 },
-            })
-            .unwrap(),
+            },
+        })
+        .unwrap(),
     });
 
     let info = mock_info("token0000", &[]);
@@ -542,7 +551,8 @@ fn execute_order_token() {
     );
 
     let resp: OrderResponse =
-        from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Order { order_id: 1 }).unwrap()).unwrap();
+        from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Order { order_id: 1 }).unwrap())
+            .unwrap();
     assert_eq!(resp.filled_ask_amount, Uint128(500000u128));
     assert_eq!(resp.filled_offer_amount, Uint128(500000u128));
 
@@ -581,7 +591,10 @@ fn execute_order_token() {
         ]
     );
 
-    assert_eq!(true, query(deps.as_ref(), mock_env(), QueryMsg::Order { order_id: 1 }).is_err());
+    assert_eq!(
+        true,
+        query(deps.as_ref(), mock_env(), QueryMsg::Order { order_id: 1 }).is_err()
+    );
 }
 
 #[test]
@@ -629,14 +642,14 @@ fn orders_querier() {
         sender: "addr0000".to_string(),
         amount: Uint128::from(1000000u128),
         msg: to_binary(&Cw20HookMsg::SubmitOrder {
-                ask_asset: Asset {
-                    amount: Uint128::from(1000000u128),
-                    info: AssetInfo::Token {
-                        contract_addr: Addr::unchecked("token0001"),
-                    },
+            ask_asset: Asset {
+                amount: Uint128::from(1000000u128),
+                info: AssetInfo::Token {
+                    contract_addr: Addr::unchecked("token0001"),
                 },
-            })
-            .unwrap(),
+            },
+        })
+        .unwrap(),
     });
 
     let info = mock_info("token0000", &[]);

@@ -28,29 +28,17 @@ mod tests {
         store_legacy_config(
             &mut deps.storage,
             &LegacyConfig {
-                owner: deps
-                    .api
-                    .addr_canonicalize(&"owner")
-                    .unwrap(),
-                mirror_token: deps
-                    .api
-                    .addr_canonicalize(&"mirror")
-                    .unwrap(),
+                owner: deps.api.addr_canonicalize(&"owner").unwrap(),
+                mirror_token: deps.api.addr_canonicalize(&"mirror").unwrap(),
             },
         )
         .unwrap();
 
         migrate_config(
             &mut deps.storage,
-            deps.api
-                .addr_canonicalize(&"mint")
-                .unwrap(),
-            deps.api
-                .addr_canonicalize(&"oracle")
-                .unwrap(),
-            deps.api
-                .addr_canonicalize(&"terraswap_factory")
-                .unwrap(),
+            deps.api.addr_canonicalize(&"mint").unwrap(),
+            deps.api.addr_canonicalize(&"oracle").unwrap(),
+            deps.api.addr_canonicalize(&"terraswap_factory").unwrap(),
             "uusd".to_string(),
             7200,
         )
@@ -58,26 +46,11 @@ mod tests {
 
         assert_eq!(
             Config {
-                owner: deps
-                    .api
-                    .addr_canonicalize(&"owner")
-                    .unwrap(),
-                mirror_token: deps
-                    .api
-                    .addr_canonicalize(&"mirror")
-                    .unwrap(),
-                mint_contract: deps
-                    .api
-                    .addr_canonicalize(&"mint")
-                    .unwrap(),
-                oracle_contract: deps
-                    .api
-                    .addr_canonicalize(&"oracle")
-                    .unwrap(),
-                terraswap_factory: deps
-                    .api
-                    .addr_canonicalize(&"terraswap_factory")
-                    .unwrap(),
+                owner: deps.api.addr_canonicalize(&"owner").unwrap(),
+                mirror_token: deps.api.addr_canonicalize(&"mirror").unwrap(),
+                mint_contract: deps.api.addr_canonicalize(&"mint").unwrap(),
+                oracle_contract: deps.api.addr_canonicalize(&"oracle").unwrap(),
+                terraswap_factory: deps.api.addr_canonicalize(&"terraswap_factory").unwrap(),
                 base_denom: "uusd".to_string(),
                 premium_min_update_interval: 7200,
             },
@@ -90,15 +63,9 @@ mod tests {
         let mut deps = mock_dependencies(&[]);
         store_legacy_pool_info(
             &mut deps.storage,
-            &deps
-                .api
-                .addr_canonicalize(&"asset1")
-                .unwrap(),
+            &deps.api.addr_canonicalize(&"asset1").unwrap(),
             &LegacyPoolInfo {
-                staking_token: deps
-                    .api
-                    .addr_canonicalize(&"staking1")
-                    .unwrap(),
+                staking_token: deps.api.addr_canonicalize(&"staking1").unwrap(),
                 pending_reward: Uint128::zero(),
                 total_bond_amount: Uint128::zero(),
                 reward_index: Decimal::zero(),
@@ -108,15 +75,9 @@ mod tests {
 
         store_legacy_pool_info(
             &mut deps.storage,
-            &deps
-                .api
-                .addr_canonicalize(&"asset2")
-                .unwrap(),
+            &deps.api.addr_canonicalize(&"asset2").unwrap(),
             &LegacyPoolInfo {
-                staking_token: deps
-                    .api
-                    .addr_canonicalize(&"staking2")
-                    .unwrap(),
+                staking_token: deps.api.addr_canonicalize(&"staking2").unwrap(),
                 pending_reward: Uint128::zero(),
                 total_bond_amount: Uint128::zero(),
                 reward_index: Decimal::zero(),
@@ -128,10 +89,7 @@ mod tests {
 
         assert_eq!(
             PoolInfo {
-                staking_token: deps
-                    .api
-                    .addr_canonicalize(&"staking1")
-                    .unwrap(),
+                staking_token: deps.api.addr_canonicalize(&"staking1").unwrap(),
                 pending_reward: Uint128::zero(),
                 total_bond_amount: Uint128::zero(),
                 reward_index: Decimal::zero(),
@@ -144,20 +102,14 @@ mod tests {
             },
             read_pool_info(
                 &deps.storage,
-                &deps
-                    .api
-                    .addr_canonicalize(&"asset1")
-                    .unwrap(),
+                &deps.api.addr_canonicalize(&"asset1").unwrap(),
             )
             .unwrap()
         );
 
         assert_eq!(
             PoolInfo {
-                staking_token: deps
-                    .api
-                    .addr_canonicalize(&"staking2")
-                    .unwrap(),
+                staking_token: deps.api.addr_canonicalize(&"staking2").unwrap(),
                 pending_reward: Uint128::zero(),
                 total_bond_amount: Uint128::zero(),
                 reward_index: Decimal::zero(),
@@ -170,10 +122,7 @@ mod tests {
             },
             read_pool_info(
                 &deps.storage,
-                &deps
-                    .api
-                    .addr_canonicalize(&"asset2")
-                    .unwrap(),
+                &deps.api.addr_canonicalize(&"asset2").unwrap(),
             )
             .unwrap()
         );

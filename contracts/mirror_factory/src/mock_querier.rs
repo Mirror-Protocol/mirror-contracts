@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Addr, Api, CanonicalAddr, Coin, ContractResult, Decimal, Empty,
-    OwnedDeps, Querier, QuerierResult, QueryRequest, SystemError, SystemResult, WasmQuery,
+    from_binary, from_slice, to_binary, Addr, Api, CanonicalAddr, Coin, ContractResult, Decimal,
+    Empty, OwnedDeps, Querier, QuerierResult, QueryRequest, SystemError, SystemResult, WasmQuery,
 };
 use cosmwasm_storage::to_length_prefixed;
 
@@ -17,9 +17,8 @@ use terraswap::asset::{AssetInfo, PairInfo};
 pub fn mock_dependencies(
     contract_balance: &[Coin],
 ) -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier> {
-    let custom_querier: WasmMockQuerier = WasmMockQuerier::new(
-        MockQuerier::new(&[(&MOCK_CONTRACT_ADDR, contract_balance)]),
-    );
+    let custom_querier: WasmMockQuerier =
+        WasmMockQuerier::new(MockQuerier::new(&[(&MOCK_CONTRACT_ADDR, contract_balance)]));
 
     OwnedDeps {
         api: MockApi::default(),
@@ -69,9 +68,7 @@ impl OracleQuerier {
     }
 }
 
-pub(crate) fn address_pair_to_map(
-    address_pair: &[(&String, &String)],
-) -> HashMap<String, String> {
+pub(crate) fn address_pair_to_map(address_pair: &[(&String, &String)]) -> HashMap<String, String> {
     let mut address_pair_map: HashMap<String, String> = HashMap::new();
     for (addr1, addr2) in address_pair.iter() {
         address_pair_map.insert(addr1.to_string(), addr2.to_string());
@@ -134,8 +131,7 @@ impl WasmMockQuerier {
                 QueryMsg::Pair { asset_infos } => {
                     let key = asset_infos[0].to_string() + asset_infos[1].to_string().as_str();
                     match self.terraswap_factory_querier.pairs.get(&key) {
-                        Some(v) => SystemResult::Ok(ContractResult::from(
-                        to_binary(&PairInfo {
+                        Some(v) => SystemResult::Ok(ContractResult::from(to_binary(&PairInfo {
                             contract_addr: Addr::unchecked("pair"),
                             liquidity_token: Addr::unchecked(v.clone()),
                             asset_infos: [
@@ -169,7 +165,8 @@ impl WasmMockQuerier {
                     if contract_addr == "oracle0000" {
                         let asset_token: String = api
                             .addr_humanize(&(CanonicalAddr::from(rest_key.to_vec())))
-                            .unwrap().to_string();
+                            .unwrap()
+                            .to_string();
 
                         let feeder = match self.oracle_querier.feeders.get(&asset_token) {
                             Some(v) => v,
@@ -185,7 +182,7 @@ impl WasmMockQuerier {
                         };
 
                         SystemResult::Ok(ContractResult::from(to_binary(
-                            &api.addr_canonicalize(&feeder).unwrap()
+                            &api.addr_canonicalize(&feeder).unwrap(),
                         )))
                     } else {
                         panic!("DO NOT ENTER HERE")
@@ -196,7 +193,8 @@ impl WasmMockQuerier {
                     let rest_key: &[u8] = &key[prefix_asset_config.len()..];
                     let asset_token: String = api
                         .addr_humanize(&(CanonicalAddr::from(rest_key.to_vec())))
-                        .unwrap().to_string();
+                        .unwrap()
+                        .to_string();
 
                     let config = match self.mint_querier.configs.get(&asset_token) {
                         Some(v) => v,
@@ -208,13 +206,11 @@ impl WasmMockQuerier {
                         }
                     };
 
-                    SystemResult::Ok(ContractResult::from(to_binary(
-                        &MintAssetConfig {
-                            token: api.addr_canonicalize(&asset_token).unwrap(),
-                            auction_discount: config.0,
-                            min_collateral_ratio: config.1,
-                        }
-                    )))
+                    SystemResult::Ok(ContractResult::from(to_binary(&MintAssetConfig {
+                        token: api.addr_canonicalize(&asset_token).unwrap(),
+                        auction_discount: config.0,
+                        min_collateral_ratio: config.1,
+                    })))
                 } else {
                     panic!("DO NOT ENTER HERE")
                 }

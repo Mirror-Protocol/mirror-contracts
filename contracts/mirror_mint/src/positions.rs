@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    attr, to_binary, Addr, Attribute, CosmosMsg, Decimal, Deps, DepsMut, Env, 
-    Response, StdError, StdResult, Uint128, WasmMsg,
+    attr, to_binary, Addr, Attribute, CosmosMsg, Decimal, Deps, DepsMut, Env, Response, StdError,
+    StdResult, Uint128, WasmMsg,
 };
 
 use crate::{
@@ -69,17 +69,21 @@ pub fn open_position(
     // for assets with limited minting period (preIPO assets), assert minting phase
     assert_mint_period(&env, &asset_config)?;
 
-    if collateral_ratio < decimal_multiplication(asset_config.min_collateral_ratio, 
-        collateral_multiplier) 
-        {
+    if collateral_ratio
+        < decimal_multiplication(asset_config.min_collateral_ratio, collateral_multiplier)
+    {
         return Err(StdError::generic_err(
             "Can not open a position with low collateral ratio than minimum",
         ));
     }
 
     let oracle: Addr = deps.api.addr_humanize(&config.oracle)?;
-    let asset_price: Decimal =
-        load_asset_price(deps.as_ref(), oracle, &asset_info_raw, Some(env.block.time.nanos() / 1_000_000_000))?;
+    let asset_price: Decimal = load_asset_price(
+        deps.as_ref(),
+        oracle,
+        &asset_info_raw,
+        Some(env.block.time.nanos() / 1_000_000_000),
+    )?;
 
     let asset_price_in_collateral_asset = decimal_division(collateral_price, asset_price);
 
@@ -297,8 +301,12 @@ pub fn withdraw(
 
     let asset_config: AssetConfig = read_asset_config(deps.storage, &asset_token_raw)?;
     let oracle: Addr = deps.api.addr_humanize(&config.oracle)?;
-    let asset_price: Decimal =
-        load_asset_price(deps.as_ref(), oracle, &position.asset.info, Some(env.block.time.nanos() / 1_000_000_000))?;
+    let asset_price: Decimal = load_asset_price(
+        deps.as_ref(),
+        oracle,
+        &position.asset.info,
+        Some(env.block.time.nanos() / 1_000_000_000),
+    )?;
 
     // Fetch collateral info from collateral oracle
     let collateral_oracle: Addr = deps.api.addr_humanize(&config.collateral_oracle)?;
@@ -347,9 +355,7 @@ pub fn withdraw(
 
     Ok(Response {
         messages: vec![
-            vec![collateral
-                .clone()
-                .into_msg(&deps.querier, position_owner)?],
+            vec![collateral.clone().into_msg(&deps.querier, position_owner)?],
             messages,
         ]
         .concat(),
@@ -409,8 +415,12 @@ pub fn mint(
     assert_mint_period(&env, &asset_config)?;
 
     let oracle: Addr = deps.api.addr_humanize(&config.oracle)?;
-    let asset_price: Decimal =
-        load_asset_price(deps.as_ref(), oracle, &position.asset.info, Some(env.block.time.nanos() / 1_000_000_000))?;
+    let asset_price: Decimal = load_asset_price(
+        deps.as_ref(),
+        oracle,
+        &position.asset.info,
+        Some(env.block.time.nanos() / 1_000_000_000),
+    )?;
 
     // Compute new asset amount
     let asset_amount: Uint128 = mint_amount + position.asset.amount;
@@ -598,8 +608,11 @@ pub fn burn(
         };
 
         position.asset.amount = position.asset.amount.checked_sub(burn_amount).unwrap();
-        position.collateral.amount =
-            position.collateral.amount.checked_sub(refund_collateral.amount).unwrap();
+        position.collateral.amount = position
+            .collateral
+            .amount
+            .checked_sub(refund_collateral.amount)
+            .unwrap();
 
         // due to rounding, include 1
         if position.collateral.amount <= Uint128(1u128) && position.asset.amount == Uint128::zero()
@@ -617,20 +630,20 @@ pub fn burn(
         };
 
         if !protocol_fee.amount.is_zero() {
-            messages.push(protocol_fee.clone().into_msg(
-                &deps.querier,
-                deps.api.addr_humanize(&config.collector)?,
-            )?);
-            refund_collateral.amount = refund_collateral.amount.checked_sub(protocol_fee.amount).unwrap();
+            messages.push(
+                protocol_fee
+                    .clone()
+                    .into_msg(&deps.querier, deps.api.addr_humanize(&config.collector)?)?,
+            );
+            refund_collateral.amount = refund_collateral
+                .amount
+                .checked_sub(protocol_fee.amount)
+                .unwrap();
         }
         attributes.push(attr("protocol_fee", protocol_fee.to_string()));
 
         // Refund collateral msg
-        messages.push(
-            refund_collateral
-                .clone()
-                .into_msg(&deps.querier, sender)?,
-        );
+        messages.push(refund_collateral.clone().into_msg(&deps.querier, sender)?);
 
         attributes.push(attr(
             "refund_collateral_amount",
@@ -657,12 +670,16 @@ pub fn burn(
         };
 
         if !protocol_fee.amount.is_zero() {
-            messages.push(protocol_fee.clone().into_msg(
-                &deps.querier,
-                deps.api.addr_humanize(&config.collector)?,
-            )?);
-            position.collateral.amount =
-                position.collateral.amount.checked_sub(protocol_fee.amount).unwrap();
+            messages.push(
+                protocol_fee
+                    .clone()
+                    .into_msg(&deps.querier, deps.api.addr_humanize(&config.collector)?)?,
+            );
+            position.collateral.amount = position
+                .collateral
+                .amount
+                .checked_sub(protocol_fee.amount)
+                .unwrap();
         }
         attributes.push(attr("protocol_fee", protocol_fee.to_string()));
 
@@ -749,8 +766,12 @@ pub fn auction(
     }
 
     let oracle: Addr = deps.api.addr_humanize(&config.oracle)?;
-    let asset_price: Decimal =
-        load_asset_price(deps.as_ref(), oracle, &position.asset.info, Some(env.block.time.nanos() / 1_000_000_000))?;
+    let asset_price: Decimal = load_asset_price(
+        deps.as_ref(),
+        oracle,
+        &position.asset.info,
+        Some(env.block.time.nanos() / 1_000_000_000),
+    )?;
 
     // fetch collateral info from collateral oracle
     let collateral_oracle: Addr = deps.api.addr_humanize(&config.collateral_oracle)?;
@@ -793,19 +814,17 @@ pub fn auction(
     let (return_collateral_amount, refund_asset_amount) =
         if asset_value_in_collateral_asset > position.collateral.amount {
             // refunds left asset to position liquidator
-            let refund_asset_amount =
-                asset_value_in_collateral_asset.checked_sub(position.collateral.amount).unwrap()
-                    * reverse_decimal(discounted_price);
+            let refund_asset_amount = asset_value_in_collateral_asset
+                .checked_sub(position.collateral.amount)
+                .unwrap()
+                * reverse_decimal(discounted_price);
 
             let refund_asset: Asset = Asset {
                 info: asset.info.clone(),
                 amount: refund_asset_amount,
             };
 
-            messages.push(refund_asset.into_msg(
-                &deps.querier,
-                sender.clone(),
-            )?);
+            messages.push(refund_asset.into_msg(&deps.querier, sender.clone())?);
 
             (position.collateral.amount, refund_asset_amount)
         } else {
@@ -813,8 +832,16 @@ pub fn auction(
         };
 
     let liquidated_asset_amount = asset.amount.checked_sub(refund_asset_amount).unwrap();
-    let left_asset_amount = position.asset.amount.checked_sub(liquidated_asset_amount).unwrap();
-    let left_collateral_amount = position.collateral.amount.checked_sub(return_collateral_amount).unwrap();
+    let left_asset_amount = position
+        .asset
+        .amount
+        .checked_sub(liquidated_asset_amount)
+        .unwrap();
+    let left_collateral_amount = position
+        .collateral
+        .amount
+        .checked_sub(return_collateral_amount)
+        .unwrap();
 
     // Check if it is a short position
     let is_short_position: bool = is_short_position(deps.storage, position_idx)?;
@@ -835,10 +862,7 @@ pub fn auction(
             amount: left_collateral_amount,
         };
 
-        messages.push(refund_collateral.into_msg(
-            &deps.querier,
-            position_owner.clone(),
-        )?);
+        messages.push(refund_collateral.into_msg(&deps.querier, position_owner.clone())?);
     } else {
         position.collateral.amount = left_collateral_amount;
         position.asset.amount = left_asset_amount;
@@ -856,7 +880,7 @@ pub fn auction(
     }));
 
     // Deduct protocol fee
-    let protocol_fee = 
+    let protocol_fee =
         liquidated_asset_amount * collateral_price_in_asset * config.protocol_fee_rate;
     let return_collateral_amount = return_collateral_amount.checked_sub(protocol_fee).unwrap();
 
@@ -875,10 +899,10 @@ pub fn auction(
     };
 
     if !protocol_fee_asset.amount.is_zero() {
-        messages.push(protocol_fee_asset.into_msg(
-            &deps.querier,
-            deps.api.addr_humanize(&config.collector)?,
-        )?);
+        messages.push(
+            protocol_fee_asset
+                .into_msg(&deps.querier, deps.api.addr_humanize(&config.collector)?)?,
+        );
     }
 
     // If the position is flagged as short position.
@@ -929,10 +953,7 @@ pub fn auction(
     })
 }
 
-pub fn query_position(
-    deps: Deps,
-    position_idx: Uint128,
-) -> StdResult<PositionResponse> {
+pub fn query_position(deps: Deps, position_idx: Uint128) -> StdResult<PositionResponse> {
     let position: Position = read_position(deps.storage, position_idx)?;
     let resp = PositionResponse {
         idx: position.idx,
@@ -991,9 +1012,7 @@ pub fn query_positions(
     })
 }
 
-pub fn query_next_position_idx(
-    deps: Deps,
-) -> StdResult<NextPositionIdxResponse> {
+pub fn query_next_position_idx(deps: Deps) -> StdResult<NextPositionIdxResponse> {
     let idx = read_position_idx(deps.storage)?;
     let resp = NextPositionIdxResponse {
         next_position_idx: idx,

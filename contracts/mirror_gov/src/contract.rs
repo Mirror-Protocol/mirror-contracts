@@ -13,16 +13,16 @@ use crate::state::{
 };
 
 use cosmwasm_std::{
-    from_binary, attr, to_binary, Binary, CosmosMsg, Decimal, Env, Deps, DepsMut, MessageInfo,
+    attr, from_binary, to_binary, Binary, CosmosMsg, Decimal, Deps, DepsMut, Env, MessageInfo,
     Response, StdError, StdResult, Uint128, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 
 use mirror_protocol::common::OrderBy;
 use mirror_protocol::gov::{
-    ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, PollExecuteMsg, PollResponse,
-    PollStatus, PollsResponse, QueryMsg, StateResponse, VoteOption, VoterInfo, VotersResponse,
-    VotersResponseItem,
+    ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, PollExecuteMsg,
+    PollResponse, PollStatus, PollsResponse, QueryMsg, StateResponse, VoteOption, VoterInfo,
+    VotersResponse, VotersResponseItem,
 };
 
 const MIN_TITLE_LENGTH: usize = 4;
@@ -70,12 +70,7 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn execute(
-    deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    msg: ExecuteMsg,
-) -> StdResult<Response> {
+pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
     match msg {
         ExecuteMsg::Receive(msg) => receive_cw20(deps, env, info, msg),
         ExecuteMsg::UpdateConfig {
@@ -127,9 +122,11 @@ pub fn receive_cw20(
     if config.mirror_token != deps.api.addr_canonicalize(info.sender.as_str())? {
         return Err(StdError::generic_err("unauthorized"));
     }
-    
+
     match from_binary(&cw20_msg.msg) {
-        Ok(Cw20HookMsg::StakeVotingTokens {}) => stake_voting_tokens(deps, cw20_msg.sender, cw20_msg.amount),
+        Ok(Cw20HookMsg::StakeVotingTokens {}) => {
+            stake_voting_tokens(deps, cw20_msg.sender, cw20_msg.amount)
+        }
         Ok(Cw20HookMsg::CreatePoll {
             title,
             description,
@@ -152,7 +149,7 @@ pub fn receive_cw20(
             }
             deposit_reward(deps, cw20_msg.amount)
         }
-        Err(_) => Err(StdError::generic_err("data should be given"))
+        Err(_) => Err(StdError::generic_err("data should be given")),
     }
 }
 
@@ -370,11 +367,7 @@ pub fn create_poll(
 /*
  * Ends a poll.
  */
-pub fn end_poll(
-    deps: DepsMut,
-    env: Env,
-    poll_id: u64,
-) -> StdResult<Response> {
+pub fn end_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Response> {
     let mut a_poll: Poll = poll_store(deps.storage).load(&poll_id.to_be_bytes())?;
 
     if a_poll.status != PollStatus::InProgress {
@@ -412,7 +405,8 @@ pub fn end_poll(
             deps.as_ref(),
             deps.api.addr_humanize(&config.mirror_token)?.to_string(),
             &state.contract_addr,
-        )?.checked_sub(total_locked_balance)?;
+        )?
+        .checked_sub(total_locked_balance)?;
         (
             Decimal::from_ratio(tallied_weight, staked_weight),
             staked_weight,
@@ -475,11 +469,7 @@ pub fn end_poll(
 /*
  * Execute a msg of passed poll.
  */
-pub fn execute_poll(
-    deps: DepsMut,
-    env: Env,
-    poll_id: u64,
-) -> StdResult<Response> {
+pub fn execute_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Response> {
     let config: Config = config_read(deps.storage).load()?;
     let mut a_poll: Poll = poll_store(deps.storage).load(&poll_id.to_be_bytes())?;
 
@@ -492,8 +482,7 @@ pub fn execute_poll(
     }
 
     poll_indexer_store(deps.storage, &PollStatus::Passed).remove(&poll_id.to_be_bytes());
-    poll_indexer_store(deps.storage, &PollStatus::Executed)
-        .save(&poll_id.to_be_bytes(), &true)?;
+    poll_indexer_store(deps.storage, &PollStatus::Executed).save(&poll_id.to_be_bytes(), &true)?;
 
     a_poll.status = PollStatus::Executed;
     poll_store(deps.storage).save(&poll_id.to_be_bytes(), &a_poll)?;
@@ -521,11 +510,7 @@ pub fn execute_poll(
 }
 
 /// ExpirePoll is used to make the poll as expired state for querying purpose
-pub fn expire_poll(
-    deps: DepsMut,
-    env: Env,
-    poll_id: u64,
-) -> StdResult<Response> {
+pub fn expire_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Response> {
     let config: Config = config_read(deps.storage).load()?;
     let mut a_poll: Poll = poll_store(deps.storage).load(&poll_id.to_be_bytes())?;
 
@@ -544,8 +529,7 @@ pub fn expire_poll(
     }
 
     poll_indexer_store(deps.storage, &PollStatus::Passed).remove(&poll_id.to_be_bytes());
-    poll_indexer_store(deps.storage, &PollStatus::Expired)
-        .save(&poll_id.to_be_bytes(), &true)?;
+    poll_indexer_store(deps.storage, &PollStatus::Expired).save(&poll_id.to_be_bytes(), &true)?;
 
     a_poll.status = PollStatus::Expired;
     poll_store(deps.storage).save(&poll_id.to_be_bytes(), &a_poll)?;
@@ -599,7 +583,8 @@ pub fn cast_vote(
         deps.as_ref(),
         deps.api.addr_humanize(&config.mirror_token)?.to_string(),
         &state.contract_addr,
-    )?.checked_sub(total_locked_balance)?;
+    )?
+    .checked_sub(total_locked_balance)?;
 
     if token_manager
         .share
@@ -629,8 +614,7 @@ pub fn cast_vote(
     bank_store(deps.storage).save(key, &token_manager)?;
 
     // store poll voter && and update poll data
-    poll_voter_store(deps.storage, poll_id)
-        .save(&sender_address_raw.as_slice(), &vote_info)?;
+    poll_voter_store(deps.storage, poll_id).save(&sender_address_raw.as_slice(), &vote_info)?;
 
     // processing snapshot
     let time_to_end = a_poll.end_height - env.block.height;
@@ -659,11 +643,7 @@ pub fn cast_vote(
 }
 
 /// SnapshotPoll is used to take a snapshot of the staked amount for quorum calculation
-pub fn snapshot_poll(
-    deps: DepsMut,
-    env: Env,
-    poll_id: u64,
-) -> StdResult<Response> {
+pub fn snapshot_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Response> {
     let config: Config = config_read(deps.storage).load()?;
     let mut a_poll: Poll = poll_store(deps.storage).load(&poll_id.to_be_bytes())?;
 
@@ -689,7 +669,8 @@ pub fn snapshot_poll(
         deps.as_ref(),
         deps.api.addr_humanize(&config.mirror_token)?.to_string(),
         &state.contract_addr,
-    )?.checked_sub(total_locked_balance)?;
+    )?
+    .checked_sub(total_locked_balance)?;
 
     a_poll.staked_amount = Some(staked_amount);
 
@@ -708,11 +689,7 @@ pub fn snapshot_poll(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(
-    deps: Deps,
-    _env: Env,
-    msg: QueryMsg,
-) -> StdResult<Binary> {
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::State {} => to_binary(&query_state(deps)?),
@@ -733,9 +710,7 @@ pub fn query(
     }
 }
 
-fn query_config(
-    deps: Deps,
-) -> StdResult<ConfigResponse> {
+fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     let config: Config = config_read(deps.storage).load()?;
     Ok(ConfigResponse {
         owner: deps.api.addr_humanize(&config.owner)?.to_string(),
@@ -761,10 +736,7 @@ fn query_state(deps: Deps) -> StdResult<StateResponse> {
     })
 }
 
-fn query_poll(
-    deps: Deps,
-    poll_id: u64,
-) -> StdResult<PollResponse> {
+fn query_poll(deps: Deps, poll_id: u64) -> StdResult<PollResponse> {
     let poll = match poll_read(deps.storage).may_load(&poll_id.to_be_bytes())? {
         Some(poll) => Some(poll),
         None => return Err(StdError::generic_err("Poll does not exist")),
@@ -885,11 +857,7 @@ fn query_voters(
 
 use crate::migrate::{migrate_config, migrate_poll_indexer, migrate_polls, migrate_state};
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(
-    deps: DepsMut,
-    _env: Env,
-    msg: MigrateMsg,
-) -> StdResult<Response> {
+pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
     // Currently support 2 migration processes
     //      - version 1 migrates poll indexers, config, state, and polls
     //      - version 2 migrates config, state and polls

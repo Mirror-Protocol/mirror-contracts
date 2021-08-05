@@ -23,9 +23,8 @@ pub struct WasmMockQuerier {
 pub fn mock_dependencies_with_querier(
     contract_balance: &[Coin],
 ) -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier> {
-    let custom_querier: WasmMockQuerier = WasmMockQuerier::new(
-        MockQuerier::new(&[(&MOCK_CONTRACT_ADDR, contract_balance)]),
-    );
+    let custom_querier: WasmMockQuerier =
+        WasmMockQuerier::new(MockQuerier::new(&[(&MOCK_CONTRACT_ADDR, contract_balance)]));
 
     OwnedDeps {
         api: MockApi::default(),
@@ -74,24 +73,25 @@ impl WasmMockQuerier {
                 contract_addr: _,
                 msg,
             }) => match from_binary(&msg) {
-                Ok(FactoryQueryMsg::Pair { asset_infos }) => SystemResult::Ok(
-                    ContractResult::from(to_binary(&PairInfo {
-                    asset_infos: asset_infos.clone(),
-                    contract_addr: self.pair_addr.clone(),
-                    liquidity_token: Addr::unchecked("lptoken"),
-                }))),
+                Ok(FactoryQueryMsg::Pair { asset_infos }) => {
+                    SystemResult::Ok(ContractResult::from(to_binary(&PairInfo {
+                        asset_infos: asset_infos.clone(),
+                        contract_addr: self.pair_addr.clone(),
+                        liquidity_token: Addr::unchecked("lptoken"),
+                    })))
+                }
                 _ => match from_binary(&msg) {
-                    Ok(PairQueryMsg::Pool {}) => SystemResult::Ok(
-                        ContractResult::from(to_binary(&PoolResponse {
-                        assets: self.pool_assets.clone(),
-                        total_share: Uint128::zero(),
-                    }))),
+                    Ok(PairQueryMsg::Pool {}) => {
+                        SystemResult::Ok(ContractResult::from(to_binary(&PoolResponse {
+                            assets: self.pool_assets.clone(),
+                            total_share: Uint128::zero(),
+                        })))
+                    }
                     _ => match from_binary(&msg) {
                         Ok(OracleQueryMsg::Price {
                             base_asset: _,
                             quote_asset: _,
-                        }) => SystemResult::Ok(
-                            ContractResult::from(to_binary(&PriceResponse {
+                        }) => SystemResult::Ok(ContractResult::from(to_binary(&PriceResponse {
                             rate: self.oracle_price,
                             last_updated_base: 100,
                             last_updated_quote: 100,
@@ -107,8 +107,7 @@ impl WasmMockQuerier {
                 let key: &[u8] = key.as_slice();
                 let prefix_balance = to_length_prefixed(b"balance").to_vec();
                 if key[..prefix_balance.len()].to_vec() == prefix_balance {
-                    SystemResult::Ok(ContractResult::from(
-                        to_binary(&self.token_balance)))
+                    SystemResult::Ok(ContractResult::from(to_binary(&self.token_balance)))
                 } else {
                     panic!("DO NOT ENTER HERE")
                 }
@@ -119,9 +118,7 @@ impl WasmMockQuerier {
 }
 
 impl WasmMockQuerier {
-    pub fn new(
-        base: MockQuerier<TerraQueryWrapper>,
-    ) -> Self {
+    pub fn new(base: MockQuerier<TerraQueryWrapper>) -> Self {
         WasmMockQuerier {
             base,
             pair_addr: Addr::unchecked(""),

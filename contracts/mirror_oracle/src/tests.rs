@@ -1,10 +1,11 @@
 use crate::contract::{execute, instantiate, query};
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
 use cosmwasm_std::{from_binary, Decimal, StdError};
-use mirror_protocol::oracle::{InstantiateMsg, ExecuteMsg, QueryMsg, ConfigResponse, 
-    FeederResponse, PriceResponse, PricesResponse, PricesResponseElem};
 use mirror_protocol::common::OrderBy;
-
+use mirror_protocol::oracle::{
+    ConfigResponse, ExecuteMsg, FeederResponse, InstantiateMsg, PriceResponse, PricesResponse,
+    PricesResponseElem, QueryMsg,
+};
 
 #[test]
 fn proper_initialization() {
@@ -62,7 +63,7 @@ fn update_config() {
 
     let res = execute(deps.as_mut(), mock_env(), info, msg);
     match res {
-        Err(StdError::GenericErr {msg, ..}) => assert_eq!(msg, "unauthorized"),
+        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
         _ => panic!("Must return unauthorized error"),
     }
 }
@@ -82,10 +83,7 @@ fn feed_price() {
     // update price
     let info = mock_info("addr0000", &[]);
     let msg = ExecuteMsg::FeedPrice {
-        prices: vec![(
-            "mAAPL".to_string(),
-            Decimal::from_ratio(12u128, 10u128),
-        )],
+        prices: vec![("mAAPL".to_string(), Decimal::from_ratio(12u128, 10u128))],
     };
 
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
@@ -117,9 +115,14 @@ fn feed_price() {
     let info = mock_info("owner0000", &[]);
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    let res = query(deps.as_ref(), mock_env(), QueryMsg::Feeder { 
-        asset_token: "mAAPL".to_string()
-    }).unwrap();
+    let res = query(
+        deps.as_ref(),
+        mock_env(),
+        QueryMsg::Feeder {
+            asset_token: "mAAPL".to_string(),
+        },
+    )
+    .unwrap();
     let feeder_res: FeederResponse = from_binary(&res).unwrap();
 
     assert_eq!(
@@ -130,10 +133,15 @@ fn feed_price() {
         }
     );
 
-    let res = query(deps.as_ref(), mock_env(), QueryMsg::Price { 
-        base_asset: "mAAPL".to_string(),
-        quote_asset: "base0000".to_string(),
-    }).unwrap();
+    let res = query(
+        deps.as_ref(),
+        mock_env(),
+        QueryMsg::Price {
+            base_asset: "mAAPL".to_string(),
+            quote_asset: "base0000".to_string(),
+        },
+    )
+    .unwrap();
     let price_res: PriceResponse = from_binary(&res).unwrap();
 
     assert_eq!(
@@ -147,24 +155,23 @@ fn feed_price() {
 
     let msg = ExecuteMsg::FeedPrice {
         prices: vec![
-            (
-                "mAAPL".to_string(),
-                Decimal::from_ratio(12u128, 10u128),
-            ),
-            (
-                "mGOGL".to_string(),
-                Decimal::from_ratio(22u128, 10u128),
-            ),
+            ("mAAPL".to_string(), Decimal::from_ratio(12u128, 10u128)),
+            ("mGOGL".to_string(), Decimal::from_ratio(22u128, 10u128)),
         ],
     };
     let info = mock_info("addr0000", &[]);
     let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
     let env = mock_env();
-    let res = query(deps.as_ref(), env.clone(), QueryMsg::Price { 
-        base_asset: "mAAPL".to_string(),
-        quote_asset: "base0000".to_string(),
-    }).unwrap();
+    let res = query(
+        deps.as_ref(),
+        env.clone(),
+        QueryMsg::Price {
+            base_asset: "mAAPL".to_string(),
+            quote_asset: "base0000".to_string(),
+        },
+    )
+    .unwrap();
     let price_res: PriceResponse = from_binary(&res).unwrap();
 
     assert_eq!(
@@ -177,11 +184,16 @@ fn feed_price() {
     );
 
     let env = mock_env();
-    let res = query(deps.as_ref(), env.clone(), QueryMsg::Prices { 
-        start_after: None,
-        limit: None,
-        order_by: Some(OrderBy::Asc),
-    }).unwrap();
+    let res = query(
+        deps.as_ref(),
+        env.clone(),
+        QueryMsg::Prices {
+            start_after: None,
+            limit: None,
+            order_by: Some(OrderBy::Asc),
+        },
+    )
+    .unwrap();
     let prices_res: PricesResponse = from_binary(&res).unwrap();
 
     assert_eq!(
@@ -205,10 +217,7 @@ fn feed_price() {
     // Unautorized try
     let info = mock_info("addr0001", &[]);
     let msg = ExecuteMsg::FeedPrice {
-        prices: vec![(
-            "mAAPL".to_string(),
-            Decimal::from_ratio(12u128, 10u128),
-        )],
+        prices: vec![("mAAPL".to_string(), Decimal::from_ratio(12u128, 10u128))],
     };
 
     let res = execute(deps.as_mut(), mock_env(), info, msg);

@@ -4,13 +4,13 @@ mod tests {
     use crate::mock_querier::mock_dependencies;
     use cosmwasm_std::testing::{mock_env, mock_info};
     use cosmwasm_std::{
-        from_binary, attr, to_binary, Addr, BlockInfo, Coin, CosmosMsg, Decimal, Env, StdError, 
-        Timestamp, Uint128, WasmMsg
+        attr, from_binary, to_binary, Addr, BlockInfo, Coin, CosmosMsg, Decimal, Env, StdError,
+        Timestamp, Uint128, WasmMsg,
     };
     use cw20::Cw20ReceiveMsg;
     use mirror_protocol::collateral_oracle::{ExecuteMsg::RegisterCollateralAsset, SourceType};
     use mirror_protocol::mint::{
-        AssetConfigResponse, Cw20HookMsg, ExecuteMsg, IPOParams, InstantiateMsg, QueryMsg
+        AssetConfigResponse, Cw20HookMsg, ExecuteMsg, IPOParams, InstantiateMsg, QueryMsg,
     };
     use terraswap::asset::{Asset, AssetInfo};
 
@@ -38,10 +38,8 @@ mod tests {
                 &Decimal::from_ratio(10u128, 1u128),
             ),
         ]);
-        deps.querier.with_oracle_feeders(&[(
-            &"preIPOAsset0000".to_string(),
-            &"feeder0000".to_string(),
-        )]);
+        deps.querier
+            .with_oracle_feeders(&[(&"preIPOAsset0000".to_string(), &"feeder0000".to_string())]);
 
         let base_denom = "uusd".to_string();
 
@@ -59,7 +57,13 @@ mod tests {
         };
         let creator_env = mock_env();
         let creator_info = mock_info("addr0000", &[]);
-        let _res = instantiate(deps.as_mut(), creator_env.clone(), creator_info.clone(), msg).unwrap();
+        let _res = instantiate(
+            deps.as_mut(),
+            creator_env.clone(),
+            creator_info.clone(),
+            msg,
+        )
+        .unwrap();
 
         // register preIPO asset with mint_end parameter (10 blocks)
         let mint_end = creator_env.clone().block.time.plus_seconds(10u64).nanos() / 1_000_000_000;
@@ -104,7 +108,8 @@ mod tests {
             &[Coin {
                 denom: "uusd".to_string(),
                 amount: Uint128(2000000000u128),
-            }]);
+            }],
+        );
         let res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
         assert_eq!(
@@ -136,8 +141,9 @@ mod tests {
             sender: "addr0000".to_string(),
             amount: Uint128::from(1000000u128),
             msg: to_binary(&Cw20HookMsg::Burn {
-                    position_idx: Uint128(1u128),
-                }).unwrap()
+                position_idx: Uint128(1u128),
+            })
+            .unwrap(),
         });
 
         let env = mock_env_with_block_time(current_time);
@@ -170,7 +176,8 @@ mod tests {
             &[Coin {
                 denom: "uusd".to_string(),
                 amount: Uint128(1000000000u128),
-            }]);
+            }],
+        );
 
         let res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap_err();
         assert_eq!(
@@ -206,9 +213,9 @@ mod tests {
             sender: "addr0000".to_string(),
             amount: Uint128::from(1000000u128),
             msg: to_binary(&Cw20HookMsg::Burn {
-                    position_idx: Uint128(1u128),
-                })
-                .unwrap(),
+                position_idx: Uint128(1u128),
+            })
+            .unwrap(),
         });
 
         let env = mock_env_with_block_time(current_time);

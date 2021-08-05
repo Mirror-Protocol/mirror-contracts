@@ -3,7 +3,7 @@ mod tests {
 
     use crate::contract::{execute, instantiate, query};
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cosmwasm_std::{from_binary, attr, Decimal, StdError, Uint128};
+    use cosmwasm_std::{attr, from_binary, Decimal, StdError, Uint128};
 
     use mirror_protocol::staking::{
         ConfigResponse, ExecuteMsg, InstantiateMsg, PoolInfoResponse, QueryMsg,
@@ -138,7 +138,10 @@ mod tests {
         let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(
             res.attributes,
-            vec![attr("action", "register_asset"), attr("asset_token", "asset"),]
+            vec![
+                attr("action", "register_asset"),
+                attr("asset_token", "asset"),
+            ]
         );
 
         let res = query(

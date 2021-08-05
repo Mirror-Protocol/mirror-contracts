@@ -3,14 +3,14 @@ use crate::mock_querier::{mock_dependencies, WasmMockQuerier};
 use crate::response::MsgInstantiateContractResponse;
 
 use crate::state::{
-    read_params, read_tmp_asset, read_tmp_oracle, read_total_weight, 
-    read_weight, store_total_weight, store_weight
+    read_params, read_tmp_asset, read_tmp_oracle, read_total_weight, read_weight,
+    store_total_weight, store_weight,
 };
 use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage};
 use cosmwasm_std::Api;
 use cosmwasm_std::{
-    from_binary, attr, to_binary, Addr, ContractResult, CosmosMsg, Decimal, Env, OwnedDeps, 
-    Reply, ReplyOn, StdError, SubcallResponse, SubMsg, Timestamp, Uint128, WasmMsg,
+    attr, from_binary, to_binary, Addr, CanonicalAddr, ContractResult, CosmosMsg, Decimal, Env,
+    OwnedDeps, Reply, ReplyOn, StdError, SubMsg, SubcallResponse, Timestamp, Uint128, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, MinterResponse};
 
@@ -222,10 +222,7 @@ fn test_update_weight() {
     store_total_weight(&mut deps.storage, 100).unwrap();
     store_weight(
         &mut deps.storage,
-        &deps
-            .api
-            .addr_canonicalize(&"asset0000")
-            .unwrap(),
+        &deps.api.addr_canonicalize(&"asset0000").unwrap(),
         10,
     )
     .unwrap();
@@ -249,7 +246,10 @@ fn test_update_weight() {
     assert_eq!(
         distribution_info,
         DistributionInfoResponse {
-            weights: vec![("asset0000".to_string(), 20), ("mirror0000".to_string(), 300)],
+            weights: vec![
+                ("asset0000".to_string(), 20),
+                ("mirror0000".to_string(), 300)
+            ],
             last_distributed: 1_571_797_419,
         }
     );
@@ -257,10 +257,7 @@ fn test_update_weight() {
     assert_eq!(
         read_weight(
             &deps.storage,
-            &deps
-                .api
-                .addr_canonicalize(&"asset0000")
-                .unwrap()
+            &deps.api.addr_canonicalize(&"asset0000").unwrap()
         )
         .unwrap(),
         20u32
@@ -337,7 +334,8 @@ fn test_whitelist() {
                         minter: "mint0000".to_string(),
                         cap: None,
                     }),
-                }).unwrap(),
+                })
+                .unwrap(),
             }
             .into(),
             gas_limit: None,
@@ -481,7 +479,8 @@ fn test_token_creation_hook() {
                             contract_addr: Addr::unchecked("asset0000"),
                         },
                     ],
-                }).unwrap(),
+                })
+                .unwrap(),
             }
             .into(),
             gas_limit: None,
@@ -503,7 +502,10 @@ fn test_token_creation_hook() {
     assert_eq!(
         distribution_info,
         DistributionInfoResponse {
-            weights: vec![("asset0000".to_string(), 100), ("mirror0000".to_string(), 300)],
+            weights: vec![
+                ("asset0000".to_string(), 100),
+                ("mirror0000".to_string(), 300)
+            ],
             last_distributed: 1_571_797_419,
         }
     );
@@ -613,7 +615,8 @@ fn test_token_creation_hook_without_weight() {
                             contract_addr: Addr::unchecked("asset0000"),
                         },
                     ],
-                }).unwrap(),
+                })
+                .unwrap(),
             }
             .into(),
             gas_limit: None,
@@ -627,7 +630,10 @@ fn test_token_creation_hook_without_weight() {
     assert_eq!(
         distribution_info,
         DistributionInfoResponse {
-            weights: vec![("asset0000".to_string(), 30), ("mirror0000".to_string(), 300)],
+            weights: vec![
+                ("asset0000".to_string(), 30),
+                ("mirror0000".to_string(), 300)
+            ],
             last_distributed: 1_571_797_419,
         }
     );
@@ -636,11 +642,10 @@ fn test_token_creation_hook_without_weight() {
 #[test]
 fn test_terraswap_creation_hook() {
     let mut deps = mock_dependencies(&[]);
-    deps.querier
-        .with_terraswap_pairs(&[
-            (&"uusdmirror0000".to_string(), &"MIRLP000".to_string()),
-            (&"uusdasset0000".to_string(), &"LP0000".to_string())
-        ]);
+    deps.querier.with_terraswap_pairs(&[
+        (&"uusdmirror0000".to_string(), &"MIRLP000".to_string()),
+        (&"uusdasset0000".to_string(), &"LP0000".to_string()),
+    ]);
 
     let msg = InstantiateMsg {
         base_denom: BASE_DENOM.to_string(),
@@ -885,9 +890,9 @@ fn test_distribute() {
                 msg: Some(
                     to_binary(&StakingCw20HookMsg::DepositReward {
                         rewards: vec![
-                            ("asset0000".to_string(), Uint128(7200u128 * 1/5)),
-                            ("asset0001".to_string(), Uint128(7200u128 * 1/5)),
-                            ("mirror0000".to_string(), Uint128(7200u128 * 3/5)),
+                            ("asset0000".to_string(), Uint128(7200u128 * 1 / 5)),
+                            ("asset0001".to_string(), Uint128(7200u128 * 1 / 5)),
+                            ("mirror0000".to_string(), Uint128(7200u128 * 3 / 5)),
                         ],
                     })
                     .unwrap()
@@ -974,20 +979,152 @@ fn whitelist_token(
 #[test]
 fn test_distribute_split() {
     let mut deps = mock_dependencies(&[]);
+
+    let asset0 = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
+    let asset1 = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
+    let asset2 = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
+    let asset3 = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
+    let asset4 = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
+    let asset5 = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
+    let asset6 = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
+    let asset7 = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
+    let asset8 = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
+    let asset9 = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
+    let asset10 = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
+    let asset11 = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
+    let mirror_addr = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
+
     deps.querier.with_terraswap_pairs(&[
-        (&"uusdasset0000".to_string(), &"LP0000".to_string()),
-        (&"uusdasset0001".to_string(), &"LP0001".to_string()),
-        (&"uusdasset0002".to_string(), &"LP0002".to_string()),
-        (&"uusdasset0003".to_string(), &"LP0003".to_string()),
-        (&"uusdasset0004".to_string(), &"LP0004".to_string()),
-        (&"uusdasset0005".to_string(), &"LP0005".to_string()),
-        (&"uusdasset0006".to_string(), &"LP0006".to_string()),
-        (&"uusdasset0007".to_string(), &"LP0007".to_string()),
-        (&"uusdasset0008".to_string(), &"LP0008".to_string()),
-        (&"uusdasset0009".to_string(), &"LP0009".to_string()),
-        (&"uusdasset0010".to_string(), &"LP0010".to_string()),
-        (&"uusdasset0011".to_string(), &"LP0011".to_string()),
-        (&"uusdmirror0000".to_string(), &"MIRLP000".to_string()),
+        (
+            &format!("uusd{}", asset0).to_string(),
+            &"LP0000".to_string(),
+        ),
+        (
+            &format!("uusd{}", asset1).to_string(),
+            &"LP0001".to_string(),
+        ),
+        (
+            &format!("uusd{}", asset2).to_string(),
+            &"LP0002".to_string(),
+        ),
+        (
+            &format!("uusd{}", asset3).to_string(),
+            &"LP0003".to_string(),
+        ),
+        (
+            &format!("uusd{}", asset4).to_string(),
+            &"LP0004".to_string(),
+        ),
+        (
+            &format!("uusd{}", asset5).to_string(),
+            &"LP0005".to_string(),
+        ),
+        (
+            &format!("uusd{}", asset6).to_string(),
+            &"LP0006".to_string(),
+        ),
+        (
+            &format!("uusd{}", asset7).to_string(),
+            &"LP0007".to_string(),
+        ),
+        (
+            &format!("uusd{}", asset8).to_string(),
+            &"LP0008".to_string(),
+        ),
+        (
+            &format!("uusd{}", asset9).to_string(),
+            &"LP0009".to_string(),
+        ),
+        (
+            &format!("uusd{}", asset10).to_string(),
+            &"LP0010".to_string(),
+        ),
+        (
+            &format!("uusd{}", asset11).to_string(),
+            &"LP0011".to_string(),
+        ),
+        (
+            &format!("uusd{}", mirror_addr).to_string(),
+            &"MIRLP000".to_string(),
+        ),
     ]);
 
     let msg = InstantiateMsg {
@@ -1004,7 +1141,7 @@ fn test_distribute_split() {
 
     let msg = ExecuteMsg::PostInitialize {
         owner: "owner0000".to_string(),
-        mirror_token: "mirror0000".to_string(),
+        mirror_token: mirror_addr.to_string(),
         mint_contract: "mint0000".to_string(),
         staking_contract: "staking0000".to_string(),
         commission_collector: "collector0000".to_string(),
@@ -1014,18 +1151,18 @@ fn test_distribute_split() {
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // whitelist first item with weight 1
-    whitelist_token(&mut deps, "asset 0", "a0", "asset0000", 100u32);
-    whitelist_token(&mut deps, "asset 1", "a1", "asset0001", 100u32);
-    whitelist_token(&mut deps, "asset 2", "a2", "asset0002", 100u32);
-    whitelist_token(&mut deps, "asset 3", "a3", "asset0003", 100u32);
-    whitelist_token(&mut deps, "asset 4", "a4", "asset0004", 100u32);
-    whitelist_token(&mut deps, "asset 5", "a5", "asset0005", 100u32);
-    whitelist_token(&mut deps, "asset 6", "a6", "asset0006", 100u32);
-    whitelist_token(&mut deps, "asset 7", "a7", "asset0007", 100u32);
-    whitelist_token(&mut deps, "asset 8", "a8", "asset0008", 100u32);
-    whitelist_token(&mut deps, "asset 9", "a9", "asset0009", 100u32);
-    whitelist_token(&mut deps, "asset 10", "a10", "asset0010", 100u32);
-    whitelist_token(&mut deps, "asset 11", "a11", "asset0011", 100u32);
+    whitelist_token(&mut deps, "asset 0", "a0", &asset0, 100u32);
+    whitelist_token(&mut deps, "asset 1", "a1", &asset1, 100u32);
+    whitelist_token(&mut deps, "asset 2", "a2", &asset2, 100u32);
+    whitelist_token(&mut deps, "asset 3", "a3", &asset3, 100u32);
+    whitelist_token(&mut deps, "asset 4", "a4", &asset4, 100u32);
+    whitelist_token(&mut deps, "asset 5", "a5", &asset5, 100u32);
+    whitelist_token(&mut deps, "asset 6", "a6", &asset6, 100u32);
+    whitelist_token(&mut deps, "asset 7", "a7", &asset7, 100u32);
+    whitelist_token(&mut deps, "asset 8", "a8", &asset8, 100u32);
+    whitelist_token(&mut deps, "asset 9", "a9", &asset9, 100u32);
+    whitelist_token(&mut deps, "asset 10", "a10", &asset10, 100u32);
+    whitelist_token(&mut deps, "asset 11", "a11", &asset11, 100u32);
 
     // one height increase
     let msg = ExecuteMsg::Distribute {};
@@ -1048,23 +1185,23 @@ fn test_distribute_split() {
     assert_eq!(
         res.messages[0],
         CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: "mirror0000".to_string(),
+            contract_addr: mirror_addr.to_string(),
             msg: to_binary(&Cw20ExecuteMsg::Send {
                 contract: "staking0000".to_string(),
-                amount: Uint128(7200u128 * 10/15),
+                amount: Uint128(7200u128 * 10 / 15),
                 msg: Some(
                     to_binary(&StakingCw20HookMsg::DepositReward {
                         rewards: vec![
-                            ("asset0000".to_string(), Uint128(7200u128 * 1/15)),
-                            ("asset0001".to_string(), Uint128(7200u128 * 1/15)),
-                            ("asset0002".to_string(), Uint128(7200u128 * 1/15)),
-                            ("asset0003".to_string(), Uint128(7200u128 * 1/15)),
-                            ("asset0004".to_string(), Uint128(7200u128 * 1/15)),
-                            ("asset0005".to_string(), Uint128(7200u128 * 1/15)),
-                            ("asset0006".to_string(), Uint128(7200u128 * 1/15)),
-                            ("asset0007".to_string(), Uint128(7200u128 * 1/15)),
-                            ("asset0008".to_string(), Uint128(7200u128 * 1/15)),
-                            ("asset0009".to_string(), Uint128(7200u128 * 1/15)),
+                            (asset0, Uint128(7200u128 * 1 / 15)),
+                            (asset1, Uint128(7200u128 * 1 / 15)),
+                            (asset2, Uint128(7200u128 * 1 / 15)),
+                            (asset3, Uint128(7200u128 * 1 / 15)),
+                            (asset4, Uint128(7200u128 * 1 / 15)),
+                            (asset5, Uint128(7200u128 * 1 / 15)),
+                            (asset6, Uint128(7200u128 * 1 / 15)),
+                            (asset7, Uint128(7200u128 * 1 / 15)),
+                            (asset8, Uint128(7200u128 * 1 / 15)),
+                            (asset9, Uint128(7200u128 * 1 / 15)),
                         ],
                     })
                     .unwrap()
@@ -1078,16 +1215,16 @@ fn test_distribute_split() {
     assert_eq!(
         res.messages[1],
         CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: "mirror0000".to_string(),
+            contract_addr: mirror_addr.to_string(),
             msg: to_binary(&Cw20ExecuteMsg::Send {
                 contract: "staking0000".to_string(),
-                amount: Uint128(7200u128 * 5/15),
+                amount: Uint128(7200u128 * 5 / 15),
                 msg: Some(
                     to_binary(&StakingCw20HookMsg::DepositReward {
                         rewards: vec![
-                            ("asset0010".to_string(), Uint128(7200u128 * 1/15)),
-                            ("asset0011".to_string(), Uint128(7200u128 * 1/15)),
-                            ("mirror0000".to_string(), Uint128(7200u128 * 3/15)),
+                            (asset10.to_string(), Uint128(7200u128 * 1 / 15)),
+                            (asset11.to_string(), Uint128(7200u128 * 1 / 15)),
+                            (mirror_addr.to_string(), Uint128(7200u128 * 3 / 15)),
                         ],
                     })
                     .unwrap()
@@ -1133,14 +1270,8 @@ fn test_revocation() {
 
     // register queriers
     deps.querier.with_oracle_feeders(&[
-        (
-            &"asset0000".to_string(),
-            &"feeder0000".to_string(),
-        ),
-        (
-            &"asset0001".to_string(),
-            &"feeder0000".to_string(),
-        ),
+        (&"asset0000".to_string(), &"feeder0000".to_string()),
+        (&"asset0001".to_string(), &"feeder0000".to_string()),
     ]);
 
     // unauthorized revoke attempt
@@ -1196,11 +1327,10 @@ fn test_revocation() {
 #[test]
 fn test_migration() {
     let mut deps = mock_dependencies(&[]);
-    deps.querier
-        .with_terraswap_pairs(&[
-            (&"uusdasset0000".to_string(), &"LP0000".to_string()),
-            (&"uusdmirror0000".to_string(), &"MIRLP000".to_string()),
-        ]);
+    deps.querier.with_terraswap_pairs(&[
+        (&"uusdasset0000".to_string(), &"LP0000".to_string()),
+        (&"uusdmirror0000".to_string(), &"MIRLP000".to_string()),
+    ]);
 
     let msg = InstantiateMsg {
         base_denom: BASE_DENOM.to_string(),
@@ -1229,10 +1359,8 @@ fn test_migration() {
         &"asset0000".to_string(),
         &(Decimal::percent(1), Decimal::percent(1)),
     )]);
-    deps.querier.with_oracle_feeders(&[(
-        &"asset0000".to_string(),
-        &"feeder0000".to_string(),
-    )]);
+    deps.querier
+        .with_oracle_feeders(&[(&"asset0000".to_string(), &"feeder0000".to_string())]);
 
     // unauthorized migrate attempt
     let msg = ExecuteMsg::MigrateAsset {
@@ -1253,17 +1381,15 @@ fn test_migration() {
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
         res.messages,
-        vec![
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "mint0000".to_string(),
-                send: vec![],
-                msg: to_binary(&MintExecuteMsg::RegisterMigration {
-                    asset_token: "asset0000".to_string(),
-                    end_price: Decimal::from_ratio(2u128, 1u128),
-                })
-                .unwrap(),
-            }),
-        ]
+        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: "mint0000".to_string(),
+            send: vec![],
+            msg: to_binary(&MintExecuteMsg::RegisterMigration {
+                asset_token: "asset0000".to_string(),
+                end_price: Decimal::from_ratio(2u128, 1u128),
+            })
+            .unwrap(),
+        }),]
     );
 
     assert_eq!(
@@ -1283,7 +1409,8 @@ fn test_migration() {
                         minter: "mint0000".to_string(),
                         cap: None,
                     }),
-                }).unwrap(),
+                })
+                .unwrap(),
             }
             .into(),
             gas_limit: None,
@@ -1353,7 +1480,8 @@ fn test_whitelist_pre_ipo_asset() {
                         minter: "mint0000".to_string(),
                         cap: None,
                     }),
-                }).unwrap(),
+                })
+                .unwrap(),
             }
             .into(),
             gas_limit: None,
@@ -1408,7 +1536,8 @@ fn test_whitelist_pre_ipo_asset() {
                     auction_discount: Decimal::percent(5),
                     min_collateral_ratio: Decimal::percent(1000),
                     ipo_params: Some(IPOParams {
-                        mint_end: mock_env().block.time.plus_seconds(10000u64).nanos() / 1_000_000_000,
+                        mint_end: mock_env().block.time.plus_seconds(10000u64).nanos()
+                            / 1_000_000_000,
                         min_collateral_ratio_after_ipo: Decimal::percent(150),
                         pre_ipo_price: Decimal::percent(1),
                     }),
@@ -1442,7 +1571,8 @@ fn test_whitelist_pre_ipo_asset() {
                             contract_addr: Addr::unchecked("asset0000"),
                         },
                     ],
-                }).unwrap(),
+                })
+                .unwrap(),
             }
             .into(),
             gas_limit: None,
@@ -1456,7 +1586,10 @@ fn test_whitelist_pre_ipo_asset() {
         vec![
             attr("asset_token_addr", "asset0000"),
             attr("is_pre_ipo", true),
-            attr("mint_end", mock_env().block.time.plus_seconds(10000u64).nanos() / 1_000_000_000),
+            attr(
+                "mint_end",
+                mock_env().block.time.plus_seconds(10000u64).nanos() / 1_000_000_000
+            ),
             attr("min_collateral_ratio_after_ipo", "1.5"),
             attr("pre_ipo_price", "0.01"),
         ]

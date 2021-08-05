@@ -1,6 +1,4 @@
-use cosmwasm_std::{
-    to_binary, Addr, Decimal, Deps, QueryRequest, StdResult, WasmQuery,
-};
+use cosmwasm_std::{to_binary, Addr, Decimal, Deps, QueryRequest, StdResult, WasmQuery};
 
 use terraswap::{
     asset::AssetInfo, asset::PairInfo, pair::PoolResponse, pair::QueryMsg as PairQueryMsg,

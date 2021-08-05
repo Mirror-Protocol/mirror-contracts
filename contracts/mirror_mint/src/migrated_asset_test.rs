@@ -10,8 +10,8 @@ mod tests {
     use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
     use mirror_protocol::collateral_oracle::ExecuteMsg::RevokeCollateralAsset;
     use mirror_protocol::mint::{
-        AssetConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, PositionResponse, PositionsResponse,
-        QueryMsg,
+        AssetConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, PositionResponse,
+        PositionsResponse, QueryMsg,
     };
     use terraswap::asset::{Asset, AssetInfo};
 
@@ -34,10 +34,7 @@ mod tests {
         let mut deps = mock_dependencies(&[]);
         deps.querier.with_token_balances(&[(
             &"asset0000".to_string(),
-            &[(
-                &MOCK_CONTRACT_ADDR.to_string(),
-                &Uint128::from(1000000u128),
-            )],
+            &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::from(1000000u128))],
         )]);
 
         let base_denom = "uusd".to_string();
@@ -143,10 +140,7 @@ mod tests {
         let mut deps = mock_dependencies(&[]);
         deps.querier.with_token_balances(&[(
             &"asset0000".to_string(),
-            &[(
-                &MOCK_CONTRACT_ADDR.to_string(),
-                &Uint128::from(1000000u128),
-            )],
+            &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::from(1000000u128))],
         )]);
         deps.querier.with_oracle_price(&[
             (&"uusd".to_string(), &Decimal::one()),
@@ -216,20 +210,20 @@ mod tests {
             &[Coin {
                 amount: Uint128(1000000u128),
                 denom: "uusd".to_string(),
-            }]
+            }],
         );
         let _res = execute(deps.as_mut(), env, info, msg).unwrap();
 
         // Open asset0000:asset0001 position
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
             msg: to_binary(&Cw20HookMsg::OpenPosition {
-                    asset_info: AssetInfo::Token {
-                        contract_addr: Addr::unchecked("asset0001"),
-                    },
-                    collateral_ratio: Decimal::percent(150),
-                    short_params: None,
-                })
-                .unwrap(),
+                asset_info: AssetInfo::Token {
+                    contract_addr: Addr::unchecked("asset0001"),
+                },
+                collateral_ratio: Decimal::percent(150),
+                short_params: None,
+            })
+            .unwrap(),
             sender: "addr0000".to_string(),
             amount: Uint128(1000000u128),
         });
@@ -248,13 +242,13 @@ mod tests {
         // cannot open a position with deprecated collateral
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
             msg: to_binary(&Cw20HookMsg::OpenPosition {
-                    asset_info: AssetInfo::Token {
-                        contract_addr: Addr::unchecked("asset0001"),
-                    },
-                    collateral_ratio: Decimal::percent(150),
-                    short_params: None,
-                })
-                .unwrap(),
+                asset_info: AssetInfo::Token {
+                    contract_addr: Addr::unchecked("asset0001"),
+                },
+                collateral_ratio: Decimal::percent(150),
+                short_params: None,
+            })
+            .unwrap(),
             sender: "addr0000".to_string(),
             amount: Uint128(1000000u128),
         });
@@ -288,7 +282,7 @@ mod tests {
             &[Coin {
                 amount: Uint128(100u128),
                 denom: "uusd".to_string(),
-            }]
+            }],
         );
         let res = execute(deps.as_mut(), env, info, msg).unwrap_err();
         match res {
@@ -326,9 +320,9 @@ mod tests {
         // cannot deposit more collateral to the deprecated collateral position
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
             msg: to_binary(&Cw20HookMsg::Deposit {
-                    position_idx: Uint128(2u128),
-                })
-                .unwrap(),
+                position_idx: Uint128(2u128),
+            })
+            .unwrap(),
             sender: "addr0000".to_string(),
             amount: Uint128(1000000u128),
         });
@@ -405,15 +399,13 @@ mod tests {
         let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(
             res.messages,
-            vec![
-                CosmosMsg::Bank(BankMsg::Send {
-                    to_address: "addr0000".to_string(),
-                    amount: vec![Coin {
-                        denom: "uusd".to_string(),
-                        amount: Uint128(333334u128),
-                    }]
-                })
-            ]
+            vec![CosmosMsg::Bank(BankMsg::Send {
+                to_address: "addr0000".to_string(),
+                amount: vec![Coin {
+                    denom: "uusd".to_string(),
+                    amount: Uint128(333334u128),
+                }]
+            })]
         );
 
         let res = query(
@@ -452,9 +444,9 @@ mod tests {
             sender: "addr0001".to_string(),
             amount: Uint128::from(666666u128),
             msg: to_binary(&Cw20HookMsg::Burn {
-                    position_idx: Uint128(1u128),
-                })
-                .unwrap(),
+                position_idx: Uint128(1u128),
+            })
+            .unwrap(),
         });
         let info = mock_info("asset0000", &[]);
         let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -518,10 +510,7 @@ mod tests {
         let mut deps = mock_dependencies(&[]);
         deps.querier.with_token_balances(&[(
             &"asset0000".to_string(),
-            &[(
-                &MOCK_CONTRACT_ADDR.to_string(),
-                &Uint128::from(1000000u128),
-            )],
+            &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::from(1000000u128))],
         )]);
         deps.querier.with_oracle_price(&[
             (&"uusd".to_string(), &Decimal::one()),
@@ -574,13 +563,13 @@ mod tests {
         // Open asset0000:asset0001 position
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
             msg: to_binary(&Cw20HookMsg::OpenPosition {
-                    asset_info: AssetInfo::Token {
-                        contract_addr: Addr::unchecked("asset0001"),
-                    },
-                    collateral_ratio: Decimal::percent(150),
-                    short_params: None,
-                })
-                .unwrap(),
+                asset_info: AssetInfo::Token {
+                    contract_addr: Addr::unchecked("asset0001"),
+                },
+                collateral_ratio: Decimal::percent(150),
+                short_params: None,
+            })
+            .unwrap(),
             sender: "addr0000".to_string(),
             amount: Uint128(1000000u128),
         });
@@ -620,17 +609,15 @@ mod tests {
         let res = execute(deps.as_mut(), env, info, msg).unwrap();
         assert_eq!(
             res.messages,
-            vec![
-                CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: "asset0000".to_string(),
-                    send: vec![],
-                    msg: to_binary(&Cw20ExecuteMsg::Transfer {
-                        recipient: "addr0000".to_string(),
-                        amount: Uint128::from(333334u128),
-                    })
-                    .unwrap(),
+            vec![CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "asset0000".to_string(),
+                send: vec![],
+                msg: to_binary(&Cw20ExecuteMsg::Transfer {
+                    recipient: "addr0000".to_string(),
+                    amount: Uint128::from(333334u128),
                 })
-            ]
+                .unwrap(),
+            })]
         );
 
         let res = query(
@@ -669,9 +656,9 @@ mod tests {
             sender: "addr0001".to_string(),
             amount: Uint128::from(1333333u128),
             msg: to_binary(&Cw20HookMsg::Burn {
-                    position_idx: Uint128(1u128),
-                })
-                .unwrap(),
+                position_idx: Uint128(1u128),
+            })
+            .unwrap(),
         });
         let env = mock_env_with_block_time(1000);
         let info = mock_info("asset0001", &[]);
@@ -683,8 +670,8 @@ mod tests {
                     contract_addr: "asset0001".to_string(),
                     send: vec![],
                     msg: to_binary(&Cw20ExecuteMsg::Burn {
-                        amount: Uint128::from(1333333u128), // asset value in collateral 1333333 * 
-                    })                                      // 0.5 = 666666 -- protocol fee 6666
+                        amount: Uint128::from(1333333u128), // asset value in collateral 1333333 *
+                    }) // 0.5 = 666666 -- protocol fee 6666
                     .unwrap(),
                 }),
                 CosmosMsg::Wasm(WasmMsg::Execute {
@@ -740,10 +727,7 @@ mod tests {
         let mut deps = mock_dependencies(&[]);
         deps.querier.with_token_balances(&[(
             &"asset000".to_string(),
-            &[(
-                &MOCK_CONTRACT_ADDR.to_string(),
-                &Uint128::from(1000000u128),
-            )],
+            &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::from(1000000u128))],
         )]);
         deps.querier.with_oracle_price(&[
             (&"uusd".to_string(), &Decimal::one()),
@@ -803,7 +787,7 @@ mod tests {
             &[Coin {
                 amount: Uint128(1000u128),
                 denom: "uluna".to_string(),
-            }]
+            }],
         );
         let _res = execute(deps.as_mut(), env, info, msg.clone()).unwrap();
 
@@ -822,7 +806,7 @@ mod tests {
             &[Coin {
                 amount: Uint128(1000u128),
                 denom: "uluna".to_string(),
-            }]
+            }],
         );
         let res = execute(deps.as_mut(), env, info, msg.clone()).unwrap_err();
         assert_eq!(
@@ -865,7 +849,7 @@ mod tests {
             &[Coin {
                 amount: Uint128(2u128),
                 denom: "uluna".to_string(),
-            }]
+            }],
         );
         let res = execute(deps.as_mut(), env, info, msg.clone()).unwrap_err();
         assert_eq!(
@@ -879,9 +863,9 @@ mod tests {
             sender: "addr0001".to_string(),
             amount: Uint128::from(10u128),
             msg: to_binary(&Cw20HookMsg::Burn {
-                    position_idx: Uint128(1u128),
-                })
-                .unwrap(),
+                position_idx: Uint128(1u128),
+            })
+            .unwrap(),
         });
         let env = mock_env_with_block_time(1000);
         let info = mock_info("asset0000", &[]);
@@ -892,9 +876,9 @@ mod tests {
             sender: "addr0000".to_string(),
             amount: Uint128::from(10u128),
             msg: to_binary(&Cw20HookMsg::Burn {
-                    position_idx: Uint128(1u128),
-                })
-                .unwrap(),
+                position_idx: Uint128(1u128),
+            })
+            .unwrap(),
         });
         let env = mock_env_with_block_time(1000);
         let info = mock_info("asset0000", &[]);

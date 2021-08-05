@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    attr, to_binary, Addr, Api, CanonicalAddr, CosmosMsg, Decimal, Deps, DepsMut, Env, MessageInfo, Order, 
-    Response, StdError, StdResult, Storage, Uint128, WasmMsg,
+    attr, to_binary, Addr, Api, CanonicalAddr, CosmosMsg, Decimal, Deps, DepsMut, Env, MessageInfo,
+    Order, Response, StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 
 use crate::math::short_reward_weight;
@@ -13,18 +13,16 @@ use mirror_protocol::staking::{RewardInfoResponse, RewardInfoResponseItem};
 
 use cw20::Cw20ExecuteMsg;
 
-pub fn adjust_premium(
-    deps: DepsMut,
-    env: Env,
-    asset_tokens: Vec<String>,
-) -> StdResult<Response> {
+pub fn adjust_premium(deps: DepsMut, env: Env, asset_tokens: Vec<String>) -> StdResult<Response> {
     let config: Config = read_config(deps.storage)?;
     let oracle_contract = deps.api.addr_humanize(&config.oracle_contract)?;
     let terraswap_factory = deps.api.addr_humanize(&config.terraswap_factory)?;
     for asset_token in asset_tokens.iter() {
         let asset_token_raw = deps.api.addr_canonicalize(&asset_token)?;
         let pool_info: PoolInfo = read_pool_info(deps.storage, &asset_token_raw)?;
-        if env.block.time.nanos() / 1_000_000_000 < pool_info.premium_updated_time + config.premium_min_update_interval {
+        if env.block.time.nanos() / 1_000_000_000
+            < pool_info.premium_updated_time + config.premium_min_update_interval
+        {
             return Err(StdError::generic_err(
                 "cannot adjust premium before premium_min_update_interval passed",
             ));
@@ -133,7 +131,10 @@ pub fn withdraw_reward(
             send: vec![],
         })],
         submessages: vec![],
-        attributes: vec![attr("action", "withdraw"), attr("amount", amount.to_string())],
+        attributes: vec![
+            attr("action", "withdraw"),
+            attr("amount", amount.to_string()),
+        ],
         data: None,
     })
 }
@@ -200,8 +201,8 @@ pub fn before_share_change(
         pool_info.reward_index
     };
 
-    let pending_reward =
-        (reward_info.bond_amount * pool_index).checked_sub(reward_info.bond_amount * reward_info.index)?;
+    let pending_reward = (reward_info.bond_amount * pool_index)
+        .checked_sub(reward_info.bond_amount * reward_info.index)?;
 
     reward_info.index = pool_index;
     reward_info.pending_reward += pending_reward;
@@ -223,13 +224,7 @@ pub fn query_reward_info(
             &asset_token,
             false,
         )?,
-        _read_reward_infos(
-            deps.api,
-            deps.storage,
-            &staker_addr_raw,
-            &asset_token,
-            true,
-        )?,
+        _read_reward_infos(deps.api, deps.storage, &staker_addr_raw, &asset_token, true)?,
     ]
     .concat();
 

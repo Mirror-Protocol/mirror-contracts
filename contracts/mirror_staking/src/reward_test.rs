@@ -41,10 +41,7 @@ mod tests {
         let _res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
 
         // store 3% premium rate
-        let token_raw = deps
-            .api
-            .addr_canonicalize(&"asset")
-            .unwrap();
+        let token_raw = deps.api.addr_canonicalize(&"asset").unwrap();
         let pool_info = read_pool_info(&deps.storage, &token_raw).unwrap();
         store_pool_info(
             &mut deps.storage,
@@ -62,9 +59,9 @@ mod tests {
             sender: "addr".to_string(),
             amount: Uint128(100u128),
             msg: to_binary(&Cw20HookMsg::Bond {
-                    asset_token: "asset".to_string(),
-                })
-                .unwrap(),
+                asset_token: "asset".to_string(),
+            })
+            .unwrap(),
         });
         let info = mock_info("staking", &[]);
         let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -84,9 +81,9 @@ mod tests {
             sender: "factory".to_string(),
             amount: Uint128(100u128),
             msg: to_binary(&Cw20HookMsg::DepositReward {
-                    rewards: vec![("asset".to_string(), Uint128(100u128))],
-                })
-                .unwrap(),
+                rewards: vec![("asset".to_string(), Uint128(100u128))],
+            })
+            .unwrap(),
         });
         let info = mock_info("reward", &[]);
         let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
@@ -115,10 +112,7 @@ mod tests {
         );
 
         // if premium_rate is over threshold, distribution weight should be 60:40
-        let asset_token_raw = deps
-            .api
-            .addr_canonicalize(&"asset")
-            .unwrap();
+        let asset_token_raw = deps.api.addr_canonicalize(&"asset").unwrap();
         let pool_info: PoolInfo = read_pool_info(&deps.storage, &asset_token_raw).unwrap();
         store_pool_info(
             &mut deps.storage,
@@ -184,10 +178,7 @@ mod tests {
         let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
 
         // store 3% premium rate
-        let token_raw = deps
-            .api
-            .addr_canonicalize(&"asset")
-            .unwrap();
+        let token_raw = deps.api.addr_canonicalize(&"asset").unwrap();
         let pool_info = read_pool_info(&deps.storage, &token_raw).unwrap();
         store_pool_info(
             &mut deps.storage,
@@ -206,9 +197,9 @@ mod tests {
             sender: "factory".to_string(),
             amount: Uint128(100u128),
             msg: to_binary(&Cw20HookMsg::DepositReward {
-                    rewards: vec![("asset".to_string(), Uint128(100u128))],
-                })
-                .unwrap(),
+                rewards: vec![("asset".to_string(), Uint128(100u128))],
+            })
+            .unwrap(),
         });
         let info = mock_info("reward", &[]);
         let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
@@ -237,10 +228,7 @@ mod tests {
         );
 
         // if premium_rate is over threshold, distribution weight should be 60:40
-        let asset_token_raw = deps
-            .api
-            .addr_canonicalize(&"asset")
-            .unwrap();
+        let asset_token_raw = deps.api.addr_canonicalize(&"asset").unwrap();
         let pool_info: PoolInfo = read_pool_info(&deps.storage, &asset_token_raw).unwrap();
         store_pool_info(
             &mut deps.storage,
@@ -306,10 +294,7 @@ mod tests {
         let _res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
 
         // store 3% premium rate
-        let token_raw = deps
-            .api
-            .addr_canonicalize(&"asset")
-            .unwrap();
+        let token_raw = deps.api.addr_canonicalize(&"asset").unwrap();
         let pool_info = read_pool_info(&deps.storage, &token_raw).unwrap();
         store_pool_info(
             &mut deps.storage,
@@ -327,9 +312,9 @@ mod tests {
             sender: "addr".to_string(),
             amount: Uint128(100u128),
             msg: to_binary(&Cw20HookMsg::Bond {
-                    asset_token: "asset".to_string(),
-                })
-                .unwrap(),
+                asset_token: "asset".to_string(),
+            })
+            .unwrap(),
         });
         let info = mock_info("staking", &[]);
         let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -349,22 +334,16 @@ mod tests {
             sender: "factory".to_string(),
             amount: Uint128(100u128),
             msg: to_binary(&Cw20HookMsg::DepositReward {
-                    rewards: vec![("asset".to_string(), Uint128(100u128))],
-                })
-                .unwrap(),
+                rewards: vec![("asset".to_string(), Uint128(100u128))],
+            })
+            .unwrap(),
         });
 
         let info = mock_info("reward", &[]);
         let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let asset_raw = deps
-            .api
-            .addr_canonicalize(&"asset")
-            .unwrap();
-        let addr_raw = deps
-            .api
-            .addr_canonicalize(&"addr")
-            .unwrap();
+        let asset_raw = deps.api.addr_canonicalize(&"asset").unwrap();
+        let addr_raw = deps.api.addr_canonicalize(&"addr").unwrap();
         let reward_bucket = rewards_read(&deps.storage, &addr_raw, false);
         let reward_info: RewardInfo = reward_bucket.load(asset_raw.as_slice()).unwrap();
         assert_eq!(
@@ -381,9 +360,9 @@ mod tests {
             sender: "addr".to_string(),
             amount: Uint128(100u128),
             msg: to_binary(&Cw20HookMsg::Bond {
-                    asset_token: "asset".to_string(),
-                })
-                .unwrap(),
+                asset_token: "asset".to_string(),
+            })
+            .unwrap(),
         });
         let info = mock_info("staking", &[]);
         let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -404,9 +383,9 @@ mod tests {
             sender: "factory".to_string(),
             amount: Uint128(100u128),
             msg: to_binary(&Cw20HookMsg::DepositReward {
-                    rewards: vec![("asset".to_string(), Uint128(100u128))],
-                })
-                .unwrap(),
+                rewards: vec![("asset".to_string(), Uint128(100u128))],
+            })
+            .unwrap(),
         });
         let info = mock_info("reward", &[]);
         let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -457,10 +436,7 @@ mod tests {
         let _res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
 
         // store 3% premium rate
-        let token_raw = deps
-            .api
-            .addr_canonicalize(&"asset")
-            .unwrap();
+        let token_raw = deps.api.addr_canonicalize(&"asset").unwrap();
         let pool_info = read_pool_info(&deps.storage, &token_raw).unwrap();
         store_pool_info(
             &mut deps.storage,
@@ -478,9 +454,9 @@ mod tests {
             sender: "addr".to_string(),
             amount: Uint128(100u128),
             msg: to_binary(&Cw20HookMsg::Bond {
-                    asset_token: "asset".to_string(),
-                })
-                .unwrap(),
+                asset_token: "asset".to_string(),
+            })
+            .unwrap(),
         });
         let info = mock_info("staking", &[]);
         let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -491,9 +467,9 @@ mod tests {
             sender: "factory".to_string(),
             amount: Uint128(100u128),
             msg: to_binary(&Cw20HookMsg::DepositReward {
-                    rewards: vec![("asset".to_string(), Uint128(100u128))],
-                })
-                .unwrap(),
+                rewards: vec![("asset".to_string(), Uint128(100u128))],
+            })
+            .unwrap(),
         });
         let info = mock_info("reward", &[]);
         let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -552,10 +528,7 @@ mod tests {
         let _res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
 
         // store 3% premium rate
-        let token_raw = deps
-            .api
-            .addr_canonicalize(&"asset")
-            .unwrap();
+        let token_raw = deps.api.addr_canonicalize(&"asset").unwrap();
         let pool_info = read_pool_info(&deps.storage, &token_raw).unwrap();
         store_pool_info(
             &mut deps.storage,
@@ -569,10 +542,7 @@ mod tests {
         .unwrap();
 
         // store 3% premium rate for asset2
-        let token_raw = deps
-            .api
-            .addr_canonicalize(&"asset2")
-            .unwrap();
+        let token_raw = deps.api.addr_canonicalize(&"asset2").unwrap();
         let pool_info = read_pool_info(&deps.storage, &token_raw).unwrap();
         store_pool_info(
             &mut deps.storage,
@@ -590,9 +560,9 @@ mod tests {
             sender: "addr".to_string(),
             amount: Uint128(100u128),
             msg: to_binary(&Cw20HookMsg::Bond {
-                    asset_token: "asset".to_string(),
-                })
-                .unwrap(),
+                asset_token: "asset".to_string(),
+            })
+            .unwrap(),
         });
         let info = mock_info("staking", &[]);
         let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -602,9 +572,9 @@ mod tests {
             sender: "addr".to_string(),
             amount: Uint128(1000u128),
             msg: to_binary(&Cw20HookMsg::Bond {
-                    asset_token: "asset2".to_string(),
-                })
-                .unwrap(),
+                asset_token: "asset2".to_string(),
+            })
+            .unwrap(),
         });
         let info = mock_info("staking2", &[]);
         let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -623,12 +593,12 @@ mod tests {
             sender: "factory".to_string(),
             amount: Uint128(300u128),
             msg: to_binary(&Cw20HookMsg::DepositReward {
-                    rewards: vec![
-                        ("asset".to_string(), Uint128(100u128)),
-                        ("asset2".to_string(), Uint128(200u128)),
-                    ],
-                })
-                .unwrap(),
+                rewards: vec![
+                    ("asset".to_string(), Uint128(100u128)),
+                    ("asset2".to_string(), Uint128(200u128)),
+                ],
+            })
+            .unwrap(),
         });
         let info = mock_info("reward", &[]);
         let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -792,7 +762,10 @@ mod tests {
         )
         .unwrap();
         assert_eq!(res.premium_rate, Decimal::zero());
-        assert_eq!(res.premium_updated_time, env.block.time.nanos() / 1_000_000_000);
+        assert_eq!(
+            res.premium_updated_time,
+            env.block.time.nanos() / 1_000_000_000
+        );
 
         // terraswap price = 90
         // premium rate = 0
@@ -837,7 +810,10 @@ mod tests {
         )
         .unwrap();
         assert_eq!(res.premium_rate, Decimal::zero());
-        assert_eq!(res.premium_updated_time, env.block.time.nanos() / 1_000_000_000);
+        assert_eq!(
+            res.premium_updated_time,
+            env.block.time.nanos() / 1_000_000_000
+        );
 
         // terraswap price = 105
         // premium rate = 5%
@@ -872,6 +848,9 @@ mod tests {
         )
         .unwrap();
         assert_eq!(res.premium_rate, Decimal::percent(5));
-        assert_eq!(res.premium_updated_time, env.block.time.nanos() / 1_000_000_000);
+        assert_eq!(
+            res.premium_updated_time,
+            env.block.time.nanos() / 1_000_000_000
+        );
     }
 }

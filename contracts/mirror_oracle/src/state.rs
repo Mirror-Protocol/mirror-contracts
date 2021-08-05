@@ -36,12 +36,8 @@ pub fn store_feeder(
     feeder_bucket.save(asset_token.as_slice(), feeder)
 }
 
-pub fn read_feeder(
-    storage: &dyn Storage,
-    asset_token: &CanonicalAddr,
-) -> StdResult<CanonicalAddr> {
-    let feeder_bucket: ReadonlyBucket<CanonicalAddr> =
-        ReadonlyBucket::new(storage, PREFIX_FEEDER);
+pub fn read_feeder(storage: &dyn Storage, asset_token: &CanonicalAddr) -> StdResult<CanonicalAddr> {
+    let feeder_bucket: ReadonlyBucket<CanonicalAddr> = ReadonlyBucket::new(storage, PREFIX_FEEDER);
     feeder_bucket.load(asset_token.as_slice())
 }
 
@@ -74,8 +70,7 @@ pub fn read_prices(
     limit: Option<u32>,
     order_by: Option<OrderBy>,
 ) -> StdResult<Vec<PricesResponseElem>> {
-    let price_bucket: ReadonlyBucket<PriceInfo> =
-        ReadonlyBucket::new(deps.storage, PREFIX_PRICE);
+    let price_bucket: ReadonlyBucket<PriceInfo> = ReadonlyBucket::new(deps.storage, PREFIX_PRICE);
 
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
     let (start, end, order_by) = match order_by {

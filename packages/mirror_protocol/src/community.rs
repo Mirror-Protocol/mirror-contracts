@@ -7,7 +7,7 @@ use cosmwasm_std::Uint128;
 pub struct InstantiateMsg {
     pub owner: String,        // mirror gov contract
     pub mirror_token: String, // mirror token address
-    pub spend_limit: Uint128,    // spend limit per each `spend` request
+    pub spend_limit: Uint128, // spend limit per each `spend` request
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -23,11 +23,9 @@ pub enum ExecuteMsg {
     },
 }
 
-
 /// We currently take no arguments for migrations
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct MigrateMsg {}
-
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]

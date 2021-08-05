@@ -1,5 +1,6 @@
 use cosmwasm_std::{
-    to_binary, Addr, Binary, CanonicalAddr, Decimal, Deps, QueryRequest, StdError, StdResult, WasmQuery,
+    to_binary, Addr, Binary, CanonicalAddr, Decimal, Deps, QueryRequest, StdError, StdResult,
+    WasmQuery,
 };
 use cosmwasm_storage::to_length_prefixed;
 
@@ -75,7 +76,7 @@ pub fn load_collateral_info(
         return Ok((Decimal::one(), Decimal::one(), false));
     }
 
-    // check if the collateral is a revoked mAsset, will ignore pre_ipo_price since all preIPO 
+    // check if the collateral is a revoked mAsset, will ignore pre_ipo_price since all preIPO
     // assets are not whitelisted in collateral oracle
     let end_price = read_fixed_price(deps.storage, &collateral);
 
@@ -90,7 +91,7 @@ pub fn load_collateral_info(
         // load collateral info from collateral oracle
         let (collateral_oracle_price, collateral_multiplier, is_revoked) =
             query_collateral(deps, collateral_oracle, collateral_denom, block_time)?;
-            
+
         Ok((collateral_oracle_price, collateral_multiplier, is_revoked))
     }
 }

@@ -23,14 +23,14 @@ fn proper_initialization() {
         aust_token: "aust0000".to_string(),
         anchor_market: "anchormarket0000".to_string(),
         bluna_token: "bluna0000".to_string(),
-        bluna_swap_denom: "uluna".to_string()
+        bluna_swap_denom: "uluna".to_string(),
     };
 
     let info = mock_info("addr0000", &[]);
 
     // we can just call .unwrap() to assert this was a success
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-    
+
     // it worked, let's query the state
     let config: ConfigResponse = query_config(deps.as_ref()).unwrap();
     assert_eq!("terraswapfactory", config.terraswap_factory.as_str());
@@ -39,12 +39,10 @@ fn proper_initialization() {
 
 #[test]
 fn test_convert() {
-    let mut deps = mock_dependencies(
-        &[Coin {
-            denom: "uusd".to_string(),
-            amount: Uint128(100u128),
-        }],
-    );
+    let mut deps = mock_dependencies(&[Coin {
+        denom: "uusd".to_string(),
+        amount: Uint128(100u128),
+    }]);
     deps.querier.with_token_balances(&[(
         &"tokenAPPL".to_string(),
         &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128(100u128))],
@@ -57,10 +55,7 @@ fn test_convert() {
 
     deps.querier.with_terraswap_pairs(&[
         (&"uusdtokenAPPL".to_string(), &"pairAPPL".to_string()),
-        (
-            &"uusdtokenMIRROR".to_string(),
-            &"pairMIRROR".to_string(),
-        ),
+        (&"uusdtokenMIRROR".to_string(), &"pairMIRROR".to_string()),
     ]);
 
     let msg = InstantiateMsg {
@@ -72,7 +67,7 @@ fn test_convert() {
         aust_token: "aust0000".to_string(),
         anchor_market: "anchormarket0000".to_string(),
         bluna_token: "bluna0000".to_string(),
-        bluna_swap_denom: "uluna".to_string()
+        bluna_swap_denom: "uluna".to_string(),
     };
 
     let info = mock_info("addr0000", &[]);
@@ -140,12 +135,10 @@ fn test_convert() {
 
 #[test]
 fn test_convert_aust() {
-    let mut deps = mock_dependencies(
-        &[Coin {
-            denom: "uusd".to_string(),
-            amount: Uint128(100u128),
-        }],
-    );
+    let mut deps = mock_dependencies(&[Coin {
+        denom: "uusd".to_string(),
+        amount: Uint128(100u128),
+    }]);
     deps.querier.with_token_balances(&[(
         &"aust0000".to_string(),
         &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128(100u128))],
@@ -189,12 +182,10 @@ fn test_convert_aust() {
 
 #[test]
 fn test_convert_bluna() {
-    let mut deps = mock_dependencies(
-        &[Coin {
-            denom: "uluna".to_string(),
-            amount: Uint128(100u128),
-        }],
-    );
+    let mut deps = mock_dependencies(&[Coin {
+        denom: "uluna".to_string(),
+        amount: Uint128(100u128),
+    }]);
     deps.querier.with_token_balances(&[(
         &"bluna0000".to_string(),
         &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128(100u128))],
@@ -288,7 +279,7 @@ fn test_send() {
         aust_token: "aust0000".to_string(),
         anchor_market: "anchormarket0000".to_string(),
         bluna_token: "bluna0000".to_string(),
-        bluna_swap_denom: "uluna".to_string()
+        bluna_swap_denom: "uluna".to_string(),
     };
 
     let info = mock_info("addr0000", &[]);

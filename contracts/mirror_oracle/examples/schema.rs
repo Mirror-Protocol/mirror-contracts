@@ -3,8 +3,8 @@ use std::fs::create_dir_all;
 
 use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 use mirror_protocol::oracle::{
-    ConfigResponse, FeederResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, PriceResponse, PricesResponse,
-    QueryMsg,
+    ConfigResponse, ExecuteMsg, FeederResponse, InstantiateMsg, MigrateMsg, PriceResponse,
+    PricesResponse, QueryMsg,
 };
 
 fn main() {

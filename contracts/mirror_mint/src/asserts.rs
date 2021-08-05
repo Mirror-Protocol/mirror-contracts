@@ -3,11 +3,7 @@ use cosmwasm_std::{Decimal, Deps, Env, StdError, StdResult};
 use terraswap::asset::Asset;
 
 // Check zero balance & same collateral with position
-pub fn assert_collateral(
-    deps: Deps,
-    position: &Position,
-    collateral: &Asset,
-) -> StdResult<()> {
+pub fn assert_collateral(deps: Deps, position: &Position, collateral: &Asset) -> StdResult<()> {
     if !collateral
         .info
         .equal(&position.collateral.info.to_normal(deps.api)?)
@@ -20,11 +16,7 @@ pub fn assert_collateral(
 }
 
 // Check zero balance & same asset with position
-pub fn assert_asset(
-    deps: Deps,
-    position: &Position,
-    asset: &Asset,
-) -> StdResult<()> {
+pub fn assert_asset(deps: Deps, position: &Position, asset: &Asset) -> StdResult<()> {
     if !asset.info.equal(&position.asset.info.to_normal(deps.api)?) || asset.amount.is_zero() {
         return Err(StdError::generic_err("Wrong asset"));
     }

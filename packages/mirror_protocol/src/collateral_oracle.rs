@@ -3,7 +3,7 @@ use std::fmt;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Decimal};
+use cosmwasm_std::Decimal;
 use terraswap::asset::AssetInfo;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -44,19 +44,15 @@ pub enum ExecuteMsg {
     UpdateCollateralMultiplier {
         asset: AssetInfo,
         multiplier: Decimal,
-    }
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     Config {},
-    CollateralPrice {
-        asset: String,
-    },
-    CollateralAssetInfo {
-        asset: String,
-    },
+    CollateralPrice { asset: String },
+    CollateralAssetInfo { asset: String },
     CollateralAssetInfos {},
 }
 
@@ -121,13 +117,13 @@ pub enum SourceType {
 impl fmt::Display for SourceType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            SourceType::MirrorOracle{..} => write!(f, "mirror_oracle"),
-            SourceType::AnchorOracle{..} => write!(f, "anchor_oracle"),
-            SourceType::BandOracle{..} => write!(f, "band_oracle"),
-            SourceType::FixedPrice{..} => write!(f, "fixed_price"),
-            SourceType::Terraswap{..} => write!(f, "terraswap"),
-            SourceType::AnchorMarket{..} => write!(f, "anchor_market"),
-            SourceType::Native {..} => write!(f, "native"),
+            SourceType::MirrorOracle { .. } => write!(f, "mirror_oracle"),
+            SourceType::AnchorOracle { .. } => write!(f, "anchor_oracle"),
+            SourceType::BandOracle { .. } => write!(f, "band_oracle"),
+            SourceType::FixedPrice { .. } => write!(f, "fixed_price"),
+            SourceType::Terraswap { .. } => write!(f, "terraswap"),
+            SourceType::AnchorMarket { .. } => write!(f, "anchor_market"),
+            SourceType::Native { .. } => write!(f, "native"),
         }
     }
 }

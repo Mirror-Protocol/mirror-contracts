@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    attr, to_binary, Addr, CanonicalAddr, Coin, CosmosMsg, Decimal, DepsMut, Env, 
-    MessageInfo, Response, StdError, StdResult, Storage, Uint128, WasmMsg,
+    attr, to_binary, Addr, CanonicalAddr, Coin, CosmosMsg, Decimal, DepsMut, Env, MessageInfo,
+    Response, StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 
 use crate::rewards::before_share_change;
@@ -194,8 +194,10 @@ pub fn auto_stake(
     let terraswap_pair: PairInfo = query_pair_info(&deps.querier, terraswap_factory, &asset_infos)?;
 
     // assert the token and lp token match with pool info
-    let pool_info: PoolInfo =
-        read_pool_info(deps.storage, &deps.api.addr_canonicalize(token_addr.as_str())?)?;
+    let pool_info: PoolInfo = read_pool_info(
+        deps.storage,
+        &deps.api.addr_canonicalize(token_addr.as_str())?,
+    )?;
 
     if pool_info.staking_token
         != deps

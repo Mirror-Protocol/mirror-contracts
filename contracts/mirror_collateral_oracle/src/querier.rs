@@ -1,6 +1,5 @@
 use cosmwasm_std::{
-    to_binary, Decimal, Deps, QueryRequest, QuerierWrapper, StdError, StdResult,
-    Uint128, WasmQuery,
+    to_binary, Decimal, Deps, QuerierWrapper, QueryRequest, StdError, StdResult, Uint128, WasmQuery,
 };
 use std::str::FromStr;
 

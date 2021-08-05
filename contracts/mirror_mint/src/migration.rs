@@ -94,7 +94,7 @@ mod migrate_tests {
     use super::*;
     use crate::state::{read_asset_config, read_config};
     use cosmwasm_std::testing::mock_dependencies;
-    use cosmwasm_std::{Api};
+    use cosmwasm_std::Api;
     use cosmwasm_storage::{singleton, Bucket};
 
     pub fn asset_config_old_store<'a>(
@@ -103,10 +103,7 @@ mod migrate_tests {
         Bucket::new(storage, PREFIX_ASSET_CONFIG)
     }
 
-    pub fn store_legacy_config(
-        storage: &mut dyn Storage,
-        config: &LegacyConfig,
-    ) -> StdResult<()> {
+    pub fn store_legacy_config(storage: &mut dyn Storage, config: &LegacyConfig) -> StdResult<()> {
         singleton(storage, KEY_CONFIG).save(config)
     }
 
@@ -114,34 +111,13 @@ mod migrate_tests {
     fn test_config_migration() {
         let mut deps = mock_dependencies(&[]);
 
-        let owner = deps
-            .api
-            .addr_canonicalize("owner0000")
-            .unwrap();
-        let oracle = deps
-            .api
-            .addr_canonicalize("oracle0000")
-            .unwrap();
-        let collector = deps
-            .api
-            .addr_canonicalize("collector0000")
-            .unwrap();
-        let staking = deps
-            .api
-            .addr_canonicalize("staking0000")
-            .unwrap();
-        let terraswap_factory = deps
-            .api
-            .addr_canonicalize("terraswap_factory")
-            .unwrap();
-        let collateral_oracle = deps
-            .api
-            .addr_canonicalize("collateral_oracle")
-            .unwrap();
-        let lock = deps
-            .api
-            .addr_canonicalize("lock0000")
-            .unwrap();
+        let owner = deps.api.addr_canonicalize("owner0000").unwrap();
+        let oracle = deps.api.addr_canonicalize("oracle0000").unwrap();
+        let collector = deps.api.addr_canonicalize("collector0000").unwrap();
+        let staking = deps.api.addr_canonicalize("staking0000").unwrap();
+        let terraswap_factory = deps.api.addr_canonicalize("terraswap_factory").unwrap();
+        let collateral_oracle = deps.api.addr_canonicalize("collateral_oracle").unwrap();
+        let lock = deps.api.addr_canonicalize("lock0000").unwrap();
         store_legacy_config(
             &mut deps.storage,
             &LegacyConfig {
@@ -184,20 +160,14 @@ mod migrate_tests {
     fn test_asset_config_migration() {
         let mut deps = mock_dependencies(&[]);
 
-        let asset_token = deps
-            .api
-            .addr_canonicalize("token0001")
-            .unwrap();
+        let asset_token = deps.api.addr_canonicalize("token0001").unwrap();
         let legacy_asset_config = LegacyAssetConfig {
             token: asset_token.clone(),
             auction_discount: Decimal::percent(10),
             min_collateral_ratio: Decimal::percent(150),
             end_price: None,
         };
-        let asset_token_2 = deps
-            .api
-            .addr_canonicalize("token0002")
-            .unwrap();
+        let asset_token_2 = deps.api.addr_canonicalize("token0002").unwrap();
         let legacy_asset_config_2 = LegacyAssetConfig {
             token: asset_token_2.clone(),
             auction_discount: Decimal::percent(20),

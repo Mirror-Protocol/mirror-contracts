@@ -2,8 +2,8 @@
 use cosmwasm_std::entry_point;
 
 use cosmwasm_std::{
-    attr, to_binary, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, 
-    Response, StdError, StdResult,
+    attr, to_binary, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Response, StdError,
+    StdResult,
 };
 
 use crate::math::decimal_division;
@@ -14,8 +14,8 @@ use crate::state::{
 
 use mirror_protocol::common::OrderBy;
 use mirror_protocol::oracle::{
-    ConfigResponse, FeederResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, PriceResponse, PricesResponse,
-    PricesResponseElem, QueryMsg,
+    ConfigResponse, ExecuteMsg, FeederResponse, InstantiateMsg, MigrateMsg, PriceResponse,
+    PricesResponse, PricesResponseElem, QueryMsg,
 };
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -37,12 +37,7 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn execute(
-    deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    msg: ExecuteMsg,
-) -> StdResult<Response> {
+pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
     match msg {
         ExecuteMsg::UpdateConfig { owner } => try_update_config(deps, info, owner),
         ExecuteMsg::RegisterAsset {
@@ -141,11 +136,7 @@ pub fn try_feed_price(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(
-    deps: Deps,
-    _env: Env,
-    msg: QueryMsg,
-) -> StdResult<Binary> {
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::Feeder { asset_token } => to_binary(&query_feeder(deps, asset_token)?),
@@ -161,9 +152,7 @@ pub fn query(
     }
 }
 
-fn query_config(
-    deps: Deps,
-) -> StdResult<ConfigResponse> {
+fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     let state = read_config(deps.storage)?;
     let resp = ConfigResponse {
         owner: deps.api.addr_humanize(&state.owner)?.to_string(),
@@ -173,10 +162,7 @@ fn query_config(
     Ok(resp)
 }
 
-fn query_feeder(
-    deps: Deps,
-    asset_token: String,
-) -> StdResult<FeederResponse> {
+fn query_feeder(deps: Deps, asset_token: String) -> StdResult<FeederResponse> {
     let feeder = read_feeder(deps.storage, &deps.api.addr_canonicalize(&asset_token)?)?;
     let resp = FeederResponse {
         asset_token,
@@ -186,11 +172,7 @@ fn query_feeder(
     Ok(resp)
 }
 
-fn query_price(
-    deps: Deps,
-    base: String,
-    quote: String,
-) -> StdResult<PriceResponse> {
+fn query_price(deps: Deps, base: String, quote: String) -> StdResult<PriceResponse> {
     let config: Config = read_config(deps.storage)?;
     let quote_price = if config.base_asset == quote {
         PriceInfo {
@@ -198,10 +180,7 @@ fn query_price(
             last_updated_time: u64::MAX,
         }
     } else {
-        read_price(
-            deps.storage,
-            &deps.api.addr_canonicalize(quote.as_str())?,
-        )?
+        read_price(deps.storage, &deps.api.addr_canonicalize(quote.as_str())?)?
     };
 
     let base_price = if config.base_asset == base {
@@ -210,10 +189,7 @@ fn query_price(
             last_updated_time: u64::MAX,
         }
     } else {
-        read_price(
-            deps.storage,
-            &deps.api.addr_canonicalize(base.as_str())?,
-        )?
+        read_price(deps.storage, &deps.api.addr_canonicalize(base.as_str())?)?
     };
 
     Ok(PriceResponse {
@@ -241,10 +217,6 @@ fn query_prices(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(
-    _deps: DepsMut,
-    _env: Env,
-    _msg: MigrateMsg,
-) -> StdResult<Response> {
+pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
     Ok(Response::default())
 }

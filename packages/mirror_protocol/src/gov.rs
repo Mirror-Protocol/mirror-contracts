@@ -140,8 +140,8 @@ pub struct PollResponse {
     pub link: Option<String>,
     pub deposit_amount: Uint128,
     pub execute_data: Option<PollExecuteMsg>,
-    pub yes_votes: Uint128, // balance
-    pub no_votes: Uint128,  // balance
+    pub yes_votes: Uint128,     // balance
+    pub no_votes: Uint128,      // balance
     pub abstain_votes: Uint128, // balance
     pub total_balance_at_end_poll: Option<Uint128>,
     pub voters_reward: Uint128,

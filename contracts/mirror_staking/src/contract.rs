@@ -2,8 +2,8 @@
 use cosmwasm_std::entry_point;
 
 use cosmwasm_std::{
-    from_binary, attr, to_binary, Addr, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, 
-    Response, StdError, StdResult, Uint128,
+    attr, from_binary, to_binary, Addr, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Response,
+    StdError, StdResult, Uint128,
 };
 
 use mirror_protocol::staking::{
@@ -43,12 +43,7 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn execute(
-    deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    msg: ExecuteMsg,
-) -> StdResult<Response> {
+pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
     match msg {
         ExecuteMsg::Receive(msg) => receive_cw20(deps, info, msg),
         ExecuteMsg::UpdateConfig {
@@ -61,31 +56,26 @@ pub fn execute(
                 None
             };
             update_config(deps, info, owner_addr, premium_min_update_interval)
-        },
+        }
         ExecuteMsg::RegisterAsset {
             asset_token,
             staking_token,
         } => {
             let api = deps.api;
             register_asset(
-                deps, 
-                info, 
-                api.addr_validate(&asset_token)?, 
-                api.addr_validate(&staking_token)?
+                deps,
+                info,
+                api.addr_validate(&asset_token)?,
+                api.addr_validate(&staking_token)?,
             )
-        },
+        }
         ExecuteMsg::Unbond {
             asset_token,
             amount,
         } => {
             let api = deps.api;
-            unbond(
-                deps, 
-                info.sender, 
-                api.addr_validate(&asset_token)?, 
-                amount
-            )
-        },
+            unbond(deps, info.sender, api.addr_validate(&asset_token)?, amount)
+        }
         ExecuteMsg::Withdraw { asset_token } => {
             let asset_addr = if let Some(asset_addr) = asset_token {
                 Some(deps.api.addr_validate(&asset_addr)?)
@@ -93,7 +83,7 @@ pub fn execute(
                 None
             };
             withdraw_reward(deps, info, asset_addr)
-        },
+        }
         ExecuteMsg::AdjustPremium { asset_tokens } => adjust_premium(deps, env, asset_tokens),
         ExecuteMsg::IncreaseShortToken {
             staker_addr,
@@ -102,13 +92,13 @@ pub fn execute(
         } => {
             let api = deps.api;
             increase_short_token(
-                deps, 
-                info, 
-                api.addr_validate(&staker_addr)?, 
-                api.addr_validate(&asset_token)?, 
-                amount
+                deps,
+                info,
+                api.addr_validate(&staker_addr)?,
+                api.addr_validate(&asset_token)?,
+                amount,
             )
-        },
+        }
         ExecuteMsg::DecreaseShortToken {
             staker_addr,
             asset_token,
@@ -116,13 +106,13 @@ pub fn execute(
         } => {
             let api = deps.api;
             decrease_short_token(
-                deps, 
-                info, 
-                api.addr_validate(&staker_addr)?, 
+                deps,
+                info,
+                api.addr_validate(&staker_addr)?,
                 api.addr_validate(&asset_token)?,
-                amount
+                amount,
             )
-        },
+        }
         ExecuteMsg::AutoStake {
             assets,
             slippage_tolerance,
@@ -143,7 +133,7 @@ pub fn execute(
                 api.addr_validate(&staker_addr)?,
                 prev_staking_token_amount,
             )
-        },
+        }
     }
 }
 
@@ -152,7 +142,6 @@ pub fn receive_cw20(
     info: MessageInfo,
     cw20_msg: Cw20ReceiveMsg,
 ) -> StdResult<Response> {
-
     match from_binary(&cw20_msg.msg) {
         Ok(Cw20HookMsg::Bond { asset_token }) => {
             let pool_info: PoolInfo =
@@ -164,10 +153,12 @@ pub fn receive_cw20(
             }
 
             let api = deps.api;
-            bond(deps, 
-                api.addr_validate(cw20_msg.sender.as_str())?, 
-                api.addr_validate(asset_token.as_str())?, 
-                cw20_msg.amount)
+            bond(
+                deps,
+                api.addr_validate(cw20_msg.sender.as_str())?,
+                api.addr_validate(asset_token.as_str())?,
+                cw20_msg.amount,
+            )
         }
         Ok(Cw20HookMsg::DepositReward { rewards }) => {
             let config: Config = read_config(deps.storage)?;
@@ -188,7 +179,7 @@ pub fn receive_cw20(
 
             deposit_reward(deps, rewards, rewards_amount)
         }
-        Err(_) => Err(StdError::generic_err("data should be given"))
+        Err(_) => Err(StdError::generic_err("data should be given")),
     }
 }
 
@@ -267,11 +258,7 @@ fn register_asset(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(
-    deps: Deps,
-    _env: Env,
-    msg: QueryMsg,
-) -> StdResult<Binary> {
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::PoolInfo { asset_token } => to_binary(&query_pool_info(deps, asset_token)?),
@@ -282,16 +269,17 @@ pub fn query(
     }
 }
 
-pub fn query_config(
-    deps: Deps,
-) -> StdResult<ConfigResponse> {
+pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     let state = read_config(deps.storage)?;
     let resp = ConfigResponse {
         owner: deps.api.addr_humanize(&state.owner)?.to_string(),
         mirror_token: deps.api.addr_humanize(&state.mirror_token)?.to_string(),
         mint_contract: deps.api.addr_humanize(&state.mint_contract)?.to_string(),
         oracle_contract: deps.api.addr_humanize(&state.oracle_contract)?.to_string(),
-        terraswap_factory: deps.api.addr_humanize(&state.terraswap_factory)?.to_string(),
+        terraswap_factory: deps
+            .api
+            .addr_humanize(&state.terraswap_factory)?
+            .to_string(),
         base_denom: state.base_denom,
         premium_min_update_interval: state.premium_min_update_interval,
     };
@@ -299,15 +287,15 @@ pub fn query_config(
     Ok(resp)
 }
 
-pub fn query_pool_info(
-    deps: Deps,
-    asset_token: String,
-) -> StdResult<PoolInfoResponse> {
+pub fn query_pool_info(deps: Deps, asset_token: String) -> StdResult<PoolInfoResponse> {
     let asset_token_raw = deps.api.addr_canonicalize(&asset_token)?;
     let pool_info: PoolInfo = read_pool_info(deps.storage, &asset_token_raw)?;
     Ok(PoolInfoResponse {
         asset_token,
-        staking_token: deps.api.addr_humanize(&pool_info.staking_token)?.to_string(),
+        staking_token: deps
+            .api
+            .addr_humanize(&pool_info.staking_token)?
+            .to_string(),
         total_bond_amount: pool_info.total_bond_amount,
         total_short_amount: pool_info.total_short_amount,
         reward_index: pool_info.reward_index,
@@ -321,11 +309,7 @@ pub fn query_pool_info(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(
-    deps: DepsMut,
-    _env: Env,
-    msg: MigrateMsg,
-) -> StdResult<Response> {
+pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
     migrate_config(
         deps.storage,
         deps.api.addr_canonicalize(&msg.mint_contract)?,

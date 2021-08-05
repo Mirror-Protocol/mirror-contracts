@@ -1,6 +1,5 @@
 use cosmwasm_std::{
-    Addr, Binary, CanonicalAddr, Decimal, Deps, QueryRequest,
-    StdError, StdResult, WasmQuery,
+    Addr, Binary, CanonicalAddr, Decimal, Deps, QueryRequest, StdError, StdResult, WasmQuery,
 };
 
 use cosmwasm_storage::to_length_prefixed;

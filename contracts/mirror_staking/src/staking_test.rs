@@ -4,8 +4,7 @@ mod tests {
     use crate::mock_querier::mock_dependencies_with_querier;
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info, MOCK_CONTRACT_ADDR};
     use cosmwasm_std::{
-        from_binary, attr, to_binary, Addr, Coin, CosmosMsg, Decimal, StdError, Uint128,
-        WasmMsg,
+        attr, from_binary, to_binary, Addr, Coin, CosmosMsg, Decimal, StdError, Uint128, WasmMsg,
     };
     use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
     use mirror_protocol::staking::{
@@ -44,9 +43,9 @@ mod tests {
             sender: "addr".to_string(),
             amount: Uint128(100u128),
             msg: to_binary(&Cw20HookMsg::Bond {
-                    asset_token: "asset".to_string(),
-                })
-                .unwrap(),
+                asset_token: "asset".to_string(),
+            })
+            .unwrap(),
         });
 
         let info = mock_info("staking", &[]);
@@ -106,9 +105,9 @@ mod tests {
             sender: "addr2".to_string(),
             amount: Uint128(100u128),
             msg: to_binary(&Cw20HookMsg::Bond {
-                    asset_token: "asset".to_string(),
-                })
-                .unwrap(),
+                asset_token: "asset".to_string(),
+            })
+            .unwrap(),
         });
         let info = mock_info("staking", &[]);
         let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -144,9 +143,9 @@ mod tests {
             sender: "addr".to_string(),
             amount: Uint128(100u128),
             msg: to_binary(&Cw20HookMsg::Bond {
-                    asset_token: "asset".to_string(),
-                })
-                .unwrap(),
+                asset_token: "asset".to_string(),
+            })
+            .unwrap(),
         });
 
         let info = mock_info("staking2", &[]);
@@ -188,9 +187,9 @@ mod tests {
             sender: "addr".to_string(),
             amount: Uint128(100u128),
             msg: to_binary(&Cw20HookMsg::Bond {
-                    asset_token: "asset".to_string(),
-                })
-                .unwrap(),
+                asset_token: "asset".to_string(),
+            })
+            .unwrap(),
         });
         let info = mock_info("staking", &[]);
         let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
