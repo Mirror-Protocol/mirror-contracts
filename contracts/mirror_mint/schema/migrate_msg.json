@@ -7,51 +7,15 @@
   ],
   "properties": {
     "collateral_oracle": {
-      "anyOf": [
-        {
-          "$ref": "#/definitions/HumanAddr"
-        },
-        {
-          "type": "null"
-        }
-      ]
+      "type": "string"
     },
     "lock": {
-      "anyOf": [
-        {
-          "$ref": "#/definitions/HumanAddr"
-        },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "network": {
-      "$ref": "#/definitions/Network"
+      "type": "string"
     },
     "staking": {
-      "anyOf": [
-        {
-          "$ref": "#/definitions/HumanAddr"
-        },
-        {
-          "type": "null"
-        }
-      ]
+      "type": "string"
     },
     "terraswap_factory": {
-      "anyOf": [
-        {
-          "$ref": "#/definitions/HumanAddr"
-        },
-        {
-          "type": "null"
-        }
-      ]
-    }
-  },
-  "definitions": {
-    "HumanAddr": {
       "type": "string"
     },
     "Network": {

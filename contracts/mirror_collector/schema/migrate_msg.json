@@ -1,7 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "MigrateMsg",
-  "description": "We currently take no arguments for migrations",
   "type": "object",
   "required": [
     "anchor_market",
@@ -12,23 +11,18 @@
   ],
   "properties": {
     "anchor_market": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "aust_token": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "bluna_swap_denom": {
       "type": "string"
     },
     "bluna_token": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "owner": {
-      "$ref": "#/definitions/HumanAddr"
-    }
-  },
-  "definitions": {
-    "HumanAddr": {
       "type": "string"
     }
   }

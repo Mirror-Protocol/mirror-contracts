@@ -1,12 +1,12 @@
 #[cfg(test)]
 mod tests {
-    use crate::contract::{handle, init, query};
+    use crate::contract::{execute, instantiate, query};
     use crate::mock_querier::mock_dependencies;
-    use cosmwasm_std::testing::mock_env;
-    use cosmwasm_std::{from_binary, to_binary, CosmosMsg, Decimal, HumanAddr, StdError, WasmMsg};
-    use mirror_protocol::collateral_oracle::{HandleMsg::RegisterCollateralAsset, SourceType};
+    use cosmwasm_std::testing::{mock_env, mock_info};
+    use cosmwasm_std::{from_binary, to_binary, Addr, CosmosMsg, Decimal, StdError, WasmMsg};
+    use mirror_protocol::collateral_oracle::{ExecuteMsg::RegisterCollateralAsset, SourceType};
     use mirror_protocol::mint::{
-        AssetConfigResponse, ConfigResponse, HandleMsg, IPOParams, InitMsg, QueryMsg,
+        AssetConfigResponse, ConfigResponse, ExecuteMsg, IPOParams, InstantiateMsg, QueryMsg,
     };
     use terraswap::asset::AssetInfo;
 
@@ -14,24 +14,24 @@ mod tests {
 
     #[test]
     fn proper_initialization() {
-        let mut deps = mock_dependencies(20, &[]);
-        let msg = InitMsg {
-            owner: HumanAddr::from("owner0000"),
-            oracle: HumanAddr::from("oracle0000"),
-            collector: HumanAddr::from("collector0000"),
-            collateral_oracle: HumanAddr::from("collateraloracle0000"),
-            staking: HumanAddr::from("staking0000"),
-            terraswap_factory: HumanAddr::from("terraswap_factory"),
-            lock: HumanAddr::from("lock0000"),
+        let mut deps = mock_dependencies(&[]);
+        let msg = InstantiateMsg {
+            owner: "owner0000".to_string(),
+            oracle: "oracle0000".to_string(),
+            collector: "collector0000".to_string(),
+            collateral_oracle: "collateraloracle0000".to_string(),
+            staking: "staking0000".to_string(),
+            terraswap_factory: "terraswap_factory".to_string(),
+            lock: "lock0000".to_string(),
             base_denom: "uusd".to_string(),
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
         };
-        let env = mock_env("addr0000", &[]);
+        let info = mock_info("addr0000", &[]);
         // we can just call .unwrap() to assert this was a success
-        let _res = init(&mut deps, env.clone(), msg).unwrap();
+        let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
         // it worked, let's query the state
-        let res = query(&deps, QueryMsg::Config {}).unwrap();
+        let res = query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap();
         let config: ConfigResponse = from_binary(&res).unwrap();
         assert_eq!("owner0000", config.owner.as_str());
         assert_eq!("uusd", config.base_denom.to_string());
@@ -45,25 +45,25 @@ mod tests {
     }
     #[test]
     fn update_config() {
-        let mut deps = mock_dependencies(20, &[]);
-        let msg = InitMsg {
-            owner: HumanAddr::from("owner0000"),
-            oracle: HumanAddr::from("oracle0000"),
-            collector: HumanAddr::from("collector0000"),
-            collateral_oracle: HumanAddr::from("collateraloracle0000"),
-            staking: HumanAddr::from("staking0000"),
-            terraswap_factory: HumanAddr::from("terraswap_factory"),
-            lock: HumanAddr::from("lock0000"),
+        let mut deps = mock_dependencies(&[]);
+        let msg = InstantiateMsg {
+            owner: "owner0000".to_string(),
+            oracle: "oracle0000".to_string(),
+            collector: "collector0000".to_string(),
+            collateral_oracle: "collateraloracle0000".to_string(),
+            staking: "staking0000".to_string(),
+            terraswap_factory: "terraswap_factory".to_string(),
+            lock: "lock0000".to_string(),
             base_denom: "uusd".to_string(),
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
         };
-        let env = mock_env("addr0000", &[]);
-        let _res = init(&mut deps, env.clone(), msg).unwrap();
+        let info = mock_info("addr0000", &[]);
+        let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
         // update owner
-        let env = mock_env("owner0000", &[]);
-        let msg = HandleMsg::UpdateConfig {
-            owner: Some(HumanAddr("owner0001".to_string())),
+        let info = mock_info("owner0000", &[]);
+        let msg = ExecuteMsg::UpdateConfig {
+            owner: Some("owner0001".to_string()),
             oracle: None,
             collector: None,
             terraswap_factory: None,
@@ -72,16 +72,16 @@ mod tests {
             protocol_fee_rate: None,
             collateral_oracle: None,
         };
-        let res = handle(&mut deps, env, msg).unwrap();
+        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
         // it worked, let's query the state
-        let res = query(&deps, QueryMsg::Config {}).unwrap();
+        let res = query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap();
         let config: ConfigResponse = from_binary(&res).unwrap();
         assert_eq!("owner0001", config.owner.as_str());
         assert_eq!(100u64, config.token_code_id);
         // Unauthorized err
-        let env = mock_env("owner0000", &[]);
-        let msg = HandleMsg::UpdateConfig {
+        let info = mock_info("owner0000", &[]);
+        let msg = ExecuteMsg::UpdateConfig {
             owner: None,
             oracle: None,
             collector: None,
@@ -91,46 +91,46 @@ mod tests {
             protocol_fee_rate: None,
             collateral_oracle: None,
         };
-        let res = handle(&mut deps, env, msg);
+        let res = execute(deps.as_mut(), mock_env(), info, msg);
         match res {
-            Err(StdError::Unauthorized { .. }) => {}
+            Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
             _ => panic!("Must return unauthorized error"),
         }
     }
     #[test]
     fn register_asset() {
-        let mut deps = mock_dependencies(20, &[]);
+        let mut deps = mock_dependencies(&[]);
         let base_denom = "uusd".to_string();
-        let msg = InitMsg {
-            owner: HumanAddr::from("owner0000"),
-            oracle: HumanAddr::from("oracle0000"),
-            collector: HumanAddr::from("collector0000"),
-            collateral_oracle: HumanAddr::from("collateraloracle0000"),
-            staking: HumanAddr::from("staking0000"),
-            terraswap_factory: HumanAddr::from("terraswap_factory"),
-            lock: HumanAddr::from("lock0000"),
+        let msg = InstantiateMsg {
+            owner: "owner0000".to_string(),
+            oracle: "oracle0000".to_string(),
+            collector: "collector0000".to_string(),
+            collateral_oracle: "collateraloracle0000".to_string(),
+            staking: "staking0000".to_string(),
+            terraswap_factory: "terraswap_factory".to_string(),
+            lock: "lock0000".to_string(),
             base_denom: base_denom.clone(),
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
         };
-        let env = mock_env("addr0000", &[]);
-        let _res = init(&mut deps, env, msg).unwrap();
-        let msg = HandleMsg::RegisterAsset {
-            asset_token: HumanAddr::from("asset0000"),
+        let info = mock_info("addr0000", &[]);
+        let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+        let msg = ExecuteMsg::RegisterAsset {
+            asset_token: "asset0000".to_string(),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
             ipo_params: None,
         };
-        let env = mock_env("owner0000", &[]);
-        let res = handle(&mut deps, env, msg).unwrap();
+        let info = mock_info("owner0000", &[]);
+        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(
             res.messages,
             vec![CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("collateraloracle0000"),
+                contract_addr: "collateraloracle0000".to_string(),
                 send: vec![],
                 msg: to_binary(&RegisterCollateralAsset {
                     asset: AssetInfo::Token {
-                        contract_addr: HumanAddr::from("asset0000"),
+                        contract_addr: Addr::unchecked("asset0000"),
                     },
                     multiplier: Decimal::one(),
                     price_source: SourceType::MirrorOracle {},
@@ -140,9 +140,10 @@ mod tests {
         );
 
         let res = query(
-            &deps,
+            deps.as_ref(),
+            mock_env(),
             QueryMsg::AssetConfig {
-                asset_token: HumanAddr::from("asset0000"),
+                asset_token: "asset0000".to_string(),
             },
         )
         .unwrap();
@@ -150,7 +151,7 @@ mod tests {
         assert_eq!(
             asset_config,
             AssetConfigResponse {
-                token: HumanAddr::from("asset0000"),
+                token: "asset0000".to_string(),
                 auction_discount: Decimal::percent(20),
                 min_collateral_ratio: Decimal::percent(150),
                 end_price: None,
@@ -158,40 +159,40 @@ mod tests {
             }
         );
         // must be failed with the already registered token error
-        let msg = HandleMsg::RegisterAsset {
-            asset_token: HumanAddr::from("asset0000"),
+        let msg = ExecuteMsg::RegisterAsset {
+            asset_token: "asset0000".to_string(),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
             ipo_params: None,
         };
-        let env = mock_env("owner0000", &[]);
-        let res = handle(&mut deps, env, msg).unwrap_err();
+        let info = mock_info("owner0000", &[]);
+        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match res {
             StdError::GenericErr { msg, .. } => assert_eq!(msg, "Asset was already registered"),
             _ => panic!("DO NOT ENTER HERE"),
         }
         // must be failed with unauthorized error
-        let msg = HandleMsg::RegisterAsset {
-            asset_token: HumanAddr::from("asset0000"),
+        let msg = ExecuteMsg::RegisterAsset {
+            asset_token: "asset0000".to_string(),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
             ipo_params: None,
         };
-        let env = mock_env("owner0001", &[]);
-        let res = handle(&mut deps, env, msg).unwrap_err();
+        let info = mock_info("owner0001", &[]);
+        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match res {
-            StdError::Unauthorized { .. } => {}
+            StdError::GenericErr { msg, .. } => assert_eq!(msg, "unauthorized"),
             _ => panic!("DO NOT ENTER HERE"),
         }
         // must be failed with unauthorized error
-        let msg = HandleMsg::RegisterAsset {
-            asset_token: HumanAddr::from("asset0000"),
+        let msg = ExecuteMsg::RegisterAsset {
+            asset_token: "asset0000".to_string(),
             auction_discount: Decimal::percent(150),
             min_collateral_ratio: Decimal::percent(150),
             ipo_params: None,
         };
-        let env = mock_env("owner0000", &[]);
-        let res = handle(&mut deps, env, msg).unwrap_err();
+        let info = mock_info("owner0000", &[]);
+        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match res {
             StdError::GenericErr { msg, .. } => {
                 assert_eq!(msg, "auction_discount must be smaller than 1")
@@ -199,14 +200,14 @@ mod tests {
             _ => panic!("DO NOT ENTER HERE"),
         }
         // must be failed with unauthorized error
-        let msg = HandleMsg::RegisterAsset {
-            asset_token: HumanAddr::from("asset0000"),
+        let msg = ExecuteMsg::RegisterAsset {
+            asset_token: "asset0000".to_string(),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(50),
             ipo_params: None,
         };
-        let env = mock_env("owner0000", &[]);
-        let res = handle(&mut deps, env, msg).unwrap_err();
+        let info = mock_info("owner0000", &[]);
+        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match res {
             StdError::GenericErr { msg, .. } => {
                 assert_eq!(msg, "min_collateral_ratio must be bigger than 1")
@@ -216,32 +217,32 @@ mod tests {
     }
     #[test]
     fn update_asset() {
-        let mut deps = mock_dependencies(20, &[]);
+        let mut deps = mock_dependencies(&[]);
         let base_denom = "uusd".to_string();
-        let msg = InitMsg {
-            owner: HumanAddr::from("owner0000"),
-            oracle: HumanAddr::from("oracle0000"),
-            collector: HumanAddr::from("collector0000"),
-            collateral_oracle: HumanAddr::from("collateraloracle0000"),
-            staking: HumanAddr::from("staking0000"),
-            terraswap_factory: HumanAddr::from("terraswap_factory"),
-            lock: HumanAddr::from("lock0000"),
+        let msg = InstantiateMsg {
+            owner: "owner0000".to_string(),
+            oracle: "oracle0000".to_string(),
+            collector: "collector0000".to_string(),
+            collateral_oracle: "collateraloracle0000".to_string(),
+            staking: "staking0000".to_string(),
+            terraswap_factory: "terraswap_factory".to_string(),
+            lock: "lock0000".to_string(),
             base_denom: base_denom.clone(),
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
         };
-        let env = mock_env("addr0000", &[]);
-        let _res = init(&mut deps, env, msg).unwrap();
-        let msg = HandleMsg::RegisterAsset {
-            asset_token: HumanAddr::from("asset0000"),
+        let info = mock_info("addr0000", &[]);
+        let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+        let msg = ExecuteMsg::RegisterAsset {
+            asset_token: "asset0000".to_string(),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
             ipo_params: None,
         };
-        let env = mock_env("owner0000", &[]);
-        let _res = handle(&mut deps, env, msg).unwrap();
-        let msg = HandleMsg::UpdateAsset {
-            asset_token: HumanAddr::from("asset0000"),
+        let info = mock_info("owner0000", &[]);
+        let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+        let msg = ExecuteMsg::UpdateAsset {
+            asset_token: "asset0000".to_string(),
             auction_discount: Some(Decimal::percent(30)),
             min_collateral_ratio: Some(Decimal::percent(200)),
             ipo_params: Some(IPOParams {
@@ -250,12 +251,13 @@ mod tests {
                 pre_ipo_price: Decimal::percent(1),
             }),
         };
-        let env = mock_env("owner0000", &[]);
-        let _res = handle(&mut deps, env, msg).unwrap();
+        let info = mock_info("owner0000", &[]);
+        let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         let res = query(
-            &deps,
+            deps.as_ref(),
+            mock_env(),
             QueryMsg::AssetConfig {
-                asset_token: HumanAddr::from("asset0000"),
+                asset_token: "asset0000".to_string(),
             },
         )
         .unwrap();
@@ -263,7 +265,7 @@ mod tests {
         assert_eq!(
             asset_config,
             AssetConfigResponse {
-                token: HumanAddr::from("asset0000"),
+                token: "asset0000".to_string(),
                 auction_discount: Decimal::percent(30),
                 min_collateral_ratio: Decimal::percent(200),
                 end_price: None,
@@ -274,44 +276,44 @@ mod tests {
                 }),
             }
         );
-        let msg = HandleMsg::UpdateAsset {
-            asset_token: HumanAddr::from("asset0000"),
+        let msg = ExecuteMsg::UpdateAsset {
+            asset_token: "asset0000".to_string(),
             auction_discount: Some(Decimal::percent(130)),
             min_collateral_ratio: Some(Decimal::percent(150)),
             ipo_params: None,
         };
-        let env = mock_env("owner0000", &[]);
-        let res = handle(&mut deps, env, msg).unwrap_err();
+        let info = mock_info("owner0000", &[]);
+        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match res {
             StdError::GenericErr { msg, .. } => {
                 assert_eq!(msg, "auction_discount must be smaller than 1")
             }
             _ => panic!("Must return unauthorized error"),
         }
-        let msg = HandleMsg::UpdateAsset {
-            asset_token: HumanAddr::from("asset0000"),
+        let msg = ExecuteMsg::UpdateAsset {
+            asset_token: "asset0000".to_string(),
             auction_discount: Some(Decimal::percent(30)),
             min_collateral_ratio: Some(Decimal::percent(50)),
             ipo_params: None,
         };
-        let env = mock_env("owner0000", &[]);
-        let res = handle(&mut deps, env, msg).unwrap_err();
+        let info = mock_info("owner0000", &[]);
+        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match res {
             StdError::GenericErr { msg, .. } => {
                 assert_eq!(msg, "min_collateral_ratio must be bigger than 1")
             }
             _ => panic!("Must return unauthorized error"),
         }
-        let msg = HandleMsg::UpdateAsset {
-            asset_token: HumanAddr::from("asset0000"),
+        let msg = ExecuteMsg::UpdateAsset {
+            asset_token: "asset0000".to_string(),
             auction_discount: Some(Decimal::percent(30)),
             min_collateral_ratio: Some(Decimal::percent(200)),
             ipo_params: None,
         };
-        let env = mock_env("owner0001", &[]);
-        let res = handle(&mut deps, env, msg).unwrap_err();
+        let info = mock_info("owner0001", &[]);
+        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match res {
-            StdError::Unauthorized { .. } => {}
+            StdError::GenericErr { msg, .. } => assert_eq!(msg, "unauthorized"),
             _ => panic!("Must return unauthorized error"),
         }
     }

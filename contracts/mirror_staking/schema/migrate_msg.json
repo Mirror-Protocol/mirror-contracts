@@ -15,27 +15,10 @@
       ]
     },
     "mint_contract": {
-      "anyOf": [
-        {
-          "$ref": "#/definitions/HumanAddr"
-        },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "network": {
-      "$ref": "#/definitions/Network"
+      "type": "string"
     },
     "oracle_contract": {
-      "anyOf": [
-        {
-          "$ref": "#/definitions/HumanAddr"
-        },
-        {
-          "type": "null"
-        }
-      ]
+      "type": "string"
     },
     "premium_min_update_interval": {
       "type": [
@@ -45,22 +28,7 @@
       "format": "uint64",
       "minimum": 0.0
     },
-    "short_reward_contract": {
-      "$ref": "#/definitions/HumanAddr"
-    },
     "terraswap_factory": {
-      "anyOf": [
-        {
-          "$ref": "#/definitions/HumanAddr"
-        },
-        {
-          "type": "null"
-        }
-      ]
-    }
-  },
-  "definitions": {
-    "HumanAddr": {
       "type": "string"
     },
     "Network": {

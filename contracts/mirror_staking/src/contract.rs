@@ -1,15 +1,12 @@
+#[cfg(not(feature = "library"))]
+use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_binary, log, to_binary, Api, Binary, Decimal, Env, Extern, HandleResponse, HandleResult,
-    HumanAddr, InitResponse, MigrateResponse, MigrateResult, Querier, StdError, StdResult, Storage,
-    Uint128,
+    attr, from_binary, to_binary, Addr, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Response,
+    StdError, StdResult, Uint128,
 };
-
-use mirror_protocol::common::Network;
 use mirror_protocol::staking::{
-    ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrateMsg, PoolInfoResponse, QueryMsg,
+    ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, PoolInfoResponse, QueryMsg,
 };
-
-use crate::migration::{migrate_mainnet_config, migrate_pool_infos, migrate_testnet_config};
 use crate::rewards::{adjust_premium, deposit_reward, query_reward_info, withdraw_reward};
 use crate::staking::{
     auto_stake, auto_stake_hook, bond, decrease_short_token, increase_short_token, unbond,
@@ -18,144 +15,192 @@ use crate::state::{read_config, read_pool_info, store_config, store_pool_info, C
 
 use cw20::Cw20ReceiveMsg;
 
-pub fn init<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn instantiate(
+    deps: DepsMut,
     _env: Env,
-    msg: InitMsg,
-) -> StdResult<InitResponse> {
+    _info: MessageInfo,
+    msg: InstantiateMsg,
+) -> StdResult<Response> {
     store_config(
-        &mut deps.storage,
+        deps.storage,
         &Config {
-            owner: deps.api.canonical_address(&msg.owner)?,
-            mirror_token: deps.api.canonical_address(&msg.mirror_token)?,
-            mint_contract: deps.api.canonical_address(&msg.mint_contract)?,
-            oracle_contract: deps.api.canonical_address(&msg.oracle_contract)?,
-            terraswap_factory: deps.api.canonical_address(&msg.terraswap_factory)?,
+            owner: deps.api.addr_canonicalize(&msg.owner)?,
+            mirror_token: deps.api.addr_canonicalize(&msg.mirror_token)?,
+            mint_contract: deps.api.addr_canonicalize(&msg.mint_contract)?,
+            oracle_contract: deps.api.addr_canonicalize(&msg.oracle_contract)?,
+            terraswap_factory: deps.api.addr_canonicalize(&msg.terraswap_factory)?,
             base_denom: msg.base_denom,
             premium_min_update_interval: msg.premium_min_update_interval,
-            short_reward_contract: deps.api.canonical_address(&msg.short_reward_contract)?,
+            short_reward_contract: deps.api.addr_canonicalize(&msg.short_reward_contract)?,
         },
     )?;
 
-    Ok(InitResponse::default())
+    Ok(Response::default())
 }
 
-pub fn handle<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    msg: HandleMsg,
-) -> StdResult<HandleResponse> {
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
     match msg {
-        HandleMsg::Receive(msg) => receive_cw20(deps, env, msg),
-        HandleMsg::UpdateConfig {
+        ExecuteMsg::Receive(msg) => receive_cw20(deps, info, msg),
+        ExecuteMsg::UpdateConfig {
             owner,
             premium_min_update_interval,
             short_reward_contract,
-        } => update_config(
-            deps,
-            env,
-            owner,
-            premium_min_update_interval,
-            short_reward_contract,
-        ),
-        HandleMsg::RegisterAsset {
+        } => {
+            let owner_addr = if let Some(owner_addr) = owner {
+                Some(deps.api.addr_validate(&owner_addr)?)
+            } else {
+                None
+            };
+            let short_reward_contract_addr = if let Some(short_reward_contract) = short_reward_contract {
+                Some(deps.api.addr_validate(&short_reward_contract)?)
+            } else {
+                None
+            };
+            update_config(deps, info, owner_addr, premium_min_update_interval, short_reward_contract_addr)
+        }
+        ExecuteMsg::RegisterAsset {
             asset_token,
             staking_token,
-        } => register_asset(deps, env, asset_token, staking_token),
-        HandleMsg::Unbond {
+        } => {
+            let api = deps.api;
+            register_asset(
+                deps,
+                info,
+                api.addr_validate(&asset_token)?,
+                api.addr_validate(&staking_token)?,
+            )
+        }
+        ExecuteMsg::Unbond {
             asset_token,
             amount,
-        } => unbond(deps, env.message.sender, asset_token, amount),
-        HandleMsg::Withdraw { asset_token } => withdraw_reward(deps, env, asset_token),
-        HandleMsg::AdjustPremium { asset_tokens } => adjust_premium(deps, env, asset_tokens),
-        HandleMsg::IncreaseShortToken {
+        } => {
+            let api = deps.api;
+            unbond(deps, info.sender, api.addr_validate(&asset_token)?, amount)
+        }
+        ExecuteMsg::Withdraw { asset_token } => {
+            let asset_addr = if let Some(asset_addr) = asset_token {
+                Some(deps.api.addr_validate(&asset_addr)?)
+            } else {
+                None
+            };
+            withdraw_reward(deps, info, asset_addr)
+        }
+        ExecuteMsg::AdjustPremium { asset_tokens } => adjust_premium(deps, env, asset_tokens),
+        ExecuteMsg::IncreaseShortToken {
             staker_addr,
             asset_token,
             amount,
-        } => increase_short_token(deps, env, staker_addr, asset_token, amount),
-        HandleMsg::DecreaseShortToken {
+        } => {
+            let api = deps.api;
+            increase_short_token(
+                deps,
+                info,
+                api.addr_validate(&staker_addr)?,
+                api.addr_validate(&asset_token)?,
+                amount,
+            )
+        }
+        ExecuteMsg::DecreaseShortToken {
             staker_addr,
             asset_token,
             amount,
-        } => decrease_short_token(deps, env, staker_addr, asset_token, amount),
-        HandleMsg::AutoStake {
+        } => {
+            let api = deps.api;
+            decrease_short_token(
+                deps,
+                info,
+                api.addr_validate(&staker_addr)?,
+                api.addr_validate(&asset_token)?,
+                amount,
+            )
+        }
+        ExecuteMsg::AutoStake {
             assets,
             slippage_tolerance,
-        } => auto_stake(deps, env, assets, slippage_tolerance),
-        HandleMsg::AutoStakeHook {
+        } => auto_stake(deps, env, info, assets, slippage_tolerance),
+        ExecuteMsg::AutoStakeHook {
             asset_token,
             staking_token,
             staker_addr,
             prev_staking_token_amount,
-        } => auto_stake_hook(
-            deps,
-            env,
-            asset_token,
-            staking_token,
-            staker_addr,
-            prev_staking_token_amount,
-        ),
-    }
-}
-
-pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    cw20_msg: Cw20ReceiveMsg,
-) -> HandleResult {
-    if let Some(msg) = cw20_msg.msg {
-        let config: Config = read_config(&deps.storage)?;
-
-        match from_binary(&msg)? {
-            Cw20HookMsg::Bond { asset_token } => {
-                let pool_info: PoolInfo =
-                    read_pool_info(&deps.storage, &deps.api.canonical_address(&asset_token)?)?;
-
-                // only staking token contract can execute this message
-                if pool_info.staking_token != deps.api.canonical_address(&env.message.sender)? {
-                    return Err(StdError::unauthorized());
-                }
-
-                bond(deps, env, cw20_msg.sender, asset_token, cw20_msg.amount)
-            }
-            Cw20HookMsg::DepositReward { rewards } => {
-                // only reward token contract can execute this message
-                if config.mirror_token != deps.api.canonical_address(&env.message.sender)? {
-                    return Err(StdError::unauthorized());
-                }
-
-                let mut rewards_amount = Uint128::zero();
-                for (_, amount) in rewards.iter() {
-                    rewards_amount += *amount;
-                }
-
-                if rewards_amount != cw20_msg.amount {
-                    return Err(StdError::generic_err("rewards amount miss matched"));
-                }
-
-                deposit_reward(deps, rewards, rewards_amount)
-            }
+        } => {
+            let api = deps.api;
+            auto_stake_hook(
+                deps,
+                env,
+                info,
+                api.addr_validate(&asset_token)?,
+                api.addr_validate(&staking_token)?,
+                api.addr_validate(&staker_addr)?,
+                prev_staking_token_amount,
+            )
         }
-    } else {
-        Err(StdError::generic_err("data should be given"))
     }
 }
 
-pub fn update_config<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    owner: Option<HumanAddr>,
-    premium_min_update_interval: Option<u64>,
-    short_reward_contract: Option<HumanAddr>,
-) -> StdResult<HandleResponse> {
-    let mut config: Config = read_config(&deps.storage)?;
+pub fn receive_cw20(
+    deps: DepsMut,
+    info: MessageInfo,
+    cw20_msg: Cw20ReceiveMsg,
+) -> StdResult<Response> {
+    match from_binary(&cw20_msg.msg) {
+        Ok(Cw20HookMsg::Bond { asset_token }) => {
+            let pool_info: PoolInfo =
+                read_pool_info(deps.storage, &deps.api.addr_canonicalize(&asset_token)?)?;
 
-    if deps.api.canonical_address(&env.message.sender)? != config.owner {
-        return Err(StdError::unauthorized());
+            // only staking token contract can execute this message
+            if pool_info.staking_token != deps.api.addr_canonicalize(info.sender.as_str())? {
+                return Err(StdError::generic_err("unauthorized"));
+            }
+
+            let api = deps.api;
+            bond(
+                deps,
+                api.addr_validate(cw20_msg.sender.as_str())?,
+                api.addr_validate(asset_token.as_str())?,
+                cw20_msg.amount,
+            )
+        }
+        Ok(Cw20HookMsg::DepositReward { rewards }) => {
+            let config: Config = read_config(deps.storage)?;
+
+            // only reward token contract can execute this message
+            if config.mirror_token != deps.api.addr_canonicalize(info.sender.as_str())? {
+                return Err(StdError::generic_err("unauthorized"));
+            }
+
+            let mut rewards_amount = Uint128::zero();
+            for (_, amount) in rewards.iter() {
+                rewards_amount += *amount;
+            }
+
+            if rewards_amount != cw20_msg.amount {
+                return Err(StdError::generic_err("rewards amount miss matched"));
+            }
+
+            deposit_reward(deps, rewards, rewards_amount)
+        }
+        Err(_) => Err(StdError::generic_err("data should be given")),
+    }
+}
+
+pub fn update_config(
+    deps: DepsMut,
+    info: MessageInfo,
+    owner: Option<Addr>,
+    premium_min_update_interval: Option<u64>,
+    short_reward_contract: Option<Addr>,
+) -> StdResult<Response> {
+    let mut config: Config = read_config(deps.storage)?;
+
+    if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner {
+        return Err(StdError::generic_err("unauthorized"));
     }
 
     if let Some(owner) = owner {
-        config.owner = deps.api.canonical_address(&owner)?;
+        config.owner = deps.api.addr_canonicalize(owner.as_str())?;
     }
 
     if let Some(premium_min_update_interval) = premium_min_update_interval {
@@ -163,39 +208,40 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     }
 
     if let Some(short_reward_contract) = short_reward_contract {
-        config.short_reward_contract = deps.api.canonical_address(&short_reward_contract)?;
+        config.short_reward_contract = deps.api.addr_canonicalize(short_reward_contract.as_str())?;
     }
 
-    store_config(&mut deps.storage, &config)?;
-    Ok(HandleResponse {
+    store_config(deps.storage, &config)?;
+    Ok(Response {
         messages: vec![],
-        log: vec![log("action", "update_config")],
+        submessages: vec![],
+        attributes: vec![attr("action", "update_config")],
         data: None,
     })
 }
 
-fn register_asset<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    asset_token: HumanAddr,
-    staking_token: HumanAddr,
-) -> HandleResult {
-    let config: Config = read_config(&deps.storage)?;
-    let asset_token_raw = deps.api.canonical_address(&asset_token)?;
+fn register_asset(
+    deps: DepsMut,
+    info: MessageInfo,
+    asset_token: Addr,
+    staking_token: Addr,
+) -> StdResult<Response> {
+    let config: Config = read_config(deps.storage)?;
+    let asset_token_raw = deps.api.addr_canonicalize(asset_token.as_str())?;
 
-    if config.owner != deps.api.canonical_address(&env.message.sender)? {
-        return Err(StdError::unauthorized());
+    if config.owner != deps.api.addr_canonicalize(info.sender.as_str())? {
+        return Err(StdError::generic_err("unauthorized"));
     }
 
-    if read_pool_info(&deps.storage, &asset_token_raw).is_ok() {
+    if read_pool_info(deps.storage, &asset_token_raw).is_ok() {
         return Err(StdError::generic_err("Asset was already registered"));
     }
 
     store_pool_info(
-        &mut deps.storage,
+        deps.storage,
         &asset_token_raw,
         &PoolInfo {
-            staking_token: deps.api.canonical_address(&staking_token)?,
+            staking_token: deps.api.addr_canonicalize(staking_token.as_str())?,
             total_bond_amount: Uint128::zero(),
             total_short_amount: Uint128::zero(),
             reward_index: Decimal::zero(),
@@ -208,20 +254,19 @@ fn register_asset<S: Storage, A: Api, Q: Querier>(
         },
     )?;
 
-    Ok(HandleResponse {
+    Ok(Response {
         messages: vec![],
-        log: vec![
-            log("action", "register_asset"),
-            log("asset_token", asset_token.as_str()),
+        submessages: vec![],
+        attributes: vec![
+            attr("action", "register_asset"),
+            attr("asset_token", asset_token.as_str()),
         ],
         data: None,
     })
 }
 
-pub fn query<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    msg: QueryMsg,
-) -> StdResult<Binary> {
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::PoolInfo { asset_token } => to_binary(&query_pool_info(deps, asset_token)?),
@@ -232,33 +277,34 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
     }
 }
 
-pub fn query_config<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-) -> StdResult<ConfigResponse> {
-    let state = read_config(&deps.storage)?;
+pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
+    let state = read_config(deps.storage)?;
     let resp = ConfigResponse {
-        owner: deps.api.human_address(&state.owner)?,
-        mirror_token: deps.api.human_address(&state.mirror_token)?,
-        mint_contract: deps.api.human_address(&state.mint_contract)?,
-        oracle_contract: deps.api.human_address(&state.oracle_contract)?,
-        terraswap_factory: deps.api.human_address(&state.terraswap_factory)?,
+        owner: deps.api.addr_humanize(&state.owner)?.to_string(),
+        mirror_token: deps.api.addr_humanize(&state.mirror_token)?.to_string(),
+        mint_contract: deps.api.addr_humanize(&state.mint_contract)?.to_string(),
+        oracle_contract: deps.api.addr_humanize(&state.oracle_contract)?.to_string(),
+        terraswap_factory: deps
+            .api
+            .addr_humanize(&state.terraswap_factory)?
+            .to_string(),
         base_denom: state.base_denom,
         premium_min_update_interval: state.premium_min_update_interval,
-        short_reward_contract: deps.api.human_address(&state.short_reward_contract)?,
+        short_reward_contract: deps.api.addr_humanize(&state.short_reward_contract)?.to_string(),
     };
 
     Ok(resp)
 }
 
-pub fn query_pool_info<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    asset_token: HumanAddr,
-) -> StdResult<PoolInfoResponse> {
-    let asset_token_raw = deps.api.canonical_address(&asset_token)?;
-    let pool_info: PoolInfo = read_pool_info(&deps.storage, &asset_token_raw)?;
+pub fn query_pool_info(deps: Deps, asset_token: String) -> StdResult<PoolInfoResponse> {
+    let asset_token_raw = deps.api.addr_canonicalize(&asset_token)?;
+    let pool_info: PoolInfo = read_pool_info(deps.storage, &asset_token_raw)?;
     Ok(PoolInfoResponse {
         asset_token,
-        staking_token: deps.api.human_address(&pool_info.staking_token)?,
+        staking_token: deps
+            .api
+            .addr_humanize(&pool_info.staking_token)?
+            .to_string(),
         total_bond_amount: pool_info.total_bond_amount,
         total_short_amount: pool_info.total_short_amount,
         reward_index: pool_info.reward_index,
@@ -271,41 +317,7 @@ pub fn query_pool_info<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-pub fn migrate<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    _env: Env,
-    msg: MigrateMsg,
-) -> MigrateResult {
-    match msg.network {
-        Network::Mainnet => {
-            if msg.mint_contract.is_none()
-                || msg.oracle_contract.is_none()
-                || msg.terraswap_factory.is_none()
-                || msg.base_denom.is_none()
-                || msg.premium_min_update_interval.is_none()
-            {
-                return Err(StdError::generic_err("For mainnet migration, need to specify: 'mint_contract','oracle_contract','terraswap_factory','base_denom','premium_min_update_interval'"));
-            }
-            migrate_mainnet_config(
-                &mut deps.storage,
-                deps.api.canonical_address(&msg.mint_contract.unwrap())?,
-                deps.api.canonical_address(&msg.oracle_contract.unwrap())?,
-                deps.api
-                    .canonical_address(&msg.terraswap_factory.unwrap())?,
-                msg.base_denom.unwrap(),
-                msg.premium_min_update_interval.unwrap(),
-                deps.api.canonical_address(&msg.short_reward_contract)?,
-            )?;
-
-            migrate_pool_infos(&mut deps.storage)?;
-        }
-        Network::Testnet => {
-            migrate_testnet_config(
-                &mut deps.storage,
-                deps.api.canonical_address(&msg.short_reward_contract)?,
-            )?;
-        }
-    }
-
-    Ok(MigrateResponse::default())
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
+    Ok(Response::default())
 }

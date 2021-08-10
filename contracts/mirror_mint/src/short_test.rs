@@ -1,31 +1,31 @@
 #[cfg(test)]
 mod test {
-    use crate::contract::{handle, init, query};
+    use crate::contract::{execute, instantiate, query};
     use crate::mock_querier::mock_dependencies;
-    use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
+    use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
     use cosmwasm_std::{
-        from_binary, log, to_binary, BankMsg, BlockInfo, Coin, CosmosMsg, Decimal, Env, HumanAddr,
-        Uint128, WasmMsg,
+        attr, from_binary, to_binary, Addr, BankMsg, BlockInfo, Coin, CosmosMsg, Decimal, Env,
+        Timestamp, Uint128, WasmMsg,
     };
-    use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
-    use mirror_protocol::lock::HandleMsg as LockHandleMsg;
+    use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
+    use mirror_protocol::lock::ExecuteMsg as LockExecuteMsg;
     use mirror_protocol::mint::{
-        Cw20HookMsg, HandleMsg, InitMsg, PositionResponse, QueryMsg, ShortParams,
+        Cw20HookMsg, ExecuteMsg, InstantiateMsg, PositionResponse, QueryMsg, ShortParams,
     };
-    use mirror_protocol::staking::HandleMsg as StakingHandleMsg;
+    use mirror_protocol::staking::ExecuteMsg as StakingExecuteMsg;
     use terraswap::{
         asset::{Asset, AssetInfo},
         pair::Cw20HookMsg as PairCw20HookMsg,
     };
 
     static TOKEN_CODE_ID: u64 = 10u64;
-    fn mock_env_with_block_time<U: Into<HumanAddr>>(sender: U, sent: &[Coin], time: u64) -> Env {
-        let env = mock_env(sender, sent);
+    fn mock_env_with_block_time(time: u64) -> Env {
+        let env = mock_env();
         // register time
         return Env {
             block: BlockInfo {
                 height: 1,
-                time,
+                time: Timestamp::from_seconds(time),
                 chain_id: "columbus".to_string(),
             },
             ..env
@@ -34,7 +34,7 @@ mod test {
 
     #[test]
     fn open_short_position() {
-        let mut deps = mock_dependencies(20, &[]);
+        let mut deps = mock_dependencies(&[]);
         deps.querier.with_oracle_price(&[
             (&"uusd".to_string(), &Decimal::one()),
             (&"asset0000".to_string(), &Decimal::percent(100)),
@@ -43,50 +43,53 @@ mod test {
 
         let base_denom = "uusd".to_string();
 
-        let msg = InitMsg {
-            owner: HumanAddr::from("owner0000"),
-            oracle: HumanAddr::from("oracle0000"),
-            collector: HumanAddr::from("collector0000"),
-            collateral_oracle: HumanAddr::from("collateraloracle0000"),
-            staking: HumanAddr::from("staking0000"),
-            terraswap_factory: HumanAddr::from("terraswap_factory"),
-            lock: HumanAddr::from("lock0000"),
+        let msg = InstantiateMsg {
+            owner: "owner0000".to_string(),
+            oracle: "oracle0000".to_string(),
+            collector: "collector0000".to_string(),
+            collateral_oracle: "collateraloracle0000".to_string(),
+            staking: "staking0000".to_string(),
+            terraswap_factory: "terraswap_factory".to_string(),
+            lock: "lock0000".to_string(),
             base_denom: base_denom.clone(),
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
         };
 
-        let env = mock_env("addr0000", &[]);
-        let _res = init(&mut deps, env, msg).unwrap();
+        let env = mock_env();
+        let info = mock_info("addr0000", &[]);
+        let _res = instantiate(deps.as_mut(), env, info, msg).unwrap();
 
-        let msg = HandleMsg::RegisterAsset {
-            asset_token: HumanAddr::from("asset0000"),
+        let msg = ExecuteMsg::RegisterAsset {
+            asset_token: "asset0000".to_string(),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
             ipo_params: None,
         };
 
-        let env = mock_env("owner0000", &[]);
-        let _res = handle(&mut deps, env, msg).unwrap();
+        let env = mock_env();
+        let info = mock_info("owner0000", &[]);
+        let _res = execute(deps.as_mut(), env, info, msg).unwrap();
 
-        let msg = HandleMsg::RegisterAsset {
-            asset_token: HumanAddr::from("asset0001"),
+        let msg = ExecuteMsg::RegisterAsset {
+            asset_token: "asset0001".to_string(),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
             ipo_params: None,
         };
 
-        let env = mock_env("owner0000", &[]);
-        let _res = handle(&mut deps, env, msg).unwrap();
+        let env = mock_env();
+        let info = mock_info("owner0000", &[]);
+        let _res = execute(deps.as_mut(), env, info, msg).unwrap();
 
         // register terraswap pair
         deps.querier.with_terraswap_pair(&[(
             &"uusd".to_string(),
             &"asset0000".to_string(),
-            &HumanAddr::from("pair0000"),
+            &"pair0000".to_string(),
         )]);
 
-        let msg = HandleMsg::OpenPosition {
+        let msg = ExecuteMsg::OpenPosition {
             collateral: Asset {
                 info: AssetInfo::NativeToken {
                     denom: "uusd".to_string(),
@@ -94,7 +97,7 @@ mod test {
                 amount: Uint128(1000000u128),
             },
             asset_info: AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0000"),
+                contract_addr: Addr::unchecked("asset0000"),
             },
             collateral_ratio: Decimal::percent(150),
             short_params: Some(ShortParams {
@@ -103,24 +106,24 @@ mod test {
             }),
         };
 
-        let env = mock_env_with_block_time(
+        let env = mock_env_with_block_time(1000);
+        let info = mock_info(
             "addr0000",
             &[Coin {
                 denom: "uusd".to_string(),
                 amount: Uint128(1000000u128),
             }],
-            1000,
         );
-        let res = handle(&mut deps, env.clone(), msg).unwrap();
+        let res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
         assert_eq!(
-            res.log,
+            res.attributes,
             vec![
-                log("action", "open_position"),
-                log("position_idx", "1"),
-                log("mint_amount", "666666asset0000"),
-                log("collateral_amount", "1000000uusd"),
-                log("is_short", "true"),
+                attr("action", "open_position"),
+                attr("position_idx", "1"),
+                attr("mint_amount", "666666asset0000"),
+                attr("collateral_amount", "1000000uusd"),
+                attr("is_short", "true"),
             ]
         );
 
@@ -128,25 +131,25 @@ mod test {
             res.messages,
             vec![
                 CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: HumanAddr::from("asset0000"),
+                    contract_addr: "asset0000".to_string(),
                     send: vec![],
-                    msg: to_binary(&Cw20HandleMsg::Mint {
-                        recipient: HumanAddr::from(MOCK_CONTRACT_ADDR),
+                    msg: to_binary(&Cw20ExecuteMsg::Mint {
+                        recipient: MOCK_CONTRACT_ADDR.to_string(),
                         amount: Uint128(666666u128),
                     })
                     .unwrap()
                 }),
                 CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: HumanAddr::from("asset0000"),
+                    contract_addr: "asset0000".to_string(),
                     send: vec![],
-                    msg: to_binary(&Cw20HandleMsg::Send {
-                        contract: HumanAddr::from("pair0000"),
+                    msg: to_binary(&Cw20ExecuteMsg::Send {
+                        contract: "pair0000".to_string(),
                         amount: Uint128(666666u128),
                         msg: Some(
                             to_binary(&PairCw20HookMsg::Swap {
                                 belief_price: None,
                                 max_spread: None,
-                                to: Some(HumanAddr::from("lock0000")),
+                                to: Some("lock0000".to_string()),
                             })
                             .unwrap()
                         )
@@ -154,20 +157,20 @@ mod test {
                     .unwrap()
                 }),
                 CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: HumanAddr::from("lock0000"),
+                    contract_addr: "lock0000".to_string(),
                     send: vec![],
-                    msg: to_binary(&LockHandleMsg::LockPositionFundsHook {
+                    msg: to_binary(&LockExecuteMsg::LockPositionFundsHook {
                         position_idx: Uint128(1u128),
-                        receiver: HumanAddr::from("addr0000"),
+                        receiver: "addr0000".to_string(),
                     })
                     .unwrap(),
                 }),
                 CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: HumanAddr::from("staking0000"),
+                    contract_addr: "staking0000".to_string(),
                     send: vec![],
-                    msg: to_binary(&StakingHandleMsg::IncreaseShortToken {
-                        asset_token: HumanAddr::from("asset0000"),
-                        staker_addr: HumanAddr::from("addr0000"),
+                    msg: to_binary(&StakingExecuteMsg::IncreaseShortToken {
+                        asset_token: "asset0000".to_string(),
+                        staker_addr: "addr0000".to_string(),
                         amount: Uint128(666666u128),
                     })
                     .unwrap(),
@@ -176,7 +179,8 @@ mod test {
         );
 
         let res = query(
-            &deps,
+            deps.as_ref(),
+            mock_env(),
             QueryMsg::Position {
                 position_idx: Uint128(1u128),
             },
@@ -187,10 +191,10 @@ mod test {
             position,
             PositionResponse {
                 idx: Uint128(1u128),
-                owner: HumanAddr::from("addr0000"),
+                owner: "addr0000".to_string(),
                 asset: Asset {
                     info: AssetInfo::Token {
-                        contract_addr: HumanAddr::from("asset0000"),
+                        contract_addr: Addr::unchecked("asset0000"),
                     },
                     amount: Uint128(666666u128),
                 },
@@ -207,7 +211,7 @@ mod test {
 
     #[test]
     fn mint_short_position() {
-        let mut deps = mock_dependencies(20, &[]);
+        let mut deps = mock_dependencies(&[]);
         deps.querier.with_oracle_price(&[
             (&"uusd".to_string(), &Decimal::one()),
             (&"asset0000".to_string(), &Decimal::percent(100)),
@@ -216,50 +220,51 @@ mod test {
 
         let base_denom = "uusd".to_string();
 
-        let msg = InitMsg {
-            owner: HumanAddr::from("owner0000"),
-            oracle: HumanAddr::from("oracle0000"),
-            collector: HumanAddr::from("collector0000"),
-            collateral_oracle: HumanAddr::from("collateraloracle0000"),
-            staking: HumanAddr::from("staking0000"),
-            terraswap_factory: HumanAddr::from("terraswap_factory"),
-            lock: HumanAddr::from("lock0000"),
+        let msg = InstantiateMsg {
+            owner: "owner0000".to_string(),
+            oracle: "oracle0000".to_string(),
+            collector: "collector0000".to_string(),
+            collateral_oracle: "collateraloracle0000".to_string(),
+            staking: "staking0000".to_string(),
+            terraswap_factory: "terraswap_factory".to_string(),
+            lock: "lock0000".to_string(),
             base_denom: base_denom.clone(),
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
         };
 
-        let env = mock_env("addr0000", &[]);
-        let _res = init(&mut deps, env, msg).unwrap();
+        let env = mock_env();
+        let info = mock_info("addr0000", &[]);
+        let _res = instantiate(deps.as_mut(), env, info, msg).unwrap();
 
-        let msg = HandleMsg::RegisterAsset {
-            asset_token: HumanAddr::from("asset0000"),
+        let msg = ExecuteMsg::RegisterAsset {
+            asset_token: "asset0000".to_string(),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
             ipo_params: None,
         };
 
-        let env = mock_env("owner0000", &[]);
-        let _res = handle(&mut deps, env, msg).unwrap();
+        let info = mock_info("owner0000", &[]);
+        let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let msg = HandleMsg::RegisterAsset {
-            asset_token: HumanAddr::from("asset0001"),
+        let msg = ExecuteMsg::RegisterAsset {
+            asset_token: "asset0001".to_string(),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
             ipo_params: None,
         };
 
-        let env = mock_env("owner0000", &[]);
-        let _res = handle(&mut deps, env, msg).unwrap();
+        let info = mock_info("owner0000", &[]);
+        let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // register terraswap pair
         deps.querier.with_terraswap_pair(&[(
             &"uusd".to_string(),
             &"asset0000".to_string(),
-            &HumanAddr::from("pair0000"),
+            &"pair0000".to_string(),
         )]);
 
-        let msg = HandleMsg::OpenPosition {
+        let msg = ExecuteMsg::OpenPosition {
             collateral: Asset {
                 info: AssetInfo::NativeToken {
                     denom: "uusd".to_string(),
@@ -267,7 +272,7 @@ mod test {
                 amount: Uint128(1000000u128),
             },
             asset_info: AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0000"),
+                contract_addr: Addr::unchecked("asset0000"),
             },
             collateral_ratio: Decimal::percent(200),
             short_params: Some(ShortParams {
@@ -276,35 +281,36 @@ mod test {
             }),
         };
 
-        let env = mock_env_with_block_time(
+        let env = mock_env_with_block_time(1000);
+        let info = mock_info(
             "addr0000",
             &[Coin {
                 denom: "uusd".to_string(),
                 amount: Uint128(1000000u128),
             }],
-            1000,
         );
-        let _res = handle(&mut deps, env.clone(), msg).unwrap();
+        let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
         // mint more tokens from the short position
-        let msg = HandleMsg::Mint {
+        let msg = ExecuteMsg::Mint {
             position_idx: Uint128(1u128),
             asset: Asset {
                 info: AssetInfo::Token {
-                    contract_addr: HumanAddr::from("asset0000"),
+                    contract_addr: Addr::unchecked("asset0000"),
                 },
                 amount: Uint128(100u128),
             },
             short_params: None,
         };
-        let env = mock_env_with_block_time("addr0000", &[], 1000);
-        let res = handle(&mut deps, env.clone(), msg).unwrap();
+        let env = mock_env_with_block_time(1000);
+        let info = mock_info("addr0000", &[]);
+        let res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
         assert_eq!(
-            res.log,
+            res.attributes,
             vec![
-                log("action", "mint"),
-                log("position_idx", "1"),
-                log("mint_amount", "100asset0000"),
+                attr("action", "mint"),
+                attr("position_idx", "1"),
+                attr("mint_amount", "100asset0000"),
             ]
         );
 
@@ -312,25 +318,25 @@ mod test {
             res.messages,
             vec![
                 CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: HumanAddr::from("asset0000"),
+                    contract_addr: "asset0000".to_string(),
                     send: vec![],
-                    msg: to_binary(&Cw20HandleMsg::Mint {
-                        recipient: HumanAddr::from(MOCK_CONTRACT_ADDR),
+                    msg: to_binary(&Cw20ExecuteMsg::Mint {
+                        recipient: MOCK_CONTRACT_ADDR.to_string(),
                         amount: Uint128(100u128),
                     })
                     .unwrap()
                 }),
                 CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: HumanAddr::from("asset0000"),
+                    contract_addr: "asset0000".to_string(),
                     send: vec![],
-                    msg: to_binary(&Cw20HandleMsg::Send {
-                        contract: HumanAddr::from("pair0000"),
+                    msg: to_binary(&Cw20ExecuteMsg::Send {
+                        contract: "pair0000".to_string(),
                         amount: Uint128(100u128),
                         msg: Some(
                             to_binary(&PairCw20HookMsg::Swap {
                                 belief_price: None,
                                 max_spread: None,
-                                to: Some(HumanAddr::from("lock0000")),
+                                to: Some("lock0000".to_string()),
                             })
                             .unwrap()
                         )
@@ -338,20 +344,20 @@ mod test {
                     .unwrap()
                 }),
                 CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: HumanAddr::from("lock0000"),
+                    contract_addr: "lock0000".to_string(),
                     send: vec![],
-                    msg: to_binary(&LockHandleMsg::LockPositionFundsHook {
+                    msg: to_binary(&LockExecuteMsg::LockPositionFundsHook {
                         position_idx: Uint128(1u128),
-                        receiver: HumanAddr::from("addr0000"),
+                        receiver: "addr0000".to_string(),
                     })
                     .unwrap(),
                 }),
                 CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: HumanAddr::from("staking0000"),
+                    contract_addr: "staking0000".to_string(),
                     send: vec![],
-                    msg: to_binary(&StakingHandleMsg::IncreaseShortToken {
-                        asset_token: HumanAddr::from("asset0000"),
-                        staker_addr: HumanAddr::from("addr0000"),
+                    msg: to_binary(&StakingExecuteMsg::IncreaseShortToken {
+                        asset_token: "asset0000".to_string(),
+                        staker_addr: "addr0000".to_string(),
                         amount: Uint128(100u128),
                     })
                     .unwrap(),
@@ -362,7 +368,7 @@ mod test {
 
     #[test]
     fn burn_short_position() {
-        let mut deps = mock_dependencies(20, &[]);
+        let mut deps = mock_dependencies(&[]);
         deps.querier.with_oracle_price(&[
             (&"uusd".to_string(), &Decimal::one()),
             (&"asset0000".to_string(), &Decimal::percent(100)),
@@ -371,50 +377,50 @@ mod test {
 
         let base_denom = "uusd".to_string();
 
-        let msg = InitMsg {
-            owner: HumanAddr::from("owner0000"),
-            oracle: HumanAddr::from("oracle0000"),
-            collector: HumanAddr::from("collector0000"),
-            collateral_oracle: HumanAddr::from("collateraloracle0000"),
-            staking: HumanAddr::from("staking0000"),
-            terraswap_factory: HumanAddr::from("terraswap_factory"),
-            lock: HumanAddr::from("lock0000"),
+        let msg = InstantiateMsg {
+            owner: "owner0000".to_string(),
+            oracle: "oracle0000".to_string(),
+            collector: "collector0000".to_string(),
+            collateral_oracle: "collateraloracle0000".to_string(),
+            staking: "staking0000".to_string(),
+            terraswap_factory: "terraswap_factory".to_string(),
+            lock: "lock0000".to_string(),
             base_denom: base_denom.clone(),
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
         };
 
-        let env = mock_env("addr0000", &[]);
-        let _res = init(&mut deps, env, msg).unwrap();
+        let info = mock_info("addr0000", &[]);
+        let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let msg = HandleMsg::RegisterAsset {
-            asset_token: HumanAddr::from("asset0000"),
+        let msg = ExecuteMsg::RegisterAsset {
+            asset_token: "asset0000".to_string(),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
             ipo_params: None,
         };
 
-        let env = mock_env("owner0000", &[]);
-        let _res = handle(&mut deps, env, msg).unwrap();
+        let info = mock_info("owner0000", &[]);
+        let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let msg = HandleMsg::RegisterAsset {
-            asset_token: HumanAddr::from("asset0001"),
+        let msg = ExecuteMsg::RegisterAsset {
+            asset_token: "asset0001".to_string(),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
             ipo_params: None,
         };
 
-        let env = mock_env("owner0000", &[]);
-        let _res = handle(&mut deps, env, msg).unwrap();
+        let info = mock_info("owner0000", &[]);
+        let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // register terraswap pair
         deps.querier.with_terraswap_pair(&[(
             &"uusd".to_string(),
             &"asset0000".to_string(),
-            &HumanAddr::from("pair0000"),
+            &"pair0000".to_string(),
         )]);
 
-        let msg = HandleMsg::OpenPosition {
+        let msg = ExecuteMsg::OpenPosition {
             collateral: Asset {
                 info: AssetInfo::NativeToken {
                     denom: "uusd".to_string(),
@@ -422,7 +428,7 @@ mod test {
                 amount: Uint128(1000000u128),
             },
             asset_info: AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0000"),
+                contract_addr: Addr::unchecked("asset0000"),
             },
             collateral_ratio: Decimal::percent(200),
             short_params: Some(ShortParams {
@@ -431,37 +437,36 @@ mod test {
             }),
         };
 
-        let env = mock_env_with_block_time(
+        let env = mock_env_with_block_time(1000);
+        let info = mock_info(
             "addr0000",
             &[Coin {
                 denom: "uusd".to_string(),
                 amount: Uint128(1000000u128),
             }],
-            1000,
         );
-        let _res = handle(&mut deps, env.clone(), msg).unwrap();
+        let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
         // burn asset tokens from the short position
-        let msg = HandleMsg::Receive(Cw20ReceiveMsg {
-            sender: HumanAddr::from("addr0000"),
+        let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
+            sender: "addr0000".to_string(),
             amount: Uint128(100u128),
-            msg: Some(
-                to_binary(&Cw20HookMsg::Burn {
-                    position_idx: Uint128(1u128),
-                })
-                .unwrap(),
-            ),
+            msg: to_binary(&Cw20HookMsg::Burn {
+                position_idx: Uint128(1u128),
+            })
+            .unwrap(),
         });
-        let env = mock_env_with_block_time("asset0000", &[], 1000);
-        let res = handle(&mut deps, env.clone(), msg).unwrap();
+        let env = mock_env_with_block_time(1000);
+        let info = mock_info("asset0000", &[]);
+        let res = execute(deps.as_mut(), env, info.clone(), msg).unwrap();
 
         assert_eq!(
-            res.log,
+            res.attributes,
             vec![
-                log("action", "burn"),
-                log("position_idx", "1"),
-                log("burn_amount", "100asset0000"), // value = 100
-                log("protocol_fee", "1uusd"),
+                attr("action", "burn"),
+                attr("position_idx", "1"),
+                attr("burn_amount", "100asset0000"), // value = 100
+                attr("protocol_fee", "1uusd"),
             ]
         );
 
@@ -469,27 +474,26 @@ mod test {
             res.messages,
             vec![
                 CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: HumanAddr::from("asset0000"),
+                    contract_addr: "asset0000".to_string(),
                     send: vec![],
-                    msg: to_binary(&Cw20HandleMsg::Burn {
+                    msg: to_binary(&Cw20ExecuteMsg::Burn {
                         amount: Uint128(100u128),
                     })
                     .unwrap(),
                 }),
                 CosmosMsg::Bank(BankMsg::Send {
-                    from_address: HumanAddr::from(MOCK_CONTRACT_ADDR),
-                    to_address: HumanAddr::from("collector0000"),
+                    to_address: "collector0000".to_string(),
                     amount: vec![Coin {
                         denom: "uusd".to_string(),
                         amount: Uint128(1u128)
                     }],
                 }),
                 CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: HumanAddr::from("staking0000"),
+                    contract_addr: "staking0000".to_string(),
                     send: vec![],
-                    msg: to_binary(&StakingHandleMsg::DecreaseShortToken {
-                        staker_addr: HumanAddr::from("addr0000"),
-                        asset_token: HumanAddr::from("asset0000"),
+                    msg: to_binary(&StakingExecuteMsg::DecreaseShortToken {
+                        staker_addr: "addr0000".to_string(),
+                        asset_token: "asset0000".to_string(),
                         amount: Uint128(100u128),
                     })
                     .unwrap(),
@@ -500,7 +504,7 @@ mod test {
 
     #[test]
     fn auction_short_position() {
-        let mut deps = mock_dependencies(20, &[]);
+        let mut deps = mock_dependencies(&[]);
         deps.querier.with_oracle_price(&[
             (&"uusd".to_string(), &Decimal::one()),
             (&"asset0000".to_string(), &Decimal::percent(100)),
@@ -509,50 +513,50 @@ mod test {
 
         let base_denom = "uusd".to_string();
 
-        let msg = InitMsg {
-            owner: HumanAddr::from("owner0000"),
-            oracle: HumanAddr::from("oracle0000"),
-            collector: HumanAddr::from("collector0000"),
-            staking: HumanAddr::from("staking0000"),
-            collateral_oracle: HumanAddr::from("collateraloracle0000"),
-            terraswap_factory: HumanAddr::from("terraswap_factory"),
-            lock: HumanAddr::from("lock0000"),
+        let msg = InstantiateMsg {
+            owner: "owner0000".to_string(),
+            oracle: "oracle0000".to_string(),
+            collector: "collector0000".to_string(),
+            staking: "staking0000".to_string(),
+            collateral_oracle: "collateraloracle0000".to_string(),
+            terraswap_factory: "terraswap_factory".to_string(),
+            lock: "lock0000".to_string(),
             base_denom: base_denom.clone(),
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
         };
 
-        let env = mock_env("addr0000", &[]);
-        let _res = init(&mut deps, env, msg).unwrap();
+        let info = mock_info("addr0000", &[]);
+        let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let msg = HandleMsg::RegisterAsset {
-            asset_token: HumanAddr::from("asset0000"),
+        let msg = ExecuteMsg::RegisterAsset {
+            asset_token: "asset0000".to_string(),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
             ipo_params: None,
         };
 
-        let env = mock_env("owner0000", &[]);
-        let _res = handle(&mut deps, env, msg).unwrap();
+        let info = mock_info("owner0000", &[]);
+        let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let msg = HandleMsg::RegisterAsset {
-            asset_token: HumanAddr::from("asset0001"),
+        let msg = ExecuteMsg::RegisterAsset {
+            asset_token: "asset0001".to_string(),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(150),
             ipo_params: None,
         };
 
-        let env = mock_env("owner0000", &[]);
-        let _res = handle(&mut deps, env, msg).unwrap();
+        let info = mock_info("owner0000", &[]);
+        let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // register terraswap pair
         deps.querier.with_terraswap_pair(&[(
             &"uusd".to_string(),
             &"asset0000".to_string(),
-            &HumanAddr::from("pair0000"),
+            &"pair0000".to_string(),
         )]);
 
-        let msg = HandleMsg::OpenPosition {
+        let msg = ExecuteMsg::OpenPosition {
             collateral: Asset {
                 info: AssetInfo::NativeToken {
                     denom: "uusd".to_string(),
@@ -560,7 +564,7 @@ mod test {
                 amount: Uint128(1000000u128),
             },
             asset_info: AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0000"),
+                contract_addr: Addr::unchecked("asset0000"),
             },
             collateral_ratio: Decimal::percent(150),
             short_params: Some(ShortParams {
@@ -569,15 +573,15 @@ mod test {
             }),
         };
 
-        let env = mock_env_with_block_time(
+        let env = mock_env_with_block_time(1000);
+        let info = mock_info(
             "addr0000",
             &[Coin {
                 denom: "uusd".to_string(),
                 amount: Uint128(1000000u128),
             }],
-            1000,
         );
-        let _res = handle(&mut deps, env.clone(), msg).unwrap();
+        let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
         // asset price increased
         deps.querier.with_oracle_price(&[
@@ -586,28 +590,27 @@ mod test {
             (&"asset0001".to_string(), &Decimal::percent(50)),
         ]);
 
-        let msg = HandleMsg::Receive(Cw20ReceiveMsg {
-            sender: HumanAddr::from("addr0000"),
+        let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
+            sender: "addr0000".to_string(),
             amount: Uint128(100u128),
-            msg: Some(
-                to_binary(&Cw20HookMsg::Auction {
-                    position_idx: Uint128(1u128),
-                })
-                .unwrap(),
-            ),
+            msg: to_binary(&Cw20HookMsg::Auction {
+                position_idx: Uint128(1u128),
+            })
+            .unwrap(),
         });
-        let env = mock_env_with_block_time(HumanAddr::from("asset0000"), &[], 1000);
-        let res = handle(&mut deps, env, msg).unwrap();
+        let env = mock_env_with_block_time(1000);
+        let info = mock_info("asset0000", &[]);
+        let res = execute(deps.as_mut(), env, info, msg).unwrap();
         assert_eq!(
-            res.log,
+            res.attributes,
             vec![
-                log("action", "auction"),
-                log("position_idx", "1"),
-                log("owner", "addr0000"),
-                log("return_collateral_amount", "142uusd"),
-                log("liquidated_amount", "100asset0000"),
-                log("tax_amount", "0uusd"),
-                log("protocol_fee", "1uusd"),
+                attr("action", "auction"),
+                attr("position_idx", "1"),
+                attr("owner", "addr0000"),
+                attr("return_collateral_amount", "142uusd"),
+                attr("liquidated_amount", "100asset0000"),
+                attr("tax_amount", "0uusd"),
+                attr("protocol_fee", "1uusd"),
             ]
         );
 
@@ -615,35 +618,33 @@ mod test {
             res.messages,
             vec![
                 CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: HumanAddr::from("asset0000"),
-                    msg: to_binary(&Cw20HandleMsg::Burn {
+                    contract_addr: "asset0000".to_string(),
+                    msg: to_binary(&Cw20ExecuteMsg::Burn {
                         amount: Uint128(100u128),
                     })
                     .unwrap(),
                     send: vec![],
                 }),
                 CosmosMsg::Bank(BankMsg::Send {
-                    from_address: HumanAddr::from(MOCK_CONTRACT_ADDR),
-                    to_address: HumanAddr::from("addr0000"),
+                    to_address: "addr0000".to_string(),
                     amount: vec![Coin {
                         denom: "uusd".to_string(),
                         amount: Uint128(142u128)
                     }],
                 }),
                 CosmosMsg::Bank(BankMsg::Send {
-                    from_address: HumanAddr::from(MOCK_CONTRACT_ADDR),
-                    to_address: HumanAddr::from("collector0000"),
+                    to_address: "collector0000".to_string(),
                     amount: vec![Coin {
                         denom: "uusd".to_string(),
                         amount: Uint128(1u128)
                     }]
                 }),
                 CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: HumanAddr::from("staking0000"),
+                    contract_addr: "staking0000".to_string(),
                     send: vec![],
-                    msg: to_binary(&StakingHandleMsg::DecreaseShortToken {
-                        staker_addr: HumanAddr::from("addr0000"),
-                        asset_token: HumanAddr::from("asset0000"),
+                    msg: to_binary(&StakingExecuteMsg::DecreaseShortToken {
+                        staker_addr: "addr0000".to_string(),
+                        asset_token: "asset0000".to_string(),
                         amount: Uint128(100u128),
                     })
                     .unwrap(),
@@ -654,7 +655,7 @@ mod test {
 
     #[test]
     fn close_short_position() {
-        let mut deps = mock_dependencies(20, &[]);
+        let mut deps = mock_dependencies(&[]);
         deps.querier.with_oracle_price(&[
             (&"uusd".to_string(), &Decimal::one()),
             (&"asset0000".to_string(), &Decimal::percent(100)),
@@ -662,40 +663,40 @@ mod test {
 
         let base_denom = "uusd".to_string();
 
-        let msg = InitMsg {
-            owner: HumanAddr::from("owner0000"),
-            oracle: HumanAddr::from("oracle0000"),
-            collector: HumanAddr::from("collector0000"),
-            collateral_oracle: HumanAddr::from("collateraloracle0000"),
-            staking: HumanAddr::from("staking0000"),
-            terraswap_factory: HumanAddr::from("terraswap_factory"),
-            lock: HumanAddr::from("lock0000"),
+        let msg = InstantiateMsg {
+            owner: "owner0000".to_string(),
+            oracle: "oracle0000".to_string(),
+            collector: "collector0000".to_string(),
+            collateral_oracle: "collateraloracle0000".to_string(),
+            staking: "staking0000".to_string(),
+            terraswap_factory: "terraswap_factory".to_string(),
+            lock: "lock0000".to_string(),
             base_denom: base_denom.clone(),
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
         };
 
-        let env = mock_env("addr0000", &[]);
-        let _res = init(&mut deps, env, msg).unwrap();
+        let info = mock_info("addr0000", &[]);
+        let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let msg = HandleMsg::RegisterAsset {
-            asset_token: HumanAddr::from("asset0000"),
+        let msg = ExecuteMsg::RegisterAsset {
+            asset_token: "asset0000".to_string(),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(200),
             ipo_params: None,
         };
 
-        let env = mock_env("owner0000", &[]);
-        let _res = handle(&mut deps, env, msg).unwrap();
+        let info = mock_info("owner0000", &[]);
+        let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // register terraswap pair
         deps.querier.with_terraswap_pair(&[(
             &"uusd".to_string(),
             &"asset0000".to_string(),
-            &HumanAddr::from("pair0000"),
+            &"pair0000".to_string(),
         )]);
 
-        let msg = HandleMsg::OpenPosition {
+        let msg = ExecuteMsg::OpenPosition {
             collateral: Asset {
                 info: AssetInfo::NativeToken {
                     denom: "uusd".to_string(),
@@ -703,7 +704,7 @@ mod test {
                 amount: Uint128(200u128), // will mint 100 mAsset and lock 100 UST
             },
             asset_info: AssetInfo::Token {
-                contract_addr: HumanAddr::from("asset0000"),
+                contract_addr: Addr::unchecked("asset0000"),
             },
             collateral_ratio: Decimal::percent(200),
             short_params: Some(ShortParams {
@@ -712,32 +713,31 @@ mod test {
             }),
         };
 
-        let env = mock_env_with_block_time(
+        let env = mock_env_with_block_time(1000);
+        let info = mock_info(
             "addr0000",
             &[Coin {
                 denom: "uusd".to_string(),
                 amount: Uint128(200u128),
             }],
-            1000,
         );
-        let _res = handle(&mut deps, env.clone(), msg).unwrap();
+        let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
         // burn all asset tokens from the short position
-        let msg = HandleMsg::Receive(Cw20ReceiveMsg {
-            sender: HumanAddr::from("addr0000"),
+        let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
+            sender: "addr0000".to_string(),
             amount: Uint128(100u128),
-            msg: Some(
-                to_binary(&Cw20HookMsg::Burn {
-                    position_idx: Uint128(1u128),
-                })
-                .unwrap(),
-            ),
+            msg: to_binary(&Cw20HookMsg::Burn {
+                position_idx: Uint128(1u128),
+            })
+            .unwrap(),
         });
-        let env = mock_env_with_block_time("asset0000", &[], 1000);
-        let _res = handle(&mut deps, env.clone(), msg).unwrap();
+        let env = mock_env_with_block_time(1000);
+        let info = mock_info("asset0000", &[]);
+        let _res = execute(deps.as_mut(), env, info, msg).unwrap();
 
         // withdraw all collateral
-        let msg = HandleMsg::Withdraw {
+        let msg = ExecuteMsg::Withdraw {
             position_idx: Uint128(1u128),
             collateral: Some(Asset {
                 info: AssetInfo::NativeToken {
@@ -746,16 +746,17 @@ mod test {
                 amount: Uint128(199u128), // 1 collateral spent as protocol fee
             }),
         };
-        let env = mock_env_with_block_time("addr0000", &[], 1000);
-        let res = handle(&mut deps, env.clone(), msg).unwrap();
+        let env = mock_env_with_block_time(1000);
+        let info = mock_info("addr0000", &[]);
+        let res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
         dbg!(&res.messages);
         // refunds collateral and releases locked funds from lock contract
         assert_eq!(
             res.messages.contains(&CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("lock0000"),
+                contract_addr: "lock0000".to_string(),
                 send: vec![],
-                msg: to_binary(&LockHandleMsg::ReleasePositionFunds {
+                msg: to_binary(&LockExecuteMsg::ReleasePositionFunds {
                     position_idx: Uint128(1u128),
                 })
                 .unwrap(),

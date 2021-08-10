@@ -18,7 +18,7 @@
         "type": "array",
         "items": [
           {
-            "$ref": "#/definitions/HumanAddr"
+            "type": "string"
           },
           {
             "type": "integer",
@@ -29,11 +29,6 @@
         "maxItems": 2,
         "minItems": 2
       }
-    }
-  },
-  "definitions": {
-    "HumanAddr": {
-      "type": "string"
     }
   }
 }

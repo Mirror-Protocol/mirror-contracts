@@ -1,6 +1,6 @@
 [package]
 name = "mirror-factory"
-version = "1.1.0"
+version = "2.0.0"
 authors = ["Terraform Labs, PTE."]
 edition = "2018"
 description = "A Factory contract for Mirror Protocol - mint mirror token and distribute it to registered staking contracts"
@@ -29,22 +29,19 @@ incremental = false
 overflow-checks = true
 
 [features]
-default = ["cranelift"]
 # for quicker tests, cargo test --lib
 # for more explicit tests, cargo test --features=backtraces
-backtraces = ["cosmwasm-std/backtraces", "cosmwasm-vm/backtraces"]
-cranelift = ["cosmwasm-vm/default-cranelift"]
-singlepass = ["cosmwasm-vm/default-singlepass"]
+backtraces = ["cosmwasm-std/backtraces"]
 
 [dependencies]
-cw20 = "0.2"
-cosmwasm-std = { version = "0.10.1", features = ["iterator"] }
-cosmwasm-storage = { version = "0.10.1", features = ["iterator"] }
-mirror-protocol = { version = "1.1.0", path = "../../packages/mirror_protocol" }
-terraswap = "1.1.0"
-schemars = "0.7"
+cw20 = "0.6"
+cosmwasm-std = { version = "0.14.0", features = ["iterator"] }
+cosmwasm-storage = { version = "0.14.0", features = ["iterator"] }
+mirror-protocol = { version = "2.0.0", path = "../../packages/mirror_protocol" }
+protobuf = { version = "2", features = ["with-bytes"] }
+terraswap = "2.2.0"
+schemars = "0.8.1"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 
 [dev-dependencies]
-cosmwasm-vm = { version = "0.10.1", default-features = false, features = ["iterator"] }
-cosmwasm-schema = "0.10.1"
+cosmwasm-schema = "0.14.0"

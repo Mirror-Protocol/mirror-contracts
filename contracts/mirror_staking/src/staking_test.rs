@@ -1,64 +1,62 @@
 #[cfg(test)]
 mod tests {
-    use crate::contract::{handle, init, query};
+    use crate::contract::{execute, instantiate, query};
     use crate::mock_querier::mock_dependencies_with_querier;
-    use cosmwasm_std::testing::{mock_dependencies, mock_env, MOCK_CONTRACT_ADDR};
+    use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info, MOCK_CONTRACT_ADDR};
     use cosmwasm_std::{
-        from_binary, log, to_binary, Coin, CosmosMsg, Decimal, HumanAddr, StdError, Uint128,
-        WasmMsg,
+        attr, from_binary, to_binary, Addr, Coin, CosmosMsg, Decimal, StdError, Uint128, WasmMsg,
     };
-    use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
+    use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
     use mirror_protocol::staking::{
-        Cw20HookMsg, HandleMsg, InitMsg, PoolInfoResponse, QueryMsg, RewardInfoResponse,
+        Cw20HookMsg, ExecuteMsg, InstantiateMsg, PoolInfoResponse, QueryMsg, RewardInfoResponse,
         RewardInfoResponseItem,
     };
     use terraswap::asset::{Asset, AssetInfo};
-    use terraswap::pair::HandleMsg as PairHandleMsg;
+    use terraswap::pair::ExecuteMsg as PairExecuteMsg;
 
     #[test]
     fn test_bond_tokens() {
-        let mut deps = mock_dependencies(20, &[]);
+        let mut deps = mock_dependencies(&[]);
 
-        let msg = InitMsg {
-            owner: HumanAddr::from("owner"),
-            mirror_token: HumanAddr::from("reward"),
-            mint_contract: HumanAddr::from("mint"),
-            oracle_contract: HumanAddr::from("oracle"),
-            terraswap_factory: HumanAddr::from("terraswap_factory"),
+        let msg = InstantiateMsg {
+            owner: "owner".to_string(),
+            mirror_token: "reward".to_string(),
+            mint_contract: "mint".to_string(),
+            oracle_contract: "oracle".to_string(),
+            terraswap_factory: "terraswap_factory".to_string(),
             base_denom: "uusd".to_string(),
             premium_min_update_interval: 3600,
-            short_reward_contract: HumanAddr::from("short_reward"),
+            short_reward_contract: "short_reward".to_string(),
         };
 
-        let env = mock_env("addr", &[]);
-        let _res = init(&mut deps, env, msg).unwrap();
+        let info = mock_info("addr", &[]);
+        let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let msg = HandleMsg::RegisterAsset {
-            asset_token: HumanAddr::from("asset"),
-            staking_token: HumanAddr::from("staking"),
+        let msg = ExecuteMsg::RegisterAsset {
+            asset_token: "asset".to_string(),
+            staking_token: "staking".to_string(),
         };
 
-        let env = mock_env("owner", &[]);
-        let _res = handle(&mut deps, env, msg.clone()).unwrap();
+        let info = mock_info("owner", &[]);
+        let _res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
 
-        let msg = HandleMsg::Receive(Cw20ReceiveMsg {
-            sender: HumanAddr::from("addr"),
+        let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
+            sender: "addr".to_string(),
             amount: Uint128(100u128),
-            msg: Some(
-                to_binary(&Cw20HookMsg::Bond {
-                    asset_token: HumanAddr::from("asset"),
-                })
-                .unwrap(),
-            ),
+            msg: to_binary(&Cw20HookMsg::Bond {
+                asset_token: "asset".to_string(),
+            })
+            .unwrap(),
         });
 
-        let env = mock_env("staking", &[]);
-        let _res = handle(&mut deps, env, msg).unwrap();
+        let info = mock_info("staking", &[]);
+        let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         let data = query(
-            &deps,
+            deps.as_ref(),
+            mock_env(),
             QueryMsg::RewardInfo {
-                asset_token: Some(HumanAddr::from("asset")),
-                staker_addr: HumanAddr::from("addr"),
+                asset_token: Some("asset".to_string()),
+                staker_addr: "addr".to_string(),
             },
         )
         .unwrap();
@@ -66,9 +64,9 @@ mod tests {
         assert_eq!(
             res,
             RewardInfoResponse {
-                staker_addr: HumanAddr::from("addr"),
+                staker_addr: "addr".to_string(),
                 reward_infos: vec![RewardInfoResponseItem {
-                    asset_token: HumanAddr::from("asset"),
+                    asset_token: "asset".to_string(),
                     pending_reward: Uint128::zero(),
                     bond_amount: Uint128(100u128),
                     is_short: false,
@@ -77,9 +75,10 @@ mod tests {
         );
 
         let data = query(
-            &deps,
+            deps.as_ref(),
+            mock_env(),
             QueryMsg::PoolInfo {
-                asset_token: HumanAddr::from("asset"),
+                asset_token: "asset".to_string(),
             },
         )
         .unwrap();
@@ -88,8 +87,8 @@ mod tests {
         assert_eq!(
             pool_info,
             PoolInfoResponse {
-                asset_token: HumanAddr::from("asset"),
-                staking_token: HumanAddr::from("staking"),
+                asset_token: "asset".to_string(),
+                staking_token: "staking".to_string(),
                 total_bond_amount: Uint128(100u128),
                 total_short_amount: Uint128::zero(),
                 reward_index: Decimal::zero(),
@@ -103,23 +102,22 @@ mod tests {
         );
 
         // bond 100 more tokens from other account
-        let msg = HandleMsg::Receive(Cw20ReceiveMsg {
-            sender: HumanAddr::from("addr2"),
+        let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
+            sender: "addr2".to_string(),
             amount: Uint128(100u128),
-            msg: Some(
-                to_binary(&Cw20HookMsg::Bond {
-                    asset_token: HumanAddr::from("asset"),
-                })
-                .unwrap(),
-            ),
+            msg: to_binary(&Cw20HookMsg::Bond {
+                asset_token: "asset".to_string(),
+            })
+            .unwrap(),
         });
-        let env = mock_env("staking", &[]);
-        let _res = handle(&mut deps, env, msg).unwrap();
+        let info = mock_info("staking", &[]);
+        let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let data = query(
-            &deps,
+            deps.as_ref(),
+            mock_env(),
             QueryMsg::PoolInfo {
-                asset_token: HumanAddr::from("asset"),
+                asset_token: "asset".to_string(),
             },
         )
         .unwrap();
@@ -127,8 +125,8 @@ mod tests {
         assert_eq!(
             pool_info,
             PoolInfoResponse {
-                asset_token: HumanAddr::from("asset"),
-                staking_token: HumanAddr::from("staking"),
+                asset_token: "asset".to_string(),
+                staking_token: "staking".to_string(),
                 total_bond_amount: Uint128(200u128),
                 total_short_amount: Uint128::zero(),
                 reward_index: Decimal::zero(),
@@ -142,74 +140,70 @@ mod tests {
         );
 
         // failed with unauthorized
-        let msg = HandleMsg::Receive(Cw20ReceiveMsg {
-            sender: HumanAddr::from("addr"),
+        let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
+            sender: "addr".to_string(),
             amount: Uint128(100u128),
-            msg: Some(
-                to_binary(&Cw20HookMsg::Bond {
-                    asset_token: HumanAddr::from("asset"),
-                })
-                .unwrap(),
-            ),
+            msg: to_binary(&Cw20HookMsg::Bond {
+                asset_token: "asset".to_string(),
+            })
+            .unwrap(),
         });
 
-        let env = mock_env("staking2", &[]);
-        let res = handle(&mut deps, env, msg);
+        let info = mock_info("staking2", &[]);
+        let res = execute(deps.as_mut(), mock_env(), info, msg);
         match res {
-            Err(StdError::Unauthorized { .. }) => {}
+            Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
             _ => panic!("Must return unauthorized error"),
         }
     }
 
     #[test]
     fn test_unbond() {
-        let mut deps = mock_dependencies(20, &[]);
+        let mut deps = mock_dependencies(&[]);
 
-        let msg = InitMsg {
-            owner: HumanAddr::from("owner"),
-            mirror_token: HumanAddr::from("reward"),
-            mint_contract: HumanAddr::from("mint"),
-            oracle_contract: HumanAddr::from("oracle"),
-            terraswap_factory: HumanAddr::from("terraswap_factory"),
+        let msg = InstantiateMsg {
+            owner: "owner".to_string(),
+            mirror_token: "reward".to_string(),
+            mint_contract: "mint".to_string(),
+            oracle_contract: "oracle".to_string(),
+            terraswap_factory: "terraswap_factory".to_string(),
             base_denom: "uusd".to_string(),
             premium_min_update_interval: 3600,
-            short_reward_contract: HumanAddr::from("short_reward"),
+            short_reward_contract: "short_reward".to_string(),
         };
 
-        let env = mock_env("addr", &[]);
-        let _res = init(&mut deps, env, msg).unwrap();
+        let info = mock_info("addr", &[]);
+        let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // register asset
-        let msg = HandleMsg::RegisterAsset {
-            asset_token: HumanAddr::from("asset"),
-            staking_token: HumanAddr::from("staking"),
+        let msg = ExecuteMsg::RegisterAsset {
+            asset_token: "asset".to_string(),
+            staking_token: "staking".to_string(),
         };
 
-        let env = mock_env("owner", &[]);
-        let _res = handle(&mut deps, env, msg.clone()).unwrap();
+        let info = mock_info("owner", &[]);
+        let _res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
 
         // bond 100 tokens
-        let msg = HandleMsg::Receive(Cw20ReceiveMsg {
-            sender: HumanAddr::from("addr"),
+        let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
+            sender: "addr".to_string(),
             amount: Uint128(100u128),
-            msg: Some(
-                to_binary(&Cw20HookMsg::Bond {
-                    asset_token: HumanAddr::from("asset"),
-                })
-                .unwrap(),
-            ),
+            msg: to_binary(&Cw20HookMsg::Bond {
+                asset_token: "asset".to_string(),
+            })
+            .unwrap(),
         });
-        let env = mock_env("staking", &[]);
-        let _res = handle(&mut deps, env, msg).unwrap();
+        let info = mock_info("staking", &[]);
+        let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // unbond 150 tokens; failed
-        let msg = HandleMsg::Unbond {
-            asset_token: HumanAddr::from("asset"),
+        let msg = ExecuteMsg::Unbond {
+            asset_token: "asset".to_string(),
             amount: Uint128(150u128),
         };
 
-        let env = mock_env("addr", &[]);
-        let res = handle(&mut deps, env, msg).unwrap_err();
+        let info = mock_info("addr", &[]);
+        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match res {
             StdError::GenericErr { msg, .. } => {
                 assert_eq!(msg, "Cannot unbond more than bond amount");
@@ -218,19 +212,19 @@ mod tests {
         };
 
         // normal unbond
-        let msg = HandleMsg::Unbond {
-            asset_token: HumanAddr::from("asset"),
+        let msg = ExecuteMsg::Unbond {
+            asset_token: "asset".to_string(),
             amount: Uint128(100u128),
         };
 
-        let env = mock_env("addr", &[]);
-        let res = handle(&mut deps, env, msg).unwrap();
+        let info = mock_info("addr", &[]);
+        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(
             res.messages,
             vec![CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("staking"),
-                msg: to_binary(&Cw20HandleMsg::Transfer {
-                    recipient: HumanAddr::from("addr"),
+                contract_addr: "staking".to_string(),
+                msg: to_binary(&Cw20ExecuteMsg::Transfer {
+                    recipient: "addr".to_string(),
                     amount: Uint128(100u128),
                 })
                 .unwrap(),
@@ -239,9 +233,10 @@ mod tests {
         );
 
         let data = query(
-            &deps,
+            deps.as_ref(),
+            mock_env(),
             QueryMsg::PoolInfo {
-                asset_token: HumanAddr::from("asset"),
+                asset_token: "asset".to_string(),
             },
         )
         .unwrap();
@@ -249,8 +244,8 @@ mod tests {
         assert_eq!(
             pool_info,
             PoolInfoResponse {
-                asset_token: HumanAddr::from("asset"),
-                staking_token: HumanAddr::from("staking"),
+                asset_token: "asset".to_string(),
+                staking_token: "staking".to_string(),
                 total_bond_amount: Uint128::zero(),
                 total_short_amount: Uint128::zero(),
                 reward_index: Decimal::zero(),
@@ -264,10 +259,11 @@ mod tests {
         );
 
         let data = query(
-            &deps,
+            deps.as_ref(),
+            mock_env(),
             QueryMsg::RewardInfo {
                 asset_token: None,
-                staker_addr: HumanAddr::from("addr"),
+                staker_addr: "addr".to_string(),
             },
         )
         .unwrap();
@@ -275,7 +271,7 @@ mod tests {
         assert_eq!(
             res,
             RewardInfoResponse {
-                staker_addr: HumanAddr::from("addr"),
+                staker_addr: "addr".to_string(),
                 reward_infos: vec![],
             }
         );
@@ -283,59 +279,60 @@ mod tests {
 
     #[test]
     fn test_increase_short_token() {
-        let mut deps = mock_dependencies(20, &[]);
+        let mut deps = mock_dependencies(&[]);
 
-        let msg = InitMsg {
-            owner: HumanAddr::from("owner"),
-            mirror_token: HumanAddr::from("reward"),
-            mint_contract: HumanAddr::from("mint"),
-            oracle_contract: HumanAddr::from("oracle"),
-            terraswap_factory: HumanAddr::from("terraswap_factory"),
+        let msg = InstantiateMsg {
+            owner: "owner".to_string(),
+            mirror_token: "reward".to_string(),
+            mint_contract: "mint".to_string(),
+            oracle_contract: "oracle".to_string(),
+            terraswap_factory: "terraswap_factory".to_string(),
             base_denom: "uusd".to_string(),
             premium_min_update_interval: 3600,
-            short_reward_contract: HumanAddr::from("short_reward"),
+            short_reward_contract: "short_reward".to_string(),
         };
 
-        let env = mock_env("addr", &[]);
-        let _res = init(&mut deps, env, msg).unwrap();
+        let info = mock_info("addr", &[]);
+        let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let msg = HandleMsg::RegisterAsset {
-            asset_token: HumanAddr::from("asset"),
-            staking_token: HumanAddr::from("staking"),
+        let msg = ExecuteMsg::RegisterAsset {
+            asset_token: "asset".to_string(),
+            staking_token: "staking".to_string(),
         };
 
-        let env = mock_env("owner", &[]);
-        let _res = handle(&mut deps, env, msg.clone()).unwrap();
+        let info = mock_info("owner", &[]);
+        let _res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
 
-        let msg = HandleMsg::IncreaseShortToken {
-            asset_token: HumanAddr::from("asset"),
-            staker_addr: HumanAddr::from("addr"),
+        let msg = ExecuteMsg::IncreaseShortToken {
+            asset_token: "asset".to_string(),
+            staker_addr: "addr".to_string(),
             amount: Uint128::from(100u128),
         };
 
-        let env = mock_env("addr", &[]);
-        let res = handle(&mut deps, env, msg.clone());
+        let info = mock_info("addr", &[]);
+        let res = execute(deps.as_mut(), mock_env(), info, msg.clone());
         match res {
-            Err(StdError::Unauthorized { .. }) => {}
+            Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
             _ => panic!("DO NOT ENTER HERE"),
         }
 
-        let env = mock_env("mint", &[]);
-        let res = handle(&mut deps, env, msg).unwrap();
+        let info = mock_info("mint", &[]);
+        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(
             vec![
-                log("action", "increase_short_token"),
-                log("staker_addr", "addr"),
-                log("asset_token", "asset"),
-                log("amount", "100"),
+                attr("action", "increase_short_token"),
+                attr("staker_addr", "addr"),
+                attr("asset_token", "asset"),
+                attr("amount", "100"),
             ],
-            res.log
+            res.attributes
         );
 
         let data = query(
-            &deps,
+            deps.as_ref(),
+            mock_env(),
             QueryMsg::PoolInfo {
-                asset_token: HumanAddr::from("asset"),
+                asset_token: "asset".to_string(),
             },
         )
         .unwrap();
@@ -344,8 +341,8 @@ mod tests {
         assert_eq!(
             pool_info,
             PoolInfoResponse {
-                asset_token: HumanAddr::from("asset"),
-                staking_token: HumanAddr::from("staking"),
+                asset_token: "asset".to_string(),
+                staking_token: "staking".to_string(),
                 total_bond_amount: Uint128::zero(),
                 total_short_amount: Uint128::from(100u128),
                 reward_index: Decimal::zero(),
@@ -359,10 +356,11 @@ mod tests {
         );
 
         let data = query(
-            &deps,
+            deps.as_ref(),
+            mock_env(),
             QueryMsg::RewardInfo {
                 asset_token: None,
-                staker_addr: HumanAddr::from("addr"),
+                staker_addr: "addr".to_string(),
             },
         )
         .unwrap();
@@ -370,9 +368,9 @@ mod tests {
         assert_eq!(
             res,
             RewardInfoResponse {
-                staker_addr: HumanAddr::from("addr"),
+                staker_addr: "addr".to_string(),
                 reward_infos: vec![RewardInfoResponseItem {
-                    asset_token: HumanAddr::from("asset"),
+                    asset_token: "asset".to_string(),
                     pending_reward: Uint128::zero(),
                     bond_amount: Uint128(100u128),
                     is_short: true,
@@ -383,59 +381,60 @@ mod tests {
 
     #[test]
     fn test_decrease_short_token() {
-        let mut deps = mock_dependencies(20, &[]);
+        let mut deps = mock_dependencies(&[]);
 
-        let msg = InitMsg {
-            owner: HumanAddr::from("owner"),
-            mirror_token: HumanAddr::from("reward"),
-            mint_contract: HumanAddr::from("mint"),
-            oracle_contract: HumanAddr::from("oracle"),
-            terraswap_factory: HumanAddr::from("terraswap_factory"),
+        let msg = InstantiateMsg {
+            owner: "owner".to_string(),
+            mirror_token: "reward".to_string(),
+            mint_contract: "mint".to_string(),
+            oracle_contract: "oracle".to_string(),
+            terraswap_factory: "terraswap_factory".to_string(),
             base_denom: "uusd".to_string(),
             premium_min_update_interval: 3600,
-            short_reward_contract: HumanAddr::from("short_reward"),
+            short_reward_contract: "short_reward".to_string(),
         };
 
-        let env = mock_env("addr", &[]);
-        let _res = init(&mut deps, env, msg).unwrap();
+        let info = mock_info("addr", &[]);
+        let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let msg = HandleMsg::RegisterAsset {
-            asset_token: HumanAddr::from("asset"),
-            staking_token: HumanAddr::from("staking"),
+        let msg = ExecuteMsg::RegisterAsset {
+            asset_token: "asset".to_string(),
+            staking_token: "staking".to_string(),
         };
 
-        let env = mock_env("owner", &[]);
-        let _res = handle(&mut deps, env, msg.clone()).unwrap();
+        let info = mock_info("owner", &[]);
+        let _res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
 
-        let msg = HandleMsg::IncreaseShortToken {
-            asset_token: HumanAddr::from("asset"),
-            staker_addr: HumanAddr::from("addr"),
+        let msg = ExecuteMsg::IncreaseShortToken {
+            asset_token: "asset".to_string(),
+            staker_addr: "addr".to_string(),
             amount: Uint128::from(100u128),
         };
 
-        let env = mock_env("mint", &[]);
-        let _ = handle(&mut deps, env.clone(), msg).unwrap();
+        let info = mock_info("mint", &[]);
+        let _ = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
-        let msg = HandleMsg::DecreaseShortToken {
-            asset_token: HumanAddr::from("asset"),
-            staker_addr: HumanAddr::from("addr"),
+        let msg = ExecuteMsg::DecreaseShortToken {
+            asset_token: "asset".to_string(),
+            staker_addr: "addr".to_string(),
             amount: Uint128::from(100u128),
         };
-        let res = handle(&mut deps, env, msg).unwrap();
+        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(
             vec![
-                log("action", "decrease_short_token"),
-                log("staker_addr", "addr"),
-                log("asset_token", "asset"),
-                log("amount", "100"),
+                attr("action", "decrease_short_token"),
+                attr("staker_addr", "addr"),
+                attr("asset_token", "asset"),
+                attr("amount", "100"),
             ],
-            res.log
+            res.attributes
         );
 
         let data = query(
-            &deps,
+            deps.as_ref(),
+            mock_env(),
             QueryMsg::PoolInfo {
-                asset_token: HumanAddr::from("asset"),
+                asset_token: "asset".to_string(),
             },
         )
         .unwrap();
@@ -444,8 +443,8 @@ mod tests {
         assert_eq!(
             pool_info,
             PoolInfoResponse {
-                asset_token: HumanAddr::from("asset"),
-                staking_token: HumanAddr::from("staking"),
+                asset_token: "asset".to_string(),
+                staking_token: "staking".to_string(),
                 total_bond_amount: Uint128::zero(),
                 total_short_amount: Uint128::zero(),
                 reward_index: Decimal::zero(),
@@ -459,10 +458,11 @@ mod tests {
         );
 
         let data = query(
-            &deps,
+            deps.as_ref(),
+            mock_env(),
             QueryMsg::RewardInfo {
                 asset_token: None,
-                staker_addr: HumanAddr::from("addr"),
+                staker_addr: "addr".to_string(),
             },
         )
         .unwrap();
@@ -470,7 +470,7 @@ mod tests {
         assert_eq!(
             res,
             RewardInfoResponse {
-                staker_addr: HumanAddr::from("addr"),
+                staker_addr: "addr".to_string(),
                 reward_infos: vec![],
             }
         );
@@ -478,8 +478,8 @@ mod tests {
 
     #[test]
     fn test_auto_stake() {
-        let mut deps = mock_dependencies_with_querier(20, &[]);
-        deps.querier.with_pair_info(HumanAddr::from("pair"));
+        let mut deps = mock_dependencies_with_querier(&[]);
+        deps.querier.with_pair_info(Addr::unchecked("pair"));
         deps.querier.with_pool_assets([
             Asset {
                 info: AssetInfo::NativeToken {
@@ -489,36 +489,36 @@ mod tests {
             },
             Asset {
                 info: AssetInfo::Token {
-                    contract_addr: HumanAddr::from("asset"),
+                    contract_addr: Addr::unchecked("asset"),
                 },
                 amount: Uint128::from(1u128),
             },
         ]);
 
-        let msg = InitMsg {
-            owner: HumanAddr::from("owner"),
-            mirror_token: HumanAddr::from("reward"),
-            mint_contract: HumanAddr::from("mint"),
-            oracle_contract: HumanAddr::from("oracle"),
-            terraswap_factory: HumanAddr::from("terraswap_factory"),
+        let msg = InstantiateMsg {
+            owner: "owner".to_string(),
+            mirror_token: "reward".to_string(),
+            mint_contract: "mint".to_string(),
+            oracle_contract: "oracle".to_string(),
+            terraswap_factory: "terraswap_factory".to_string(),
             base_denom: "uusd".to_string(),
             premium_min_update_interval: 3600,
-            short_reward_contract: HumanAddr::from("short_reward"),
+            short_reward_contract: "short_reward".to_string(),
         };
 
-        let env = mock_env("addr", &[]);
-        let _res = init(&mut deps, env, msg).unwrap();
+        let info = mock_info("addr", &[]);
+        let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let msg = HandleMsg::RegisterAsset {
-            asset_token: HumanAddr::from("asset"),
-            staking_token: HumanAddr::from("lptoken"),
+        let msg = ExecuteMsg::RegisterAsset {
+            asset_token: "asset".to_string(),
+            staking_token: "lptoken".to_string(),
         };
 
-        let env = mock_env("owner", &[]);
-        let _res = handle(&mut deps, env, msg.clone()).unwrap();
+        let info = mock_info("owner", &[]);
+        let _res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
 
         // no token asset
-        let msg = HandleMsg::AutoStake {
+        let msg = ExecuteMsg::AutoStake {
             assets: [
                 Asset {
                     info: AssetInfo::NativeToken {
@@ -535,39 +535,39 @@ mod tests {
             ],
             slippage_tolerance: None,
         };
-        let env = mock_env(
+        let info = mock_info(
             "addr0000",
             &[Coin {
                 denom: "uusd".to_string(),
                 amount: Uint128(100u128),
             }],
         );
-        let res = handle(&mut deps, env, msg).unwrap_err();
+        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert_eq!(res, StdError::generic_err("Missing token asset"));
 
         // no native asset
-        let msg = HandleMsg::AutoStake {
+        let msg = ExecuteMsg::AutoStake {
             assets: [
                 Asset {
                     info: AssetInfo::Token {
-                        contract_addr: HumanAddr::from("asset"),
+                        contract_addr: Addr::unchecked("asset"),
                     },
                     amount: Uint128::from(1u128),
                 },
                 Asset {
                     info: AssetInfo::Token {
-                        contract_addr: HumanAddr::from("asset"),
+                        contract_addr: Addr::unchecked("asset"),
                     },
                     amount: Uint128::from(1u128),
                 },
             ],
             slippage_tolerance: None,
         };
-        let env = mock_env("addr0000", &[]);
-        let res = handle(&mut deps, env, msg).unwrap_err();
+        let info = mock_info("addr0000", &[]);
+        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert_eq!(res, StdError::generic_err("Missing native asset"));
 
-        let msg = HandleMsg::AutoStake {
+        let msg = ExecuteMsg::AutoStake {
             assets: [
                 Asset {
                     info: AssetInfo::NativeToken {
@@ -577,7 +577,7 @@ mod tests {
                 },
                 Asset {
                     info: AssetInfo::Token {
-                        contract_addr: HumanAddr::from("asset"),
+                        contract_addr: Addr::unchecked("asset"),
                     },
                     amount: Uint128(1u128),
                 },
@@ -586,40 +586,40 @@ mod tests {
         };
 
         // attempt with no coins
-        let env = mock_env("addr0000", &[]);
-        let res = handle(&mut deps, env, msg.clone()).unwrap_err();
+        let info = mock_info("addr0000", &[]);
+        let res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
         assert_eq!(
             res,
             StdError::generic_err(
-                "Native token balance missmatch between the argument and the transferred"
+                "Native token balance mismatch between the argument and the transferred"
             )
         );
 
-        let env = mock_env(
+        let info = mock_info(
             "addr0000",
             &[Coin {
                 denom: "uusd".to_string(),
                 amount: Uint128(100u128),
             }],
         );
-        let res = handle(&mut deps, env, msg.clone()).unwrap();
+        let res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
         assert_eq!(
             res.messages,
             vec![
                 CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: HumanAddr::from("asset"),
-                    msg: to_binary(&Cw20HandleMsg::TransferFrom {
-                        owner: HumanAddr::from("addr0000"),
-                        recipient: HumanAddr::from(MOCK_CONTRACT_ADDR),
+                    contract_addr: "asset".to_string(),
+                    msg: to_binary(&Cw20ExecuteMsg::TransferFrom {
+                        owner: "addr0000".to_string(),
+                        recipient: MOCK_CONTRACT_ADDR.to_string(),
                         amount: Uint128(1u128),
                     })
                     .unwrap(),
                     send: vec![],
                 }),
                 CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: HumanAddr::from("asset"),
-                    msg: to_binary(&Cw20HandleMsg::IncreaseAllowance {
-                        spender: HumanAddr::from("pair"),
+                    contract_addr: "asset".to_string(),
+                    msg: to_binary(&Cw20ExecuteMsg::IncreaseAllowance {
+                        spender: "pair".to_string(),
                         amount: Uint128(1),
                         expires: None,
                     })
@@ -627,8 +627,8 @@ mod tests {
                     send: vec![],
                 }),
                 CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: HumanAddr::from("pair"),
-                    msg: to_binary(&PairHandleMsg::ProvideLiquidity {
+                    contract_addr: "pair".to_string(),
+                    msg: to_binary(&PairExecuteMsg::ProvideLiquidity {
                         assets: [
                             Asset {
                                 info: AssetInfo::NativeToken {
@@ -638,7 +638,7 @@ mod tests {
                             },
                             Asset {
                                 info: AssetInfo::Token {
-                                    contract_addr: HumanAddr::from("asset")
+                                    contract_addr: Addr::unchecked("asset")
                                 },
                                 amount: Uint128(1u128),
                             },
@@ -652,11 +652,11 @@ mod tests {
                     }],
                 }),
                 CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
-                    msg: to_binary(&HandleMsg::AutoStakeHook {
-                        asset_token: HumanAddr::from("asset"),
-                        staking_token: HumanAddr::from("lptoken"),
-                        staker_addr: HumanAddr::from("addr0000"),
+                    contract_addr: MOCK_CONTRACT_ADDR.to_string(),
+                    msg: to_binary(&ExecuteMsg::AutoStakeHook {
+                        asset_token: "asset".to_string(),
+                        staking_token: "lptoken".to_string(),
+                        staker_addr: "addr0000".to_string(),
                         prev_staking_token_amount: Uint128(0),
                     })
                     .unwrap(),
@@ -668,45 +668,46 @@ mod tests {
         deps.querier.with_token_balance(Uint128(100u128)); // recive 100 lptoken
 
         // wrong asset
-        let msg = HandleMsg::AutoStakeHook {
-            asset_token: HumanAddr::from("asset1"),
-            staking_token: HumanAddr::from("lptoken"),
-            staker_addr: HumanAddr::from("addr0000"),
+        let msg = ExecuteMsg::AutoStakeHook {
+            asset_token: "asset1".to_string(),
+            staking_token: "lptoken".to_string(),
+            staker_addr: "addr0000".to_string(),
             prev_staking_token_amount: Uint128(0),
         };
-        let env = mock_env(MOCK_CONTRACT_ADDR, &[]);
-        let _res = handle(&mut deps, env, msg).unwrap_err(); // pool not found error
+        let info = mock_info(MOCK_CONTRACT_ADDR, &[]);
+        let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err(); // pool not found error
 
         // valid msg
-        let msg = HandleMsg::AutoStakeHook {
-            asset_token: HumanAddr::from("asset"),
-            staking_token: HumanAddr::from("lptoken"),
-            staker_addr: HumanAddr::from("addr0000"),
+        let msg = ExecuteMsg::AutoStakeHook {
+            asset_token: "asset".to_string(),
+            staking_token: "lptoken".to_string(),
+            staker_addr: "addr0000".to_string(),
             prev_staking_token_amount: Uint128(0),
         };
 
         // unauthorized attempt
-        let env = mock_env("addr0000", &[]);
-        let res = handle(&mut deps, env, msg.clone()).unwrap_err();
-        assert_eq!(res, StdError::unauthorized());
+        let info = mock_info("addr0000", &[]);
+        let res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
+        assert_eq!(res, StdError::generic_err("unauthorized"));
 
         // successfull attempt
-        let env = mock_env(MOCK_CONTRACT_ADDR, &[]);
-        let res = handle(&mut deps, env, msg).unwrap();
+        let info = mock_info(MOCK_CONTRACT_ADDR, &[]);
+        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(
-            res.log,
+            res.attributes,
             vec![
-                log("action", "bond"),
-                log("staker_addr", "addr0000"),
-                log("asset_token", "asset"),
-                log("amount", "100"),
+                attr("action", "bond"),
+                attr("staker_addr", "addr0000"),
+                attr("asset_token", "asset"),
+                attr("amount", "100"),
             ]
         );
 
         let data = query(
-            &deps,
+            deps.as_ref(),
+            mock_env(),
             QueryMsg::PoolInfo {
-                asset_token: HumanAddr::from("asset"),
+                asset_token: "asset".to_string(),
             },
         )
         .unwrap();
@@ -714,8 +715,8 @@ mod tests {
         assert_eq!(
             pool_info,
             PoolInfoResponse {
-                asset_token: HumanAddr::from("asset"),
-                staking_token: HumanAddr::from("lptoken"),
+                asset_token: "asset".to_string(),
+                staking_token: "lptoken".to_string(),
                 total_bond_amount: Uint128(100u128),
                 total_short_amount: Uint128::zero(),
                 reward_index: Decimal::zero(),

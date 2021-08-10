@@ -1,35 +1,24 @@
-use cosmwasm_std::{
-    from_binary, to_binary, Api, Binary, CanonicalAddr, Decimal, Extern, HumanAddr, Querier,
-    QueryRequest, StdError, StdResult, Storage, WasmQuery,
-};
+use cosmwasm_std::{Addr, Binary, CanonicalAddr, Decimal, Deps, QueryRequest, StdError, StdResult, WasmQuery, to_binary};
 
 use cosmwasm_storage::to_length_prefixed;
 use mirror_protocol::mint::IPOParams;
 use mirror_protocol::oracle::{PriceResponse, QueryMsg as OracleQueryMsg};
 use serde::{Deserialize, Serialize};
 
-pub fn load_oracle_feeder<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    contract_addr: &HumanAddr,
+pub fn load_oracle_feeder(
+    deps: Deps,
+    contract_addr: Addr,
     asset_token: &CanonicalAddr,
 ) -> StdResult<CanonicalAddr> {
-    let res: StdResult<Binary> = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
-        contract_addr: HumanAddr::from(contract_addr),
+    let res: StdResult<CanonicalAddr> = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
+        contract_addr: contract_addr.to_string(),
         key: Binary::from(concat(
             &to_length_prefixed(b"feeder"),
             asset_token.as_slice(),
         )),
     }));
 
-    let res = match res {
-        Ok(v) => v,
-        Err(_) => {
-            return Err(StdError::generic_err("Failed to fetch the oracle feeder"));
-        }
-    };
-
-    let feeder: StdResult<CanonicalAddr> = from_binary(&res);
-    let feeder: CanonicalAddr = match feeder {
+    let feeder: CanonicalAddr = match res {
         Ok(v) => v,
         Err(_) => {
             return Err(StdError::generic_err("Failed to fetch the oracle feeder"));
@@ -40,14 +29,14 @@ pub fn load_oracle_feeder<S: Storage, A: Api, Q: Querier>(
 }
 
 /// Query asset price igonoring price age
-pub fn query_last_price<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    oracle: &HumanAddr,
+pub fn query_last_price(
+    deps: Deps,
+    oracle: Addr,
     base_asset: String,
     quote_asset: String,
 ) -> StdResult<Decimal> {
     let res: PriceResponse = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-        contract_addr: HumanAddr::from(oracle),
+        contract_addr: oracle.to_string(),
         msg: to_binary(&OracleQueryMsg::Price {
             base_asset,
             quote_asset,
@@ -65,30 +54,21 @@ pub struct MintAssetConfig {
     pub ipo_params: Option<IPOParams>,
 }
 
-pub fn load_mint_asset_config<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    contract_addr: &HumanAddr,
+pub fn load_mint_asset_config(
+    deps: Deps,
+    contract_addr: Addr,
     asset_token: &CanonicalAddr,
 ) -> StdResult<(Decimal, Decimal, Option<Decimal>)> {
-    let res: StdResult<Binary> = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
-        contract_addr: HumanAddr::from(contract_addr),
+    let res: StdResult<MintAssetConfig> = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
+        contract_addr: contract_addr.to_string(),
         key: Binary::from(concat(
             &to_length_prefixed(b"asset_config"),
             asset_token.as_slice(),
         )),
     }));
 
-    let res = match res {
-        Ok(v) => v,
-        Err(_) => {
-            return Err(StdError::generic_err(
-                "Failed to fetch the mint asset config",
-            ));
-        }
-    };
-
-    let asset_config: StdResult<MintAssetConfig> = from_binary(&res);
-    let asset_config: MintAssetConfig = match asset_config {
+    // let asset_config: StdResult<MintAssetConfig> = from_binary(&res);
+    let asset_config: MintAssetConfig = match res {
         Ok(v) => v,
         Err(_) => {
             return Err(StdError::generic_err(

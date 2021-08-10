@@ -1,28 +1,22 @@
-use cosmwasm_std::{
-    to_binary, Api, Decimal, Extern, HumanAddr, Querier, QueryRequest, StdResult, Storage, Uint128,
-    WasmQuery,
-};
-
+use cosmwasm_std::{Addr, Decimal, Deps, QuerierWrapper, QueryRequest, StdResult, WasmQuery, to_binary};
 use terraswap::{
     asset::AssetInfo, asset::PairInfo, pair::PoolResponse, pair::QueryMsg as PairQueryMsg,
     querier::query_pair_info,
 };
-
 use crate::math::{decimal_division, decimal_subtraction};
-
 use mirror_protocol::oracle::{PriceResponse, QueryMsg as OracleQueryMsg};
 use mirror_protocol::short_reward::{QueryMsg as ShortRewardQueryMsg, ShortRewardWeightResponse};
 
-pub fn compute_premium_rate<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    oracle_contract: &HumanAddr,
-    factory_contract: &HumanAddr,
-    asset_token: &HumanAddr,
+pub fn compute_premium_rate(
+    deps: Deps,
+    oracle_contract: Addr,
+    factory_contract: Addr,
+    asset_token: Addr,
     base_denom: String,
 ) -> StdResult<(Decimal, bool)> {
     let pair_info: PairInfo = query_pair_info(
-        deps,
-        &factory_contract,
+        &deps.querier,
+        factory_contract.clone(),
         &[
             AssetInfo::NativeToken {
                 denom: base_denom.to_string(),
@@ -34,19 +28,19 @@ pub fn compute_premium_rate<S: Storage, A: Api, Q: Querier>(
     )?;
 
     let pool: PoolResponse = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-        contract_addr: pair_info.contract_addr,
+        contract_addr: pair_info.contract_addr.to_string(),
         msg: to_binary(&PairQueryMsg::Pool {})?,
     }))?;
 
     let terraswap_price: Decimal = if pool.assets[0].is_native_token() {
         if pool.assets[1].amount.is_zero() {
-            Decimal::from_ratio(pool.assets[0].amount, Uint128(1))
+            Decimal::from_ratio(pool.assets[0].amount, Uint128::from(1u128))
         } else {
             Decimal::from_ratio(pool.assets[0].amount, pool.assets[1].amount)
         }
     } else {
         if pool.assets[0].amount.is_zero() {
-            Decimal::from_ratio(pool.assets[1].amount, Uint128(1))
+            Decimal::from_ratio(pool.assets[1].amount, Uint128::from(1u128))
         } else {
             Decimal::from_ratio(pool.assets[1].amount, pool.assets[0].amount)
         }
@@ -69,27 +63,28 @@ pub fn compute_premium_rate<S: Storage, A: Api, Q: Querier>(
     }
 }
 
-pub fn compute_short_reward_weight<Q: Querier>(
-    querier: &Q,
-    short_reward_contract: &HumanAddr,
+pub fn compute_short_reward_weight(
+    querier: &dyn QuerierWrapper,
+    short_reward_contract: Addr,
     premium_rate: Decimal,
 ) -> StdResult<Decimal> {
     let res: ShortRewardWeightResponse = querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-        contract_addr: HumanAddr::from(short_reward_contract),
+        contract_addr: short_reward_contract.to_string(),
         msg: to_binary(&ShortRewardQueryMsg::ShortRewardWeight { premium_rate })?,
     }))?;
 
     Ok(res.short_reward_weight)
 }
 
-pub fn query_price<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    oracle: &HumanAddr,
+
+pub fn query_price(
+    deps: Deps,
+    oracle: Addr,
     base_asset: String,
     quote_asset: String,
 ) -> StdResult<Decimal> {
     let res: PriceResponse = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-        contract_addr: HumanAddr::from(oracle),
+        contract_addr: oracle.to_string(),
         msg: to_binary(&OracleQueryMsg::Price {
             base_asset,
             quote_asset,

@@ -15,10 +15,10 @@
   ],
   "properties": {
     "anchor_market": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "aust_token": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "base_denom": {
       "type": "string"
@@ -27,23 +27,21 @@
       "type": "string"
     },
     "bluna_token": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "distribution_contract": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "mirror_token": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
+    },
+    "owner": {
+      "type": "string"
     },
     "owner": {
       "$ref": "#/definitions/HumanAddr"
     },
     "terraswap_factory": {
-      "$ref": "#/definitions/HumanAddr"
-    }
-  },
-  "definitions": {
-    "HumanAddr": {
       "type": "string"
     }
   }

@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "InitMsg",
+  "title": "InstantiateMsg",
   "type": "object",
   "required": [
     "base_denom",
@@ -17,16 +17,16 @@
       "type": "string"
     },
     "mint_contract": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "mirror_token": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "oracle_contract": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "owner": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "premium_min_update_interval": {
       "type": "integer",
@@ -37,11 +37,6 @@
       "$ref": "#/definitions/HumanAddr"
     },
     "terraswap_factory": {
-      "$ref": "#/definitions/HumanAddr"
-    }
-  },
-  "definitions": {
-    "HumanAddr": {
       "type": "string"
     }
   }

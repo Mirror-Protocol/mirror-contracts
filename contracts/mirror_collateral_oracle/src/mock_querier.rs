@@ -1,7 +1,7 @@
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Coin, Decimal, Extern, HumanAddr, Querier, QuerierResult,
-    QueryRequest, SystemError, Uint128, WasmQuery,
+    from_binary, from_slice, to_binary, Addr, Coin, ContractResult, Decimal, OwnedDeps, Querier,
+    QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, WasmQuery,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -20,16 +20,14 @@ use terraswap::pair::PoolResponse;
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
 /// this uses our CustomQuerier.
 pub fn mock_dependencies(
-    canonical_length: usize,
     contract_balance: &[Coin],
-) -> Extern<MockStorage, MockApi, WasmMockQuerier> {
-    let contract_addr = HumanAddr::from(MOCK_CONTRACT_ADDR);
+) -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier> {
     let custom_querier: WasmMockQuerier =
-        WasmMockQuerier::new(MockQuerier::new(&[(&contract_addr, contract_balance)]));
+        WasmMockQuerier::new(MockQuerier::new(&[(MOCK_CONTRACT_ADDR, contract_balance)]));
 
-    Extern {
+    OwnedDeps {
+        api: MockApi::default(),
         storage: MockStorage::default(),
-        api: MockApi::new(canonical_length),
         querier: custom_querier,
     }
 }
@@ -67,11 +65,11 @@ pub(crate) fn oracle_price_to_map(
 
 #[derive(Clone, Default)]
 pub struct TerraswapPoolsQuerier {
-    pools: HashMap<HumanAddr, (String, Uint128, String, Uint128)>,
+    pools: HashMap<String, (String, Uint128, String, Uint128)>,
 }
 
 impl TerraswapPoolsQuerier {
-    pub fn new(pools: &[(&HumanAddr, (&String, &Uint128, &String, &Uint128))]) -> Self {
+    pub fn new(pools: &[(&String, (&String, &Uint128, &String, &Uint128))]) -> Self {
         TerraswapPoolsQuerier {
             pools: pools_to_map(pools),
         }
@@ -79,12 +77,12 @@ impl TerraswapPoolsQuerier {
 }
 
 pub(crate) fn pools_to_map(
-    pools: &[(&HumanAddr, (&String, &Uint128, &String, &Uint128))],
-) -> HashMap<HumanAddr, (String, Uint128, String, Uint128)> {
-    let mut pools_map: HashMap<HumanAddr, (String, Uint128, String, Uint128)> = HashMap::new();
+    pools: &[(&String, (&String, &Uint128, &String, &Uint128))],
+) -> HashMap<String, (String, Uint128, String, Uint128)> {
+    let mut pools_map: HashMap<String, (String, Uint128, String, Uint128)> = HashMap::new();
     for (key, pool) in pools.into_iter() {
         pools_map.insert(
-            HumanAddr::from(key),
+            key.to_string(),
             (pool.0.clone(), *pool.1, pool.2.clone(), *pool.3),
         );
     }
@@ -97,7 +95,7 @@ impl Querier for WasmMockQuerier {
         let request: QueryRequest<TerraQueryWrapper> = match from_slice(bin_request) {
             Ok(v) => v,
             Err(e) => {
-                return Err(SystemError::InvalidRequest {
+                return SystemResult::Err(SystemError::InvalidRequest {
                     error: format!("Parsing query request: {}", e),
                     request: bin_request.into(),
                 })
@@ -157,7 +155,7 @@ impl WasmMockQuerier {
                                 }],
                                 base_denom: "uluna".to_string(),
                             };
-                            Ok(to_binary(&res))
+                            SystemResult::Ok(ContractResult::from(to_binary(&res)))
                         }
                         _ => panic!("DO NOT ENTER HERE"),
                     }
@@ -174,24 +172,26 @@ impl WasmMockQuerier {
                 } => match self.oracle_price_querier.oracle_price.get(&base_asset) {
                     Some(base_price) => {
                         match self.oracle_price_querier.oracle_price.get(&quote_asset) {
-                            Some(quote_price) => Ok(to_binary(&PriceResponse {
-                                rate: decimal_division(*base_price, *quote_price),
-                                last_updated_base: 1000u64,
-                                last_updated_quote: 1000u64,
-                            })),
-                            None => Err(SystemError::InvalidRequest {
+                            Some(quote_price) => {
+                                SystemResult::Ok(ContractResult::from(to_binary(&PriceResponse {
+                                    rate: decimal_division(*base_price, *quote_price),
+                                    last_updated_base: 1000u64,
+                                    last_updated_quote: 1000u64,
+                                })))
+                            }
+                            None => SystemResult::Err(SystemError::InvalidRequest {
                                 error: "No oracle price exists".to_string(),
                                 request: msg.as_slice().into(),
                             }),
                         }
                     }
-                    None => Err(SystemError::InvalidRequest {
+                    None => SystemResult::Err(SystemError::InvalidRequest {
                         error: "No oracle price exists".to_string(),
                         request: msg.as_slice().into(),
                     }),
                 },
-                QueryMsg::Pool {} => match self.terraswap_pools_querier.pools.get(&contract_addr) {
-                    Some(v) => Ok(to_binary(&PoolResponse {
+                QueryMsg::Pool {} => match self.terraswap_pools_querier.pools.get(contract_addr) {
+                    Some(v) => SystemResult::Ok(ContractResult::from(to_binary(&PoolResponse {
                         assets: [
                             Asset {
                                 amount: v.1,
@@ -200,26 +200,30 @@ impl WasmMockQuerier {
                             Asset {
                                 amount: v.3,
                                 info: AssetInfo::Token {
-                                    contract_addr: HumanAddr::from(v.2.clone()),
+                                    contract_addr: Addr::unchecked(v.2.clone()),
                                 },
                             },
                         ],
                         total_share: Uint128::zero(),
-                    })),
-                    None => Err(SystemError::InvalidRequest {
+                    }))),
+                    None => SystemResult::Err(SystemError::InvalidRequest {
                         error: "No pair info exists".to_string(),
                         request: msg.as_slice().into(),
                     }),
                 },
-                QueryMsg::GetReferenceData { .. } => Ok(to_binary(&ReferenceData {
-                    rate: Uint128(3465211050000000000000),
-                    last_updated_base: 100u64,
-                    last_updated_quote: 100u64,
-                })),
-                QueryMsg::EpochState { .. } => Ok(to_binary(&EpochStateResponse {
-                    exchange_rate: Decimal256::from_ratio(10, 3),
-                    aterra_supply: Uint256::from_str("123123123").unwrap(),
-                })),
+                QueryMsg::GetReferenceData { .. } => {
+                    SystemResult::Ok(ContractResult::from(to_binary(&ReferenceData {
+                        rate: Uint128(3465211050000000000000),
+                        last_updated_base: 100u64,
+                        last_updated_quote: 100u64,
+                    })))
+                }
+                QueryMsg::EpochState { .. } => {
+                    SystemResult::Ok(ContractResult::from(to_binary(&EpochStateResponse {
+                        exchange_rate: Decimal256::from_ratio(10, 3),
+                        aterra_supply: Uint256::from_str("123123123").unwrap(),
+                    })))
+                }
             },
             _ => self.base.handle_query(request),
         }
@@ -242,7 +246,7 @@ impl WasmMockQuerier {
 
     pub fn with_terraswap_pools(
         &mut self,
-        pairs: &[(&HumanAddr, (&String, &Uint128, &String, &Uint128))],
+        pairs: &[(&String, (&String, &Uint128, &String, &Uint128))],
     ) {
         self.terraswap_pools_querier = TerraswapPoolsQuerier::new(pairs);
     }

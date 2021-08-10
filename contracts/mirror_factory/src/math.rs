@@ -12,7 +12,9 @@ pub fn decimal_multiplication(a: Decimal, b: Decimal) -> Decimal {
 
 pub fn decimal_subtraction(a: Decimal, b: Decimal) -> Decimal {
     Decimal::from_ratio(
-        (DECIMAL_FRACTIONAL * a - DECIMAL_FRACTIONAL * b).unwrap(),
+        (DECIMAL_FRACTIONAL * a)
+            .checked_sub(DECIMAL_FRACTIONAL * b)
+            .unwrap(),
         DECIMAL_FRACTIONAL,
     )
 }

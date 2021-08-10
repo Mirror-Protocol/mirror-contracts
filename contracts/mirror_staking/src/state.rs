@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{CanonicalAddr, Decimal, ReadonlyStorage, StdResult, Storage, Uint128};
+use cosmwasm_std::{CanonicalAddr, Decimal, StdResult, Storage, Uint128};
 use cosmwasm_storage::{singleton, singleton_read, Bucket, ReadonlyBucket};
 
 pub static KEY_CONFIG: &[u8] = b"config";
@@ -22,11 +22,11 @@ pub struct Config {
     pub short_reward_contract: CanonicalAddr,
 }
 
-pub fn store_config<S: Storage>(storage: &mut S, config: &Config) -> StdResult<()> {
+pub fn store_config(storage: &mut dyn Storage, config: &Config) -> StdResult<()> {
     singleton(storage, KEY_CONFIG).save(config)
 }
 
-pub fn read_config<S: Storage>(storage: &S) -> StdResult<Config> {
+pub fn read_config(storage: &dyn Storage) -> StdResult<Config> {
     singleton_read(storage, KEY_CONFIG).load()
 }
 
@@ -44,16 +44,16 @@ pub struct PoolInfo {
     pub premium_updated_time: u64,
 }
 
-pub fn store_pool_info<S: Storage>(
-    storage: &mut S,
+pub fn store_pool_info(
+    storage: &mut dyn Storage,
     asset_token: &CanonicalAddr,
     pool_info: &PoolInfo,
 ) -> StdResult<()> {
-    Bucket::new(PREFIX_POOL_INFO, storage).save(asset_token.as_slice(), pool_info)
+    Bucket::new(storage, PREFIX_POOL_INFO).save(asset_token.as_slice(), pool_info)
 }
 
-pub fn read_pool_info<S: Storage>(storage: &S, asset_token: &CanonicalAddr) -> StdResult<PoolInfo> {
-    ReadonlyBucket::new(PREFIX_POOL_INFO, storage).load(asset_token.as_slice())
+pub fn read_pool_info(storage: &dyn Storage, asset_token: &CanonicalAddr) -> StdResult<PoolInfo> {
+    ReadonlyBucket::new(storage, PREFIX_POOL_INFO).load(asset_token.as_slice())
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -64,28 +64,28 @@ pub struct RewardInfo {
 }
 
 /// returns a bucket with all rewards owned by this owner (query it by owner)
-pub fn rewards_store<'a, S: Storage>(
-    storage: &'a mut S,
+pub fn rewards_store<'a>(
+    storage: &'a mut dyn Storage,
     owner: &CanonicalAddr,
     is_short: bool,
-) -> Bucket<'a, S, RewardInfo> {
+) -> Bucket<'a, RewardInfo> {
     if is_short {
-        Bucket::multilevel(&[PREFIX_SHORT_REWARD, owner.as_slice()], storage)
+        Bucket::multilevel(storage, &[PREFIX_SHORT_REWARD, owner.as_slice()])
     } else {
-        Bucket::multilevel(&[PREFIX_REWARD, owner.as_slice()], storage)
+        Bucket::multilevel(storage, &[PREFIX_REWARD, owner.as_slice()])
     }
 }
 
 /// returns a bucket with all rewards owned by this owner (query it by owner)
 /// (read-only version for queries)
-pub fn rewards_read<'a, S: ReadonlyStorage>(
-    storage: &'a S,
+pub fn rewards_read<'a>(
+    storage: &'a dyn Storage,
     owner: &CanonicalAddr,
     is_short: bool,
-) -> ReadonlyBucket<'a, S, RewardInfo> {
+) -> ReadonlyBucket<'a, RewardInfo> {
     if is_short {
-        ReadonlyBucket::multilevel(&[PREFIX_SHORT_REWARD, owner.as_slice()], storage)
+        ReadonlyBucket::multilevel(storage, &[PREFIX_SHORT_REWARD, owner.as_slice()])
     } else {
-        ReadonlyBucket::multilevel(&[PREFIX_REWARD, owner.as_slice()], storage)
+        ReadonlyBucket::multilevel(storage, &[PREFIX_REWARD, owner.as_slice()])
     }
 }

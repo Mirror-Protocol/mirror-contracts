@@ -1,13 +1,11 @@
 use cosmwasm_std::{
-    to_binary, Api, Decimal, Extern, HumanAddr, Querier, QueryRequest, StdError, StdResult,
-    Storage, Uint128, WasmQuery,
+    to_binary, Decimal, Deps, QuerierWrapper, QueryRequest, StdError, StdResult, Uint128, WasmQuery,
 };
 use std::str::FromStr;
 
 use crate::math::decimal_multiplication;
 use crate::state::Config;
-use cosmwasm_bignumber::Decimal256;
-use cosmwasm_bignumber::Uint256;
+use cosmwasm_bignumber::{Decimal256, Uint256};
 use mirror_protocol::collateral_oracle::SourceType;
 use serde::{Deserialize, Serialize};
 use terra_cosmwasm::{ExchangeRatesResponse, TerraQuerier};
@@ -55,8 +53,8 @@ pub struct AnchorMarketResponse {
     pub exchange_rate: Decimal256,
 }
 
-pub fn query_price<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
+pub fn query_price(
+    deps: Deps,
     config: &Config,
     asset: &String,
     block_height: Option<u64>,
@@ -66,7 +64,7 @@ pub fn query_price<S: Storage, A: Api, Q: Querier>(
         SourceType::BandOracle {} => {
             let res: BandOracleResponse =
                 deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-                    contract_addr: deps.api.human_address(&config.band_oracle)?,
+                    contract_addr: deps.api.addr_humanize(&config.band_oracle)?.to_string(),
                     msg: to_binary(&SourceQueryMsg::GetReferenceData {
                         base_symbol: asset.to_string(),
                         quote_symbol: config.base_denom.clone(),
@@ -81,7 +79,7 @@ pub fn query_price<S: Storage, A: Api, Q: Querier>(
         SourceType::MirrorOracle {} => {
             let res: TerraOracleResponse =
                 deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-                    contract_addr: deps.api.human_address(&config.mirror_oracle)?,
+                    contract_addr: deps.api.addr_humanize(&config.mirror_oracle)?.to_string(),
                     msg: to_binary(&SourceQueryMsg::Price {
                         base_asset: asset.to_string(),
                         quote_asset: config.base_denom.clone(),
@@ -94,7 +92,7 @@ pub fn query_price<S: Storage, A: Api, Q: Querier>(
         SourceType::AnchorOracle {} => {
             let res: TerraOracleResponse =
                 deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-                    contract_addr: deps.api.human_address(&config.anchor_oracle)?,
+                    contract_addr: deps.api.addr_humanize(&config.anchor_oracle)?.to_string(),
                     msg: to_binary(&SourceQueryMsg::Price {
                         base_asset: asset.to_string(),
                         quote_asset: config.base_denom.clone(),
@@ -110,7 +108,7 @@ pub fn query_price<S: Storage, A: Api, Q: Querier>(
         } => {
             let res: TerraswapResponse =
                 deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-                    contract_addr: HumanAddr::from(terraswap_pair_addr),
+                    contract_addr: terraswap_pair_addr.to_string(),
                     msg: to_binary(&TerraswapPairQueryMsg::Pool {}).unwrap(),
                 }))?;
             let assets: [Asset; 2] = res.assets;
@@ -132,7 +130,6 @@ pub fn query_price<S: Storage, A: Api, Q: Querier>(
             } else {
                 return Err(StdError::generic_err("Invalid pool"));
             };
-
             // if intermediate denom exists, calculate final rate
             let rate: Decimal = if intermediate_denom.is_some() {
                 // (query_denom / intermediate_denom) * (intermedaite_denom / base_denom) = (query_denom / base_denom)
@@ -148,7 +145,7 @@ pub fn query_price<S: Storage, A: Api, Q: Querier>(
         SourceType::AnchorMarket { anchor_market_addr } => {
             let res: AnchorMarketResponse =
                 deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-                    contract_addr: HumanAddr::from(anchor_market_addr),
+                    contract_addr: anchor_market_addr.to_string(),
                     msg: to_binary(&SourceQueryMsg::EpochState {
                         block_heigth: block_height,
                         distributed_interest: None,
@@ -192,8 +189,8 @@ fn parse_band_rate(uint_rate: Uint128) -> StdResult<Decimal> {
     Decimal::from_str(rate_uint_string.as_str())
 }
 
-fn query_native_rate<Q: Querier>(
-    querier: &Q,
+fn query_native_rate(
+    querier: &QuerierWrapper,
     base_denom: String,
     quote_denom: String,
 ) -> StdResult<Decimal> {

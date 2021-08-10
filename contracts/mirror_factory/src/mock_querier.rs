@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Api, CanonicalAddr, Coin, Decimal, Empty, Extern,
-    HumanAddr, Querier, QuerierResult, QueryRequest, SystemError, WasmQuery,
+    from_binary, from_slice, to_binary, Addr, Api, CanonicalAddr, Coin, ContractResult, Decimal,
+    Empty, OwnedDeps, Querier, QuerierResult, QueryRequest, SystemError, SystemResult, WasmQuery,
 };
 use cosmwasm_storage::to_length_prefixed;
 
@@ -17,19 +17,14 @@ use terraswap::asset::{AssetInfo, PairInfo};
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
 /// this uses our CustomQuerier.
 pub fn mock_dependencies(
-    canonical_length: usize,
     contract_balance: &[Coin],
-) -> Extern<MockStorage, MockApi, WasmMockQuerier> {
-    let contract_addr = HumanAddr::from(MOCK_CONTRACT_ADDR);
-    let custom_querier: WasmMockQuerier = WasmMockQuerier::new(
-        MockQuerier::new(&[(&contract_addr, contract_balance)]),
-        MockApi::new(canonical_length),
-        canonical_length,
-    );
+) -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier> {
+    let custom_querier: WasmMockQuerier =
+        WasmMockQuerier::new(MockQuerier::new(&[(&MOCK_CONTRACT_ADDR, contract_balance)]));
 
-    Extern {
+    OwnedDeps {
+        api: MockApi::default(),
         storage: MockStorage::default(),
-        api: MockApi::new(canonical_length),
         querier: custom_querier,
     }
 }
@@ -40,26 +35,25 @@ pub struct WasmMockQuerier {
     oracle_querier: OracleQuerier,
     oracle_price_querier: OraclePriceQuerier,
     mint_querier: MintQuerier,
-    canonical_length: usize,
 }
 
 #[derive(Clone, Default)]
 pub struct TerraswapFactoryQuerier {
-    pairs: HashMap<String, HumanAddr>,
+    pairs: HashMap<String, String>,
 }
 
 impl TerraswapFactoryQuerier {
-    pub fn new(pairs: &[(&String, &HumanAddr)]) -> Self {
+    pub fn new(pairs: &[(&String, &String)]) -> Self {
         TerraswapFactoryQuerier {
             pairs: pairs_to_map(pairs),
         }
     }
 }
 
-pub(crate) fn pairs_to_map(pairs: &[(&String, &HumanAddr)]) -> HashMap<String, HumanAddr> {
-    let mut pairs_map: HashMap<String, HumanAddr> = HashMap::new();
+pub(crate) fn pairs_to_map(pairs: &[(&String, &String)]) -> HashMap<String, String> {
+    let mut pairs_map: HashMap<String, String> = HashMap::new();
     for (key, pair) in pairs.iter() {
-        pairs_map.insert(key.to_string(), HumanAddr::from(pair));
+        pairs_map.insert(key.to_string(), pair.to_string());
     }
     pairs_map
 }
@@ -91,34 +85,32 @@ pub(crate) fn oracle_price_to_map(
 
 #[derive(Clone, Default)]
 pub struct OracleQuerier {
-    feeders: HashMap<HumanAddr, HumanAddr>,
+    feeders: HashMap<String, String>,
 }
 
 impl OracleQuerier {
-    pub fn new(feeders: &[(&HumanAddr, &HumanAddr)]) -> Self {
+    pub fn new(feeders: &[(&String, &String)]) -> Self {
         OracleQuerier {
             feeders: address_pair_to_map(feeders),
         }
     }
 }
 
-pub(crate) fn address_pair_to_map(
-    address_pair: &[(&HumanAddr, &HumanAddr)],
-) -> HashMap<HumanAddr, HumanAddr> {
-    let mut address_pair_map: HashMap<HumanAddr, HumanAddr> = HashMap::new();
+pub(crate) fn address_pair_to_map(address_pair: &[(&String, &String)]) -> HashMap<String, String> {
+    let mut address_pair_map: HashMap<String, String> = HashMap::new();
     for (addr1, addr2) in address_pair.iter() {
-        address_pair_map.insert(HumanAddr::from(addr1), HumanAddr::from(addr2));
+        address_pair_map.insert(addr1.to_string(), addr2.to_string());
     }
     address_pair_map
 }
 
 #[derive(Clone, Default)]
 pub struct MintQuerier {
-    configs: HashMap<HumanAddr, (Decimal, Decimal)>,
+    configs: HashMap<String, (Decimal, Decimal)>,
 }
 
 impl MintQuerier {
-    pub fn new(configs: &[(&HumanAddr, &(Decimal, Decimal))]) -> Self {
+    pub fn new(configs: &[(&String, &(Decimal, Decimal))]) -> Self {
         MintQuerier {
             configs: configs_to_map(configs),
         }
@@ -126,11 +118,11 @@ impl MintQuerier {
 }
 
 pub(crate) fn configs_to_map(
-    configs: &[(&HumanAddr, &(Decimal, Decimal))],
-) -> HashMap<HumanAddr, (Decimal, Decimal)> {
-    let mut configs_map: HashMap<HumanAddr, (Decimal, Decimal)> = HashMap::new();
+    configs: &[(&String, &(Decimal, Decimal))],
+) -> HashMap<String, (Decimal, Decimal)> {
+    let mut configs_map: HashMap<String, (Decimal, Decimal)> = HashMap::new();
     for (contract_addr, touple) in configs.iter() {
-        configs_map.insert(HumanAddr::from(contract_addr), (touple.0, touple.1));
+        configs_map.insert(contract_addr.to_string(), (touple.0, touple.1));
     }
     configs_map
 }
@@ -141,7 +133,7 @@ impl Querier for WasmMockQuerier {
         let request: QueryRequest<Empty> = match from_slice(bin_request) {
             Ok(v) => v,
             Err(e) => {
-                return Err(SystemError::InvalidRequest {
+                return SystemResult::Err(SystemError::InvalidRequest {
                     error: format!("Parsing query request: {}", e),
                     request: bin_request.into(),
                 })
@@ -173,9 +165,9 @@ impl WasmMockQuerier {
                 QueryMsg::Pair { asset_infos } => {
                     let key = asset_infos[0].to_string() + asset_infos[1].to_string().as_str();
                     match self.terraswap_factory_querier.pairs.get(&key) {
-                        Some(v) => Ok(to_binary(&PairInfo {
-                            contract_addr: HumanAddr::from("pair"),
-                            liquidity_token: v.clone(),
+                        Some(v) => SystemResult::Ok(ContractResult::from(to_binary(&PairInfo {
+                            contract_addr: Addr::unchecked("pair"),
+                            liquidity_token: Addr::unchecked(v.clone()),
                             asset_infos: [
                                 AssetInfo::NativeToken {
                                     denom: "uusd".to_string(),
@@ -184,8 +176,8 @@ impl WasmMockQuerier {
                                     denom: "uusd".to_string(),
                                 },
                             ],
-                        })),
-                        None => Err(SystemError::InvalidRequest {
+                        }))),
+                        None => SystemResult::Err(SystemError::InvalidRequest {
                             error: "No pair info exists".to_string(),
                             request: msg.as_slice().into(),
                         }),
@@ -197,18 +189,18 @@ impl WasmMockQuerier {
                 } => match self.oracle_price_querier.oracle_price.get(&base_asset) {
                     Some(base_price) => {
                         match self.oracle_price_querier.oracle_price.get(&quote_asset) {
-                            Some(quote_price) => Ok(to_binary(&PriceResponse {
+                            Some(quote_price) => SystemResult::Ok(ContractResult::from(to_binary(&PriceResponse {
                                 rate: decimal_division(*base_price, *quote_price),
                                 last_updated_base: 1000u64,
                                 last_updated_quote: 1000u64,
-                            })),
-                            None => Err(SystemError::InvalidRequest {
+                            }))),
+                            None => SystemResult::Err(SystemError::InvalidRequest {
                                 error: "No oracle price exists".to_string(),
                                 request: msg.as_slice().into(),
                             }),
                         }
                     }
-                    None => Err(SystemError::InvalidRequest {
+                    None => SystemResult::Err(SystemError::InvalidRequest {
                         error: "No oracle price exists".to_string(),
                         request: msg.as_slice().into(),
                     }),
@@ -219,22 +211,23 @@ impl WasmMockQuerier {
                 let prefix_asset_config = to_length_prefixed(b"asset_config").to_vec();
                 let prefix_feeder = to_length_prefixed(b"feeder").to_vec();
 
-                let api: MockApi = MockApi::new(self.canonical_length);
+                let api: MockApi = MockApi::default();
                 if key.len() > prefix_feeder.len()
                     && key[..prefix_feeder.len()].to_vec() == prefix_feeder
                 {
-                    let api: MockApi = MockApi::new(self.canonical_length);
+                    let api: MockApi = MockApi::default();
                     let rest_key: &[u8] = &key[prefix_feeder.len()..];
 
-                    if contract_addr == &HumanAddr::from("oracle0000") {
-                        let asset_token: HumanAddr = api
-                            .human_address(&(CanonicalAddr::from(rest_key.to_vec())))
-                            .unwrap();
+                    if contract_addr == "oracle0000" {
+                        let asset_token: String = api
+                            .addr_humanize(&(CanonicalAddr::from(rest_key.to_vec())))
+                            .unwrap()
+                            .to_string();
 
                         let feeder = match self.oracle_querier.feeders.get(&asset_token) {
                             Some(v) => v,
                             None => {
-                                return Err(SystemError::InvalidRequest {
+                                return SystemResult::Err(SystemError::InvalidRequest {
                                     error: format!(
                                         "Oracle Feeder is not found for {}",
                                         asset_token
@@ -244,9 +237,9 @@ impl WasmMockQuerier {
                             }
                         };
 
-                        Ok(to_binary(
-                            &to_binary(&api.canonical_address(&feeder).unwrap()).unwrap(),
-                        ))
+                        SystemResult::Ok(ContractResult::from(to_binary(
+                            &api.addr_canonicalize(&feeder).unwrap(),
+                        )))
                     } else {
                         panic!("DO NOT ENTER HERE")
                     }
@@ -254,29 +247,27 @@ impl WasmMockQuerier {
                     && key[..prefix_asset_config.len()].to_vec() == prefix_asset_config
                 {
                     let rest_key: &[u8] = &key[prefix_asset_config.len()..];
-                    let asset_token: HumanAddr = api
-                        .human_address(&(CanonicalAddr::from(rest_key.to_vec())))
-                        .unwrap();
+                    let asset_token: String = api
+                        .addr_humanize(&(CanonicalAddr::from(rest_key.to_vec())))
+                        .unwrap()
+                        .to_string();
 
                     let config = match self.mint_querier.configs.get(&asset_token) {
                         Some(v) => v,
                         None => {
-                            return Err(SystemError::InvalidRequest {
+                            return SystemResult::Err(SystemError::InvalidRequest {
                                 error: format!("Mint Config is not found for {}", asset_token),
                                 request: key.into(),
                             })
                         }
                     };
 
-                    Ok(to_binary(
-                        &to_binary(&MintAssetConfig {
-                            token: api.canonical_address(&asset_token).unwrap(),
-                            auction_discount: config.0,
-                            min_collateral_ratio: config.1,
-                            ipo_params: None,
-                        })
-                        .unwrap(),
-                    ))
+                    SystemResult::Ok(ContractResult::from(to_binary(&MintAssetConfig {
+                        token: api.addr_canonicalize(&asset_token).unwrap(),
+                        auction_discount: config.0,
+                        min_collateral_ratio: config.1,
+                        ipo_params: None,
+                    })))
                 } else {
                     panic!("DO NOT ENTER HERE")
                 }
@@ -287,27 +278,26 @@ impl WasmMockQuerier {
 }
 
 impl WasmMockQuerier {
-    pub fn new<A: Api>(base: MockQuerier<Empty>, _api: A, canonical_length: usize) -> Self {
+    pub fn new(base: MockQuerier<Empty>) -> Self {
         WasmMockQuerier {
             base,
             terraswap_factory_querier: TerraswapFactoryQuerier::default(),
             mint_querier: MintQuerier::default(),
             oracle_querier: OracleQuerier::default(),
             oracle_price_querier: OraclePriceQuerier::default(),
-            canonical_length,
         }
     }
 
     // configure the terraswap pair
-    pub fn with_terraswap_pairs(&mut self, pairs: &[(&String, &HumanAddr)]) {
+    pub fn with_terraswap_pairs(&mut self, pairs: &[(&String, &String)]) {
         self.terraswap_factory_querier = TerraswapFactoryQuerier::new(pairs);
     }
 
-    pub fn with_oracle_feeders(&mut self, feeders: &[(&HumanAddr, &HumanAddr)]) {
+    pub fn with_oracle_feeders(&mut self, feeders: &[(&String, &String)]) {
         self.oracle_querier = OracleQuerier::new(feeders);
     }
 
-    pub fn with_mint_configs(&mut self, configs: &[(&HumanAddr, &(Decimal, Decimal))]) {
+    pub fn with_mint_configs(&mut self, configs: &[(&String, &(Decimal, Decimal))]) {
         self.mint_querier = MintQuerier::new(configs);
     }
 

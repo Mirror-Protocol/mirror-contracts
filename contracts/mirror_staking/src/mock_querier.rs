@@ -1,7 +1,7 @@
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Api, Coin, Decimal, Extern, HumanAddr, Querier,
-    QuerierResult, QueryRequest, SystemError, Uint128, WasmQuery,
+    from_binary, from_slice, to_binary, Addr, Coin, ContractResult, Decimal, OwnedDeps, Querier,
+    QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, WasmQuery,
 };
 use cosmwasm_storage::to_length_prefixed;
 use mirror_protocol::oracle::PriceResponse;
@@ -12,7 +12,7 @@ use terraswap::{asset::Asset, asset::AssetInfo, asset::PairInfo, pair::PoolRespo
 
 pub struct WasmMockQuerier {
     base: MockQuerier<TerraQueryWrapper>,
-    pair_addr: HumanAddr,
+    pair_addr: Addr,
     pool_assets: [Asset; 2],
     oracle_price: Decimal,
     token_balance: Uint128,
@@ -21,19 +21,14 @@ pub struct WasmMockQuerier {
 }
 
 pub fn mock_dependencies_with_querier(
-    canonical_length: usize,
     contract_balance: &[Coin],
-) -> Extern<MockStorage, MockApi, WasmMockQuerier> {
-    let contract_addr = HumanAddr::from(MOCK_CONTRACT_ADDR);
-    let custom_querier: WasmMockQuerier = WasmMockQuerier::new(
-        MockQuerier::new(&[(&contract_addr, contract_balance)]),
-        MockApi::new(canonical_length),
-        canonical_length,
-    );
+) -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier> {
+    let custom_querier: WasmMockQuerier =
+        WasmMockQuerier::new(MockQuerier::new(&[(&MOCK_CONTRACT_ADDR, contract_balance)]));
 
-    Extern {
+    OwnedDeps {
+        api: MockApi::default(),
         storage: MockStorage::default(),
-        api: MockApi::new(canonical_length),
         querier: custom_querier,
     }
 }
@@ -44,7 +39,7 @@ impl Querier for WasmMockQuerier {
         let request: QueryRequest<TerraQueryWrapper> = match from_slice(bin_request) {
             Ok(v) => v,
             Err(e) => {
-                return Err(SystemError::InvalidRequest {
+                return SystemResult::Err(SystemError::InvalidRequest {
                     error: format!("Parsing query request: {}", e),
                     request: bin_request.into(),
                 })
@@ -78,11 +73,11 @@ impl WasmMockQuerier {
                     match query_data {
                         TerraQuery::TaxRate {} => {
                             let res = TaxRateResponse { rate: self.tax.0 };
-                            Ok(to_binary(&res))
+                            SystemResult::Ok(ContractResult::from(to_binary(&res)))
                         }
                         TerraQuery::TaxCap { .. } => {
                             let res = TaxCapResponse { cap: self.tax.1 };
-                            Ok(to_binary(&res))
+                            SystemResult::Ok(ContractResult::from(to_binary(&res)))
                         }
                         _ => panic!("DO NOT ENTER HERE"),
                     }
@@ -93,11 +88,11 @@ impl WasmMockQuerier {
             QueryRequest::Wasm(WasmQuery::Smart {
                 contract_addr: _,
                 msg,
-            }) => match from_binary(&msg).unwrap() {
+            }) => match from_binary(&msg) {
                 MockQueryMsg::Pair { asset_infos } => Ok(to_binary(&PairInfo {
                     asset_infos: asset_infos.clone(),
                     contract_addr: self.pair_addr.clone(),
-                    liquidity_token: HumanAddr::from("lptoken"),
+                    liquidity_token: "lptoken".to_string(),
                 })),
                 MockQueryMsg::ShortRewardWeight { .. } => {
                     Ok(to_binary(&ShortRewardWeightResponse {
@@ -124,7 +119,7 @@ impl WasmMockQuerier {
                 let key: &[u8] = key.as_slice();
                 let prefix_balance = to_length_prefixed(b"balance").to_vec();
                 if key[..prefix_balance.len()].to_vec() == prefix_balance {
-                    Ok(to_binary(&to_binary(&self.token_balance).unwrap()))
+                    SystemResult::Ok(ContractResult::from(to_binary(&self.token_balance)))
                 } else {
                     panic!("DO NOT ENTER HERE")
                 }
@@ -135,14 +130,10 @@ impl WasmMockQuerier {
 }
 
 impl WasmMockQuerier {
-    pub fn new<A: Api>(
-        base: MockQuerier<TerraQueryWrapper>,
-        _api: A,
-        _canonical_length: usize,
-    ) -> Self {
+    pub fn new(base: MockQuerier<TerraQueryWrapper>) -> Self {
         WasmMockQuerier {
             base,
-            pair_addr: HumanAddr::default(),
+            pair_addr: Addr::unchecked(""),
             pool_assets: [
                 Asset {
                     info: AssetInfo::NativeToken {
@@ -152,7 +143,7 @@ impl WasmMockQuerier {
                 },
                 Asset {
                     info: AssetInfo::Token {
-                        contract_addr: HumanAddr::from("asset"),
+                        contract_addr: Addr::unchecked("asset"),
                     },
                     amount: Uint128::zero(),
                 },
@@ -164,7 +155,7 @@ impl WasmMockQuerier {
         }
     }
 
-    pub fn with_pair_info(&mut self, pair_addr: HumanAddr) {
+    pub fn with_pair_info(&mut self, pair_addr: Addr) {
         self.pair_addr = pair_addr;
     }
 

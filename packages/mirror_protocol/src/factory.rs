@@ -1,10 +1,10 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Binary, Decimal, HumanAddr, Uint128};
+use cosmwasm_std::{Binary, Decimal, Uint128};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct InitMsg {
+pub struct InstantiateMsg {
     pub token_code_id: u64,
     pub base_denom: String,
     pub distribution_schedule: Vec<(u64, u64, Uint128)>, // [[start_time, end_time, distribution_amount], [], ...]
@@ -12,26 +12,26 @@ pub struct InitMsg {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum HandleMsg {
+pub enum ExecuteMsg {
     ///////////////////
     /// Owner Operations
     ///////////////////
     PostInitialize {
-        owner: HumanAddr,
-        terraswap_factory: HumanAddr,
-        mirror_token: HumanAddr,
-        staking_contract: HumanAddr,
-        oracle_contract: HumanAddr,
-        mint_contract: HumanAddr,
-        commission_collector: HumanAddr,
+        owner: String,
+        terraswap_factory: String,
+        mirror_token: String,
+        staking_contract: String,
+        oracle_contract: String,
+        mint_contract: String,
+        commission_collector: String,
     },
     UpdateConfig {
-        owner: Option<HumanAddr>,
+        owner: Option<String>,
         token_code_id: Option<u64>,
         distribution_schedule: Option<Vec<(u64, u64, Uint128)>>, // [[start_time, end_time, distribution_amount], [], ...]
     },
     UpdateWeight {
-        asset_token: HumanAddr,
+        asset_token: String,
         weight: u32,
     },
     Whitelist {
@@ -40,20 +40,12 @@ pub enum HandleMsg {
         /// asset symbol used to create token contract
         symbol: String,
         /// authorized asset oracle feeder
-        oracle_feeder: HumanAddr,
+        oracle_feeder: String,
         /// used to create all necessary contract or register asset
         params: Params,
     },
-    /// Internal use
-    TokenCreationHook {
-        oracle_feeder: HumanAddr,
-    },
-    /// Internal use except MIR registration
-    TerraswapCreationHook {
-        asset_token: HumanAddr,
-    },
     PassCommand {
-        contract_addr: HumanAddr,
+        contract_addr: String,
         msg: Binary,
     },
 
@@ -65,8 +57,8 @@ pub enum HandleMsg {
     /// and register end_price to mint contract
     /// Only feeder can set end_price
     RevokeAsset {
-        asset_token: HumanAddr,
-        end_price: Option<Decimal>,
+        asset_token: String,
+        end_price: Decimal,
     },
     /// Migrate asset to new asset by registering
     /// end_price to mint contract and add
@@ -74,7 +66,7 @@ pub enum HandleMsg {
     MigrateAsset {
         name: String,
         symbol: String,
-        from_token: HumanAddr,
+        from_token: String,
         end_price: Decimal,
     },
 
@@ -94,13 +86,13 @@ pub enum QueryMsg {
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ConfigResponse {
-    pub owner: HumanAddr,
-    pub mirror_token: HumanAddr,
-    pub mint_contract: HumanAddr,
-    pub staking_contract: HumanAddr,
-    pub commission_collector: HumanAddr,
-    pub oracle_contract: HumanAddr,
-    pub terraswap_factory: HumanAddr,
+    pub owner: String,
+    pub mirror_token: String,
+    pub mint_contract: String,
+    pub staking_contract: String,
+    pub commission_collector: String,
+    pub oracle_contract: String,
+    pub terraswap_factory: String,
     pub token_code_id: u64,
     pub base_denom: String,
     pub genesis_time: u64,
@@ -110,7 +102,7 @@ pub struct ConfigResponse {
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct DistributionInfoResponse {
-    pub weights: Vec<(HumanAddr, u32)>,
+    pub weights: Vec<(String, u32)>,
     pub last_distributed: u64,
 }
 

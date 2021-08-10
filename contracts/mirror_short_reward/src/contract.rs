@@ -1,41 +1,39 @@
+#[cfg(not(feature = "library"))]
+use cosmwasm_std::entry_point;
 use crate::math::{
     decimal_division, decimal_multiplication, decimal_subtraction, erf_plus_one, Sign,
 };
-use cosmwasm_std::{
-    to_binary, Api, Binary, Decimal, Env, Extern, HandleResponse, InitResponse, Querier, StdResult,
-    Storage,
-};
-use mirror_protocol::short_reward::{HandleMsg, InitMsg, QueryMsg, ShortRewardWeightResponse};
+use cosmwasm_std::{Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Response, StdResult, to_binary};
+use mirror_protocol::short_reward::{ExecuteMsg, InstantiateMsg, QueryMsg, ShortRewardWeightResponse};
 
-pub fn init<S: Storage, A: Api, Q: Querier>(
-    _deps: &mut Extern<S, A, Q>,
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn instantiate(
+    _deps: DepsMut,
     _env: Env,
-    _msg: InitMsg,
-) -> StdResult<InitResponse> {
-    Ok(InitResponse::default())
+    _info: MessageInfo,
+    _msg: InstantiateMsg,
+) -> StdResult<Response> {
+    Ok(Response::default())
 }
 
-pub fn handle<S: Storage, A: Api, Q: Querier>(
-    _deps: &mut Extern<S, A, Q>,
-    _env: Env,
-    _msg: HandleMsg,
-) -> StdResult<HandleResponse> {
-    Ok(HandleResponse::default())
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn execute(_deps: DepsMut, _env: Env, _info: MessageInfo, _msg: ExecuteMsg) -> StdResult<Response> {
+    Ok(Response::default())
 }
 
-pub fn query<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
+pub fn query(
+    _deps: Deps,
+    _env: Env,
     msg: QueryMsg,
 ) -> StdResult<Binary> {
     match msg {
         QueryMsg::ShortRewardWeight { premium_rate } => {
-            to_binary(&query_short_reward_weight(deps, premium_rate)?)
+            to_binary(&query_short_reward_weight(premium_rate)?)
         }
     }
 }
 
-pub fn query_short_reward_weight<S: Storage, A: Api, Q: Querier>(
-    _deps: &Extern<S, A, Q>,
+pub fn query_short_reward_weight(
     premium_rate: Decimal,
 ) -> StdResult<ShortRewardWeightResponse> {
     if premium_rate > Decimal::percent(7) {
@@ -53,17 +51,17 @@ pub fn query_short_reward_weight<S: Storage, A: Api, Q: Querier>(
     let (sign_x, x) = if p > two {
         (
             Sign::Positive,
-            decimal_division(decimal_subtraction(p, two), sqrt_two),
+            decimal_division(decimal_subtraction(p, two)?, sqrt_two),
         )
     } else {
         (
             Sign::Negative,
-            decimal_division(decimal_subtraction(two, p), sqrt_two),
+            decimal_division(decimal_subtraction(two, p)?, sqrt_two),
         )
     };
 
     let short_reward_weight: Decimal =
-        decimal_division(erf_plus_one(sign_x, x), Decimal::from_ratio(5u128, 1u128));
+        decimal_division(erf_plus_one(sign_x, x)?, Decimal::from_ratio(5u128, 1u128));
     return Ok(ShortRewardWeightResponse {
         short_reward_weight,
     });

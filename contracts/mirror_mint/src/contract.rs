@@ -1,7 +1,9 @@
+#[cfg(not(feature = "library"))]
+use cosmwasm_std::entry_point;
+
 use cosmwasm_std::{
-    from_binary, log, to_binary, Api, Binary, CanonicalAddr, CosmosMsg, Decimal, Env, Extern,
-    HandleResponse, HandleResult, HumanAddr, InitResponse, MigrateResponse, MigrateResult, Querier,
-    StdError, StdResult, Storage, Uint128, WasmMsg,
+    attr, from_binary, to_binary, Addr, Binary, CanonicalAddr, CosmosMsg, Decimal, Deps, DepsMut,
+    Env, MessageInfo, Response, StdError, StdResult, Uint128, WasmMsg,
 };
 
 use crate::{
@@ -18,46 +20,43 @@ use crate::{
 };
 
 use cw20::Cw20ReceiveMsg;
-use mirror_protocol::{
-    collateral_oracle::{HandleMsg as CollateralOracleHandleMsg, SourceType},
-    mint::IPOParams,
-    mint::{
-        AssetConfigResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrateMsg, QueryMsg,
-    },
+use mirror_protocol::collateral_oracle::{ExecuteMsg as CollateralOracleExecuteMsg, SourceType};
+use mirror_protocol::mint::{
+    AssetConfigResponse, ConfigResponse, Cw20HookMsg, ExecuteMsg, IPOParams, InstantiateMsg,
+    MigrateMsg, QueryMsg,
 };
 use terraswap::asset::{Asset, AssetInfo};
 
-pub fn init<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn instantiate(
+    deps: DepsMut,
     _env: Env,
-    msg: InitMsg,
-) -> StdResult<InitResponse> {
+    _info: MessageInfo,
+    msg: InstantiateMsg,
+) -> StdResult<Response> {
     let config = Config {
-        owner: deps.api.canonical_address(&msg.owner)?,
-        oracle: deps.api.canonical_address(&msg.oracle)?,
-        collector: deps.api.canonical_address(&msg.collector)?,
-        collateral_oracle: deps.api.canonical_address(&msg.collateral_oracle)?,
-        staking: deps.api.canonical_address(&msg.staking)?,
-        terraswap_factory: deps.api.canonical_address(&msg.terraswap_factory)?,
-        lock: deps.api.canonical_address(&msg.lock)?,
+        owner: deps.api.addr_canonicalize(&msg.owner)?,
+        oracle: deps.api.addr_canonicalize(&msg.oracle)?,
+        collector: deps.api.addr_canonicalize(&msg.collector)?,
+        collateral_oracle: deps.api.addr_canonicalize(&msg.collateral_oracle)?,
+        staking: deps.api.addr_canonicalize(&msg.staking)?,
+        terraswap_factory: deps.api.addr_canonicalize(&msg.terraswap_factory)?,
+        lock: deps.api.addr_canonicalize(&msg.lock)?,
         base_denom: msg.base_denom,
         token_code_id: msg.token_code_id,
         protocol_fee_rate: assert_protocol_fee(msg.protocol_fee_rate)?,
     };
 
-    store_config(&mut deps.storage, &config)?;
-    store_position_idx(&mut deps.storage, Uint128(1u128))?;
-    Ok(InitResponse::default())
+    store_config(deps.storage, &config)?;
+    store_position_idx(deps.storage, Uint128(1u128))?;
+    Ok(Response::default())
 }
 
-pub fn handle<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    msg: HandleMsg,
-) -> StdResult<HandleResponse> {
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
     match msg {
-        HandleMsg::Receive(msg) => receive_cw20(deps, env, msg),
-        HandleMsg::UpdateConfig {
+        ExecuteMsg::Receive(msg) => receive_cw20(deps, env, info, msg),
+        ExecuteMsg::UpdateConfig {
             owner,
             oracle,
             collector,
@@ -68,7 +67,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             protocol_fee_rate,
         } => update_config(
             deps,
-            env,
+            info,
             owner,
             oracle,
             collector,
@@ -78,38 +77,50 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             token_code_id,
             protocol_fee_rate,
         ),
-        HandleMsg::UpdateAsset {
+        ExecuteMsg::UpdateAsset {
             asset_token,
             auction_discount,
             min_collateral_ratio,
             ipo_params,
-        } => update_asset(
-            deps,
-            env,
+        } => {
+            let asset_addr = deps.api.addr_validate(asset_token.as_str())?;
+            update_asset(
+                deps,
+                info,
+                asset_addr,
+                auction_discount,
+                min_collateral_ratio,
+                ipo_params,
+            )
+        }
+        ExecuteMsg::RegisterAsset {
             asset_token,
             auction_discount,
             min_collateral_ratio,
             ipo_params,
-        ),
-        HandleMsg::RegisterAsset {
-            asset_token,
-            auction_discount,
-            min_collateral_ratio,
-            ipo_params,
-        } => register_asset(
-            deps,
-            env,
-            asset_token,
-            auction_discount,
-            min_collateral_ratio,
-            ipo_params,
-        ),
-        HandleMsg::RegisterMigration {
+        } => {
+            let asset_addr = deps.api.addr_validate(asset_token.as_str())?;
+            register_asset(
+                deps,
+                info,
+                asset_addr,
+                auction_discount,
+                min_collateral_ratio,
+                ipo_params,
+            )
+        }
+        ExecuteMsg::RegisterMigration {
             asset_token,
             end_price,
-        } => register_migration(deps, env, asset_token, end_price),
-        HandleMsg::TriggerIPO { asset_token } => trigger_ipo(deps, env, asset_token),
-        HandleMsg::OpenPosition {
+        } => {
+            let asset_addr = deps.api.addr_validate(asset_token.as_str())?;
+            register_migration(deps, info, asset_addr, end_price)
+        }
+        ExecuteMsg::TriggerIPO { asset_token } => {
+            let asset_addr = deps.api.addr_validate(asset_token.as_str())?;
+            trigger_ipo(deps, info, asset_addr)
+        }
+        ExecuteMsg::OpenPosition {
             collateral,
             asset_info,
             collateral_ratio,
@@ -117,130 +128,134 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         } => {
             // only native token can be deposited directly
             if !collateral.is_native_token() {
-                return Err(StdError::unauthorized());
+                return Err(StdError::generic_err("unauthorized"));
             }
 
             // Check the actual deposit happens
-            collateral.assert_sent_native_token_balance(&env)?;
+            collateral.assert_sent_native_token_balance(&info)?;
 
             open_position(
                 deps,
                 env.clone(),
-                env.message.sender,
+                info.sender,
                 collateral,
                 asset_info,
                 collateral_ratio,
                 short_params,
             )
         }
-        HandleMsg::Deposit {
+        ExecuteMsg::Deposit {
             position_idx,
             collateral,
         } => {
             // only native token can be deposited directly
             if !collateral.is_native_token() {
-                return Err(StdError::unauthorized());
+                return Err(StdError::generic_err("unauthorized"));
             }
 
             // Check the actual deposit happens
-            collateral.assert_sent_native_token_balance(&env)?;
+            collateral.assert_sent_native_token_balance(&info)?;
 
-            deposit(deps, env.message.sender, position_idx, collateral)
+            deposit(deps, info.sender, position_idx, collateral)
         }
-        HandleMsg::Withdraw {
+        ExecuteMsg::Withdraw {
             position_idx,
             collateral,
-        } => withdraw(deps, env, position_idx, collateral),
-        HandleMsg::Mint {
+        } => withdraw(deps, env, info.sender, position_idx, collateral),
+        ExecuteMsg::Mint {
             position_idx,
             asset,
             short_params,
-        } => mint(deps, env, position_idx, asset, short_params),
+        } => mint(deps, env, info.sender, position_idx, asset, short_params),
     }
 }
 
-pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn receive_cw20(
+    deps: DepsMut,
     env: Env,
+    info: MessageInfo,
     cw20_msg: Cw20ReceiveMsg,
-) -> HandleResult {
+) -> StdResult<Response> {
     let passed_asset: Asset = Asset {
         info: AssetInfo::Token {
-            contract_addr: env.message.sender.clone(),
+            contract_addr: info.sender.clone(),
         },
         amount: cw20_msg.amount,
     };
 
-    if let Some(msg) = cw20_msg.msg {
-        match from_binary(&msg)? {
-            Cw20HookMsg::OpenPosition {
-                asset_info,
-                collateral_ratio,
-                short_params,
-            } => open_position(
+    match from_binary(&cw20_msg.msg) {
+        Ok(Cw20HookMsg::OpenPosition {
+            asset_info,
+            collateral_ratio,
+            short_params,
+        }) => {
+            let cw20_sender = deps.api.addr_validate(cw20_msg.sender.as_str())?;
+            open_position(
                 deps,
                 env,
-                cw20_msg.sender,
+                cw20_sender,
                 passed_asset,
                 asset_info,
                 collateral_ratio,
                 short_params,
-            ),
-            Cw20HookMsg::Deposit { position_idx } => {
-                deposit(deps, cw20_msg.sender, position_idx, passed_asset)
-            }
-            Cw20HookMsg::Burn { position_idx } => {
-                burn(deps, env, cw20_msg.sender, position_idx, passed_asset)
-            }
-            Cw20HookMsg::Auction { position_idx } => {
-                auction(deps, env, cw20_msg.sender, position_idx, passed_asset)
-            }
+            )
         }
-    } else {
-        Err(StdError::generic_err("data should be given"))
+        Ok(Cw20HookMsg::Deposit { position_idx }) => {
+            let cw20_sender = deps.api.addr_validate(cw20_msg.sender.as_str())?;
+            deposit(deps, cw20_sender, position_idx, passed_asset)
+        }
+        Ok(Cw20HookMsg::Burn { position_idx }) => {
+            let cw20_sender = deps.api.addr_validate(cw20_msg.sender.as_str())?;
+            burn(deps, env, cw20_sender, position_idx, passed_asset)
+        }
+        Ok(Cw20HookMsg::Auction { position_idx }) => {
+            let cw20_sender = deps.api.addr_validate(cw20_msg.sender.as_str())?;
+            auction(deps, env, cw20_sender, position_idx, passed_asset)
+        }
+        Err(_) => Err(StdError::generic_err("data should be given")),
     }
 }
 
-pub fn update_config<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    owner: Option<HumanAddr>,
-    oracle: Option<HumanAddr>,
-    collector: Option<HumanAddr>,
-    collateral_oracle: Option<HumanAddr>,
-    terraswap_factory: Option<HumanAddr>,
-    lock: Option<HumanAddr>,
+pub fn update_config(
+    deps: DepsMut,
+    info: MessageInfo,
+    owner: Option<String>,
+    oracle: Option<String>,
+    collector: Option<String>,
+    collateral_oracle: Option<String>,
+    terraswap_factory: Option<String>,
+    lock: Option<String>,
     token_code_id: Option<u64>,
     protocol_fee_rate: Option<Decimal>,
-) -> StdResult<HandleResponse> {
-    let mut config: Config = read_config(&deps.storage)?;
+) -> StdResult<Response> {
+    let mut config: Config = read_config(deps.storage)?;
 
-    if deps.api.canonical_address(&env.message.sender)? != config.owner {
-        return Err(StdError::unauthorized());
+    if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner {
+        return Err(StdError::generic_err("unauthorized"));
     }
 
     if let Some(owner) = owner {
-        config.owner = deps.api.canonical_address(&owner)?;
+        config.owner = deps.api.addr_canonicalize(&owner)?;
     }
 
     if let Some(oracle) = oracle {
-        config.oracle = deps.api.canonical_address(&oracle)?;
+        config.oracle = deps.api.addr_canonicalize(&oracle)?;
     }
 
     if let Some(collector) = collector {
-        config.collector = deps.api.canonical_address(&collector)?;
+        config.collector = deps.api.addr_canonicalize(&collector)?;
     }
 
     if let Some(collateral_oracle) = collateral_oracle {
-        config.collateral_oracle = deps.api.canonical_address(&collateral_oracle)?;
+        config.collateral_oracle = deps.api.addr_canonicalize(&collateral_oracle)?;
     }
 
     if let Some(terraswap_factory) = terraswap_factory {
-        config.terraswap_factory = deps.api.canonical_address(&terraswap_factory)?;
+        config.terraswap_factory = deps.api.addr_canonicalize(&terraswap_factory)?;
     }
 
     if let Some(lock) = lock {
-        config.lock = deps.api.canonical_address(&lock)?;
+        config.lock = deps.api.addr_canonicalize(&lock)?;
     }
 
     if let Some(token_code_id) = token_code_id {
@@ -248,31 +263,33 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     }
 
     if let Some(protocol_fee_rate) = protocol_fee_rate {
-        config.protocol_fee_rate = assert_protocol_fee(protocol_fee_rate)?;
+        assert_protocol_fee(protocol_fee_rate)?;
+        config.protocol_fee_rate = protocol_fee_rate;
     }
 
-    store_config(&mut deps.storage, &config)?;
-    Ok(HandleResponse {
+    store_config(deps.storage, &config)?;
+    Ok(Response {
         messages: vec![],
-        log: vec![log("action", "update_config")],
+        submessages: vec![],
+        attributes: vec![attr("action", "update_config")],
         data: None,
     })
 }
 
-pub fn update_asset<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    asset_token: HumanAddr,
+pub fn update_asset(
+    deps: DepsMut,
+    info: MessageInfo,
+    asset_token: Addr,
     auction_discount: Option<Decimal>,
     min_collateral_ratio: Option<Decimal>,
     ipo_params: Option<IPOParams>,
-) -> StdResult<HandleResponse> {
-    let config: Config = read_config(&deps.storage)?;
-    let asset_token_raw = deps.api.canonical_address(&asset_token)?;
-    let mut asset: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
+) -> StdResult<Response> {
+    let config: Config = read_config(deps.storage)?;
+    let asset_token_raw = deps.api.addr_canonicalize(&asset_token.as_str())?;
+    let mut asset: AssetConfig = read_asset_config(deps.storage, &asset_token_raw)?;
 
-    if deps.api.canonical_address(&env.message.sender)? != config.owner {
-        return Err(StdError::unauthorized());
+    if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner {
+        return Err(StdError::generic_err("unauthorized"));
     }
 
     if let Some(auction_discount) = auction_discount {
@@ -290,34 +307,35 @@ pub fn update_asset<S: Storage, A: Api, Q: Querier>(
         asset.ipo_params = Some(ipo_params);
     }
 
-    store_asset_config(&mut deps.storage, &asset_token_raw, &asset)?;
-    Ok(HandleResponse {
+    store_asset_config(deps.storage, &asset_token_raw, &asset)?;
+    Ok(Response {
         messages: vec![],
-        log: vec![log("action", "update_asset")],
+        submessages: vec![],
+        attributes: vec![attr("action", "update_asset")],
         data: None,
     })
 }
 
-pub fn register_asset<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    asset_token: HumanAddr,
+pub fn register_asset(
+    deps: DepsMut,
+    info: MessageInfo,
+    asset_token: Addr,
     auction_discount: Decimal,
     min_collateral_ratio: Decimal,
     ipo_params: Option<IPOParams>,
-) -> StdResult<HandleResponse> {
+) -> StdResult<Response> {
     assert_auction_discount(auction_discount)?;
     assert_min_collateral_ratio(min_collateral_ratio)?;
 
-    let config: Config = read_config(&deps.storage)?;
+    let config: Config = read_config(deps.storage)?;
 
     // permission check
-    if deps.api.canonical_address(&env.message.sender)? != config.owner {
-        return Err(StdError::unauthorized());
+    if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner {
+        return Err(StdError::generic_err("unauthorized"));
     }
 
-    let asset_token_raw = deps.api.canonical_address(&asset_token)?;
-    if read_asset_config(&deps.storage, &asset_token_raw).is_ok() {
+    let asset_token_raw = deps.api.addr_canonicalize(asset_token.as_str())?;
+    if read_asset_config(deps.storage, &asset_token_raw).is_ok() {
         return Err(StdError::generic_err("Asset was already registered"));
     }
 
@@ -329,9 +347,12 @@ pub fn register_asset<S: Storage, A: Api, Q: Querier>(
     } else {
         // only non-preIPO assets can be used as collateral
         messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: deps.api.human_address(&config.collateral_oracle)?,
+            contract_addr: deps
+                .api
+                .addr_humanize(&config.collateral_oracle)?
+                .to_string(),
             send: vec![],
-            msg: to_binary(&CollateralOracleHandleMsg::RegisterCollateralAsset {
+            msg: to_binary(&CollateralOracleExecuteMsg::RegisterCollateralAsset {
                 asset: AssetInfo::Token {
                     contract_addr: asset_token.clone(),
                 },
@@ -343,10 +364,10 @@ pub fn register_asset<S: Storage, A: Api, Q: Querier>(
 
     // Store temp info into base asset store
     store_asset_config(
-        &mut deps.storage,
+        deps.storage,
         &asset_token_raw,
         &AssetConfig {
-            token: deps.api.canonical_address(&asset_token)?,
+            token: deps.api.addr_canonicalize(asset_token.as_str())?,
             auction_discount,
             min_collateral_ratio,
             end_price: None,
@@ -354,30 +375,31 @@ pub fn register_asset<S: Storage, A: Api, Q: Querier>(
         },
     )?;
 
-    Ok(HandleResponse {
+    Ok(Response {
         messages,
-        log: vec![log("action", "register"), log("asset_token", asset_token)],
+        submessages: vec![],
+        attributes: vec![attr("action", "register"), attr("asset_token", asset_token)],
         data: None,
     })
 }
 
-pub fn register_migration<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    asset_token: HumanAddr,
+pub fn register_migration(
+    deps: DepsMut,
+    info: MessageInfo,
+    asset_token: Addr,
     end_price: Decimal,
-) -> StdResult<HandleResponse> {
-    let config = read_config(&deps.storage)?;
-    if config.owner != deps.api.canonical_address(&env.message.sender)? {
-        return Err(StdError::unauthorized());
+) -> StdResult<Response> {
+    let config = read_config(deps.storage)?;
+    if config.owner != deps.api.addr_canonicalize(info.sender.as_str())? {
+        return Err(StdError::generic_err("unauthorized"));
     }
 
-    let asset_token_raw = deps.api.canonical_address(&asset_token)?;
-    let asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
+    let asset_token_raw = deps.api.addr_canonicalize(asset_token.as_str())?;
+    let asset_config: AssetConfig = read_asset_config(deps.storage, &asset_token_raw)?;
 
     // update asset config
     store_asset_config(
-        &mut deps.storage,
+        deps.storage,
         &asset_token_raw,
         &AssetConfig {
             end_price: Some(end_price),
@@ -388,44 +410,44 @@ pub fn register_migration<S: Storage, A: Api, Q: Querier>(
     )?;
 
     // flag asset as revoked in the collateral oracle
-    Ok(HandleResponse {
+    Ok(Response {
         messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: deps.api.human_address(&config.collateral_oracle)?,
+            contract_addr: deps
+                .api
+                .addr_humanize(&config.collateral_oracle)?
+                .to_string(),
             send: vec![],
-            msg: to_binary(&CollateralOracleHandleMsg::RevokeCollateralAsset {
+            msg: to_binary(&CollateralOracleExecuteMsg::RevokeCollateralAsset {
                 asset: AssetInfo::Token {
                     contract_addr: asset_token.clone(),
                 },
             })?,
         })],
-        log: vec![
-            log("action", "migrate_asset"),
-            log("asset_token", asset_token.as_str()),
-            log("end_price", end_price.to_string()),
+        submessages: vec![],
+        attributes: vec![
+            attr("action", "migrate_asset"),
+            attr("asset_token", asset_token.as_str()),
+            attr("end_price", end_price.to_string()),
         ],
         data: None,
     })
 }
 
-pub fn trigger_ipo<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    asset_token: HumanAddr,
-) -> StdResult<HandleResponse> {
-    let config = read_config(&deps.storage)?;
-    let asset_token_raw: CanonicalAddr = deps.api.canonical_address(&&asset_token)?;
-    let oracle_feeder: HumanAddr = deps.api.human_address(&load_oracle_feeder(
-        &deps,
-        &deps.api.human_address(&config.oracle)?,
+pub fn trigger_ipo(deps: DepsMut, info: MessageInfo, asset_token: Addr) -> StdResult<Response> {
+    let config = read_config(deps.storage)?;
+    let asset_token_raw: CanonicalAddr = deps.api.addr_canonicalize(asset_token.as_str())?;
+    let oracle_feeder: Addr = deps.api.addr_humanize(&load_oracle_feeder(
+        deps.as_ref(),
+        deps.api.addr_humanize(&config.oracle)?,
         &asset_token_raw,
     )?)?;
 
     // only asset feeder can trigger ipo
-    if oracle_feeder != env.message.sender {
-        return Err(StdError::unauthorized());
+    if oracle_feeder != info.sender {
+        return Err(StdError::generic_err("unauthorized"));
     }
 
-    let mut asset_config: AssetConfig = read_asset_config(&deps.storage, &asset_token_raw)?;
+    let mut asset_config: AssetConfig = read_asset_config(deps.storage, &asset_token_raw)?;
 
     let ipo_params: IPOParams = match asset_config.ipo_params {
         Some(v) => v,
@@ -435,14 +457,17 @@ pub fn trigger_ipo<S: Storage, A: Api, Q: Querier>(
     asset_config.min_collateral_ratio = ipo_params.min_collateral_ratio_after_ipo;
     asset_config.ipo_params = None;
 
-    store_asset_config(&mut deps.storage, &asset_token_raw, &asset_config)?;
+    store_asset_config(deps.storage, &asset_token_raw, &asset_config)?;
 
     // register asset in collateral oracle
-    Ok(HandleResponse {
+    Ok(Response {
         messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: deps.api.human_address(&config.collateral_oracle)?,
+            contract_addr: deps
+                .api
+                .addr_humanize(&config.collateral_oracle)?
+                .to_string(),
             send: vec![],
-            msg: to_binary(&CollateralOracleHandleMsg::RegisterCollateralAsset {
+            msg: to_binary(&CollateralOracleExecuteMsg::RegisterCollateralAsset {
                 asset: AssetInfo::Token {
                     contract_addr: asset_token.clone(),
                 },
@@ -450,18 +475,17 @@ pub fn trigger_ipo<S: Storage, A: Api, Q: Querier>(
                 price_source: SourceType::MirrorOracle {},
             })?,
         })],
-        log: vec![
-            log("action", "trigger_ipo"),
-            log("asset_token", asset_token.as_str()),
+        submessages: vec![],
+        attributes: vec![
+            attr("action", "trigger_ipo"),
+            attr("asset_token", asset_token.as_str()),
         ],
         data: None,
     })
 }
 
-pub fn query<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    msg: QueryMsg,
-) -> StdResult<Binary> {
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::AssetConfig { asset_token } => to_binary(&query_asset_config(deps, asset_token)?),
@@ -484,18 +508,22 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
     }
 }
 
-pub fn query_config<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-) -> StdResult<ConfigResponse> {
-    let state = read_config(&deps.storage)?;
+pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
+    let state = read_config(deps.storage)?;
     let resp = ConfigResponse {
-        owner: deps.api.human_address(&state.owner)?,
-        oracle: deps.api.human_address(&state.oracle)?,
-        staking: deps.api.human_address(&state.staking)?,
-        collector: deps.api.human_address(&state.collector)?,
-        collateral_oracle: deps.api.human_address(&state.collateral_oracle)?,
-        terraswap_factory: deps.api.human_address(&state.terraswap_factory)?,
-        lock: deps.api.human_address(&state.lock)?,
+        owner: deps.api.addr_humanize(&state.owner)?.to_string(),
+        oracle: deps.api.addr_humanize(&state.oracle)?.to_string(),
+        staking: deps.api.addr_humanize(&state.staking)?.to_string(),
+        collector: deps.api.addr_humanize(&state.collector)?.to_string(),
+        collateral_oracle: deps
+            .api
+            .addr_humanize(&state.collateral_oracle)?
+            .to_string(),
+        terraswap_factory: deps
+            .api
+            .addr_humanize(&state.terraswap_factory)?
+            .to_string(),
+        lock: deps.api.addr_humanize(&state.lock)?.to_string(),
         base_denom: state.base_denom,
         token_code_id: state.token_code_id,
         protocol_fee_rate: state.protocol_fee_rate,
@@ -504,15 +532,18 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
     Ok(resp)
 }
 
-pub fn query_asset_config<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    asset_token: HumanAddr,
-) -> StdResult<AssetConfigResponse> {
-    let asset_config: AssetConfig =
-        read_asset_config(&deps.storage, &deps.api.canonical_address(&asset_token)?)?;
+pub fn query_asset_config(deps: Deps, asset_token: String) -> StdResult<AssetConfigResponse> {
+    let asset_config: AssetConfig = read_asset_config(
+        deps.storage,
+        &deps.api.addr_canonicalize(asset_token.as_str())?,
+    )?;
 
     let resp = AssetConfigResponse {
-        token: deps.api.human_address(&asset_config.token).unwrap(),
+        token: deps
+            .api
+            .addr_humanize(&asset_config.token)
+            .unwrap()
+            .to_string(),
         auction_discount: asset_config.auction_discount,
         min_collateral_ratio: asset_config.min_collateral_ratio,
         end_price: asset_config.end_price,
@@ -522,10 +553,7 @@ pub fn query_asset_config<S: Storage, A: Api, Q: Querier>(
     Ok(resp)
 }
 
-pub fn migrate<S: Storage, A: Api, Q: Querier>(
-    _deps: &mut Extern<S, A, Q>,
-    _env: Env,
-    _msg: MigrateMsg,
-) -> MigrateResult {
-    Ok(MigrateResponse::default())
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
+    Ok(Response::default())
 }

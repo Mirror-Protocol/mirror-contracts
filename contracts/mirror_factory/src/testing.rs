@@ -1,30 +1,36 @@
-use crate::contract::{handle, init, query};
+use crate::contract::{execute, instantiate, query, reply};
 use crate::mock_querier::{mock_dependencies, WasmMockQuerier};
+use crate::response::MsgInstantiateContractResponse;
 
-use crate::state::{read_params, read_total_weight, read_weight, store_total_weight, store_weight};
-use cosmwasm_std::testing::{mock_env, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
+use crate::state::{
+    read_params, read_tmp_asset, read_tmp_oracle, read_total_weight, read_weight,
+    store_total_weight, store_weight,
+};
+use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage};
 use cosmwasm_std::Api;
 use cosmwasm_std::{
-    from_binary, log, to_binary, CosmosMsg, Decimal, Env, Extern, HumanAddr, StdError, Uint128,
-    WasmMsg,
+    attr, from_binary, to_binary, Addr, CanonicalAddr, ContractResult, CosmosMsg, Decimal, Env,
+    OwnedDeps, Reply, ReplyOn, StdError, SubMsg, SubcallResponse, Timestamp, Uint128, WasmMsg,
 };
-use cw20::{Cw20HandleMsg, MinterResponse};
+use cw20::{Cw20ExecuteMsg, MinterResponse};
 
 use mirror_protocol::factory::{
-    ConfigResponse, DistributionInfoResponse, HandleMsg, InitMsg, Params, QueryMsg,
+    ConfigResponse, DistributionInfoResponse, ExecuteMsg, InstantiateMsg, Params, QueryMsg,
 };
-use mirror_protocol::mint::{HandleMsg as MintHandleMsg, IPOParams};
-use mirror_protocol::oracle::HandleMsg as OracleHandleMsg;
+use mirror_protocol::mint::{ExecuteMsg as MintExecuteMsg, IPOParams};
+use mirror_protocol::oracle::ExecuteMsg as OracleExecuteMsg;
 use mirror_protocol::staking::Cw20HookMsg as StakingCw20HookMsg;
-use mirror_protocol::staking::HandleMsg as StakingHandleMsg;
-use terraswap::asset::AssetInfo;
-use terraswap::factory::HandleMsg as TerraswapFactoryHandleMsg;
-use terraswap::hook::InitHook;
-use terraswap::token::InitMsg as TokenInitMsg;
+use mirror_protocol::staking::ExecuteMsg as StakingExecuteMsg;
 
-fn mock_env_time(signer: &HumanAddr, time: u64) -> Env {
-    let mut env = mock_env(signer, &[]);
-    env.block.time = time;
+use protobuf::Message;
+
+use terraswap::asset::AssetInfo;
+use terraswap::factory::ExecuteMsg as TerraswapFactoryExecuteMsg;
+use terraswap::token::InstantiateMsg as TokenInstantiateMsg;
+
+fn mock_env_time(time: u64) -> Env {
+    let mut env = mock_env();
+    env.block.time = Timestamp::from_seconds(time);
     env
 }
 
@@ -33,53 +39,55 @@ static BASE_DENOM: &str = "uusd";
 
 #[test]
 fn proper_initialization() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .with_terraswap_pairs(&[(&"uusdmirror0000".to_string(), &"MIRLP0000".to_string())]);
 
-    let msg = InitMsg {
+    let msg = InstantiateMsg {
         base_denom: BASE_DENOM.to_string(),
         token_code_id: TOKEN_CODE_ID,
         distribution_schedule: vec![],
     };
 
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env.clone(), msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
-    let msg = HandleMsg::PostInitialize {
-        owner: HumanAddr::from("owner0000"),
-        mirror_token: HumanAddr::from("mirror0000"),
-        mint_contract: HumanAddr::from("mint0000"),
-        staking_contract: HumanAddr::from("staking0000"),
-        commission_collector: HumanAddr::from("collector0000"),
-        oracle_contract: HumanAddr::from("oracle0000"),
-        terraswap_factory: HumanAddr::from("terraswapfactory"),
+    let msg = ExecuteMsg::PostInitialize {
+        owner: "owner0000".to_string(),
+        mirror_token: "mirror0000".to_string(),
+        mint_contract: "mint0000".to_string(),
+        staking_contract: "staking0000".to_string(),
+        commission_collector: "collector0000".to_string(),
+        oracle_contract: "oracle0000".to_string(),
+        terraswap_factory: "terraswapfactory".to_string(),
     };
-    let _res = handle(&mut deps, env.clone(), msg).unwrap();
+    let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
     // cannot update mirror token after initialization
-    let msg = HandleMsg::PostInitialize {
-        owner: HumanAddr::from("owner0000"),
-        mirror_token: HumanAddr::from("mirror0000"),
-        mint_contract: HumanAddr::from("mint0000"),
-        staking_contract: HumanAddr::from("staking0000"),
-        commission_collector: HumanAddr::from("collector0000"),
-        oracle_contract: HumanAddr::from("oracle0000"),
-        terraswap_factory: HumanAddr::from("terraswapfactory"),
+    let msg = ExecuteMsg::PostInitialize {
+        owner: "owner0001".to_string(),
+        mirror_token: "mirror0001".to_string(),
+        mint_contract: "mint0001".to_string(),
+        staking_contract: "staking0001".to_string(),
+        commission_collector: "collector0001".to_string(),
+        oracle_contract: "oracle0001".to_string(),
+        terraswap_factory: "terraswapfactory".to_string(),
     };
-    let _res = handle(&mut deps, env, msg).unwrap_err();
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
 
     // it worked, let's query the state
-    let res = query(&deps, QueryMsg::Config {}).unwrap();
+    let res = query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap();
     let config: ConfigResponse = from_binary(&res).unwrap();
     assert_eq!(
         config,
         ConfigResponse {
-            owner: HumanAddr::from("owner0000"),
-            mirror_token: HumanAddr::from("mirror0000"),
-            mint_contract: HumanAddr::from("mint0000"),
-            staking_contract: HumanAddr::from("staking0000"),
-            commission_collector: HumanAddr::from("collector0000"),
-            oracle_contract: HumanAddr::from("oracle0000"),
-            terraswap_factory: HumanAddr::from("terraswapfactory"),
+            owner: "owner0000".to_string(),
+            mirror_token: "mirror0000".to_string(),
+            mint_contract: "mint0000".to_string(),
+            staking_contract: "staking0000".to_string(),
+            commission_collector: "collector0000".to_string(),
+            oracle_contract: "oracle0000".to_string(),
+            terraswap_factory: "terraswapfactory".to_string(),
             base_denom: BASE_DENOM.to_string(),
             token_code_id: TOKEN_CODE_ID,
             genesis_time: 1_571_797_419,
@@ -90,49 +98,51 @@ fn proper_initialization() {
 
 #[test]
 fn test_update_config() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .with_terraswap_pairs(&[(&"uusdmirror0000".to_string(), &"MIRLP0000".to_string())]);
 
-    let msg = InitMsg {
+    let msg = InstantiateMsg {
         base_denom: BASE_DENOM.to_string(),
         token_code_id: TOKEN_CODE_ID,
         distribution_schedule: vec![],
     };
 
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env.clone(), msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
-    let msg = HandleMsg::PostInitialize {
-        owner: HumanAddr::from("owner0000"),
-        mirror_token: HumanAddr::from("mirror0000"),
-        mint_contract: HumanAddr::from("mint0000"),
-        staking_contract: HumanAddr::from("staking0000"),
-        commission_collector: HumanAddr::from("collector0000"),
-        oracle_contract: HumanAddr::from("oracle0000"),
-        terraswap_factory: HumanAddr::from("terraswapfactory"),
+    let msg = ExecuteMsg::PostInitialize {
+        owner: "owner0000".to_string(),
+        mirror_token: "mirror0000".to_string(),
+        mint_contract: "mint0000".to_string(),
+        staking_contract: "staking0000".to_string(),
+        commission_collector: "collector0000".to_string(),
+        oracle_contract: "oracle0000".to_string(),
+        terraswap_factory: "terraswapfactory".to_string(),
     };
-    let _res = handle(&mut deps, env.clone(), msg).unwrap();
+    let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
     // upate owner
-    let msg = HandleMsg::UpdateConfig {
-        owner: Some(HumanAddr::from("owner0001")),
+    let msg = ExecuteMsg::UpdateConfig {
+        owner: Some("owner0001".to_string()),
         distribution_schedule: None,
         token_code_id: None,
     };
 
-    let env = mock_env("owner0000", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
-    let res = query(&deps, QueryMsg::Config {}).unwrap();
+    let info = mock_info("owner0000", &[]);
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+    let res = query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap();
     let config: ConfigResponse = from_binary(&res).unwrap();
     assert_eq!(
         config,
         ConfigResponse {
-            owner: HumanAddr::from("owner0001"),
-            mirror_token: HumanAddr::from("mirror0000"),
-            mint_contract: HumanAddr::from("mint0000"),
-            staking_contract: HumanAddr::from("staking0000"),
-            commission_collector: HumanAddr::from("collector0000"),
-            oracle_contract: HumanAddr::from("oracle0000"),
-            terraswap_factory: HumanAddr::from("terraswapfactory"),
+            owner: "owner0001".to_string(),
+            mirror_token: "mirror0000".to_string(),
+            mint_contract: "mint0000".to_string(),
+            staking_contract: "staking0000".to_string(),
+            commission_collector: "collector0000".to_string(),
+            oracle_contract: "oracle0000".to_string(),
+            terraswap_factory: "terraswapfactory".to_string(),
             base_denom: BASE_DENOM.to_string(),
             token_code_id: TOKEN_CODE_ID,
             genesis_time: 1_571_797_419,
@@ -141,26 +151,26 @@ fn test_update_config() {
     );
 
     // update rest part
-    let msg = HandleMsg::UpdateConfig {
+    let msg = ExecuteMsg::UpdateConfig {
         owner: None,
         distribution_schedule: Some(vec![(1, 2, Uint128::from(123u128))]),
         token_code_id: Some(TOKEN_CODE_ID + 1),
     };
 
-    let env = mock_env("owner0001", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
-    let res = query(&deps, QueryMsg::Config {}).unwrap();
+    let info = mock_info("owner0001", &[]);
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+    let res = query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap();
     let config: ConfigResponse = from_binary(&res).unwrap();
     assert_eq!(
         config,
         ConfigResponse {
-            owner: HumanAddr::from("owner0001"),
-            mirror_token: HumanAddr::from("mirror0000"),
-            mint_contract: HumanAddr::from("mint0000"),
-            staking_contract: HumanAddr::from("staking0000"),
-            commission_collector: HumanAddr::from("collector0000"),
-            oracle_contract: HumanAddr::from("oracle0000"),
-            terraswap_factory: HumanAddr::from("terraswapfactory"),
+            owner: "owner0001".to_string(),
+            mirror_token: "mirror0000".to_string(),
+            mint_contract: "mint0000".to_string(),
+            staking_contract: "staking0000".to_string(),
+            commission_collector: "collector0000".to_string(),
+            oracle_contract: "oracle0000".to_string(),
+            terraswap_factory: "terraswapfactory".to_string(),
             base_denom: BASE_DENOM.to_string(),
             token_code_id: TOKEN_CODE_ID + 1,
             genesis_time: 1_571_797_419,
@@ -169,74 +179,77 @@ fn test_update_config() {
     );
 
     // failed unauthoirzed
-    let msg = HandleMsg::UpdateConfig {
+    let msg = ExecuteMsg::UpdateConfig {
         owner: None,
         distribution_schedule: None,
         token_code_id: Some(TOKEN_CODE_ID + 1),
     };
 
-    let env = mock_env("owner0000", &[]);
-    let res = handle(&mut deps, env, msg).unwrap_err();
+    let info = mock_info("owner0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
     match res {
-        StdError::Unauthorized { .. } => {}
+        StdError::GenericErr { msg, .. } => assert_eq!(msg, "unauthorized"),
         _ => panic!("DO NOT ENTER HERE"),
     }
 }
 
 #[test]
 fn test_update_weight() {
-    let mut deps = mock_dependencies(20, &[]);
-    let msg = InitMsg {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .with_terraswap_pairs(&[(&"uusdmirror0000".to_string(), &"MIRLP0000".to_string())]);
+
+    let msg = InstantiateMsg {
         base_denom: BASE_DENOM.to_string(),
         token_code_id: TOKEN_CODE_ID,
         distribution_schedule: vec![],
     };
 
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env.clone(), msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
-    let msg = HandleMsg::PostInitialize {
-        owner: HumanAddr::from("owner0000"),
-        mirror_token: HumanAddr::from("mirror0000"),
-        mint_contract: HumanAddr::from("mint0000"),
-        staking_contract: HumanAddr::from("staking0000"),
-        commission_collector: HumanAddr::from("collector0000"),
-        oracle_contract: HumanAddr::from("oracle0000"),
-        terraswap_factory: HumanAddr::from("terraswapfactory"),
+    let msg = ExecuteMsg::PostInitialize {
+        owner: "owner0000".to_string(),
+        mirror_token: "mirror0000".to_string(),
+        mint_contract: "mint0000".to_string(),
+        staking_contract: "staking0000".to_string(),
+        commission_collector: "collector0000".to_string(),
+        oracle_contract: "oracle0000".to_string(),
+        terraswap_factory: "terraswapfactory".to_string(),
     };
-    let _res = handle(&mut deps, env.clone(), msg).unwrap();
+    let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
     store_total_weight(&mut deps.storage, 100).unwrap();
     store_weight(
         &mut deps.storage,
-        &deps
-            .api
-            .canonical_address(&HumanAddr::from("asset0000"))
-            .unwrap(),
+        &deps.api.addr_canonicalize(&"asset0000").unwrap(),
         10,
     )
     .unwrap();
 
-    // incrase weight
-    let msg = HandleMsg::UpdateWeight {
-        asset_token: HumanAddr::from("asset0000"),
+    // increase weight
+    let msg = ExecuteMsg::UpdateWeight {
+        asset_token: "asset0000".to_string(),
         weight: 20,
     };
-    let env = mock_env("owner0001", &[]);
-    let res = handle(&mut deps, env, msg.clone()).unwrap_err();
+    let info = mock_info("owner0001", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
     match res {
-        StdError::Unauthorized { .. } => {}
+        StdError::GenericErr { msg, .. } => assert_eq!(msg, "unauthorized"),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
-    let env = mock_env("owner0000", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
-    let res = query(&deps, QueryMsg::DistributionInfo {}).unwrap();
+    let info = mock_info("owner0000", &[]);
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+    let res = query(deps.as_ref(), mock_env(), QueryMsg::DistributionInfo {}).unwrap();
     let distribution_info: DistributionInfoResponse = from_binary(&res).unwrap();
     assert_eq!(
         distribution_info,
         DistributionInfoResponse {
-            weights: vec![(HumanAddr::from("asset0000"), 20)],
+            weights: vec![
+                ("asset0000".to_string(), 20),
+                ("mirror0000".to_string(), 300)
+            ],
             last_distributed: 1_571_797_419,
         }
     );
@@ -244,10 +257,7 @@ fn test_update_weight() {
     assert_eq!(
         read_weight(
             &deps.storage,
-            &deps
-                .api
-                .canonical_address(&HumanAddr::from("asset0000"))
-                .unwrap()
+            &deps.api.addr_canonicalize(&"asset0000").unwrap()
         )
         .unwrap(),
         20u32
@@ -257,32 +267,34 @@ fn test_update_weight() {
 
 #[test]
 fn test_whitelist() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .with_terraswap_pairs(&[(&"uusdmirror0000".to_string(), &"MIRLP0000".to_string())]);
 
-    let msg = InitMsg {
+    let msg = InstantiateMsg {
         base_denom: BASE_DENOM.to_string(),
         token_code_id: TOKEN_CODE_ID,
         distribution_schedule: vec![],
     };
 
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env.clone(), msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
-    let msg = HandleMsg::PostInitialize {
-        owner: HumanAddr::from("owner0000"),
-        mirror_token: HumanAddr::from("mirror0000"),
-        mint_contract: HumanAddr::from("mint0000"),
-        staking_contract: HumanAddr::from("staking0000"),
-        commission_collector: HumanAddr::from("collector0000"),
-        oracle_contract: HumanAddr::from("oracle0000"),
-        terraswap_factory: HumanAddr::from("terraswapfactory"),
+    let msg = ExecuteMsg::PostInitialize {
+        owner: "owner0000".to_string(),
+        mirror_token: "mirror0000".to_string(),
+        mint_contract: "mint0000".to_string(),
+        staking_contract: "staking0000".to_string(),
+        commission_collector: "collector0000".to_string(),
+        oracle_contract: "oracle0000".to_string(),
+        terraswap_factory: "terraswapfactory".to_string(),
     };
-    let _res = handle(&mut deps, env.clone(), msg).unwrap();
+    let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
-    let msg = HandleMsg::Whitelist {
+    let msg = ExecuteMsg::Whitelist {
         name: "apple derivative".to_string(),
         symbol: "mAPPL".to_string(),
-        oracle_feeder: HumanAddr::from("feeder0000"),
+        oracle_feeder: "feeder0000".to_string(),
         params: Params {
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
@@ -292,44 +304,44 @@ fn test_whitelist() {
             pre_ipo_price: None,
         },
     };
-    let env = mock_env("owner0000", &[]);
-    let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
+    let info = mock_info("owner0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
 
     assert_eq!(
-        res.log,
+        res.attributes,
         vec![
-            log("action", "whitelist"),
-            log("symbol", "mAPPL"),
-            log("name", "apple derivative")
+            attr("action", "whitelist"),
+            attr("symbol", "mAPPL"),
+            attr("name", "apple derivative")
         ]
     );
 
     // token creation msg should be returned
     assert_eq!(
-        res.messages,
-        vec![CosmosMsg::Wasm(WasmMsg::Instantiate {
-            code_id: TOKEN_CODE_ID,
-            send: vec![],
-            label: None,
-            msg: to_binary(&TokenInitMsg {
-                name: "apple derivative".to_string(),
-                symbol: "mAPPL".to_string(),
-                decimals: 6u8,
-                initial_balances: vec![],
-                mint: Some(MinterResponse {
-                    minter: HumanAddr::from("mint0000"),
-                    cap: None,
-                }),
-                init_hook: Some(InitHook {
-                    contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
-                    msg: to_binary(&HandleMsg::TokenCreationHook {
-                        oracle_feeder: HumanAddr::from("feeder0000")
-                    })
-                    .unwrap(),
-                }),
-            })
-            .unwrap(),
-        })]
+        res.submessages,
+        vec![SubMsg {
+            msg: WasmMsg::Instantiate {
+                admin: None,
+                code_id: TOKEN_CODE_ID,
+                send: vec![],
+                label: "".to_string(),
+                msg: to_binary(&TokenInstantiateMsg {
+                    name: "apple derivative".to_string(),
+                    symbol: "mAPPL".to_string(),
+                    decimals: 6u8,
+                    initial_balances: vec![],
+                    mint: Some(MinterResponse {
+                        minter: "mint0000".to_string(),
+                        cap: None,
+                    }),
+                })
+                .unwrap(),
+            }
+            .into(),
+            gas_limit: None,
+            id: 1,
+            reply_on: ReplyOn::Success,
+        }]
     );
 
     let params: Params = read_params(&deps.storage).unwrap();
@@ -345,61 +357,54 @@ fn test_whitelist() {
         }
     );
 
-    let res = handle(&mut deps, env.clone(), msg.clone()).unwrap_err();
+    let res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap_err();
     match res {
         StdError::GenericErr { msg, .. } => assert_eq!(msg, "A whitelist process is in progress"),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
-    let env = mock_env("addr0001", &[]);
-    let res = handle(&mut deps, env, msg).unwrap_err();
+    let info = mock_info("addr0001", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
     match res {
-        StdError::Unauthorized { .. } => {}
+        StdError::GenericErr { msg, .. } => assert_eq!(msg, "unauthorized"),
         _ => panic!("DO NOT ENTER HERE"),
     }
+
+    //ensure temp oracle was stored
+    let tmp_oracle = read_tmp_oracle(&deps.storage).unwrap();
+    assert_eq!(tmp_oracle.to_string(), "feeder0000");
 }
 
 #[test]
 fn test_token_creation_hook() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .with_terraswap_pairs(&[(&"uusdmirror0000".to_string(), &"MIRLP0000".to_string())]);
 
-    let msg = InitMsg {
+    let msg = InstantiateMsg {
         base_denom: BASE_DENOM.to_string(),
         token_code_id: TOKEN_CODE_ID,
         distribution_schedule: vec![],
     };
 
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env.clone(), msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
-    let msg = HandleMsg::PostInitialize {
-        owner: HumanAddr::from("owner0000"),
-        mirror_token: HumanAddr::from("mirror0000"),
-        mint_contract: HumanAddr::from("mint0000"),
-        staking_contract: HumanAddr::from("staking0000"),
-        commission_collector: HumanAddr::from("collector0000"),
-        oracle_contract: HumanAddr::from("oracle0000"),
-        terraswap_factory: HumanAddr::from("terraswapfactory"),
+    let msg = ExecuteMsg::PostInitialize {
+        owner: "owner0000".to_string(),
+        mirror_token: "mirror0000".to_string(),
+        mint_contract: "mint0000".to_string(),
+        staking_contract: "staking0000".to_string(),
+        commission_collector: "collector0000".to_string(),
+        oracle_contract: "oracle0000".to_string(),
+        terraswap_factory: "terraswapfactory".to_string(),
     };
-    let _res = handle(&mut deps, env.clone(), msg).unwrap();
+    let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
-    // There is no whitelist process; failed
-    let msg = HandleMsg::TokenCreationHook {
-        oracle_feeder: HumanAddr::from("feeder0000"),
-    };
-    let env = mock_env("asset0000", &[]);
-    let res = handle(&mut deps, env.clone(), msg.clone());
-    match res {
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "No whitelist process in progress")
-        }
-        _ => panic!("DO NOT ENTER HERE"),
-    }
-
-    let msg = HandleMsg::Whitelist {
+    let msg = ExecuteMsg::Whitelist {
         name: "apple derivative".to_string(),
         symbol: "mAPPL".to_string(),
-        oracle_feeder: HumanAddr::from("feeder0000"),
+        oracle_feeder: "feeder0000".to_string(),
         params: Params {
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
@@ -409,22 +414,38 @@ fn test_token_creation_hook() {
             pre_ipo_price: None,
         },
     };
-    let env = mock_env("owner0000", &[]);
-    let _res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
+    let info = mock_info("owner0000", &[]);
+    let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
 
-    let msg = HandleMsg::TokenCreationHook {
-        oracle_feeder: HumanAddr::from("feeder0000"),
+    //ensure temp oracle was stored
+    let tmp_oracle = read_tmp_oracle(&deps.storage).unwrap();
+    assert_eq!(tmp_oracle.to_string(), "feeder0000");
+
+    let mut token_inst_res = MsgInstantiateContractResponse::new();
+    token_inst_res.set_contract_address("asset0000".to_string());
+
+    let reply_msg = Reply {
+        id: 1,
+        result: ContractResult::Ok(SubcallResponse {
+            events: vec![],
+            data: Some(token_inst_res.write_to_bytes().unwrap().into()),
+        }),
     };
-    let env = mock_env("asset0000", &[]);
-    let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
+
+    let res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
+
+    //ensure asset token was stored
+    let tmp_asset = read_tmp_asset(&deps.storage).unwrap();
+    assert_eq!(tmp_asset.to_string(), "asset0000");
+
     assert_eq!(
         res.messages,
         vec![
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("mint0000"),
+                contract_addr: "mint0000".to_string(),
                 send: vec![],
-                msg: to_binary(&MintHandleMsg::RegisterAsset {
-                    asset_token: HumanAddr::from("asset0000"),
+                msg: to_binary(&MintExecuteMsg::RegisterAsset {
+                    asset_token: "asset0000".to_string(),
                     auction_discount: Decimal::percent(5),
                     min_collateral_ratio: Decimal::percent(150),
                     ipo_params: None,
@@ -432,111 +453,94 @@ fn test_token_creation_hook() {
                 .unwrap(),
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("oracle0000"),
+                contract_addr: "oracle0000".to_string(),
                 send: vec![],
-                msg: to_binary(&OracleHandleMsg::RegisterAsset {
-                    asset_token: HumanAddr::from("asset0000"),
-                    feeder: HumanAddr::from("feeder0000"),
+                msg: to_binary(&OracleExecuteMsg::RegisterAsset {
+                    asset_token: "asset0000".to_string(),
+                    feeder: "feeder0000".to_string(),
                 })
                 .unwrap(),
             }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("terraswapfactory"),
+        ]
+    );
+
+    assert_eq!(
+        res.submessages,
+        vec![SubMsg {
+            msg: WasmMsg::Execute {
+                contract_addr: "terraswapfactory".to_string(),
                 send: vec![],
-                msg: to_binary(&TerraswapFactoryHandleMsg::CreatePair {
+                msg: to_binary(&TerraswapFactoryExecuteMsg::CreatePair {
                     asset_infos: [
                         AssetInfo::NativeToken {
                             denom: BASE_DENOM.to_string(),
                         },
                         AssetInfo::Token {
-                            contract_addr: HumanAddr::from("asset0000"),
+                            contract_addr: Addr::unchecked("asset0000"),
                         },
                     ],
-                    init_hook: Some(InitHook {
-                        msg: to_binary(&HandleMsg::TerraswapCreationHook {
-                            asset_token: HumanAddr::from("asset0000"),
-                        })
-                        .unwrap(),
-                        contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
-                    }),
                 })
                 .unwrap(),
-            })
-        ]
+            }
+            .into(),
+            gas_limit: None,
+            id: 2,
+            reply_on: ReplyOn::Success,
+        }]
     );
+
     assert_eq!(
-        res.log,
+        res.attributes,
         vec![
-            log("asset_token_addr", "asset0000"),
-            log("is_pre_ipo", false),
+            attr("asset_token_addr", "asset0000"),
+            attr("is_pre_ipo", false),
         ]
     );
 
-    let res = query(&deps, QueryMsg::DistributionInfo {}).unwrap();
+    let res = query(deps.as_ref(), mock_env(), QueryMsg::DistributionInfo {}).unwrap();
     let distribution_info: DistributionInfoResponse = from_binary(&res).unwrap();
     assert_eq!(
         distribution_info,
         DistributionInfoResponse {
-            weights: vec![(HumanAddr::from("asset0000"), 100)],
+            weights: vec![
+                ("asset0000".to_string(), 100),
+                ("mirror0000".to_string(), 300)
+            ],
             last_distributed: 1_571_797_419,
         }
     );
-
-    // There is no whitelist process; failed
-    let msg = HandleMsg::TokenCreationHook {
-        oracle_feeder: HumanAddr::from("feeder0000"),
-    };
-    let env = mock_env("asset0000", &[]);
-    let res = handle(&mut deps, env.clone(), msg.clone());
-    match res {
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "No whitelist process in progress")
-        }
-        _ => panic!("DO NOT ENTER HERE"),
-    }
 }
 
 #[test]
 fn test_token_creation_hook_without_weight() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .with_terraswap_pairs(&[(&"uusdmirror0000".to_string(), &"MIRLP0000".to_string())]);
 
-    let msg = InitMsg {
+    let msg = InstantiateMsg {
         base_denom: BASE_DENOM.to_string(),
         token_code_id: TOKEN_CODE_ID,
         distribution_schedule: vec![],
     };
 
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env.clone(), msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
-    let msg = HandleMsg::PostInitialize {
-        owner: HumanAddr::from("owner0000"),
-        mirror_token: HumanAddr::from("mirror0000"),
-        mint_contract: HumanAddr::from("mint0000"),
-        staking_contract: HumanAddr::from("staking0000"),
-        commission_collector: HumanAddr::from("collector0000"),
-        oracle_contract: HumanAddr::from("oracle0000"),
-        terraswap_factory: HumanAddr::from("terraswapfactory"),
+    let msg = ExecuteMsg::PostInitialize {
+        owner: "owner0000".to_string(),
+        mirror_token: "mirror0000".to_string(),
+        mint_contract: "mint0000".to_string(),
+        staking_contract: "staking0000".to_string(),
+        commission_collector: "collector0000".to_string(),
+        oracle_contract: "oracle0000".to_string(),
+        terraswap_factory: "terraswapfactory".to_string(),
     };
-    let _res = handle(&mut deps, env.clone(), msg).unwrap();
+    let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
-    // There is no whitelist process; failed
-    let msg = HandleMsg::TokenCreationHook {
-        oracle_feeder: HumanAddr::from("feeder0000"),
-    };
-    let env = mock_env("asset0000", &[]);
-    let res = handle(&mut deps, env.clone(), msg.clone());
-    match res {
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "No whitelist process in progress")
-        }
-        _ => panic!("DO NOT ENTER HERE"),
-    }
-
-    let msg = HandleMsg::Whitelist {
+    let msg = ExecuteMsg::Whitelist {
         name: "apple derivative".to_string(),
         symbol: "mAPPL".to_string(),
-        oracle_feeder: HumanAddr::from("feeder0000"),
+        oracle_feeder: "feeder0000".to_string(),
         params: Params {
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
@@ -546,22 +550,38 @@ fn test_token_creation_hook_without_weight() {
             pre_ipo_price: None,
         },
     };
-    let env = mock_env("owner0000", &[]);
-    let _res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
+    let info = mock_info("owner0000", &[]);
+    let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
 
-    let msg = HandleMsg::TokenCreationHook {
-        oracle_feeder: HumanAddr::from("feeder0000"),
+    //ensure temp oracle was stored
+    let tmp_oracle = read_tmp_oracle(&deps.storage).unwrap();
+    assert_eq!(tmp_oracle.to_string(), "feeder0000");
+
+    let mut token_inst_res = MsgInstantiateContractResponse::new();
+    token_inst_res.set_contract_address("asset0000".to_string());
+
+    let reply_msg = Reply {
+        id: 1,
+        result: ContractResult::Ok(SubcallResponse {
+            events: vec![],
+            data: Some(token_inst_res.write_to_bytes().unwrap().into()),
+        }),
     };
-    let env = mock_env("asset0000", &[]);
-    let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
+
+    let res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
+
+    //ensure asset token was stored
+    let tmp_asset = read_tmp_asset(&deps.storage).unwrap();
+    assert_eq!(tmp_asset.to_string(), "asset0000");
+
     assert_eq!(
         res.messages,
         vec![
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("mint0000"),
+                contract_addr: "mint0000".to_string(),
                 send: vec![],
-                msg: to_binary(&MintHandleMsg::RegisterAsset {
-                    asset_token: HumanAddr::from("asset0000"),
+                msg: to_binary(&MintExecuteMsg::RegisterAsset {
+                    asset_token: "asset0000".to_string(),
                     auction_discount: Decimal::percent(5),
                     min_collateral_ratio: Decimal::percent(150),
                     ipo_params: None,
@@ -569,93 +589,88 @@ fn test_token_creation_hook_without_weight() {
                 .unwrap(),
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("oracle0000"),
+                contract_addr: "oracle0000".to_string(),
                 send: vec![],
-                msg: to_binary(&OracleHandleMsg::RegisterAsset {
-                    asset_token: HumanAddr::from("asset0000"),
-                    feeder: HumanAddr::from("feeder0000"),
+                msg: to_binary(&OracleExecuteMsg::RegisterAsset {
+                    asset_token: "asset0000".to_string(),
+                    feeder: "feeder0000".to_string(),
                 })
                 .unwrap(),
             }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("terraswapfactory"),
+        ]
+    );
+
+    assert_eq!(
+        res.submessages,
+        vec![SubMsg {
+            msg: WasmMsg::Execute {
+                contract_addr: "terraswapfactory".to_string(),
                 send: vec![],
-                msg: to_binary(&TerraswapFactoryHandleMsg::CreatePair {
+                msg: to_binary(&TerraswapFactoryExecuteMsg::CreatePair {
                     asset_infos: [
                         AssetInfo::NativeToken {
                             denom: BASE_DENOM.to_string(),
                         },
                         AssetInfo::Token {
-                            contract_addr: HumanAddr::from("asset0000"),
+                            contract_addr: Addr::unchecked("asset0000"),
                         },
                     ],
-                    init_hook: Some(InitHook {
-                        msg: to_binary(&HandleMsg::TerraswapCreationHook {
-                            asset_token: HumanAddr::from("asset0000"),
-                        })
-                        .unwrap(),
-                        contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
-                    }),
                 })
                 .unwrap(),
-            })
-        ]
+            }
+            .into(),
+            gas_limit: None,
+            id: 2,
+            reply_on: ReplyOn::Success,
+        }]
     );
 
-    let res = query(&deps, QueryMsg::DistributionInfo {}).unwrap();
+    let res = query(deps.as_ref(), mock_env(), QueryMsg::DistributionInfo {}).unwrap();
     let distribution_info: DistributionInfoResponse = from_binary(&res).unwrap();
     assert_eq!(
         distribution_info,
         DistributionInfoResponse {
-            weights: vec![(HumanAddr::from("asset0000"), 30)],
+            weights: vec![
+                ("asset0000".to_string(), 30),
+                ("mirror0000".to_string(), 300)
+            ],
             last_distributed: 1_571_797_419,
         }
     );
-
-    // There is no whitelist process; failed
-    let msg = HandleMsg::TokenCreationHook {
-        oracle_feeder: HumanAddr::from("feeder0000"),
-    };
-    let env = mock_env("asset0000", &[]);
-    let res = handle(&mut deps, env.clone(), msg.clone());
-    match res {
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "No whitelist process in progress")
-        }
-        _ => panic!("DO NOT ENTER HERE"),
-    }
 }
 
 #[test]
 fn test_terraswap_creation_hook() {
-    let mut deps = mock_dependencies(20, &[]);
-    deps.querier
-        .with_terraswap_pairs(&[(&"uusdasset0000".to_string(), &HumanAddr::from("LP0000"))]);
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.with_terraswap_pairs(&[
+        (&"uusdmirror0000".to_string(), &"MIRLP000".to_string()),
+        (&"uusdasset0000".to_string(), &"LP0000".to_string()),
+    ]);
 
-    let msg = InitMsg {
+    let msg = InstantiateMsg {
         base_denom: BASE_DENOM.to_string(),
         token_code_id: TOKEN_CODE_ID,
         distribution_schedule: vec![],
     };
 
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env.clone(), msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
-    let msg = HandleMsg::PostInitialize {
-        owner: HumanAddr::from("owner0000"),
-        mirror_token: HumanAddr::from("mirror0000"),
-        mint_contract: HumanAddr::from("mint0000"),
-        staking_contract: HumanAddr::from("staking0000"),
-        commission_collector: HumanAddr::from("collector0000"),
-        oracle_contract: HumanAddr::from("oracle0000"),
-        terraswap_factory: HumanAddr::from("terraswapfactory"),
+    let msg = ExecuteMsg::PostInitialize {
+        owner: "owner0000".to_string(),
+        mirror_token: "mirror0000".to_string(),
+        mint_contract: "mint0000".to_string(),
+        staking_contract: "staking0000".to_string(),
+        commission_collector: "collector0000".to_string(),
+        oracle_contract: "oracle0000".to_string(),
+        terraswap_factory: "terraswapfactory".to_string(),
     };
-    let _res = handle(&mut deps, env, msg).unwrap();
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    let msg = HandleMsg::Whitelist {
+    let msg = ExecuteMsg::Whitelist {
         name: "apple derivative".to_string(),
         symbol: "mAPPL".to_string(),
-        oracle_feeder: HumanAddr::from("feeder0000"),
+        oracle_feeder: "feeder0000".to_string(),
         params: Params {
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
@@ -665,28 +680,48 @@ fn test_terraswap_creation_hook() {
             pre_ipo_price: None,
         },
     };
-    let env = mock_env("owner0000", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
+    let info = mock_info("owner0000", &[]);
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    let msg = HandleMsg::TokenCreationHook {
-        oracle_feeder: HumanAddr::from("feeder0000"),
-    };
-    let env = mock_env("asset0000", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
+    //ensure temp oracle was stored
+    let tmp_oracle = read_tmp_oracle(&deps.storage).unwrap();
+    assert_eq!(tmp_oracle.to_string(), "feeder0000");
 
-    let msg = HandleMsg::TerraswapCreationHook {
-        asset_token: HumanAddr::from("asset0000"),
+    let mut token_inst_res = MsgInstantiateContractResponse::new();
+    token_inst_res.set_contract_address("asset0000".to_string());
+
+    let reply_msg = Reply {
+        id: 1,
+        result: ContractResult::Ok(SubcallResponse {
+            events: vec![],
+            data: Some(token_inst_res.write_to_bytes().unwrap().into()),
+        }),
     };
-    let env = mock_env("terraswapfactory", &[]);
-    let res = handle(&mut deps, env, msg).unwrap();
+
+    let _res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
+
+    //ensure asset token was stored
+    let tmp_asset = read_tmp_asset(&deps.storage).unwrap();
+    assert_eq!(tmp_asset.to_string(), "asset0000");
+
+    let reply_msg2 = Reply {
+        id: 2,
+        result: ContractResult::Ok(SubcallResponse {
+            events: vec![],
+            data: None,
+        }),
+    };
+
+    let res = reply(deps.as_mut(), mock_env(), reply_msg2).unwrap();
+
     assert_eq!(
         res.messages,
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: HumanAddr::from("staking0000"),
+            contract_addr: "staking0000".to_string(),
             send: vec![],
-            msg: to_binary(&StakingHandleMsg::RegisterAsset {
-                asset_token: HumanAddr::from("asset0000"),
-                staking_token: HumanAddr::from("LP0000"),
+            msg: to_binary(&StakingExecuteMsg::RegisterAsset {
+                asset_token: "asset0000".to_string(),
+                staking_token: "LP0000".to_string(),
             })
             .unwrap(),
         })]
@@ -695,13 +730,14 @@ fn test_terraswap_creation_hook() {
 
 #[test]
 fn test_distribute() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(&[]);
     deps.querier.with_terraswap_pairs(&[
-        (&"uusdasset0000".to_string(), &HumanAddr::from("LP0000")),
-        (&"uusdasset0001".to_string(), &HumanAddr::from("LP0001")),
+        (&"uusdmirror0000".to_string(), &"MIRLP000".to_string()),
+        (&"uusdasset0000".to_string(), &"LP0000".to_string()),
+        (&"uusdasset0001".to_string(), &"LP0001".to_string()),
     ]);
 
-    let msg = InitMsg {
+    let msg = InstantiateMsg {
         base_denom: BASE_DENOM.to_string(),
         token_code_id: TOKEN_CODE_ID,
         distribution_schedule: vec![
@@ -710,25 +746,25 @@ fn test_distribute() {
         ],
     };
 
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env.clone(), msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
-    let msg = HandleMsg::PostInitialize {
-        owner: HumanAddr::from("owner0000"),
-        mirror_token: HumanAddr::from("mirror0000"),
-        mint_contract: HumanAddr::from("mint0000"),
-        staking_contract: HumanAddr::from("staking0000"),
-        commission_collector: HumanAddr::from("collector0000"),
-        oracle_contract: HumanAddr::from("oracle0000"),
-        terraswap_factory: HumanAddr::from("terraswapfactory"),
+    let msg = ExecuteMsg::PostInitialize {
+        owner: "owner0000".to_string(),
+        mirror_token: "mirror0000".to_string(),
+        mint_contract: "mint0000".to_string(),
+        staking_contract: "staking0000".to_string(),
+        commission_collector: "collector0000".to_string(),
+        oracle_contract: "oracle0000".to_string(),
+        terraswap_factory: "terraswapfactory".to_string(),
     };
-    let _res = handle(&mut deps, env, msg).unwrap();
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // whitelist first item with weight 1.5
-    let msg = HandleMsg::Whitelist {
+    let msg = ExecuteMsg::Whitelist {
         name: "apple derivative".to_string(),
         symbol: "mAPPL".to_string(),
-        oracle_feeder: HumanAddr::from("feeder0000"),
+        oracle_feeder: "feeder0000".to_string(),
         params: Params {
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
@@ -738,26 +774,45 @@ fn test_distribute() {
             pre_ipo_price: None,
         },
     };
-    let env = mock_env("owner0000", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
+    let info = mock_info("owner0000", &[]);
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    let msg = HandleMsg::TokenCreationHook {
-        oracle_feeder: HumanAddr::from("feeder0000"),
-    };
-    let env = mock_env("asset0000", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
+    //ensure temp oracle was stored
+    let tmp_oracle = read_tmp_oracle(&deps.storage).unwrap();
+    assert_eq!(tmp_oracle.to_string(), "feeder0000");
 
-    let msg = HandleMsg::TerraswapCreationHook {
-        asset_token: HumanAddr::from("asset0000"),
+    let mut token_inst_res = MsgInstantiateContractResponse::new();
+    token_inst_res.set_contract_address("asset0000".to_string());
+
+    let reply_msg = Reply {
+        id: 1,
+        result: ContractResult::Ok(SubcallResponse {
+            events: vec![],
+            data: Some(token_inst_res.write_to_bytes().unwrap().into()),
+        }),
     };
-    let env = mock_env("terraswapfactory", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
+
+    let _res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
+
+    //ensure asset token was stored
+    let tmp_asset = read_tmp_asset(&deps.storage).unwrap();
+    assert_eq!(tmp_asset.to_string(), "asset0000");
+
+    let reply_msg2 = Reply {
+        id: 2,
+        result: ContractResult::Ok(SubcallResponse {
+            events: vec![],
+            data: None,
+        }),
+    };
+
+    let _res = reply(deps.as_mut(), mock_env(), reply_msg2).unwrap();
 
     // Whitelist second item with weight 1
-    let msg = HandleMsg::Whitelist {
+    let msg = ExecuteMsg::Whitelist {
         name: "google derivative".to_string(),
         symbol: "mGOGL".to_string(),
-        oracle_feeder: HumanAddr::from("feeder0000"),
+        oracle_feeder: "feeder0000".to_string(),
         params: Params {
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
@@ -767,25 +822,40 @@ fn test_distribute() {
             pre_ipo_price: None,
         },
     };
-    let env = mock_env("owner0000", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
+    let info = mock_info("owner0000", &[]);
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    let msg = HandleMsg::TokenCreationHook {
-        oracle_feeder: HumanAddr::from("feeder0000"),
-    };
-    let env = mock_env("asset0001", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
+    let mut token_inst_res = MsgInstantiateContractResponse::new();
+    token_inst_res.set_contract_address("asset0001".to_string());
 
-    let msg = HandleMsg::TerraswapCreationHook {
-        asset_token: HumanAddr::from("asset0001"),
+    let reply_msg = Reply {
+        id: 1,
+        result: ContractResult::Ok(SubcallResponse {
+            events: vec![],
+            data: Some(token_inst_res.write_to_bytes().unwrap().into()),
+        }),
     };
-    let env = mock_env("terraswapfactory", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
+
+    let _res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
+
+    //ensure asset token was stored
+    let tmp_asset = read_tmp_asset(&deps.storage).unwrap();
+    assert_eq!(tmp_asset.to_string(), "asset0001");
+
+    let reply_msg2 = Reply {
+        id: 2,
+        result: ContractResult::Ok(SubcallResponse {
+            events: vec![],
+            data: None,
+        }),
+    };
+
+    let _res = reply(deps.as_mut(), mock_env(), reply_msg2).unwrap();
 
     // height is not increased so zero amount will be minted
-    let msg = HandleMsg::Distribute {};
-    let env = mock_env("anyone", &[]);
-    let res = handle(&mut deps, env, msg);
+    let msg = ExecuteMsg::Distribute {};
+    let info = mock_info("anyone", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg);
     match res {
         Err(StdError::GenericErr { msg, .. }) => {
             assert_eq!(msg, "Cannot distribute mirror token before interval")
@@ -794,29 +864,35 @@ fn test_distribute() {
     }
 
     // one height increase
-    let msg = HandleMsg::Distribute {};
-    let env = mock_env_time(&HumanAddr::from("addr0000"), 1_571_797_419u64 + 5400u64);
-    let res = handle(&mut deps, env, msg).unwrap();
+    let msg = ExecuteMsg::Distribute {};
+    let env = mock_env_time(1_571_797_419u64 + 5400u64);
+    let info = mock_info("addr0000", &[]);
+
+    let res = execute(deps.as_mut(), env, info, msg).unwrap();
     assert_eq!(
-        res.log,
+        res.attributes,
         vec![
-            log("action", "distribute"),
-            log("distribution_amount", "7200"),
+            attr("action", "distribute"),
+            attr("distribution_amount", "7200"),
         ]
     );
 
+    // MIR -> 7200 * 3/5
+    // asset0000 -> 7200 * 1/5
+    // asset0001 -> 7200 * 1/5
     assert_eq!(
         res.messages,
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: HumanAddr::from("mirror0000"),
-            msg: to_binary(&Cw20HandleMsg::Send {
-                contract: HumanAddr::from("staking0000"),
+            contract_addr: "mirror0000".to_string(),
+            msg: to_binary(&Cw20ExecuteMsg::Send {
+                contract: "staking0000".to_string(),
                 amount: Uint128(7200u128),
                 msg: Some(
                     to_binary(&StakingCw20HookMsg::DepositReward {
                         rewards: vec![
-                            (HumanAddr::from("asset0000"), Uint128(3600u128)),
-                            (HumanAddr::from("asset0001"), Uint128(3600u128)),
+                            ("asset0000".to_string(), Uint128(7200u128 * 1 / 5)),
+                            ("asset0001".to_string(), Uint128(7200u128 * 1 / 5)),
+                            ("mirror0000".to_string(), Uint128(7200u128 * 3 / 5)),
                         ],
                     })
                     .unwrap()
@@ -827,14 +903,15 @@ fn test_distribute() {
         }),],
     );
 
-    let res = query(&deps, QueryMsg::DistributionInfo {}).unwrap();
+    let res = query(deps.as_ref(), mock_env(), QueryMsg::DistributionInfo {}).unwrap();
     let distribution_info: DistributionInfoResponse = from_binary(&res).unwrap();
     assert_eq!(
         distribution_info,
         DistributionInfoResponse {
             weights: vec![
-                (HumanAddr::from("asset0000"), 100),
-                (HumanAddr::from("asset0001"), 100)
+                ("asset0000".to_string(), 100),
+                ("asset0001".to_string(), 100),
+                ("mirror0000".to_string(), 300),
             ],
             last_distributed: 1_571_802_819,
         }
@@ -842,17 +919,17 @@ fn test_distribute() {
 }
 
 fn whitelist_token(
-    deps: &mut Extern<MockStorage, MockApi, WasmMockQuerier>,
+    deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>,
     name: &str,
     symbol: &str,
     asset_token: &str,
     weight: u32,
 ) {
-    // whitelist first item with weight 1.5
-    let msg = HandleMsg::Whitelist {
+    // whitelist an asset with weight 1
+    let msg = ExecuteMsg::Whitelist {
         name: name.to_string(),
         symbol: symbol.to_string(),
-        oracle_feeder: HumanAddr::from("feeder0000"),
+        oracle_feeder: "feeder0000".to_string(),
         params: Params {
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
@@ -862,40 +939,195 @@ fn whitelist_token(
             pre_ipo_price: None,
         },
     };
-    let env = mock_env("owner0000", &[]);
-    let _res = handle(deps, env, msg).unwrap();
+    let info = mock_info("owner0000", &[]);
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    let msg = HandleMsg::TokenCreationHook {
-        oracle_feeder: HumanAddr::from("feeder0000"),
-    };
-    let env = mock_env(asset_token, &[]);
-    let _res = handle(deps, env, msg).unwrap();
+    //ensure temp oracle was stored
+    let tmp_oracle = read_tmp_oracle(&deps.storage).unwrap();
+    assert_eq!(tmp_oracle.to_string(), "feeder0000");
 
-    let msg = HandleMsg::TerraswapCreationHook {
-        asset_token: HumanAddr::from(asset_token),
+    // callback 1
+    let mut token_inst_res = MsgInstantiateContractResponse::new();
+    token_inst_res.set_contract_address(asset_token.to_string());
+
+    let reply_msg = Reply {
+        id: 1,
+        result: ContractResult::Ok(SubcallResponse {
+            events: vec![],
+            data: Some(token_inst_res.write_to_bytes().unwrap().into()),
+        }),
     };
-    let env = mock_env("terraswapfactory", &[]);
-    let _res = handle(deps, env, msg).unwrap();
+
+    let _res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
+
+    //ensure asset token was stored
+    let tmp_asset = read_tmp_asset(&deps.storage).unwrap();
+    assert_eq!(tmp_asset.to_string(), asset_token);
+
+    // callback 2
+    let reply_msg2 = Reply {
+        id: 2,
+        result: ContractResult::Ok(SubcallResponse {
+            events: vec![],
+            data: None,
+        }),
+    };
+
+    let _res = reply(deps.as_mut(), mock_env(), reply_msg2).unwrap();
 }
+
 #[test]
 fn test_distribute_split() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(&[]);
+
+    let asset0 = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
+    let asset1 = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
+    let asset2 = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
+    let asset3 = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
+    let asset4 = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
+    let asset5 = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
+    let asset6 = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
+    let asset7 = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
+    let asset8 = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
+    let asset9 = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
+    let asset10 = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
+    let asset11 = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
+    let mirror_addr = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
+
     deps.querier.with_terraswap_pairs(&[
-        (&"uusdasset0000".to_string(), &HumanAddr::from("LP0000")),
-        (&"uusdasset0001".to_string(), &HumanAddr::from("LP0001")),
-        (&"uusdasset0002".to_string(), &HumanAddr::from("LP0002")),
-        (&"uusdasset0003".to_string(), &HumanAddr::from("LP0003")),
-        (&"uusdasset0004".to_string(), &HumanAddr::from("LP0004")),
-        (&"uusdasset0005".to_string(), &HumanAddr::from("LP0005")),
-        (&"uusdasset0006".to_string(), &HumanAddr::from("LP0006")),
-        (&"uusdasset0007".to_string(), &HumanAddr::from("LP0007")),
-        (&"uusdasset0008".to_string(), &HumanAddr::from("LP0008")),
-        (&"uusdasset0009".to_string(), &HumanAddr::from("LP0009")),
-        (&"uusdasset0010".to_string(), &HumanAddr::from("LP0010")),
-        (&"uusdasset0011".to_string(), &HumanAddr::from("LP0011")),
+        (
+            &format!("uusd{}", asset0).to_string(),
+            &"LP0000".to_string(),
+        ),
+        (
+            &format!("uusd{}", asset1).to_string(),
+            &"LP0001".to_string(),
+        ),
+        (
+            &format!("uusd{}", asset2).to_string(),
+            &"LP0002".to_string(),
+        ),
+        (
+            &format!("uusd{}", asset3).to_string(),
+            &"LP0003".to_string(),
+        ),
+        (
+            &format!("uusd{}", asset4).to_string(),
+            &"LP0004".to_string(),
+        ),
+        (
+            &format!("uusd{}", asset5).to_string(),
+            &"LP0005".to_string(),
+        ),
+        (
+            &format!("uusd{}", asset6).to_string(),
+            &"LP0006".to_string(),
+        ),
+        (
+            &format!("uusd{}", asset7).to_string(),
+            &"LP0007".to_string(),
+        ),
+        (
+            &format!("uusd{}", asset8).to_string(),
+            &"LP0008".to_string(),
+        ),
+        (
+            &format!("uusd{}", asset9).to_string(),
+            &"LP0009".to_string(),
+        ),
+        (
+            &format!("uusd{}", asset10).to_string(),
+            &"LP0010".to_string(),
+        ),
+        (
+            &format!("uusd{}", asset11).to_string(),
+            &"LP0011".to_string(),
+        ),
+        (
+            &format!("uusd{}", mirror_addr).to_string(),
+            &"MIRLP000".to_string(),
+        ),
     ]);
 
-    let msg = InitMsg {
+    let msg = InstantiateMsg {
         base_denom: BASE_DENOM.to_string(),
         token_code_id: TOKEN_CODE_ID,
         distribution_schedule: vec![
@@ -904,66 +1136,72 @@ fn test_distribute_split() {
         ],
     };
 
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env.clone(), msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
-    let msg = HandleMsg::PostInitialize {
-        owner: HumanAddr::from("owner0000"),
-        mirror_token: HumanAddr::from("mirror0000"),
-        mint_contract: HumanAddr::from("mint0000"),
-        staking_contract: HumanAddr::from("staking0000"),
-        commission_collector: HumanAddr::from("collector0000"),
-        oracle_contract: HumanAddr::from("oracle0000"),
-        terraswap_factory: HumanAddr::from("terraswapfactory"),
+    let msg = ExecuteMsg::PostInitialize {
+        owner: "owner0000".to_string(),
+        mirror_token: mirror_addr.to_string(),
+        mint_contract: "mint0000".to_string(),
+        staking_contract: "staking0000".to_string(),
+        commission_collector: "collector0000".to_string(),
+        oracle_contract: "oracle0000".to_string(),
+        terraswap_factory: "terraswapfactory".to_string(),
     };
-    let _res = handle(&mut deps, env, msg).unwrap();
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    // whitelist first item with weight 1.5
-    whitelist_token(&mut deps, "asset 0", "a0", "asset0000", 100u32);
-    whitelist_token(&mut deps, "asset 1", "a1", "asset0001", 100u32);
-    whitelist_token(&mut deps, "asset 2", "a2", "asset0002", 100u32);
-    whitelist_token(&mut deps, "asset 3", "a3", "asset0003", 100u32);
-    whitelist_token(&mut deps, "asset 4", "a4", "asset0004", 100u32);
-    whitelist_token(&mut deps, "asset 5", "a5", "asset0005", 100u32);
-    whitelist_token(&mut deps, "asset 6", "a6", "asset0006", 100u32);
-    whitelist_token(&mut deps, "asset 7", "a7", "asset0007", 100u32);
-    whitelist_token(&mut deps, "asset 8", "a8", "asset0008", 100u32);
-    whitelist_token(&mut deps, "asset 9", "a9", "asset0009", 100u32);
-    whitelist_token(&mut deps, "asset 10", "a10", "asset0010", 100u32);
-    whitelist_token(&mut deps, "asset 11", "a11", "asset0011", 100u32);
+    // whitelist first item with weight 1
+    whitelist_token(&mut deps, "asset 0", "a0", &asset0, 100u32);
+    whitelist_token(&mut deps, "asset 1", "a1", &asset1, 100u32);
+    whitelist_token(&mut deps, "asset 2", "a2", &asset2, 100u32);
+    whitelist_token(&mut deps, "asset 3", "a3", &asset3, 100u32);
+    whitelist_token(&mut deps, "asset 4", "a4", &asset4, 100u32);
+    whitelist_token(&mut deps, "asset 5", "a5", &asset5, 100u32);
+    whitelist_token(&mut deps, "asset 6", "a6", &asset6, 100u32);
+    whitelist_token(&mut deps, "asset 7", "a7", &asset7, 100u32);
+    whitelist_token(&mut deps, "asset 8", "a8", &asset8, 100u32);
+    whitelist_token(&mut deps, "asset 9", "a9", &asset9, 100u32);
+    whitelist_token(&mut deps, "asset 10", "a10", &asset10, 100u32);
+    whitelist_token(&mut deps, "asset 11", "a11", &asset11, 100u32);
 
     // one height increase
-    let msg = HandleMsg::Distribute {};
-    let env = mock_env_time(&HumanAddr::from("addr0000"), 1_571_797_419u64 + 5400u64);
-    let res = handle(&mut deps, env, msg).unwrap();
+    let msg = ExecuteMsg::Distribute {};
+    let env = mock_env_time(1_571_797_419u64 + 5400u64);
+    let info = mock_info("addr0000", &[]);
+    let res = execute(deps.as_mut(), env, info, msg).unwrap();
     assert_eq!(
-        res.log,
+        res.attributes,
         vec![
-            log("action", "distribute"),
-            log("distribution_amount", "7200"),
+            attr("action", "distribute"),
+            attr("distribution_amount", "7200"),
         ]
     );
+
+    // MIR = 7200 * 3/15
+    // Other = 7200 * 1/15
+    // Total first chunk = 7200 * 10/15
+    // Total second chunk = 7200 * 5/15
 
     assert_eq!(
         res.messages[0],
         CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: HumanAddr::from("mirror0000"),
-            msg: to_binary(&Cw20HandleMsg::Send {
-                contract: HumanAddr::from("staking0000"),
-                amount: Uint128(6000u128),
+            contract_addr: mirror_addr.to_string(),
+            msg: to_binary(&Cw20ExecuteMsg::Send {
+                contract: "staking0000".to_string(),
+                amount: Uint128(7200u128 * 10 / 15),
                 msg: Some(
                     to_binary(&StakingCw20HookMsg::DepositReward {
                         rewards: vec![
-                            (HumanAddr::from("asset0000"), Uint128(600u128)),
-                            (HumanAddr::from("asset0001"), Uint128(600u128)),
-                            (HumanAddr::from("asset0002"), Uint128(600u128)),
-                            (HumanAddr::from("asset0003"), Uint128(600u128)),
-                            (HumanAddr::from("asset0004"), Uint128(600u128)),
-                            (HumanAddr::from("asset0005"), Uint128(600u128)),
-                            (HumanAddr::from("asset0006"), Uint128(600u128)),
-                            (HumanAddr::from("asset0007"), Uint128(600u128)),
-                            (HumanAddr::from("asset0008"), Uint128(600u128)),
-                            (HumanAddr::from("asset0009"), Uint128(600u128)),
+                            (asset0, Uint128(7200u128 * 1 / 15)),
+                            (asset1, Uint128(7200u128 * 1 / 15)),
+                            (asset2, Uint128(7200u128 * 1 / 15)),
+                            (asset3, Uint128(7200u128 * 1 / 15)),
+                            (asset4, Uint128(7200u128 * 1 / 15)),
+                            (asset5, Uint128(7200u128 * 1 / 15)),
+                            (asset6, Uint128(7200u128 * 1 / 15)),
+                            (asset7, Uint128(7200u128 * 1 / 15)),
+                            (asset8, Uint128(7200u128 * 1 / 15)),
+                            (asset9, Uint128(7200u128 * 1 / 15)),
                         ],
                     })
                     .unwrap()
@@ -977,15 +1215,16 @@ fn test_distribute_split() {
     assert_eq!(
         res.messages[1],
         CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: HumanAddr::from("mirror0000"),
-            msg: to_binary(&Cw20HandleMsg::Send {
-                contract: HumanAddr::from("staking0000"),
-                amount: Uint128(1200u128),
+            contract_addr: mirror_addr.to_string(),
+            msg: to_binary(&Cw20ExecuteMsg::Send {
+                contract: "staking0000".to_string(),
+                amount: Uint128(7200u128 * 5 / 15),
                 msg: Some(
                     to_binary(&StakingCw20HookMsg::DepositReward {
                         rewards: vec![
-                            (HumanAddr::from("asset0010"), Uint128(600u128)),
-                            (HumanAddr::from("asset0011"), Uint128(600u128)),
+                            (asset10.to_string(), Uint128(7200u128 * 1 / 15)),
+                            (asset11.to_string(), Uint128(7200u128 * 1 / 15)),
+                            (mirror_addr.to_string(), Uint128(7200u128 * 3 / 15)),
                         ],
                     })
                     .unwrap()
@@ -999,161 +1238,101 @@ fn test_distribute_split() {
 
 #[test]
 fn test_revocation() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(&[]);
     deps.querier.with_terraswap_pairs(&[
-        (&"uusdasset0000".to_string(), &HumanAddr::from("LP0000")),
-        (&"uusdasset0001".to_string(), &HumanAddr::from("LP0001")),
+        (&"uusdasset0000".to_string(), &"LP0000".to_string()),
+        (&"uusdasset0001".to_string(), &"LP0001".to_string()),
+        (&"uusdmirror0000".to_string(), &"MIRLP000".to_string()),
     ]);
     deps.querier.with_oracle_price(&[
         (&"uusd".to_string(), &Decimal::one()),
         (&"asset0001".to_string(), &Decimal::percent(200)),
     ]);
     deps.querier.with_mint_configs(&[(
-        &HumanAddr::from("asset0001"),
+        &"asset0001".to_string(),
         &(Decimal::percent(1), Decimal::percent(1)),
     )]);
 
-    let msg = InitMsg {
+    let msg = InstantiateMsg {
         base_denom: BASE_DENOM.to_string(),
         token_code_id: TOKEN_CODE_ID,
         distribution_schedule: vec![],
     };
 
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env.clone(), msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
-    let msg = HandleMsg::PostInitialize {
-        owner: HumanAddr::from("owner0000"),
-        mirror_token: HumanAddr::from("mirror0000"),
-        mint_contract: HumanAddr::from("mint0000"),
-        staking_contract: HumanAddr::from("staking0000"),
-        commission_collector: HumanAddr::from("collector0000"),
-        oracle_contract: HumanAddr::from("oracle0000"),
-        terraswap_factory: HumanAddr::from("terraswapfactory"),
+    let msg = ExecuteMsg::PostInitialize {
+        owner: "owner0000".to_string(),
+        mirror_token: "mirror0000".to_string(),
+        mint_contract: "mint0000".to_string(),
+        staking_contract: "staking0000".to_string(),
+        commission_collector: "collector0000".to_string(),
+        oracle_contract: "oracle0000".to_string(),
+        terraswap_factory: "terraswapfactory".to_string(),
     };
-    let _res = handle(&mut deps, env, msg).unwrap();
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    // whitelist item 1
-    let msg = HandleMsg::Whitelist {
-        name: "tesla derivative".to_string(),
-        symbol: "mTSLA".to_string(),
-        oracle_feeder: HumanAddr::from("feeder0000"),
-        params: Params {
-            auction_discount: Decimal::percent(5),
-            min_collateral_ratio: Decimal::percent(150),
-            weight: Some(100u32),
-            mint_period: None,
-            min_collateral_ratio_after_ipo: None,
-            pre_ipo_price: None,
-        },
-    };
-    let env = mock_env("owner0000", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
+    whitelist_token(&mut deps, "tesla derivative", "mTSLA", "asset0000", 100u32);
+    whitelist_token(&mut deps, "apple derivative", "mAPPL", "asset0001", 100u32);
 
-    let msg = HandleMsg::TokenCreationHook {
-        oracle_feeder: HumanAddr::from("feeder0000"),
-    };
-    let env = mock_env("asset0000", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
-
-    let msg = HandleMsg::TerraswapCreationHook {
-        asset_token: HumanAddr::from("asset0000"),
-    };
-    let env = mock_env("terraswapfactory", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
-
-    // whitelist item 2
-    let msg = HandleMsg::Whitelist {
-        name: "apple derivative".to_string(),
-        symbol: "mAPPL".to_string(),
-        oracle_feeder: HumanAddr::from("feeder0000"),
-        params: Params {
-            auction_discount: Decimal::percent(5),
-            min_collateral_ratio: Decimal::percent(150),
-            weight: Some(100u32),
-            mint_period: None,
-            min_collateral_ratio_after_ipo: None,
-            pre_ipo_price: None,
-        },
-    };
-    let env = mock_env("owner0000", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
-
-    let msg = HandleMsg::TokenCreationHook {
-        oracle_feeder: HumanAddr::from("feeder0000"),
-    };
-    let env = mock_env("asset0001", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
-
-    let msg = HandleMsg::TerraswapCreationHook {
-        asset_token: HumanAddr::from("asset0001"),
-    };
-    let env = mock_env("terraswapfactory", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
     // register queriers
     deps.querier.with_oracle_feeders(&[
-        (
-            &HumanAddr::from("asset0000"),
-            &HumanAddr::from("feeder0000"),
-        ),
-        (
-            &HumanAddr::from("asset0001"),
-            &HumanAddr::from("feeder0000"),
-        ),
+        (&"asset0000".to_string(), &"feeder0000".to_string()),
+        (&"asset0001".to_string(), &"feeder0000".to_string()),
     ]);
 
     // unauthorized revoke attempt
-    let msg = HandleMsg::RevokeAsset {
-        asset_token: HumanAddr::from("asset0000"),
-        end_price: Some(Decimal::from_ratio(2u128, 1u128)),
+    let msg = ExecuteMsg::RevokeAsset {
+        asset_token: "asset0000".to_string(),
+        end_price: Decimal::from_ratio(2u128, 1u128),
     };
-
-    let env = mock_env("address0000", &[]);
-    let res = handle(&mut deps, env, msg.clone()).unwrap_err();
-    match res {
-        StdError::Unauthorized { .. } => {}
+    let info = mock_info("address0000", &[]);
+    let err = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
+    match err {
+        StdError::GenericErr { msg, .. } => assert_eq!(msg, "unauthorized"),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
     // unatuthorized attemt 2, only owner can fix set price
-    let env = mock_env("owner0000", &[]);
-    let res = handle(&mut deps, env, msg.clone()).unwrap_err();
-    match res {
-        StdError::Unauthorized { .. } => {}
+    let info = mock_info("addr0000", &[]);
+    let err = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
+    match err {
+        StdError::GenericErr { msg, .. } => assert_eq!(msg, "unauthorized"),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
     // SUCCESS - the feeder revokes item 1
-    let env = mock_env("feeder0000", &[]);
-    let res = handle(&mut deps, env, msg).unwrap();
+    let info = mock_info("feeder0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
         res.messages,
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: HumanAddr::from("mint0000"),
+            contract_addr: "mint0000".to_string(),
             send: vec![],
-            msg: to_binary(&MintHandleMsg::RegisterMigration {
-                asset_token: HumanAddr::from("asset0000"),
+            msg: to_binary(&MintExecuteMsg::RegisterMigration {
+                asset_token: "asset0000".to_string(),
                 end_price: Decimal::from_ratio(2u128, 1u128),
             })
             .unwrap(),
         }),]
     );
 
-    let msg = HandleMsg::RevokeAsset {
-        asset_token: HumanAddr::from("asset0001"),
-        end_price: None,
+    let msg = ExecuteMsg::RevokeAsset {
+        asset_token: "asset0001".to_string(),
+        end_price: Decimal::from_ratio(2u128, 1u128),
     };
-    // SUCCESS - the owner revokes item 2 with queried last price
-    let env = mock_env("owner0000", &[]);
-    let res = handle(&mut deps, env, msg).unwrap();
+    // SUCCESS - the owner revokes item 2
+    let info = mock_info("owner0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
         res.messages,
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: HumanAddr::from("mint0000"),
+            contract_addr: "mint0000".to_string(),
             send: vec![],
-            msg: to_binary(&MintHandleMsg::RegisterMigration {
-                asset_token: HumanAddr::from("asset0001"),
-                end_price: Decimal::percent(200),
+            msg: to_binary(&MintExecuteMsg::RegisterMigration {
+                asset_token: "asset0001".to_string(),
+                end_price: Decimal::from_ratio(2u128, 1u128),
             })
             .unwrap(),
         }),]
@@ -1162,153 +1341,130 @@ fn test_revocation() {
 
 #[test]
 fn test_migration() {
-    let mut deps = mock_dependencies(20, &[]);
-    deps.querier
-        .with_terraswap_pairs(&[(&"uusdasset0000".to_string(), &HumanAddr::from("LP0000"))]);
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.with_terraswap_pairs(&[
+        (&"uusdasset0000".to_string(), &"LP0000".to_string()),
+        (&"uusdmirror0000".to_string(), &"MIRLP000".to_string()),
+    ]);
 
-    let msg = InitMsg {
+    let msg = InstantiateMsg {
         base_denom: BASE_DENOM.to_string(),
         token_code_id: TOKEN_CODE_ID,
         distribution_schedule: vec![],
     };
 
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env.clone(), msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
-    let msg = HandleMsg::PostInitialize {
-        owner: HumanAddr::from("owner0000"),
-        mirror_token: HumanAddr::from("mirror0000"),
-        mint_contract: HumanAddr::from("mint0000"),
-        staking_contract: HumanAddr::from("staking0000"),
-        commission_collector: HumanAddr::from("collector0000"),
-        oracle_contract: HumanAddr::from("oracle0000"),
-        terraswap_factory: HumanAddr::from("terraswapfactory"),
+    let msg = ExecuteMsg::PostInitialize {
+        owner: "owner0000".to_string(),
+        mirror_token: "mirror0000".to_string(),
+        mint_contract: "mint0000".to_string(),
+        staking_contract: "staking0000".to_string(),
+        commission_collector: "collector0000".to_string(),
+        oracle_contract: "oracle0000".to_string(),
+        terraswap_factory: "terraswapfactory".to_string(),
     };
-    let _res = handle(&mut deps, env, msg).unwrap();
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    // whitelist first item with weight 1.5
-    let msg = HandleMsg::Whitelist {
-        name: "apple derivative".to_string(),
-        symbol: "mAPPL".to_string(),
-        oracle_feeder: HumanAddr::from("feeder0000"),
-        params: Params {
-            auction_discount: Decimal::percent(5),
-            min_collateral_ratio: Decimal::percent(150),
-            weight: Some(100u32),
-            mint_period: None,
-            min_collateral_ratio_after_ipo: None,
-            pre_ipo_price: None,
-        },
-    };
-    let env = mock_env("owner0000", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
-
-    let msg = HandleMsg::TokenCreationHook {
-        oracle_feeder: HumanAddr::from("feeder0000"),
-    };
-    let env = mock_env("asset0000", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
-
-    let msg = HandleMsg::TerraswapCreationHook {
-        asset_token: HumanAddr::from("asset0000"),
-    };
-    let env = mock_env("terraswapfactory", &[]);
-    let _res = handle(&mut deps, env, msg).unwrap();
+    whitelist_token(&mut deps, "apple derivative", "mAPPL", "asset0000", 100u32);
 
     // register queriers
     deps.querier.with_mint_configs(&[(
-        &HumanAddr::from("asset0000"),
+        &"asset0000".to_string(),
         &(Decimal::percent(1), Decimal::percent(1)),
     )]);
-    deps.querier.with_oracle_feeders(&[(
-        &HumanAddr::from("asset0000"),
-        &HumanAddr::from("feeder0000"),
-    )]);
+    deps.querier
+        .with_oracle_feeders(&[(&"asset0000".to_string(), &"feeder0000".to_string())]);
 
     // unauthorized migrate attempt
-    let msg = HandleMsg::MigrateAsset {
+    let msg = ExecuteMsg::MigrateAsset {
         name: "apple migration".to_string(),
         symbol: "mAPPL2".to_string(),
-        from_token: HumanAddr::from("asset0000"),
+        from_token: "asset0000".to_string(),
         end_price: Decimal::from_ratio(2u128, 1u128),
     };
-    let env = mock_env("owner0000", &[]);
-    let res = handle(&mut deps, env, msg.clone()).unwrap_err();
+    let info = mock_info("owner0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
 
     match res {
-        StdError::Unauthorized { .. } => {}
+        StdError::GenericErr { msg, .. } => assert_eq!(msg, "unauthorized"),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
-    let env = mock_env("feeder0000", &[]);
-    let res = handle(&mut deps, env, msg).unwrap();
+    let info = mock_info("feeder0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
         res.messages,
-        vec![
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("mint0000"),
-                send: vec![],
-                msg: to_binary(&MintHandleMsg::RegisterMigration {
-                    asset_token: HumanAddr::from("asset0000"),
-                    end_price: Decimal::from_ratio(2u128, 1u128),
-                })
-                .unwrap(),
-            }),
-            CosmosMsg::Wasm(WasmMsg::Instantiate {
+        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: "mint0000".to_string(),
+            send: vec![],
+            msg: to_binary(&MintExecuteMsg::RegisterMigration {
+                asset_token: "asset0000".to_string(),
+                end_price: Decimal::from_ratio(2u128, 1u128),
+            })
+            .unwrap(),
+        }),]
+    );
+
+    assert_eq!(
+        res.submessages,
+        vec![SubMsg {
+            msg: WasmMsg::Instantiate {
+                admin: None,
                 code_id: TOKEN_CODE_ID,
                 send: vec![],
-                label: None,
-                msg: to_binary(&TokenInitMsg {
+                label: "".to_string(),
+                msg: to_binary(&TokenInstantiateMsg {
                     name: "apple migration".to_string(),
                     symbol: "mAPPL2".to_string(),
                     decimals: 6u8,
                     initial_balances: vec![],
                     mint: Some(MinterResponse {
-                        minter: HumanAddr::from("mint0000"),
+                        minter: "mint0000".to_string(),
                         cap: None,
-                    }),
-                    init_hook: Some(InitHook {
-                        contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
-                        msg: to_binary(&HandleMsg::TokenCreationHook {
-                            oracle_feeder: HumanAddr::from("feeder0000")
-                        })
-                        .unwrap(),
                     }),
                 })
                 .unwrap(),
-            })
-        ]
+            }
+            .into(),
+            gas_limit: None,
+            id: 1,
+            reply_on: ReplyOn::Success,
+        }]
     );
 }
 
 #[test]
 fn test_whitelist_pre_ipo_asset() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .with_terraswap_pairs(&[(&"uusdmirror0000".to_string(), &"MIRLP0000".to_string())]);
 
-    let msg = InitMsg {
+    let msg = InstantiateMsg {
         base_denom: BASE_DENOM.to_string(),
         token_code_id: TOKEN_CODE_ID,
         distribution_schedule: vec![],
     };
 
-    let env = mock_env("addr0000", &[]);
-    let _res = init(&mut deps, env.clone(), msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
-    let msg = HandleMsg::PostInitialize {
-        owner: HumanAddr::from("owner0000"),
-        mirror_token: HumanAddr::from("mirror0000"),
-        mint_contract: HumanAddr::from("mint0000"),
-        staking_contract: HumanAddr::from("staking0000"),
-        commission_collector: HumanAddr::from("collector0000"),
-        oracle_contract: HumanAddr::from("oracle0000"),
-        terraswap_factory: HumanAddr::from("terraswapfactory"),
+    let msg = ExecuteMsg::PostInitialize {
+        owner: "owner0000".to_string(),
+        mirror_token: "mirror0000".to_string(),
+        mint_contract: "mint0000".to_string(),
+        staking_contract: "staking0000".to_string(),
+        commission_collector: "collector0000".to_string(),
+        oracle_contract: "oracle0000".to_string(),
+        terraswap_factory: "terraswapfactory".to_string(),
     };
-    let _res = handle(&mut deps, env.clone(), msg).unwrap();
+    let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
-    let msg = HandleMsg::Whitelist {
+    let msg = ExecuteMsg::Whitelist {
         name: "pre-IPO asset".to_string(),
         symbol: "mPreIPO".to_string(),
-        oracle_feeder: HumanAddr::from("feeder0000"),
+        oracle_feeder: "feeder0000".to_string(),
         params: Params {
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(1000),
@@ -1318,35 +1474,35 @@ fn test_whitelist_pre_ipo_asset() {
             pre_ipo_price: Some(Decimal::percent(1)),
         },
     };
-    let env = mock_env("owner0000", &[]);
-    let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
+    let info = mock_info("owner0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
 
-    // token creation msg should be returned
+    // token creation submsg should be returned
     assert_eq!(
-        res.messages,
-        vec![CosmosMsg::Wasm(WasmMsg::Instantiate {
-            code_id: TOKEN_CODE_ID,
-            send: vec![],
-            label: None,
-            msg: to_binary(&TokenInitMsg {
-                name: "pre-IPO asset".to_string(),
-                symbol: "mPreIPO".to_string(),
-                decimals: 6u8,
-                initial_balances: vec![],
-                mint: Some(MinterResponse {
-                    minter: HumanAddr::from("mint0000"),
-                    cap: None,
-                }),
-                init_hook: Some(InitHook {
-                    contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
-                    msg: to_binary(&HandleMsg::TokenCreationHook {
-                        oracle_feeder: HumanAddr::from("feeder0000")
-                    })
-                    .unwrap(),
-                }),
-            })
-            .unwrap(),
-        })]
+        res.submessages,
+        vec![SubMsg {
+            msg: WasmMsg::Instantiate {
+                admin: None,
+                code_id: TOKEN_CODE_ID,
+                send: vec![],
+                label: "".to_string(),
+                msg: to_binary(&TokenInstantiateMsg {
+                    name: "pre-IPO asset".to_string(),
+                    symbol: "mPreIPO".to_string(),
+                    decimals: 6u8,
+                    initial_balances: vec![],
+                    mint: Some(MinterResponse {
+                        minter: "mint0000".to_string(),
+                        cap: None,
+                    }),
+                })
+                .unwrap(),
+            }
+            .into(),
+            gas_limit: None,
+            id: 1,
+            reply_on: ReplyOn::Success,
+        }]
     );
 
     let params: Params = read_params(&deps.storage).unwrap();
@@ -1362,25 +1518,41 @@ fn test_whitelist_pre_ipo_asset() {
         }
     );
 
-    // execute token creation hook
-    let msg = HandleMsg::TokenCreationHook {
-        oracle_feeder: HumanAddr::from("feeder0000"),
+    //ensure temp oracle was stored
+    let tmp_oracle = read_tmp_oracle(&deps.storage).unwrap();
+    assert_eq!(tmp_oracle.to_string(), "feeder0000");
+
+    // callback 1
+    let mut token_inst_res = MsgInstantiateContractResponse::new();
+    token_inst_res.set_contract_address("asset0000".to_string());
+
+    let reply_msg = Reply {
+        id: 1,
+        result: ContractResult::Ok(SubcallResponse {
+            events: vec![],
+            data: Some(token_inst_res.write_to_bytes().unwrap().into()),
+        }),
     };
 
-    let env = mock_env("asset0000", &[]);
-    let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
+    let res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
+
+    //ensure asset token was stored
+    let tmp_asset = read_tmp_asset(&deps.storage).unwrap();
+    assert_eq!(tmp_asset.to_string(), "asset0000");
+
     assert_eq!(
         res.messages,
         vec![
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("mint0000"),
+                contract_addr: "mint0000".to_string(),
                 send: vec![],
-                msg: to_binary(&MintHandleMsg::RegisterAsset {
-                    asset_token: HumanAddr::from("asset0000"),
+                msg: to_binary(&MintExecuteMsg::RegisterAsset {
+                    asset_token: "asset0000".to_string(),
                     auction_discount: Decimal::percent(5),
                     min_collateral_ratio: Decimal::percent(1000),
                     ipo_params: Some(IPOParams {
-                        mint_end: env.block.time + 10000u64,
+                        mint_end: mock_env().block.time.plus_seconds(10000u64).nanos()
+                            / 1_000_000_000,
                         min_collateral_ratio_after_ipo: Decimal::percent(150),
                         pre_ipo_price: Decimal::percent(1),
                     }),
@@ -1388,47 +1560,53 @@ fn test_whitelist_pre_ipo_asset() {
                 .unwrap(),
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("oracle0000"),
+                contract_addr: "oracle0000".to_string(),
                 send: vec![],
-                msg: to_binary(&OracleHandleMsg::RegisterAsset {
-                    asset_token: HumanAddr::from("asset0000"),
-                    feeder: HumanAddr::from("feeder0000"),
+                msg: to_binary(&OracleExecuteMsg::RegisterAsset {
+                    asset_token: "asset0000".to_string(),
+                    feeder: "feeder0000".to_string(),
                 })
                 .unwrap(),
             }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("terraswapfactory"),
+        ]
+    );
+
+    assert_eq!(
+        res.submessages,
+        vec![SubMsg {
+            msg: WasmMsg::Execute {
+                contract_addr: "terraswapfactory".to_string(),
                 send: vec![],
-                msg: to_binary(&TerraswapFactoryHandleMsg::CreatePair {
+                msg: to_binary(&TerraswapFactoryExecuteMsg::CreatePair {
                     asset_infos: [
                         AssetInfo::NativeToken {
                             denom: BASE_DENOM.to_string(),
                         },
                         AssetInfo::Token {
-                            contract_addr: HumanAddr::from("asset0000"),
+                            contract_addr: Addr::unchecked("asset0000"),
                         },
                     ],
-                    init_hook: Some(InitHook {
-                        msg: to_binary(&HandleMsg::TerraswapCreationHook {
-                            asset_token: HumanAddr::from("asset0000"),
-                        })
-                        .unwrap(),
-                        contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
-                    }),
                 })
                 .unwrap(),
-            })
-        ]
+            }
+            .into(),
+            gas_limit: None,
+            id: 2,
+            reply_on: ReplyOn::Success,
+        }]
     );
 
     assert_eq!(
-        res.log,
+        res.attributes,
         vec![
-            log("asset_token_addr", "asset0000"),
-            log("is_pre_ipo", true),
-            log("mint_end", env.block.time + 10000u64),
-            log("min_collateral_ratio_after_ipo", "1.5"),
-            log("pre_ipo_price", "0.01"),
+            attr("asset_token_addr", "asset0000"),
+            attr("is_pre_ipo", true),
+            attr(
+                "mint_end",
+                mock_env().block.time.plus_seconds(10000u64).nanos() / 1_000_000_000
+            ),
+            attr("min_collateral_ratio_after_ipo", "1.5"),
+            attr("pre_ipo_price", "0.01"),
         ]
     );
 }

@@ -1,27 +1,27 @@
 #[cfg(test)]
 mod tests {
-    use crate::contract::{handle, init, query};
+    use crate::contract::{execute, instantiate, query};
     use crate::mock_querier::mock_dependencies;
-    use cosmwasm_std::testing::mock_env;
+    use cosmwasm_std::testing::{mock_env, mock_info};
     use cosmwasm_std::{
-        from_binary, log, to_binary, BlockInfo, Coin, CosmosMsg, Decimal, Env, HumanAddr, StdError,
-        Uint128, WasmMsg,
+        attr, from_binary, to_binary, Addr, BlockInfo, Coin, CosmosMsg, Decimal, Env, StdError,
+        Timestamp, Uint128, WasmMsg,
     };
     use cw20::Cw20ReceiveMsg;
-    use mirror_protocol::collateral_oracle::{HandleMsg::RegisterCollateralAsset, SourceType};
+    use mirror_protocol::collateral_oracle::{ExecuteMsg::RegisterCollateralAsset, SourceType};
     use mirror_protocol::mint::{
-        AssetConfigResponse, Cw20HookMsg, HandleMsg, IPOParams, InitMsg, QueryMsg,
+        AssetConfigResponse, Cw20HookMsg, ExecuteMsg, IPOParams, InstantiateMsg, QueryMsg,
     };
     use terraswap::asset::{Asset, AssetInfo};
 
     static TOKEN_CODE_ID: u64 = 10u64;
-    fn mock_env_with_block_time<U: Into<HumanAddr>>(sender: U, sent: &[Coin], time: u64) -> Env {
-        let env = mock_env(sender, sent);
+    fn mock_env_with_block_time(time: u64) -> Env {
+        let env = mock_env();
         // register time
         return Env {
             block: BlockInfo {
                 height: 1,
-                time,
+                time: Timestamp::from_seconds(time),
                 chain_id: "columbus".to_string(),
             },
             ..env
@@ -30,7 +30,7 @@ mod tests {
 
     #[test]
     fn pre_ipo_assets() {
-        let mut deps = mock_dependencies(20, &[]);
+        let mut deps = mock_dependencies(&[]);
         deps.querier.with_oracle_price(&[
             (&"uusd".to_string(), &Decimal::one()),
             (
@@ -38,32 +38,37 @@ mod tests {
                 &Decimal::from_ratio(10u128, 1u128),
             ),
         ]);
-        deps.querier.with_oracle_feeders(&[(
-            &HumanAddr::from("preIPOAsset0000"),
-            &HumanAddr::from("feeder0000"),
-        )]);
+        deps.querier
+            .with_oracle_feeders(&[(&"preIPOAsset0000".to_string(), &"feeder0000".to_string())]);
 
         let base_denom = "uusd".to_string();
 
-        let msg = InitMsg {
-            owner: HumanAddr::from("owner0000"),
-            oracle: HumanAddr::from("oracle0000"),
-            collector: HumanAddr::from("collector0000"),
-            staking: HumanAddr::from("staking0000"),
-            collateral_oracle: HumanAddr::from("collateraloracle0000"),
-            terraswap_factory: HumanAddr::from("terraswap_factory"),
-            lock: HumanAddr::from("lock0000"),
+        let msg = InstantiateMsg {
+            owner: "owner0000".to_string(),
+            oracle: "oracle0000".to_string(),
+            collector: "collector0000".to_string(),
+            staking: "staking0000".to_string(),
+            collateral_oracle: "collateraloracle0000".to_string(),
+            terraswap_factory: "terraswap_factory".to_string(),
+            lock: "lock0000".to_string(),
             base_denom: base_denom.clone(),
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
         };
-        let creator_env = mock_env("addr0000", &[]);
-        let _res = init(&mut deps, creator_env.clone(), msg).unwrap();
+        let creator_env = mock_env();
+        let creator_info = mock_info("addr0000", &[]);
+        let _res = instantiate(
+            deps.as_mut(),
+            creator_env.clone(),
+            creator_info.clone(),
+            msg,
+        )
+        .unwrap();
 
         // register preIPO asset with mint_end parameter (10 blocks)
-        let mint_end = creator_env.clone().block.time + 10u64;
-        let msg = HandleMsg::RegisterAsset {
-            asset_token: HumanAddr::from("preIPOAsset0000"),
+        let mint_end = creator_env.clone().block.time.plus_seconds(10u64).nanos() / 1_000_000_000;
+        let msg = ExecuteMsg::RegisterAsset {
+            asset_token: "preIPOAsset0000".to_string(),
             auction_discount: Decimal::percent(20),
             min_collateral_ratio: Decimal::percent(1000),
             ipo_params: Some(IPOParams {
@@ -72,17 +77,18 @@ mod tests {
                 pre_ipo_price: Decimal::percent(100),
             }),
         };
-        let env = mock_env("owner0000", &[]);
-        let res = handle(&mut deps, env, msg).unwrap();
+
+        let info = mock_info("owner0000", &[]);
+        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(res.messages.len(), 0); // not registered as collateral
 
         ///////////////////
         // Minting phase
         ///////////////////
-        let mut current_time = creator_env.block.time + 1;
+        let mut current_time = creator_env.block.time.plus_seconds(1).nanos() / 1_000_000_000;
 
-        // open position successfully at creation_time + 1
-        let msg = HandleMsg::OpenPosition {
+        // open position successfully at creation_height + 1
+        let msg = ExecuteMsg::OpenPosition {
             collateral: Asset {
                 info: AssetInfo::NativeToken {
                     denom: "uusd".to_string(),
@@ -90,65 +96,67 @@ mod tests {
                 amount: Uint128(2000000000u128),
             },
             asset_info: AssetInfo::Token {
-                contract_addr: HumanAddr::from("preIPOAsset0000"),
+                contract_addr: Addr::unchecked("preIPOAsset0000"),
             },
             collateral_ratio: Decimal::percent(2000),
             short_params: None,
         };
-        let env = mock_env_with_block_time(
+
+        let env = mock_env_with_block_time(current_time);
+        let info = mock_info(
             "addr0000",
             &[Coin {
                 denom: "uusd".to_string(),
                 amount: Uint128(2000000000u128),
             }],
-            current_time,
         );
-        let res = handle(&mut deps, env.clone(), msg).unwrap();
+        let res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+
         assert_eq!(
-            res.log,
+            res.attributes,
             vec![
-                log("action", "open_position"),
-                log("position_idx", "1"),
-                log("mint_amount", "100000000preIPOAsset0000"), // 2000% cr with pre_ipo_price=1
-                log("collateral_amount", "2000000000uusd"),
-                log("is_short", "false"),
+                attr("action", "open_position"),
+                attr("position_idx", "1"),
+                attr("mint_amount", "100000000preIPOAsset0000"), // 2000% cr with pre_ipo_price=1
+                attr("collateral_amount", "2000000000uusd"),
+                attr("is_short", "false"),
             ]
         );
 
         // mint successfully at creation_time + 1
-        let msg = HandleMsg::Mint {
+        let msg = ExecuteMsg::Mint {
             position_idx: Uint128(1u128),
             asset: Asset {
                 info: AssetInfo::Token {
-                    contract_addr: HumanAddr::from("preIPOAsset0000"),
+                    contract_addr: Addr::unchecked("preIPOAsset0000"),
                 },
                 amount: Uint128(2000000u128),
             },
             short_params: None,
         };
-        let _res = handle(&mut deps, env.clone(), msg).unwrap();
+        let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
         // burn successfully at creation_time + 1
-        let msg = HandleMsg::Receive(Cw20ReceiveMsg {
-            sender: HumanAddr::from("addr0000"),
+        let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
+            sender: "addr0000".to_string(),
             amount: Uint128::from(1000000u128),
-            msg: Some(
-                to_binary(&Cw20HookMsg::Burn {
-                    position_idx: Uint128(1u128),
-                })
-                .unwrap(),
-            ),
+            msg: to_binary(&Cw20HookMsg::Burn {
+                position_idx: Uint128(1u128),
+            })
+            .unwrap(),
         });
-        let env = mock_env_with_block_time("preIPOAsset0000", &[], current_time);
-        let _res = handle(&mut deps, env, msg).unwrap();
+
+        let env = mock_env_with_block_time(current_time);
+        let info = mock_info("preIPOAsset0000", &[]);
+        let _res = execute(deps.as_mut(), env, info, msg).unwrap();
 
         ///////////////////
         // Trading phase
         ///////////////////
-        current_time = creator_env.block.time + 11; // > mint_end
+        current_time = creator_env.block.time.plus_seconds(11).nanos() / 1_000_000_000; // > mint_end
 
         // open position disabled
-        let msg = HandleMsg::OpenPosition {
+        let msg = ExecuteMsg::OpenPosition {
             collateral: Asset {
                 info: AssetInfo::NativeToken {
                     denom: "uusd".to_string(),
@@ -156,20 +164,22 @@ mod tests {
                 amount: Uint128(1000000000u128),
             },
             asset_info: AssetInfo::Token {
-                contract_addr: HumanAddr::from("preIPOAsset0000"),
+                contract_addr: Addr::unchecked("preIPOAsset0000"),
             },
             collateral_ratio: Decimal::percent(10000),
             short_params: None,
         };
-        let env = mock_env_with_block_time(
+
+        let env = mock_env_with_block_time(current_time);
+        let info = mock_info(
             "addr0000",
             &[Coin {
                 denom: "uusd".to_string(),
                 amount: Uint128(1000000000u128),
             }],
-            current_time,
         );
-        let res = handle(&mut deps, env.clone(), msg).unwrap_err();
+
+        let res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap_err();
         assert_eq!(
             res,
             StdError::generic_err(format!(
@@ -179,17 +189,17 @@ mod tests {
         );
 
         // mint disabled
-        let msg = HandleMsg::Mint {
+        let msg = ExecuteMsg::Mint {
             position_idx: Uint128(1u128),
             asset: Asset {
                 info: AssetInfo::Token {
-                    contract_addr: HumanAddr::from("preIPOAsset0000"),
+                    contract_addr: Addr::unchecked("preIPOAsset0000"),
                 },
                 amount: Uint128(2000000u128),
             },
             short_params: None,
         };
-        let res = handle(&mut deps, env.clone(), msg).unwrap_err();
+        let res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap_err();
         assert_eq!(
             res,
             StdError::generic_err(format!(
@@ -199,18 +209,18 @@ mod tests {
         );
 
         // burn disabled
-        let msg = HandleMsg::Receive(Cw20ReceiveMsg {
-            sender: HumanAddr::from("addr0000"),
+        let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
+            sender: "addr0000".to_string(),
             amount: Uint128::from(1000000u128),
-            msg: Some(
-                to_binary(&Cw20HookMsg::Burn {
-                    position_idx: Uint128(1u128),
-                })
-                .unwrap(),
-            ),
+            msg: to_binary(&Cw20HookMsg::Burn {
+                position_idx: Uint128(1u128),
+            })
+            .unwrap(),
         });
-        let env = mock_env_with_block_time("preIPOAsset0000", &[], current_time);
-        let res = handle(&mut deps, env, msg).unwrap_err();
+
+        let env = mock_env_with_block_time(current_time);
+        let info = mock_info("preIPOAsset0000", &[]);
+        let res = execute(deps.as_mut(), env, info, msg).unwrap_err();
         assert_eq!(
             res,
             StdError::generic_err(format!(
@@ -222,36 +232,38 @@ mod tests {
         ///////////////////
         // IPO/Migration
         ///////////////////
-        current_time = creator_env.block.time + 20;
+        current_time = creator_env.block.time.plus_seconds(20).nanos() / 1_000_000_000;
 
         // register migration initiated by the feeder
-        let msg = HandleMsg::TriggerIPO {
-            asset_token: HumanAddr::from("preIPOAsset0000"),
+        let msg = ExecuteMsg::TriggerIPO {
+            asset_token: "preIPOAsset0000".to_string(),
         };
 
         // unauthorized attempt
-        let env = mock_env("owner", &[]);
-        let res = handle(&mut deps, env, msg.clone()).unwrap_err();
-        assert_eq!(res, StdError::unauthorized());
+        let info = mock_info("owner", &[]);
+        let res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
+        assert_eq!(res, StdError::generic_err("unauthorized"));
 
         // succesfull attempt
-        let env = mock_env_with_block_time("feeder0000", &[], current_time);
-        let res = handle(&mut deps, env, msg).unwrap();
+        let env = mock_env_with_block_time(current_time);
+        let info = mock_info("feeder0000", &[]);
+        let res = execute(deps.as_mut(), env, info, msg).unwrap();
+
         assert_eq!(
-            res.log,
+            res.attributes,
             vec![
-                log("action", "trigger_ipo"),
-                log("asset_token", "preIPOAsset0000"),
+                attr("action", "trigger_ipo"),
+                attr("asset_token", "preIPOAsset0000"),
             ]
         );
         assert_eq!(
             res.messages,
             vec![CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("collateraloracle0000"),
+                contract_addr: "collateraloracle0000".to_string(),
                 send: vec![],
                 msg: to_binary(&RegisterCollateralAsset {
                     asset: AssetInfo::Token {
-                        contract_addr: HumanAddr::from("preIPOAsset0000"),
+                        contract_addr: Addr::unchecked("preIPOAsset0000"),
                     },
                     multiplier: Decimal::one(),
                     price_source: SourceType::MirrorOracle {},
@@ -261,9 +273,10 @@ mod tests {
         );
 
         let res = query(
-            &deps,
+            deps.as_ref(),
+            mock_env(),
             QueryMsg::AssetConfig {
-                asset_token: HumanAddr::from("preIPOAsset0000"),
+                asset_token: "preIPOAsset0000".to_string(),
             },
         )
         .unwrap();
@@ -272,7 +285,7 @@ mod tests {
         assert_eq!(
             asset_config_res,
             AssetConfigResponse {
-                token: HumanAddr::from("preIPOAsset0000"),
+                token: "preIPOAsset0000".to_string(),
                 auction_discount: Decimal::percent(20),
                 min_collateral_ratio: Decimal::percent(150),
                 end_price: None,
@@ -281,7 +294,7 @@ mod tests {
         );
 
         // open position as a postIPO asset
-        let msg = HandleMsg::OpenPosition {
+        let msg = ExecuteMsg::OpenPosition {
             collateral: Asset {
                 info: AssetInfo::NativeToken {
                     denom: "uusd".to_string(),
@@ -289,28 +302,28 @@ mod tests {
                 amount: Uint128(9000u128),
             },
             asset_info: AssetInfo::Token {
-                contract_addr: HumanAddr::from("preIPOAsset0000"),
+                contract_addr: Addr::unchecked("preIPOAsset0000"),
             },
             collateral_ratio: Decimal::percent(150), // new minCR
             short_params: None,
         };
-        let env = mock_env_with_block_time(
+        let env = mock_env_with_block_time(1000u64);
+        let info = mock_info(
             "addr0000",
             &[Coin {
                 denom: "uusd".to_string(),
                 amount: Uint128(9000u128),
             }],
-            1000u64,
         );
-        let res = handle(&mut deps, env.clone(), msg).unwrap();
+        let res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
         assert_eq!(
-            res.log,
+            res.attributes,
             vec![
-                log("action", "open_position"),
-                log("position_idx", "2"),
-                log("mint_amount", "599preIPOAsset0000"), // 150% cr with oracle_price=10
-                log("collateral_amount", "9000uusd"),
-                log("is_short", "false"),
+                attr("action", "open_position"),
+                attr("position_idx", "2"),
+                attr("mint_amount", "599preIPOAsset0000"), // 150% cr with oracle_price=10
+                attr("collateral_amount", "9000uusd"),
+                attr("is_short", "false"),
             ]
         );
     }
