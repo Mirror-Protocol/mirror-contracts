@@ -288,7 +288,7 @@ fn cancel_order_token() {
         res.messages,
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "mAAPL".to_string(),
-            send: vec![],
+            funds: vec![],
             msg: to_binary(&Cw20ExecuteMsg::Transfer {
                 amount: Uint128(1000000u128),
                 recipient: "addr0000".to_string(),
@@ -531,7 +531,7 @@ fn execute_order_token() {
         vec![
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "token0000".to_string(),
-                send: vec![],
+                funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Transfer {
                     recipient: "addr0001".to_string(),
                     amount: Uint128::from(500000u128)
@@ -540,7 +540,7 @@ fn execute_order_token() {
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "token0001".to_string(),
-                send: vec![],
+                funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Transfer {
                     recipient: "addr0000".to_string(),
                     amount: Uint128::from(500000u128)
@@ -572,7 +572,7 @@ fn execute_order_token() {
         vec![
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "token0000".to_string(),
-                send: vec![],
+                funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Transfer {
                     recipient: "addr0001".to_string(),
                     amount: Uint128::from(500000u128)
@@ -581,7 +581,7 @@ fn execute_order_token() {
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "token0001".to_string(),
-                send: vec![],
+                funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Transfer {
                     recipient: "addr0000".to_string(),
                     amount: Uint128::from(500000u128)

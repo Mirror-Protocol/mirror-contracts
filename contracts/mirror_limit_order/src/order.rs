@@ -34,18 +34,13 @@ pub fn submit_order(
         },
     )?;
 
-    Ok(Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: vec![
-            attr("action", "submit_order"),
-            attr("order_id", order_id),
-            attr("bidder_addr", sender),
-            attr("offer_asset", offer_asset.to_string()),
-            attr("ask_asset", ask_asset.to_string()),
-        ],
-        data: None,
-    })
+    Ok(Response::new().add_attributes(vec![
+        attr("action", "submit_order"),
+        attr("order_id", order_id.to_string()),
+        attr("bidder_addr", sender),
+        attr("offer_asset", offer_asset.to_string()),
+        attr("ask_asset", ask_asset.to_string()),
+    ]))
 }
 
 pub fn cancel_order(deps: DepsMut, info: MessageInfo, order_id: u64) -> StdResult<Response> {
@@ -73,16 +68,11 @@ pub fn cancel_order(deps: DepsMut, info: MessageInfo, order_id: u64) -> StdResul
 
     remove_order(deps.storage, &order);
 
-    Ok(Response {
-        messages,
-        submessages: vec![],
-        attributes: vec![
-            attr("action", "cancel_order"),
-            attr("order_id", order_id),
-            attr("bidder_refund", bidder_refund),
-        ],
-        data: None,
-    })
+    Ok(Response::new().add_messages(messages).add_attributes(vec![
+        attr("action", "cancel_order"),
+        attr("order_id", order_id.to_string()),
+        attr("bidder_refund", bidder_refund.to_string()),
+    ]))
 }
 
 pub fn execute_order(
@@ -155,17 +145,12 @@ pub fn execute_order(
         );
     }
 
-    Ok(Response {
-        messages,
-        submessages: vec![],
-        attributes: vec![
-            attr("action", "execute_order"),
-            attr("order_id", order_id),
-            attr("executor_receive", executor_receive),
-            attr("bidder_receive", bidder_receive),
-        ],
-        data: None,
-    })
+    Ok(Response::new().add_messages(messages).add_attributes(vec![
+        attr("action", "execute_order"),
+        attr("order_id", order_id.to_string()),
+        attr("executor_receive", executor_receive.to_string()),
+        attr("bidder_receive", bidder_receive.to_string()),
+    ]))
 }
 
 pub fn query_order(deps: Deps, order_id: u64) -> StdResult<OrderResponse> {
