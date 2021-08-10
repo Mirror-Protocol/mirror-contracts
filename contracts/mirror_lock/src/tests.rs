@@ -2,8 +2,8 @@ use crate::contract::{execute, instantiate, query};
 use crate::mock_querier::mock_dependencies;
 use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    attr, from_binary, BankMsg, BlockInfo, Coin, CosmosMsg, Decimal, Env, StdError, Timestamp,
-    Uint128,
+    attr, from_binary, BankMsg, BlockInfo, Coin, CosmosMsg, Decimal, Env, StdError, SubMsg,
+    Timestamp, Uint128,
 };
 use mirror_protocol::lock::{
     ConfigResponse, ExecuteMsg, InstantiateMsg, PositionLockInfoResponse, QueryMsg,
@@ -96,11 +96,11 @@ fn lock_position_funds() {
         &MOCK_CONTRACT_ADDR.to_string(),
         vec![Coin {
             denom: "uusd".to_string(),
-            amount: Uint128(100u128), // lock 100uusd
+            amount: Uint128::from(100u128), // lock 100uusd
         }],
     );
     let msg = ExecuteMsg::LockPositionFundsHook {
-        position_idx: Uint128(1u128),
+        position_idx: Uint128::from(1u128),
         receiver: "addr0000".to_string(),
     };
 
@@ -131,7 +131,7 @@ fn lock_position_funds() {
             deps.as_ref(),
             mock_env(),
             QueryMsg::PositionLockInfo {
-                position_idx: Uint128(1u128),
+                position_idx: Uint128::from(1u128),
             },
         )
         .unwrap(),
@@ -140,9 +140,9 @@ fn lock_position_funds() {
     assert_eq!(
         res,
         PositionLockInfoResponse {
-            idx: Uint128(1u128),
+            idx: Uint128::from(1u128),
             receiver: "addr0000".to_string(),
-            locked_amount: Uint128(100u128),
+            locked_amount: Uint128::from(100u128),
             unlock_time: 120u64,
         }
     );
@@ -153,7 +153,7 @@ fn unlock_position_funds() {
     let mut deps = mock_dependencies(&[]);
     deps.querier.with_tax(
         Decimal::percent(1u64),
-        &[(&"uusd".to_string(), &Uint128(100000000u128))],
+        &[(&"uusd".to_string(), &Uint128::from(100000000u128))],
     );
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
@@ -166,7 +166,7 @@ fn unlock_position_funds() {
 
     // lock 100 UST 3 times at different heights
     let msg = ExecuteMsg::LockPositionFundsHook {
-        position_idx: Uint128(1u128),
+        position_idx: Uint128::from(1u128),
         receiver: "addr0000".to_string(),
     };
     let env = mock_env_with_block_time(1u64);
@@ -176,7 +176,7 @@ fn unlock_position_funds() {
         &MOCK_CONTRACT_ADDR.to_string(),
         vec![Coin {
             denom: "uusd".to_string(),
-            amount: Uint128(100u128), // lock 100uusd
+            amount: Uint128::from(100u128), // lock 100uusd
         }],
     );
     let _res = execute(deps.as_mut(), env, info, msg.clone()).unwrap();
@@ -188,7 +188,7 @@ fn unlock_position_funds() {
         &MOCK_CONTRACT_ADDR.to_string(),
         vec![Coin {
             denom: "uusd".to_string(),
-            amount: Uint128(200u128), // lock 100uusd more
+            amount: Uint128::from(200u128), // lock 100uusd more
         }],
     );
     let _res = execute(deps.as_mut(), env, info, msg.clone()).unwrap();
@@ -199,7 +199,7 @@ fn unlock_position_funds() {
             deps.as_ref(),
             mock_env(),
             QueryMsg::PositionLockInfo {
-                position_idx: Uint128(1u128),
+                position_idx: Uint128::from(1u128),
             },
         )
         .unwrap(),
@@ -208,21 +208,24 @@ fn unlock_position_funds() {
     assert_eq!(
         res,
         PositionLockInfoResponse {
-            idx: Uint128(1u128),
+            idx: Uint128::from(1u128),
             receiver: "addr0000".to_string(),
-            locked_amount: Uint128(200),
+            locked_amount: Uint128::from(200u128),
             unlock_time: 10u64 + 100u64, // from last lock time
         }
     );
 
     let msg = ExecuteMsg::UnlockPositionFunds {
-        positions_idx: vec![Uint128(1u128)],
+        positions_idx: vec![Uint128::from(1u128)],
     };
 
     // unauthorized attempt
     let info = mock_info("addr0001", &[]);
     let res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap_err();
-    assert_eq!(res, StdError::generic_err("unauthorized"));
+    assert_eq!(
+        res,
+        StdError::generic_err("There are no unlockable funds for the provided positions")
+    );
 
     // nothing to unlock
     let env = mock_env_with_block_time(50u64);
@@ -230,10 +233,10 @@ fn unlock_position_funds() {
     let res = execute(deps.as_mut(), env, info, msg.clone()).unwrap_err();
     assert_eq!(
         res,
-        StdError::generic_err("Lock period has not expired yet. Unlocks at 110")
+        StdError::generic_err("There are no unlockable funds for the provided positions")
     );
 
-    // unlock 100 UST
+    // unlock 200 UST
     let env = mock_env_with_block_time(120u64);
     let info = mock_info("addr0000", &[]);
     let res = execute(deps.as_mut(), env, info, msg.clone()).unwrap();
@@ -241,26 +244,25 @@ fn unlock_position_funds() {
         res.attributes,
         vec![
             attr("action", "unlock_shorting_funds"),
-            attr("position_idx", "1"),
             attr("unlocked_amount", "200uusd"),
             attr("tax_amount", "2uusd"),
         ]
     );
     assert_eq!(
         res.messages,
-        vec![CosmosMsg::Bank(BankMsg::Send {
+        vec![SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
             to_address: "addr0000".to_string(),
             amount: vec![Coin {
                 denom: "uusd".to_string(),
-                amount: Uint128(198u128), // minus tax
+                amount: Uint128::from(198u128), // minus tax
             }]
-        })]
+        }))]
     );
 
     // lock info does not exist anymore
     let env = mock_env_with_block_time(120u64);
-    let info = mock_info("addr0000", &[]);
-    let res = execute(deps.as_mut(), env, info, msg.clone()).unwrap_err();
+    let info = mock_info("mint0000", &[]);
+    let res = execute(deps.as_mut(), env, info.clone(), msg.clone()).unwrap_err();
     assert_eq!(
         res,
         StdError::generic_err("There are no unlockable funds for the provided positions")
@@ -271,7 +273,7 @@ fn unlock_position_funds() {
         position_idx: Uint128::from(2u128),
         receiver: "addr0000".to_string(),
     };
-    let env = mock_env_with_block_time("mint0000", &[], 1u64);
+    let env = mock_env_with_block_time(1u64);
     deps.querier.with_bank_balance(
         &MOCK_CONTRACT_ADDR.to_string(),
         vec![Coin {
@@ -279,10 +281,10 @@ fn unlock_position_funds() {
             amount: Uint128::from(100u128), // lock 100uusd
         }],
     );
-    execute(&mut deps, env, msg.clone()).unwrap();
+    execute(deps.as_mut(), env, info, msg.clone()).unwrap();
 
     let msg = ExecuteMsg::LockPositionFundsHook {
-        position_idx: Uint128(3u128),
+        position_idx: Uint128::from(3u128),
         receiver: "addr0000".to_string(),
     };
     let env = mock_env_with_block_time(2u64);
@@ -291,17 +293,18 @@ fn unlock_position_funds() {
         &MOCK_CONTRACT_ADDR.to_string(),
         vec![Coin {
             denom: "uusd".to_string(),
-            amount: Uint128(300u128), // lock 200uusd
+            amount: Uint128::from(300u128), // lock 200uusd
         }],
     );
-    execute(deps.as_mut(), env, msg).unwrap();
+    execute(deps.as_mut(), env, info, msg).unwrap();
 
     // unlock both positions
     let msg = ExecuteMsg::UnlockPositionFunds {
-        positions_idx: vec![Uint128(2u128), Uint128(3u128)],
+        positions_idx: vec![Uint128::from(2u128), Uint128::from(3u128)],
     };
-    let env = mock_env_with_block_time("addr0000", &[], 102);
-    let res = execute(deps.as_mut(), env.clone(), msg.clone()).unwrap();
+    let env = mock_env_with_block_time(102);
+    let info = mock_info("addr0000", &[]);
+    let res = execute(deps.as_mut(), env.clone(), info, msg.clone()).unwrap();
     assert_eq!(
         res.attributes,
         vec![
@@ -317,7 +320,7 @@ fn release_position_funds() {
     let mut deps = mock_dependencies(&[]);
     deps.querier.with_tax(
         Decimal::percent(1u64),
-        &[(&"uusd".to_string(), &Uint128(100000000u128))],
+        &[(&"uusd".to_string(), &Uint128::from(100000000u128))],
     );
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
@@ -330,7 +333,7 @@ fn release_position_funds() {
 
     // lock 100 UST
     let msg = ExecuteMsg::LockPositionFundsHook {
-        position_idx: Uint128(1u128),
+        position_idx: Uint128::from(1u128),
         receiver: "addr0000".to_string(),
     };
     let env = mock_env_with_block_time(1u64);
@@ -339,13 +342,13 @@ fn release_position_funds() {
         &MOCK_CONTRACT_ADDR.to_string(),
         vec![Coin {
             denom: "uusd".to_string(),
-            amount: Uint128(100u128), // lock 100uusd
+            amount: Uint128::from(100u128), // lock 100uusd
         }],
     );
     let _res = execute(deps.as_mut(), env, info, msg.clone()).unwrap();
 
     let msg = ExecuteMsg::ReleasePositionFunds {
-        position_idx: Uint128(1u128),
+        position_idx: Uint128::from(1u128),
     };
 
     // unauthorized attempt
