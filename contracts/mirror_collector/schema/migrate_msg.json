@@ -1,29 +1,5 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "MigrateMsg",
-  "type": "object",
-  "required": [
-    "anchor_market",
-    "aust_token",
-    "bluna_swap_denom",
-    "bluna_token",
-    "owner"
-  ],
-  "properties": {
-    "anchor_market": {
-      "type": "string"
-    },
-    "aust_token": {
-      "type": "string"
-    },
-    "bluna_swap_denom": {
-      "type": "string"
-    },
-    "bluna_token": {
-      "type": "string"
-    },
-    "owner": {
-      "type": "string"
-    }
-  }
+  "type": "object"
 }

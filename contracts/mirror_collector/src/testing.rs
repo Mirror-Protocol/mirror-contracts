@@ -1,11 +1,11 @@
 use crate::contract::{execute, instantiate, query_config};
 use crate::mock_querier::mock_dependencies;
+use crate::swap::MoneyMarketCw20HookMsg;
 use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
-use cosmwasm_std::{to_binary, Coin, CosmosMsg, Decimal, Uint128, WasmMsg};
+use cosmwasm_std::{to_binary, Coin, CosmosMsg, Decimal, SubMsg, Uint128, WasmMsg};
 use cw20::Cw20ExecuteMsg;
 use mirror_protocol::collector::{ConfigResponse, ExecuteMsg, InstantiateMsg};
 use mirror_protocol::gov::Cw20HookMsg::DepositReward;
-use moneymarket::market::Cw20HookMsg::RedeemStable;
 use terra_cosmwasm::{TerraMsg, TerraMsgWrapper, TerraRoute};
 use terraswap::asset::{Asset, AssetInfo};
 use terraswap::pair::{Cw20HookMsg as TerraswapCw20HookMsg, ExecuteMsg as TerraswapExecuteMsg};
@@ -41,16 +41,16 @@ fn proper_initialization() {
 fn test_convert() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "uusd".to_string(),
-        amount: Uint128(100u128),
+        amount: Uint128::from(100u128),
     }]);
     deps.querier.with_token_balances(&[(
         &"tokenAPPL".to_string(),
-        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128(100u128))],
+        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::from(100u128))],
     )]);
 
     deps.querier.with_tax(
         Decimal::percent(1),
-        &[(&"uusd".to_string(), &Uint128(1000000u128))],
+        &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
 
     deps.querier.with_terraswap_pairs(&[
@@ -82,23 +82,21 @@ fn test_convert() {
 
     assert_eq!(
         res.messages,
-        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "tokenAPPL".to_string(),
             msg: to_binary(&Cw20ExecuteMsg::Send {
                 contract: "pairAPPL".to_string(),
-                amount: Uint128(100u128),
-                msg: Some(
-                    to_binary(&TerraswapCw20HookMsg::Swap {
-                        max_spread: None,
-                        belief_price: None,
-                        to: None,
-                    })
-                    .unwrap()
-                ),
+                amount: Uint128::from(100u128),
+                msg: to_binary(&TerraswapCw20HookMsg::Swap {
+                    max_spread: None,
+                    belief_price: None,
+                    to: None,
+                })
+                .unwrap(),
             })
             .unwrap(),
-            send: vec![],
-        })]
+            funds: vec![],
+        }))]
     );
 
     let msg = ExecuteMsg::Convert {
@@ -111,25 +109,25 @@ fn test_convert() {
     // tax deduct 100 => 99
     assert_eq!(
         res.messages,
-        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "pairMIRROR".to_string(),
             msg: to_binary(&TerraswapExecuteMsg::Swap {
                 offer_asset: Asset {
                     info: AssetInfo::NativeToken {
                         denom: "uusd".to_string()
                     },
-                    amount: Uint128(99u128),
+                    amount: Uint128::from(99u128),
                 },
                 max_spread: None,
                 belief_price: None,
                 to: None,
             })
             .unwrap(),
-            send: vec![Coin {
-                amount: Uint128(99u128),
+            funds: vec![Coin {
+                amount: Uint128::from(99u128),
                 denom: "uusd".to_string(),
             }],
-        })]
+        }))]
     );
 }
 
@@ -137,11 +135,11 @@ fn test_convert() {
 fn test_convert_aust() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "uusd".to_string(),
-        amount: Uint128(100u128),
+        amount: Uint128::from(100u128),
     }]);
     deps.querier.with_token_balances(&[(
         &"aust0000".to_string(),
-        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128(100u128))],
+        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::from(100u128))],
     )]);
 
     let msg = InstantiateMsg {
@@ -167,16 +165,16 @@ fn test_convert_aust() {
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
         res.messages,
-        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "aust0000".to_string(),
             msg: to_binary(&Cw20ExecuteMsg::Send {
                 contract: "anchormarket0000".to_string(),
-                amount: Uint128(100u128),
-                msg: Some(to_binary(&RedeemStable {}).unwrap()),
+                amount: Uint128::from(100u128),
+                msg: to_binary(&MoneyMarketCw20HookMsg::RedeemStable {}).unwrap(),
             })
             .unwrap(),
-            send: vec![],
-        })]
+            funds: vec![],
+        }))]
     );
 }
 
@@ -184,11 +182,11 @@ fn test_convert_aust() {
 fn test_convert_bluna() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "uluna".to_string(),
-        amount: Uint128(100u128),
+        amount: Uint128::from(100u128),
     }]);
     deps.querier.with_token_balances(&[(
         &"bluna0000".to_string(),
-        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128(100u128))],
+        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::from(100u128))],
     )]);
 
     deps.querier
@@ -218,28 +216,26 @@ fn test_convert_bluna() {
     assert_eq!(
         res.messages,
         vec![
-            CosmosMsg::Wasm(WasmMsg::Execute {
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "bluna0000".to_string(),
                 msg: to_binary(&Cw20ExecuteMsg::Send {
                     contract: "pairbLuna".to_string(),
-                    amount: Uint128(100u128),
-                    msg: Some(
-                        to_binary(&TerraswapCw20HookMsg::Swap {
-                            max_spread: None,
-                            belief_price: None,
-                            to: None,
-                        })
-                        .unwrap()
-                    ),
+                    amount: Uint128::from(100u128),
+                    msg: to_binary(&TerraswapCw20HookMsg::Swap {
+                        max_spread: None,
+                        belief_price: None,
+                        to: None,
+                    })
+                    .unwrap(),
                 })
                 .unwrap(),
-                send: vec![],
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
+                funds: vec![],
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: MOCK_CONTRACT_ADDR.to_string(),
                 msg: to_binary(&ExecuteMsg::LunaSwapHook {}).unwrap(),
-                send: vec![],
-            }),
+                funds: vec![],
+            })),
         ]
     );
 
@@ -249,16 +245,16 @@ fn test_convert_bluna() {
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
         res.messages,
-        vec![CosmosMsg::Custom(TerraMsgWrapper {
+        vec![SubMsg::new(CosmosMsg::Custom(TerraMsgWrapper {
             route: TerraRoute::Market,
             msg_data: TerraMsg::Swap {
                 offer_coin: Coin {
-                    amount: Uint128(100),
+                    amount: Uint128::from(100u128),
                     denom: "uluna".to_string()
                 },
                 ask_denom: "uusd".to_string(),
             },
-        })],
+        }))],
     )
 }
 
@@ -267,7 +263,7 @@ fn test_send() {
     let mut deps = mock_dependencies(&[]);
     deps.querier.with_token_balances(&[(
         &"mirror0000".to_string(),
-        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128(100u128))],
+        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::from(100u128))],
     )]);
 
     let msg = InstantiateMsg {
@@ -291,15 +287,15 @@ fn test_send() {
 
     assert_eq!(
         res.messages,
-        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "mirror0000".to_string(),
             msg: to_binary(&Cw20ExecuteMsg::Send {
                 contract: "gov0000".to_string(),
-                amount: Uint128(100u128),
-                msg: Some(to_binary(&DepositReward {}).unwrap()),
+                amount: Uint128::from(100u128),
+                msg: to_binary(&DepositReward {}).unwrap(),
             })
             .unwrap(),
-            send: vec![],
-        })]
+            funds: vec![],
+        }))]
     )
 }

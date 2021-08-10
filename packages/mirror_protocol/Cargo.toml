@@ -1,6 +1,6 @@
 [package]
 name = "mirror-protocol"
-version = "2.0.0"
+version = "2.1.0"
 authors = ["Terraform Labs, PTE."]
 edition = "2018"
 description = "Common helpers for mirror-protocol"
@@ -17,10 +17,10 @@ documentation = "https://docs.mirror.finance"
 backtraces = ["cosmwasm-std/backtraces"]
 
 [dependencies]
-cw20 = "0.6"
-cosmwasm-std = { version = "0.14.0", default-features = false, features = ["iterator"] }
-cosmwasm-storage = { version = "0.14.0", default-features = false, features = ["iterator"] }
-terraswap = { version = "2.2.0" }
+cw20 = { version = "0.8.0-rc2" } 
+cosmwasm-std = { version = "0.16.0", default-features = false, features = ["iterator"] }
+cosmwasm-storage = { version = "0.16.0", default-features = false, features = ["iterator"] }
+terraswap = { version = "2.4.0-rc2" }
 schemars = "0.8.1"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 
