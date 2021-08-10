@@ -320,18 +320,18 @@ fn get_terraswap_price() {
             &"ustancpair0000".to_string(),
             (
                 &"uusd".to_string(),
-                &Uint128(1u128),
+                &Uint128::from(1u128),
                 &"anc0000".to_string(),
-                &Uint128(100u128),
+                &Uint128::from(100u128),
             ),
         ),
         (
             &"lunablunapair0000".to_string(),
             (
                 &"uluna".to_string(),
-                &Uint128(18u128),
+                &Uint128::from(18u128),
                 &"bluna0000".to_string(),
-                &Uint128(2u128),
+                &Uint128::from(2u128),
             ),
         ),
     ]);

@@ -283,8 +283,13 @@ pub fn query_collateral_price(
             return Err(StdError::generic_err("Collateral asset not found"));
         };
 
-    let (price, last_updated): (Decimal, u64) =
-        query_price(deps, &config, &quote_asset, block_height, &collateral.price_source)?;
+    let (price, last_updated): (Decimal, u64) = query_price(
+        deps,
+        &config,
+        &quote_asset,
+        block_height,
+        &collateral.price_source,
+    )?;
 
     Ok(CollateralPriceResponse {
         asset: collateral.asset,

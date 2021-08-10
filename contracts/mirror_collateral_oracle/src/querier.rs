@@ -1,13 +1,12 @@
-use cosmwasm_std::{
-    to_binary, Decimal, Deps, QuerierWrapper, QueryRequest, StdError, StdResult, Uint128, WasmQuery,
-};
-use std::str::FromStr;
-
 use crate::math::decimal_multiplication;
 use crate::state::Config;
 use cosmwasm_bignumber::{Decimal256, Uint256};
+use cosmwasm_std::{
+    to_binary, Decimal, Deps, QuerierWrapper, QueryRequest, StdError, StdResult, Uint128, WasmQuery,
+};
 use mirror_protocol::collateral_oracle::SourceType;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use terra_cosmwasm::{ExchangeRatesResponse, TerraQuerier};
 use terraswap::asset::{Asset, AssetInfo};
 use terraswap::pair::QueryMsg as TerraswapPairQueryMsg;
@@ -207,19 +206,20 @@ mod tests {
 
     #[test]
     fn test_parse_band_rate() {
-        let rate_dec_1: Decimal = parse_band_rate(Uint128(3493968700000000000000u128)).unwrap();
+        let rate_dec_1: Decimal =
+            parse_band_rate(Uint128::from(3493968700000000000000u128)).unwrap();
         assert_eq!(
             rate_dec_1,
             Decimal::from_str("3493.968700000000000000").unwrap()
         );
 
-        let rate_dec_2: Decimal = parse_band_rate(Uint128(1234u128)).unwrap();
+        let rate_dec_2: Decimal = parse_band_rate(Uint128::from(1234u128)).unwrap();
         assert_eq!(
             rate_dec_2,
             Decimal::from_str("0.000000000000001234").unwrap()
         );
 
-        let rate_dec_3: Decimal = parse_band_rate(Uint128(100000000000000001u128)).unwrap();
+        let rate_dec_3: Decimal = parse_band_rate(Uint128::from(100000000000000001u128)).unwrap();
         assert_eq!(
             rate_dec_3,
             Decimal::from_str("0.100000000000000001").unwrap()

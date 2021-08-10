@@ -213,7 +213,7 @@ impl WasmMockQuerier {
                 },
                 QueryMsg::GetReferenceData { .. } => {
                     SystemResult::Ok(ContractResult::from(to_binary(&ReferenceData {
-                        rate: Uint128(3465211050000000000000),
+                        rate: Uint128::from(3465211050000000000000u128),
                         last_updated_base: 100u64,
                         last_updated_quote: 100u64,
                     })))
