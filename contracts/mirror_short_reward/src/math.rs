@@ -1,6 +1,6 @@
 use cosmwasm_std::{Decimal, StdResult, Uint128};
 
-const DECIMAL_FRACTIONAL: Uint128 = Uint128(1_000_000_000u128);
+const DECIMAL_FRACTIONAL: Uint128 = Uint128::new(1_000_000_000u128);
 
 pub fn decimal_division(a: Decimal, b: Decimal) -> Decimal {
     Decimal::from_ratio(DECIMAL_FRACTIONAL * a, b * DECIMAL_FRACTIONAL)
