@@ -31,7 +31,6 @@ pub fn mock_dependencies(
 
 pub struct WasmMockQuerier {
     base: MockQuerier<TerraQueryWrapper>,
-    token_querier: TokenQuerier,
     tax_querier: TaxQuerier,
     oracle_price_querier: OraclePriceQuerier,
     collateral_oracle_querier: CollateralOracleQuerier,
@@ -321,7 +320,6 @@ impl WasmMockQuerier {
             },
             QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
                 let key: &[u8] = key.as_slice();
-                let prefix_balance = to_length_prefixed(b"balance").to_vec();
                 let prefix_feeder = to_length_prefixed(b"feeder").to_vec();
 
                 if key.len() > prefix_balance.len()
@@ -412,7 +410,6 @@ impl WasmMockQuerier {
     pub fn new(base: MockQuerier<TerraQueryWrapper>) -> Self {
         WasmMockQuerier {
             base,
-            token_querier: TokenQuerier::default(),
             tax_querier: TaxQuerier::default(),
             oracle_price_querier: OraclePriceQuerier::default(),
             collateral_oracle_querier: CollateralOracleQuerier::default(),

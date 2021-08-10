@@ -1,13 +1,11 @@
-use cosmwasm_std::{to_binary, Addr, Decimal, Deps, QueryRequest, StdResult, WasmQuery};
-
+use cosmwasm_std::{Addr, Decimal, Deps, QuerierWrapper, QueryRequest, StdResult, WasmQuery, to_binary};
 use terraswap::{
     asset::AssetInfo, asset::PairInfo, pair::PoolResponse, pair::QueryMsg as PairQueryMsg,
     querier::query_pair_info,
 };
-
 use crate::math::{decimal_division, decimal_subtraction};
-
-use mirror_protocol::{oracle::PriceResponse, oracle::QueryMsg as OracleQueryMsg};
+use mirror_protocol::oracle::{PriceResponse, QueryMsg as OracleQueryMsg};
+use mirror_protocol::short_reward::{QueryMsg as ShortRewardQueryMsg, ShortRewardWeightResponse};
 
 pub fn compute_premium_rate(
     deps: Deps,
@@ -15,7 +13,7 @@ pub fn compute_premium_rate(
     factory_contract: Addr,
     asset_token: Addr,
     base_denom: String,
-) -> StdResult<Decimal> {
+) -> StdResult<(Decimal, bool)> {
     let pair_info: PairInfo = query_pair_info(
         &deps.querier,
         factory_contract.clone(),
@@ -35,22 +33,49 @@ pub fn compute_premium_rate(
     }))?;
 
     let terraswap_price: Decimal = if pool.assets[0].is_native_token() {
-        Decimal::from_ratio(pool.assets[0].amount, pool.assets[1].amount)
+        if pool.assets[1].amount.is_zero() {
+            Decimal::from_ratio(pool.assets[0].amount, Uint128::from(1u128))
+        } else {
+            Decimal::from_ratio(pool.assets[0].amount, pool.assets[1].amount)
+        }
     } else {
-        Decimal::from_ratio(pool.assets[1].amount, pool.assets[0].amount)
+        if pool.assets[0].amount.is_zero() {
+            Decimal::from_ratio(pool.assets[1].amount, Uint128::from(1u128))
+        } else {
+            Decimal::from_ratio(pool.assets[1].amount, pool.assets[0].amount)
+        }
     };
     let oracle_price: Decimal =
         query_price(deps, oracle_contract, asset_token.to_string(), base_denom)?;
 
-    if terraswap_price > oracle_price {
-        Ok(decimal_division(
-            decimal_subtraction(terraswap_price, oracle_price),
-            oracle_price,
+    if oracle_price.is_zero() {
+        Ok((Decimal::zero(), true))
+    } else if terraswap_price > oracle_price {
+        Ok((
+            decimal_division(
+                decimal_subtraction(terraswap_price, oracle_price),
+                oracle_price,
+            ),
+            false,
         ))
     } else {
-        Ok(Decimal::zero())
+        Ok((Decimal::zero(), false))
     }
 }
+
+pub fn compute_short_reward_weight(
+    querier: &dyn QuerierWrapper,
+    short_reward_contract: Addr,
+    premium_rate: Decimal,
+) -> StdResult<Decimal> {
+    let res: ShortRewardWeightResponse = querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+        contract_addr: short_reward_contract.to_string(),
+        msg: to_binary(&ShortRewardQueryMsg::ShortRewardWeight { premium_rate })?,
+    }))?;
+
+    Ok(res.short_reward_weight)
+}
+
 
 pub fn query_price(
     deps: Deps,

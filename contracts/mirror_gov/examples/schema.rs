@@ -2,10 +2,7 @@ use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 use std::env::current_dir;
 use std::fs::create_dir_all;
 
-use mirror_protocol::gov::{
-    ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, PollCountResponse,
-    PollExecuteMsg, PollResponse, PollsResponse, QueryMsg, StakerResponse,
-};
+use mirror_protocol::gov::{ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, PollCountResponse, PollExecuteMsg, PollResponse, PollsResponse, QueryMsg, SharesResponse, StakerResponse};
 
 fn main() {
     let mut out_dir = current_dir().unwrap();
@@ -23,5 +20,6 @@ fn main() {
     export_schema(&schema_for!(PollExecuteMsg), &out_dir);
     export_schema(&schema_for!(PollsResponse), &out_dir);
     export_schema(&schema_for!(PollCountResponse), &out_dir);
+    export_schema(&schema_for!(SharesResponse), &out_dir);
     export_schema(&schema_for!(MigrateMsg), &out_dir);
 }

@@ -26,6 +26,7 @@ mod tests {
             terraswap_factory: "terraswap_factory".to_string(),
             base_denom: "uusd".to_string(),
             premium_min_update_interval: 3600,
+            short_reward_contract: "short_reward".to_string(),
         };
 
         let info = mock_info("addr", &[]);
@@ -168,6 +169,7 @@ mod tests {
             terraswap_factory: "terraswap_factory".to_string(),
             base_denom: "uusd".to_string(),
             premium_min_update_interval: 3600,
+            short_reward_contract: "short_reward".to_string(),
         };
 
         let info = mock_info("addr", &[]);
@@ -287,6 +289,7 @@ mod tests {
             terraswap_factory: "terraswap_factory".to_string(),
             base_denom: "uusd".to_string(),
             premium_min_update_interval: 3600,
+            short_reward_contract: "short_reward".to_string(),
         };
 
         let info = mock_info("addr", &[]);
@@ -388,6 +391,7 @@ mod tests {
             terraswap_factory: "terraswap_factory".to_string(),
             base_denom: "uusd".to_string(),
             premium_min_update_interval: 3600,
+            short_reward_contract: "short_reward".to_string(),
         };
 
         let info = mock_info("addr", &[]);
@@ -499,6 +503,7 @@ mod tests {
             terraswap_factory: "terraswap_factory".to_string(),
             base_denom: "uusd".to_string(),
             premium_min_update_interval: 3600,
+            short_reward_contract: "short_reward".to_string(),
         };
 
         let info = mock_info("addr", &[]);

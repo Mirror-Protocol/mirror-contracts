@@ -1,6 +1,6 @@
 use crate::state::{AssetConfig, Position};
 use cosmwasm_std::{Decimal, Deps, Env, StdError, StdResult};
-use terraswap::asset::Asset;
+use terraswap::asset::{Asset, AssetInfo};
 
 // Check zero balance & same collateral with position
 pub fn assert_collateral(deps: Deps, position: &Position, collateral: &Asset) -> StdResult<()> {
@@ -66,13 +66,13 @@ pub fn assert_min_collateral_ratio(min_collateral_ratio: Decimal) -> StdResult<(
     }
 }
 
-pub fn assert_protocol_fee(protocol_fee_rate: Decimal) -> StdResult<()> {
+pub fn assert_protocol_fee(protocol_fee_rate: Decimal) -> StdResult<Decimal> {
     if protocol_fee_rate >= Decimal::one() {
         Err(StdError::generic_err(
             "protocol_fee_rate must be smaller than 1",
         ))
     } else {
-        Ok(())
+        Ok(protocol_fee_rate)
     }
 }
 
@@ -83,6 +83,32 @@ pub fn assert_mint_period(env: &Env, asset_config: &AssetConfig) -> StdResult<()
                 "The minting period for this asset ended at time {}",
                 ipo_params.mint_end
             )));
+        }
+    }
+    Ok(())
+}
+
+pub fn assert_pre_ipo_collateral(
+    base_denom: String,
+    asset_config: &AssetConfig,
+    collateral_info: &AssetInfo,
+) -> StdResult<()> {
+    if asset_config.ipo_params.is_some() {
+        match collateral_info {
+            AssetInfo::Token { .. } => {
+                return Err(StdError::generic_err(format!(
+                    "Only {} can be used as collateral for preIPO assets",
+                    base_denom
+                )))
+            }
+            AssetInfo::NativeToken { denom } => {
+                if *denom != base_denom {
+                    return Err(StdError::generic_err(format!(
+                        "Only {} can be used as collateral for preIPO assets",
+                        base_denom
+                    )));
+                }
+            }
         }
     }
     Ok(())

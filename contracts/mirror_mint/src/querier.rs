@@ -67,6 +67,7 @@ pub fn load_collateral_info(
     collateral_oracle: Addr,
     collateral: &AssetInfoRaw,
     block_time: Option<u64>,
+    block_height: Option<u64>,
 ) -> StdResult<(Decimal, Decimal, bool)> {
     let config: Config = read_config(deps.storage)?;
     let collateral_denom: String = (collateral.to_normal(deps.api)?).to_string();
@@ -84,13 +85,13 @@ pub fn load_collateral_info(
         // load collateral_multiplier from collateral oracle
         // if asset is revoked, no need to check for old price
         let (_, collateral_multiplier, _) =
-            query_collateral(deps, collateral_oracle, collateral_denom, None)?;
+            query_collateral(deps, collateral_oracle, collateral_denom, None, block_height)?;
 
         Ok((end_price, collateral_multiplier, true))
     } else {
         // load collateral info from collateral oracle
         let (collateral_oracle_price, collateral_multiplier, is_revoked) =
-            query_collateral(deps, collateral_oracle, collateral_denom, block_time)?;
+            query_collateral(deps, collateral_oracle, collateral_denom, block_time, block_height)?;
 
         Ok((collateral_oracle_price, collateral_multiplier, is_revoked))
     }
@@ -128,11 +129,12 @@ pub fn query_collateral(
     collateral_oracle: Addr,
     asset: String,
     block_time: Option<u64>,
+    block_height: Option<u64>,
 ) -> StdResult<(Decimal, Decimal, bool)> {
     let res: CollateralPriceResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
             contract_addr: collateral_oracle.to_string(),
-            msg: to_binary(&CollateralOracleQueryMsg::CollateralPrice { asset })?,
+            msg: to_binary(&CollateralOracleQueryMsg::CollateralPrice { asset, block_height })?,
         }))?;
 
     if let Some(block_time) = block_time {

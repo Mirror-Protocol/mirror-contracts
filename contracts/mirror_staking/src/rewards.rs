@@ -3,8 +3,7 @@ use cosmwasm_std::{
     Order, Response, StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 
-use crate::math::short_reward_weight;
-use crate::querier::compute_premium_rate;
+use crate::querier::{compute_premium_rate, compute_short_reward_weight};
 use crate::state::{
     read_config, read_pool_info, rewards_read, rewards_store, store_pool_info, Config, PoolInfo,
     RewardInfo,
@@ -17,6 +16,7 @@ pub fn adjust_premium(deps: DepsMut, env: Env, asset_tokens: Vec<String>) -> Std
     let config: Config = read_config(deps.storage)?;
     let oracle_contract = deps.api.addr_humanize(&config.oracle_contract)?;
     let terraswap_factory = deps.api.addr_humanize(&config.terraswap_factory)?;
+    let short_reward_contract = deps.api.addr_humanize(&config.short_reward_contract)?;
     for asset_token in asset_tokens.iter() {
         let asset_token_raw = deps.api.addr_canonicalize(&asset_token)?;
         let pool_info: PoolInfo = read_pool_info(deps.storage, &asset_token_raw)?;
@@ -30,14 +30,20 @@ pub fn adjust_premium(deps: DepsMut, env: Env, asset_tokens: Vec<String>) -> Std
 
         let asset_token_addr = deps.api.addr_validate(asset_token)?;
 
-        let premium_rate = compute_premium_rate(
-            deps.as_ref(),
+        let (premium_rate, no_price_feed) = compute_premium_rate(
+            &deps.querier,
             oracle_contract.clone(),
             terraswap_factory.clone(),
             asset_token_addr,
             config.base_denom.to_string(),
         )?;
-        let short_reward_weight = short_reward_weight(premium_rate);
+
+        // if asset does not have price feed, set short reward weight directly to zero
+        let short_reward_weight = if no_price_feed {
+            Decimal::zero()
+        } else {
+            compute_short_reward_weight(deps, short_reward_contract, premium_rate)?
+        };
 
         store_pool_info(
             deps.storage,
@@ -178,7 +184,7 @@ fn _withdraw_reward(
         reward_info.pending_reward = Uint128::zero();
 
         // Update rewards info
-        if reward_info.pending_reward.is_zero() && reward_info.bond_amount.is_zero() {
+        if reward_info.bond_amount.is_zero() {
             rewards_store(storage, &staker_addr, is_short).remove(asset_token_raw.as_slice());
         } else {
             rewards_store(storage, &staker_addr, is_short)

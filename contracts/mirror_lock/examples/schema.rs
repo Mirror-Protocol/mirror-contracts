@@ -18,4 +18,5 @@ fn main() {
     export_schema(&schema_for!(QueryMsg), &out_dir);
     export_schema(&schema_for!(ConfigResponse), &out_dir);
     export_schema(&schema_for!(PositionLockInfoResponse), &out_dir);
+    export_schema(&schema_for!(MigrateMsg), &out_dir);
 }

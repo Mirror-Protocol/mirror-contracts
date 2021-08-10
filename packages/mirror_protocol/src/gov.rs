@@ -42,8 +42,12 @@ pub enum ExecuteMsg {
     WithdrawVotingTokens {
         amount: Option<Uint128>,
     },
-    WithdrawVotingRewards {},
-    StakeVotingRewards {},
+    WithdrawVotingRewards {
+        poll_id: Option<u64>,
+    },
+    StakeVotingRewards {
+        poll_id: Option<u64>,
+    },
     EndPoll {
         poll_id: u64,
     },
@@ -99,8 +103,17 @@ pub enum QueryMsg {
         limit: Option<u32>,
         order_by: Option<OrderBy>,
     },
+    Voter {
+        poll_id: u64,
+        address: String,
+    },
     Voters {
         poll_id: u64,
+        start_after: Option<String>,
+        limit: Option<u32>,
+        order_by: Option<OrderBy>,
+    },
+    Shares {
         start_after: Option<String>,
         limit: Option<u32>,
         order_by: Option<OrderBy>,
@@ -134,7 +147,7 @@ pub struct PollResponse {
     pub id: u64,
     pub creator: String,
     pub status: PollStatus,
-    pub end_height: u64,
+    pub end_time: u64,
     pub title: String,
     pub description: String,
     pub link: Option<String>,
@@ -168,6 +181,17 @@ pub struct StakerResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema)]
+pub struct SharesResponseItem {
+    pub staker: String,
+    pub share: Uint128,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema)]
+pub struct SharesResponse {
+    pub stakers: Vec<SharesResponseItem>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema)]
 pub struct VotersResponseItem {
     pub voter: String,
     pub vote: VoteOption,
@@ -179,13 +203,8 @@ pub struct VotersResponse {
     pub voters: Vec<VotersResponseItem>,
 }
 
-/// Migrates the contract state, currently taking a state version argument
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct MigrateMsg {
-    pub version: u64, // current contract migration state version
-    pub voter_weight: Decimal,
-    pub snapshot_period: u64,
-}
+pub struct MigrateMsg {}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct VoterInfo {

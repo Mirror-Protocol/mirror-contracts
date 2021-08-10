@@ -10,7 +10,6 @@ use terraswap::asset::AssetInfo;
 pub struct InstantiateMsg {
     pub owner: String,
     pub mint_contract: String,
-    pub factory_contract: String,
     pub base_denom: String,
     pub mirror_oracle: String,
     pub anchor_oracle: String,
@@ -23,7 +22,6 @@ pub enum ExecuteMsg {
     UpdateConfig {
         owner: Option<String>,
         mint_contract: Option<String>,
-        factory_contract: Option<String>,
         base_denom: Option<String>,
         mirror_oracle: Option<String>,
         anchor_oracle: Option<String>,
@@ -51,7 +49,7 @@ pub enum ExecuteMsg {
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     Config {},
-    CollateralPrice { asset: String },
+    CollateralPrice { asset: String, block_height: Option<u64> },
     CollateralAssetInfo { asset: String },
     CollateralAssetInfos {},
 }
@@ -60,7 +58,6 @@ pub enum QueryMsg {
 pub struct ConfigResponse {
     pub owner: String,
     pub mint_contract: String,
-    pub factory_contract: String,
     pub base_denom: String,
     pub mirror_oracle: String,
     pub anchor_oracle: String,

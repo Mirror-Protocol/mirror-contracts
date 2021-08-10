@@ -1,15 +1,14 @@
-use cosmwasm_std::{Binary, CanonicalAddr, Deps, QueryRequest, StdResult, Uint128, WasmQuery};
+use cosmwasm_std::{Binary, CanonicalAddr, QuerierWrapper, QueryRequest, StdResult, Uint128, WasmQuery};
 
 use cosmwasm_storage::to_length_prefixed;
 
 pub fn load_token_balance(
-    deps: Deps,
+    querier: &QuerierWrapper,
     contract_addr: String,
     account_addr: &CanonicalAddr,
 ) -> StdResult<Uint128> {
     // load balance form the token contract
-    let res: Uint128 = deps
-        .querier
+    let res: Uint128 = querier
         .query(&QueryRequest::Wasm(WasmQuery::Raw {
             contract_addr: contract_addr,
             key: Binary::from(concat(

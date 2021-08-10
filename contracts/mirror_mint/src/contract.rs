@@ -8,7 +8,6 @@ use cosmwasm_std::{
 
 use crate::{
     asserts::{assert_auction_discount, assert_min_collateral_ratio, assert_protocol_fee},
-    migration::{migrate_asset_configs, migrate_config},
     positions::{
         auction, burn, deposit, mint, open_position, query_next_position_idx, query_position,
         query_positions, withdraw,
@@ -45,7 +44,7 @@ pub fn instantiate(
         lock: deps.api.addr_canonicalize(&msg.lock)?,
         base_denom: msg.base_denom,
         token_code_id: msg.token_code_id,
-        protocol_fee_rate: msg.protocol_fee_rate,
+        protocol_fee_rate: assert_protocol_fee(msg.protocol_fee_rate)?,
     };
 
     store_config(deps.storage, &config)?;
@@ -527,7 +526,7 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
         lock: deps.api.addr_humanize(&state.lock)?.to_string(),
         base_denom: state.base_denom,
         token_code_id: state.token_code_id,
-        protocol_fee_rate: Decimal::percent(1),
+        protocol_fee_rate: state.protocol_fee_rate,
     };
 
     Ok(resp)
@@ -556,17 +555,5 @@ pub fn query_asset_config(deps: Deps, asset_token: String) -> StdResult<AssetCon
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
-    // migrate config
-    migrate_config(
-        deps.storage,
-        deps.api.addr_canonicalize(&msg.staking)?,
-        deps.api.addr_canonicalize(&msg.terraswap_factory)?,
-        deps.api.addr_canonicalize(&msg.collateral_oracle)?,
-        deps.api.addr_canonicalize(&msg.lock)?,
-    )?;
-
-    // migrate all asset configurations to use new add mint_end parameter
-    migrate_asset_configs(deps.storage)?;
-
     Ok(Response::default())
 }

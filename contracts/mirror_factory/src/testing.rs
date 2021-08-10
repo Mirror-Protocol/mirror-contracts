@@ -1244,6 +1244,14 @@ fn test_revocation() {
         (&"uusdasset0001".to_string(), &"LP0001".to_string()),
         (&"uusdmirror0000".to_string(), &"MIRLP000".to_string()),
     ]);
+    deps.querier.with_oracle_price(&[
+        (&"uusd".to_string(), &Decimal::one()),
+        (&"asset0001".to_string(), &Decimal::percent(200)),
+    ]);
+    deps.querier.with_mint_configs(&[(
+        &"asset0001".to_string(),
+        &(Decimal::percent(1), Decimal::percent(1)),
+    )]);
 
     let msg = InstantiateMsg {
         base_denom: BASE_DENOM.to_string(),
@@ -1280,9 +1288,16 @@ fn test_revocation() {
         end_price: Decimal::from_ratio(2u128, 1u128),
     };
     let info = mock_info("address0000", &[]);
-    let res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
+    let err = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
+    match err {
+        StdError::GenericErr { msg, .. } => assert_eq!(msg, "unauthorized"),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
 
-    match res {
+    // unatuthorized attemt 2, only owner can fix set price
+    let info = mock_info("addr0000", &[]);
+    let err = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
+    match err {
         StdError::GenericErr { msg, .. } => assert_eq!(msg, "unauthorized"),
         _ => panic!("DO NOT ENTER HERE"),
     }

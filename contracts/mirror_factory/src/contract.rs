@@ -661,7 +661,7 @@ pub fn migrate_asset(
     decrease_total_weight(deps.storage, NORMAL_TOKEN_WEIGHT)?;
 
     let mint_contract = deps.api.addr_humanize(&config.mint_contract)?;
-    let mint_config: (Decimal, Decimal) =
+    let mint_config: (Decimal, Decimal, _) =
         load_mint_asset_config(deps.as_ref(), mint_contract.clone(), &asset_token_raw)?;
 
     store_params(

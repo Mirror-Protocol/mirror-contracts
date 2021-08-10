@@ -29,12 +29,6 @@
                 "null"
               ]
             },
-            "factory_contract": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
             "mint_contract": {
               "type": [
                 "string",

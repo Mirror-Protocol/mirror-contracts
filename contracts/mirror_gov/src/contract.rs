@@ -2,10 +2,7 @@
 use cosmwasm_std::entry_point;
 
 use crate::querier::load_token_balance;
-use crate::staking::{
-    deposit_reward, query_staker, stake_voting_rewards, stake_voting_tokens,
-    withdraw_voting_rewards, withdraw_voting_tokens,
-};
+use crate::staking::{deposit_reward, query_shares, query_staker, stake_voting_rewards, stake_voting_tokens, withdraw_voting_rewards, withdraw_voting_tokens};
 use crate::state::{
     bank_read, bank_store, config_read, config_store, poll_indexer_store, poll_read, poll_store,
     poll_voter_read, poll_voter_store, read_poll_voters, read_polls, state_read, state_store,
@@ -31,6 +28,7 @@ const MIN_DESC_LENGTH: usize = 4;
 const MAX_DESC_LENGTH: usize = 256;
 const MIN_LINK_LENGTH: usize = 12;
 const MAX_LINK_LENGTH: usize = 128;
+const MAX_POLLS_IN_PROGRESS: usize = 50;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -41,6 +39,7 @@ pub fn instantiate(
 ) -> StdResult<Response> {
     validate_quorum(msg.quorum)?;
     validate_threshold(msg.threshold)?;
+    validate_voter_weight(msg.voter_weight)?;
 
     let config = Config {
         mirror_token: deps.api.addr_canonicalize(&msg.mirror_token)?,
@@ -97,8 +96,8 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
             snapshot_period,
         ),
         ExecuteMsg::WithdrawVotingTokens { amount } => withdraw_voting_tokens(deps, info, amount),
-        ExecuteMsg::WithdrawVotingRewards {} => withdraw_voting_rewards(deps, info),
-        ExecuteMsg::StakeVotingRewards {} => stake_voting_rewards(deps, info),
+        ExecuteMsg::WithdrawVotingRewards { poll_id } => withdraw_voting_rewards(deps, info, poll_id),
+        ExecuteMsg::StakeVotingRewards { poll_id } => stake_voting_rewards(deps, info, poll_id),
         ExecuteMsg::CastVote {
             poll_id,
             vote,
@@ -306,6 +305,19 @@ pub fn create_poll(
         )));
     }
 
+    let polls_in_progress: usize = read_polls(
+        deps.storage,
+        Some(PollStatus::InProgress),
+        None,
+        None,
+        None,
+        Some(true),
+    )?
+    .len();
+    if polls_in_progress.gt(&MAX_POLLS_IN_PROGRESS) {
+        return Err(StdError::generic_err("Too many polls in progress"));
+    }
+
     let mut state: State = state_store(deps.storage).load()?;
     let poll_id = state.poll_count + 1;
 
@@ -323,6 +335,7 @@ pub fn create_poll(
     };
 
     let sender_address_raw = deps.api.addr_canonicalize(&proposer)?;
+    let current_seconds = env.block.time.nanos() / 1_000_000_000u64;
     let new_poll = Poll {
         id: poll_id,
         creator: sender_address_raw,
@@ -330,7 +343,7 @@ pub fn create_poll(
         yes_votes: Uint128::zero(),
         no_votes: Uint128::zero(),
         abstain_votes: Uint128::zero(),
-        end_height: env.block.height + config.voting_period,
+        end_time: current_seconds + config.voting_period,
         title,
         description,
         link,
@@ -357,7 +370,7 @@ pub fn create_poll(
                 deps.api.addr_humanize(&new_poll.creator)?.as_str(),
             ),
             attr("poll_id", &poll_id.to_string()),
-            attr("end_height", new_poll.end_height),
+            attr("end_time", new_poll.end_time),
         ],
         data: None,
     };
@@ -374,7 +387,8 @@ pub fn end_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Response> {
         return Err(StdError::generic_err("Poll is not in progress"));
     }
 
-    if a_poll.end_height > env.block.height {
+    let current_seconds = env.block.time.nanos() / 1_000_000_000u64;
+    if a_poll.end_time > current_seconds {
         return Err(StdError::generic_err("Voting period has not expired"));
     }
 
@@ -402,7 +416,7 @@ pub fn end_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Response> {
     } else {
         let total_locked_balance = state.total_deposit + state.pending_voting_rewards;
         let staked_weight = load_token_balance(
-            deps.as_ref(),
+            &deps.querier,
             deps.api.addr_humanize(&config.mirror_token)?.to_string(),
             &state.contract_addr,
         )?
@@ -477,7 +491,8 @@ pub fn execute_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Response
         return Err(StdError::generic_err("Poll is not in passed status"));
     }
 
-    if a_poll.end_height + config.effective_delay > env.block.height {
+    let current_seconds = env.block.time.nanos() / 1_000_000_000u64;
+    if a_poll.end_time + config.effective_delay > current_seconds {
         return Err(StdError::generic_err("Effective delay has not expired"));
     }
 
@@ -524,8 +539,11 @@ pub fn expire_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Response>
         ));
     }
 
-    if a_poll.end_height + config.expiration_period > env.block.height {
-        return Err(StdError::generic_err("Expire height has not been reached"));
+    let current_seconds = env.block.time.nanos() / 1_000_000_000u64;
+    if a_poll.end_time + config.expiration_period > current_seconds {
+        return Err(StdError::generic_err(
+            "Expiration time has not been reached",
+        ));
     }
 
     poll_indexer_store(deps.storage, &PollStatus::Passed).remove(&poll_id.to_be_bytes());
@@ -561,7 +579,8 @@ pub fn cast_vote(
     }
 
     let mut a_poll: Poll = poll_store(deps.storage).load(&poll_id.to_be_bytes())?;
-    if a_poll.status != PollStatus::InProgress || env.block.height > a_poll.end_height {
+    let current_seconds = env.block.time.nanos() / 1_000_000_000u64;
+    if a_poll.status != PollStatus::InProgress || env.block.height > current_seconds {
         return Err(StdError::generic_err("Poll is not in progress"));
     }
 
@@ -580,7 +599,7 @@ pub fn cast_vote(
     let total_share = state.total_share;
     let total_locked_balance = state.total_deposit + state.pending_voting_rewards;
     let total_balance = load_token_balance(
-        deps.as_ref(),
+        &deps.querier,
         deps.api.addr_humanize(&config.mirror_token)?.to_string(),
         &state.contract_addr,
     )?
@@ -617,7 +636,8 @@ pub fn cast_vote(
     poll_voter_store(deps.storage, poll_id).save(&sender_address_raw.as_slice(), &vote_info)?;
 
     // processing snapshot
-    let time_to_end = a_poll.end_height - env.block.height;
+    let current_seconds = env.block.time.nanos() / 1_000_000_000u64;
+    let time_to_end = a_poll.end_time - current_seconds;
 
     if time_to_end < config.snapshot_period && a_poll.staked_amount.is_none() {
         a_poll.staked_amount = Some(total_balance);
@@ -651,7 +671,8 @@ pub fn snapshot_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Respons
         return Err(StdError::generic_err("Poll is not in progress"));
     }
 
-    let time_to_end = a_poll.end_height - env.block.height;
+    let current_seconds = env.block.time.nanos() / 1_000_000_000u64;
+    let time_to_end = a_poll.end_time - current_seconds;
 
     if time_to_end > config.snapshot_period {
         return Err(StdError::generic_err("Cannot snapshot at this height"));
@@ -666,7 +687,7 @@ pub fn snapshot_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Respons
 
     let total_locked_balance = state.total_deposit + state.pending_voting_rewards;
     let staked_amount = load_token_balance(
-        deps.as_ref(),
+        &deps.querier,
         deps.api.addr_humanize(&config.mirror_token)?.to_string(),
         &state.contract_addr,
     )?
@@ -701,12 +722,18 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             limit,
             order_by,
         } => to_binary(&query_polls(deps, filter, start_after, limit, order_by)?),
+        QueryMsg::Voter { poll_id, address } => to_binary(&query_voter(deps, poll_id, address)?),
         QueryMsg::Voters {
             poll_id,
             start_after,
             limit,
             order_by,
         } => to_binary(&query_voters(deps, poll_id, start_after, limit, order_by)?),
+        QueryMsg::Shares {
+            start_after,
+            limit,
+            order_by,
+        } => to_binary(&query_shares(deps, start_after, limit, order_by)?),
     }
 }
 
@@ -747,7 +774,7 @@ fn query_poll(deps: Deps, poll_id: u64) -> StdResult<PollResponse> {
         id: poll.id,
         creator: deps.api.addr_humanize(&poll.creator).unwrap().to_string(),
         status: poll.status,
-        end_height: poll.end_height,
+        end_time: poll.end_time,
         title: poll.title,
         description: poll.description,
         link: poll.link,
@@ -784,7 +811,7 @@ fn query_polls(
                 id: poll.id,
                 creator: deps.api.addr_humanize(&poll.creator).unwrap().to_string(),
                 status: poll.status.clone(),
-                end_height: poll.end_height,
+                end_time: poll.end_time,
                 title: poll.title.to_string(),
                 description: poll.description.to_string(),
                 link: poll.link.clone(),
@@ -812,6 +839,19 @@ fn query_polls(
     })
 }
 
+fn query_voter(
+    deps: Deps,
+    poll_id: u64,
+    address: String,
+) -> StdResult<VotersResponseItem> {
+    let voter: VoterInfo = poll_voter_read(deps.storage, poll_id).load(&deps.api.addr_canonicalize(&address)?.as_slice())?;
+    Ok(VotersResponseItem {
+        voter: address,
+        vote: voter.vote,
+        balance: voter.balance,
+    })
+}
+
 fn query_voters(
     deps: Deps,
     poll_id: u64,
@@ -819,15 +859,7 @@ fn query_voters(
     limit: Option<u32>,
     order_by: Option<OrderBy>,
 ) -> StdResult<VotersResponse> {
-    let poll: Poll = match poll_read(deps.storage).may_load(&poll_id.to_be_bytes())? {
-        Some(poll) => Some(poll),
-        None => return Err(StdError::generic_err("Poll does not exist")),
-    }
-    .unwrap();
-
-    let voters = if poll.status != PollStatus::InProgress {
-        vec![]
-    } else if let Some(start_after) = start_after {
+   let voters = if let Some(start_after) = start_after {
         read_poll_voters(
             deps.storage,
             poll_id,
@@ -855,26 +887,7 @@ fn query_voters(
     })
 }
 
-use crate::migrate::{migrate_config, migrate_poll_indexer, migrate_polls, migrate_state};
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
-    // Currently support 2 migration processes
-    //      - version 1 migrates poll indexers, config, state, and polls
-    //      - version 2 migrates config, state and polls
-    if msg.version.eq(&1u64) {
-        migrate_poll_indexer(deps.storage, &PollStatus::InProgress)?;
-        migrate_poll_indexer(deps.storage, &PollStatus::Passed)?;
-        migrate_poll_indexer(deps.storage, &PollStatus::Rejected)?;
-        migrate_poll_indexer(deps.storage, &PollStatus::Executed)?;
-        migrate_poll_indexer(deps.storage, &PollStatus::Expired)?;
-    } else if !msg.version.eq(&2u64) {
-        return Err(StdError::generic_err("Invalid migrate version number"));
-    }
-
-    // migrations for voting rewards and abstain votes
-    migrate_config(deps.storage, msg.voter_weight, msg.snapshot_period)?;
-    migrate_state(deps.storage)?;
-    migrate_polls(deps.storage)?;
-
+pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
     Ok(Response::default())
 }

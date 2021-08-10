@@ -55,6 +55,7 @@ pub enum ExecuteMsg {
 
     /// Revoke asset from MIR rewards pool
     /// and register end_price to mint contract
+    /// Only feeder can set end_price
     RevokeAsset {
         asset_token: String,
         end_price: Decimal,

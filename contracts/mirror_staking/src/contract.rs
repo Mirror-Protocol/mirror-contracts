@@ -1,16 +1,12 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-
 use cosmwasm_std::{
     attr, from_binary, to_binary, Addr, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Response,
     StdError, StdResult, Uint128,
 };
-
 use mirror_protocol::staking::{
     ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, PoolInfoResponse, QueryMsg,
 };
-
-use crate::migration::{migrate_config, migrate_pool_infos};
 use crate::rewards::{adjust_premium, deposit_reward, query_reward_info, withdraw_reward};
 use crate::staking::{
     auto_stake, auto_stake_hook, bond, decrease_short_token, increase_short_token, unbond,
@@ -36,6 +32,7 @@ pub fn instantiate(
             terraswap_factory: deps.api.addr_canonicalize(&msg.terraswap_factory)?,
             base_denom: msg.base_denom,
             premium_min_update_interval: msg.premium_min_update_interval,
+            short_reward_contract: deps.api.addr_canonicalize(&msg.short_reward_contract)?,
         },
     )?;
 
@@ -49,13 +46,19 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
         ExecuteMsg::UpdateConfig {
             owner,
             premium_min_update_interval,
+            short_reward_contract,
         } => {
             let owner_addr = if let Some(owner_addr) = owner {
                 Some(deps.api.addr_validate(&owner_addr)?)
             } else {
                 None
             };
-            update_config(deps, info, owner_addr, premium_min_update_interval)
+            let short_reward_contract_addr = if let Some(short_reward_contract) = short_reward_contract {
+                Some(deps.api.addr_validate(&short_reward_contract)?)
+            } else {
+                None
+            };
+            update_config(deps, info, owner_addr, premium_min_update_interval, short_reward_contract_addr)
         }
         ExecuteMsg::RegisterAsset {
             asset_token,
@@ -188,6 +191,7 @@ pub fn update_config(
     info: MessageInfo,
     owner: Option<Addr>,
     premium_min_update_interval: Option<u64>,
+    short_reward_contract: Option<Addr>,
 ) -> StdResult<Response> {
     let mut config: Config = read_config(deps.storage)?;
 
@@ -201,6 +205,10 @@ pub fn update_config(
 
     if let Some(premium_min_update_interval) = premium_min_update_interval {
         config.premium_min_update_interval = premium_min_update_interval;
+    }
+
+    if let Some(short_reward_contract) = short_reward_contract {
+        config.short_reward_contract = deps.api.addr_canonicalize(short_reward_contract.as_str())?;
     }
 
     store_config(deps.storage, &config)?;
@@ -282,6 +290,7 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
             .to_string(),
         base_denom: state.base_denom,
         premium_min_update_interval: state.premium_min_update_interval,
+        short_reward_contract: deps.api.addr_humanize(&state.short_reward_contract)?.to_string(),
     };
 
     Ok(resp)
@@ -310,16 +319,5 @@ pub fn query_pool_info(deps: Deps, asset_token: String) -> StdResult<PoolInfoRes
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
-    migrate_config(
-        deps.storage,
-        deps.api.addr_canonicalize(&msg.mint_contract)?,
-        deps.api.addr_canonicalize(&msg.oracle_contract)?,
-        deps.api.addr_canonicalize(&msg.terraswap_factory)?,
-        msg.base_denom,
-        msg.premium_min_update_interval,
-    )?;
-
-    migrate_pool_infos(deps.storage)?;
-
     Ok(Response::default())
 }

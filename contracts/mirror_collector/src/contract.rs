@@ -1,15 +1,11 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-
-use crate::migration::migrate_config;
 use crate::state::{read_config, store_config, Config};
 use crate::swap::{convert, luna_swap_hook};
-
 use cosmwasm_std::{
     attr, to_binary, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response, StdError,
     StdResult, WasmMsg,
 };
-
 use cw20::Cw20ExecuteMsg;
 use mirror_protocol::collector::{
     ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
@@ -209,15 +205,5 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
-    // migrate config
-    migrate_config(
-        deps.storage,
-        deps.api.addr_canonicalize(&msg.owner)?,
-        deps.api.addr_canonicalize(&msg.aust_token)?,
-        deps.api.addr_canonicalize(&msg.anchor_market)?,
-        deps.api.addr_canonicalize(&msg.bluna_token)?,
-        msg.bluna_swap_denom,
-    )?;
-
     Ok(Response::default())
 }

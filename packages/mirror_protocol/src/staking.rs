@@ -14,6 +14,7 @@ pub struct InstantiateMsg {
     pub terraswap_factory: String,
     pub base_denom: String,
     pub premium_min_update_interval: u64,
+    pub short_reward_contract: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -27,6 +28,7 @@ pub enum ExecuteMsg {
     UpdateConfig {
         owner: Option<String>,
         premium_min_update_interval: Option<u64>,
+        short_reward_contract: Option<String>,
     },
     RegisterAsset {
         asset_token: String,
@@ -120,6 +122,7 @@ pub struct ConfigResponse {
     pub terraswap_factory: String,
     pub base_denom: String,
     pub premium_min_update_interval: u64,
+    pub short_reward_contract: String,
 }
 
 // We define a custom struct for each query response

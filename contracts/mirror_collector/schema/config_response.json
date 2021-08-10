@@ -38,6 +38,9 @@
     "owner": {
       "type": "string"
     },
+    "owner": {
+      "$ref": "#/definitions/HumanAddr"
+    },
     "terraswap_factory": {
       "type": "string"
     }

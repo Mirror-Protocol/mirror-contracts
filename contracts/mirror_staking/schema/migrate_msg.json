@@ -4,15 +4,15 @@
   "description": "We currently take no arguments for migrations",
   "type": "object",
   "required": [
-    "base_denom",
-    "mint_contract",
-    "oracle_contract",
-    "premium_min_update_interval",
-    "terraswap_factory"
+    "network",
+    "short_reward_contract"
   ],
   "properties": {
     "base_denom": {
-      "type": "string"
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "mint_contract": {
       "type": "string"
@@ -21,12 +21,22 @@
       "type": "string"
     },
     "premium_min_update_interval": {
-      "type": "integer",
+      "type": [
+        "integer",
+        "null"
+      ],
       "format": "uint64",
       "minimum": 0.0
     },
     "terraswap_factory": {
       "type": "string"
+    },
+    "Network": {
+      "type": "string",
+      "enum": [
+        "mainnet",
+        "test_net"
+      ]
     }
   }
 }

@@ -30,7 +30,6 @@ pub fn instantiate(
         &Config {
             owner: deps.api.addr_canonicalize(&msg.owner)?,
             mint_contract: deps.api.addr_canonicalize(&msg.mint_contract)?,
-            factory_contract: deps.api.addr_canonicalize(&msg.factory_contract)?,
             base_denom: msg.base_denom,
             mirror_oracle: deps.api.addr_canonicalize(&msg.mirror_oracle)?,
             anchor_oracle: deps.api.addr_canonicalize(&msg.anchor_oracle)?,
@@ -52,7 +51,6 @@ pub fn execute(
         ExecuteMsg::UpdateConfig {
             owner,
             mint_contract,
-            factory_contract,
             base_denom,
             mirror_oracle,
             anchor_oracle,
@@ -62,7 +60,6 @@ pub fn execute(
             info,
             owner,
             mint_contract,
-            factory_contract,
             base_denom,
             mirror_oracle,
             anchor_oracle,
@@ -89,7 +86,6 @@ pub fn update_config(
     info: MessageInfo,
     owner: Option<String>,
     mint_contract: Option<String>,
-    factory_contract: Option<String>,
     base_denom: Option<String>,
     mirror_oracle: Option<String>,
     anchor_oracle: Option<String>,
@@ -106,10 +102,6 @@ pub fn update_config(
 
     if let Some(mint_contract) = mint_contract {
         config.mint_contract = deps.api.addr_canonicalize(&mint_contract)?;
-    }
-
-    if let Some(factory_contract) = factory_contract {
-        config.factory_contract = deps.api.addr_canonicalize(&factory_contract)?;
     }
 
     if let Some(base_denom) = base_denom {
@@ -229,7 +221,7 @@ pub fn update_collateral_multiplier(
     let config: Config = read_config(deps.storage)?;
     let sender_address_raw: CanonicalAddr = deps.api.addr_canonicalize(info.sender.as_str())?;
     // only factory contract can update collateral premium
-    if config.factory_contract != sender_address_raw {
+    if config.owner != sender_address_raw {
         return Err(StdError::generic_err("unauthorized"));
     }
 
@@ -254,7 +246,10 @@ pub fn update_collateral_multiplier(
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
-        QueryMsg::CollateralPrice { asset } => to_binary(&query_collateral_price(deps, asset)?),
+        QueryMsg::CollateralPrice {
+            asset,
+            block_height,
+        } => to_binary(&query_collateral_price(deps, asset, block_height)?),
         QueryMsg::CollateralAssetInfo { asset } => to_binary(&query_collateral_info(deps, asset)?),
         QueryMsg::CollateralAssetInfos {} => to_binary(&query_collateral_infos(deps)?),
     }
@@ -265,10 +260,6 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     let resp = ConfigResponse {
         owner: deps.api.addr_humanize(&config.owner)?.to_string(),
         mint_contract: deps.api.addr_humanize(&config.mint_contract)?.to_string(),
-        factory_contract: deps
-            .api
-            .addr_humanize(&config.factory_contract)?
-            .to_string(),
         base_denom: config.base_denom,
         mirror_oracle: deps.api.addr_humanize(&config.mirror_oracle)?.to_string(),
         anchor_oracle: deps.api.addr_humanize(&config.anchor_oracle)?.to_string(),
@@ -281,6 +272,7 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
 pub fn query_collateral_price(
     deps: Deps,
     quote_asset: String,
+    block_height: Option<u64>,
 ) -> StdResult<CollateralPriceResponse> {
     let config: Config = read_config(deps.storage)?;
 
@@ -292,7 +284,7 @@ pub fn query_collateral_price(
         };
 
     let (price, last_updated): (Decimal, u64) =
-        query_price(deps, &config, &quote_asset, &collateral.price_source)?;
+        query_price(deps, &config, &quote_asset, block_height, &collateral.price_source)?;
 
     Ok(CollateralPriceResponse {
         asset: collateral.asset,

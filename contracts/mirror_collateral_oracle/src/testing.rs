@@ -17,7 +17,6 @@ fn proper_initialization() {
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
         mint_contract: "mint0000".to_string(),
-        factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
         mirror_oracle: "mirrororacle0000".to_string(),
         anchor_oracle: "anchororacle0000".to_string(),
@@ -34,7 +33,6 @@ fn proper_initialization() {
     let value = query_config(deps.as_ref()).unwrap();
     assert_eq!("owner0000", value.owner.as_str());
     assert_eq!("mint0000", value.mint_contract.as_str());
-    assert_eq!("factory0000", value.factory_contract.as_str());
     assert_eq!("uusd", value.base_denom.as_str());
 }
 
@@ -45,7 +43,6 @@ fn update_config() {
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
         mint_contract: "mint0000".to_string(),
-        factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
         mirror_oracle: "mirrororacle0000".to_string(),
         anchor_oracle: "anchororacle0000".to_string(),
@@ -60,7 +57,6 @@ fn update_config() {
     let msg = ExecuteMsg::UpdateConfig {
         owner: Some("owner0001".to_string()),
         mint_contract: Some("mint0001".to_string()),
-        factory_contract: Some("factory0001".to_string()),
         base_denom: Some("uluna".to_string()),
         mirror_oracle: Some("mirrororacle0001".to_string()),
         anchor_oracle: Some("anchororacle0001".to_string()),
@@ -74,7 +70,6 @@ fn update_config() {
     let value = query_config(deps.as_ref()).unwrap();
     assert_eq!("owner0001", value.owner.as_str());
     assert_eq!("mint0001", value.mint_contract.as_str());
-    assert_eq!("factory0001", value.factory_contract.as_str());
     assert_eq!("uluna", value.base_denom.as_str());
     assert_eq!("mirrororacle0001", value.mirror_oracle.as_str());
     assert_eq!("anchororacle0001", value.anchor_oracle.as_str());
@@ -85,7 +80,6 @@ fn update_config() {
     let msg = ExecuteMsg::UpdateConfig {
         owner: None,
         mint_contract: None,
-        factory_contract: None,
         base_denom: None,
         mirror_oracle: None,
         anchor_oracle: None,
@@ -110,7 +104,6 @@ fn register_collateral() {
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
         mint_contract: "mint0000".to_string(),
-        factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
         mirror_oracle: "mirrororacle0000".to_string(),
         anchor_oracle: "anchororacle0000".to_string(),
@@ -162,7 +155,6 @@ fn update_collateral() {
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
         mint_contract: "mint0000".to_string(),
-        factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
         mirror_oracle: "mirrororacle0000".to_string(),
         anchor_oracle: "anchororacle0000".to_string(),
@@ -238,7 +230,7 @@ fn update_collateral() {
     };
 
     // invalid multiplier
-    let info = mock_info("factory0000", &[]);
+    let info = mock_info("owner0000", &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
     assert_eq!(
         res,
@@ -254,12 +246,12 @@ fn update_collateral() {
     };
 
     // unauthorized attempt
-    let info = mock_info("owner0000", &[]);
+    let info = mock_info("addr0000", &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
     assert_eq!(res, StdError::generic_err("unauthorized"));
 
     // successfull attempt
-    let info = mock_info("factory0000", &[]);
+    let info = mock_info("owner0000", &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(0, res.messages.len());
 
@@ -287,7 +279,6 @@ fn get_oracle_price() {
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
         mint_contract: "mint0000".to_string(),
-        factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
         mirror_oracle: "mirrororacle0000".to_string(),
         anchor_oracle: "anchororacle0000".to_string(),
@@ -307,9 +298,8 @@ fn get_oracle_price() {
 
     let info = mock_info("owner0000", &[]);
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-
     // attempt to query price
-    let query_res = query_collateral_price(deps.as_ref(), "mTSLA".to_string()).unwrap();
+    let query_res = query_collateral_price(deps.as_ref(), "mTSLA".to_string(), None).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
@@ -349,7 +339,6 @@ fn get_terraswap_price() {
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
         mint_contract: "mint0000".to_string(),
-        factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
         mirror_oracle: "mirrororacle0000".to_string(),
         anchor_oracle: "anchororacle0000".to_string(),
@@ -374,7 +363,7 @@ fn get_terraswap_price() {
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // attempt to query price
-    let query_res = query_collateral_price(deps.as_ref(), "anc0000".to_string()).unwrap();
+    let query_res = query_collateral_price(deps.as_ref(), "anc0000".to_string(), None).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
@@ -402,7 +391,7 @@ fn get_terraswap_price() {
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // attempt to query price
-    let query_res = query_collateral_price(deps.as_ref(), "bluna0000".to_string()).unwrap();
+    let query_res = query_collateral_price(deps.as_ref(), "bluna0000".to_string(), None).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
@@ -422,7 +411,6 @@ fn get_fixed_price() {
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
         mint_contract: "mint0000".to_string(),
-        factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
         mirror_oracle: "mirrororacle0000".to_string(),
         anchor_oracle: "anchororacle0000".to_string(),
@@ -446,7 +434,7 @@ fn get_fixed_price() {
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // attempt to query price
-    let query_res = query_collateral_price(deps.as_ref(), "aUST".to_string()).unwrap();
+    let query_res = query_collateral_price(deps.as_ref(), "aUST".to_string(), None).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
@@ -466,7 +454,6 @@ fn get_band_oracle_price() {
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
         mint_contract: "mint0000".to_string(),
-        factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
         mirror_oracle: "mirrororacle0000".to_string(),
         anchor_oracle: "anchororacle0000".to_string(),
@@ -488,7 +475,7 @@ fn get_band_oracle_price() {
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // attempt to query price
-    let query_res = query_collateral_price(deps.as_ref(), "uluna".to_string()).unwrap();
+    let query_res = query_collateral_price(deps.as_ref(), "uluna".to_string(), None).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
@@ -508,7 +495,6 @@ fn get_anchor_market_price() {
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
         mint_contract: "mint0000".to_string(),
-        factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
         mirror_oracle: "mirrororacle0000".to_string(),
         anchor_oracle: "anchororacle0000".to_string(),
@@ -532,7 +518,7 @@ fn get_anchor_market_price() {
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // attempt to query price
-    let query_res = query_collateral_price(deps.as_ref(), "aust0000".to_string()).unwrap();
+    let query_res = query_collateral_price(deps.as_ref(), "aust0000".to_string(), None).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
@@ -552,7 +538,6 @@ fn get_native_price() {
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
         mint_contract: "mint0000".to_string(),
-        factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
         mirror_oracle: "mirrororacle0000".to_string(),
         anchor_oracle: "anchororacle0000".to_string(),
@@ -576,7 +561,7 @@ fn get_native_price() {
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // attempt to query price
-    let query_res = query_collateral_price(deps.as_ref(), "uluna".to_string()).unwrap();
+    let query_res = query_collateral_price(deps.as_ref(), "uluna".to_string(), None).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
@@ -596,7 +581,6 @@ fn revoke_collateral() {
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
         mint_contract: "mint0000".to_string(),
-        factory_contract: "factory0000".to_string(),
         base_denom: "uusd".to_string(),
         mirror_oracle: "mirrororacle0000".to_string(),
         anchor_oracle: "anchororacle0000".to_string(),
@@ -620,7 +604,7 @@ fn revoke_collateral() {
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // attempt to query price
-    let query_res = query_collateral_price(deps.as_ref(), "aUST".to_string()).unwrap();
+    let query_res = query_collateral_price(deps.as_ref(), "aUST".to_string(), None).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
@@ -662,7 +646,7 @@ fn revoke_collateral() {
     );
 
     // attempt to query price of revoked asset
-    let query_res = query_collateral_price(deps.as_ref(), "aUST".to_string()).unwrap();
+    let query_res = query_collateral_price(deps.as_ref(), "aUST".to_string(), None).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {

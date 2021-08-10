@@ -6,7 +6,6 @@
     "anchor_oracle",
     "band_oracle",
     "base_denom",
-    "factory_contract",
     "mint_contract",
     "mirror_oracle",
     "owner"
@@ -19,9 +18,6 @@
       "type": "string"
     },
     "base_denom": {
-      "type": "string"
-    },
-    "factory_contract": {
       "type": "string"
     },
     "mint_contract": {

@@ -6,7 +6,7 @@ use cosmwasm_std::{
 use crate::{
     asserts::{
         assert_asset, assert_burn_period, assert_collateral, assert_migrated_asset,
-        assert_mint_period, assert_revoked_collateral,
+        assert_mint_period, assert_pre_ipo_collateral, assert_revoked_collateral,
     },
     math::{decimal_division, decimal_multiplication, decimal_subtraction, reverse_decimal},
     querier::{load_asset_price, load_collateral_info},
@@ -54,6 +54,7 @@ pub fn open_position(
             collateral_oracle,
             &collateral_info_raw,
             Some(env.block.time.nanos() / 1_000_000_000),
+            Some(env.block.height)
         )?)?;
 
     // assert asset migrated
@@ -66,8 +67,9 @@ pub fn open_position(
     let asset_config: AssetConfig = read_asset_config(deps.storage, &asset_token_raw)?;
     assert_migrated_asset(&asset_config)?;
 
-    // for assets with limited minting period (preIPO assets), assert minting phase
+    // for assets with limited minting period (preIPO assets), assert minting phase as well as pre-ipo collateral
     assert_mint_period(&env, &asset_config)?;
+    assert_pre_ipo_collateral(config.base_denom.clone(), &asset_config, &collateral.info)?;
 
     if collateral_ratio
         < decimal_multiplication(asset_config.min_collateral_ratio, collateral_multiplier)
@@ -236,6 +238,7 @@ pub fn deposit(
         collateral_oracle,
         &position.collateral.info,
         None,
+        None,
     )?)?;
 
     // assert asset migrated
@@ -315,6 +318,7 @@ pub fn withdraw(
         collateral_oracle,
         &position.collateral.info,
         Some(env.block.time.nanos() / 1_000_000_000),
+        Some(env.block.height)
     )?;
 
     // Compute new collateral amount
@@ -409,6 +413,7 @@ pub fn mint(
             collateral_oracle,
             &position.collateral.info,
             Some(env.block.time.nanos() / 1_000_000_000),
+            Some(env.block.height)
         )?)?;
 
     // for assets with limited minting period (preIPO assets), assert minting phase
@@ -585,6 +590,7 @@ pub fn burn(
         collateral_oracle,
         &position.collateral.info,
         Some(env.block.time.nanos() / 1_000_000_000),
+        Some(env.block.height),
     )?;
 
     // If the collateral is default denom asset and the asset is deprecated,
@@ -653,6 +659,29 @@ pub fn burn(
         if sender != position_owner {
             return Err(StdError::generic_err("unauthorized"));
         }
+        let oracle = deps.api.addr_humanize(&config.oracle)?;
+        let asset_price: Decimal = load_asset_price(
+            deps.as_ref(),
+            oracle,
+            &asset.info.to_raw(deps.api)?,
+            Some(env.block.time),
+        )?;
+        let collateral_price_in_asset: Decimal = decimal_division(asset_price, collateral_price);
+
+        // Subtract the protocol fee from the position's collateral
+        let protocol_fee = Asset {
+            info: collateral_info,
+            amount: burn_amount * collateral_price_in_asset * config.protocol_fee_rate,
+        };
+
+        if !protocol_fee.amount.is_zero() {
+            messages.push(protocol_fee.clone().into_msg(
+                &deps.querier,
+                deps.api.addr_humanize(&config.collector)?,
+            )?);
+            position.collateral.amount = position.collateral.amount.checked_sub(protocol_fee.amount)?
+        }
+        attributes.push(attr("protocol_fee", protocol_fee.to_string()));
 
         let oracle = deps.api.addr_humanize(&config.oracle)?;
         let asset_price: Decimal = load_asset_price(
@@ -780,6 +809,7 @@ pub fn auction(
         collateral_oracle,
         &position.collateral.info,
         Some(env.block.time.nanos() / 1_000_000_000),
+        Some(env.block.height)
     )?;
 
     // Compute collateral price in asset unit

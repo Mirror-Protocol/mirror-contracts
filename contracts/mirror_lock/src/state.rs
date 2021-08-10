@@ -1,5 +1,4 @@
 use cosmwasm_std::{CanonicalAddr, StdResult, Storage, Uint128};
-
 use cosmwasm_storage::{
     singleton, singleton_read, Bucket, ReadonlyBucket, ReadonlySingleton, Singleton,
 };

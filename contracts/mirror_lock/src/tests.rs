@@ -216,7 +216,7 @@ fn unlock_position_funds() {
     );
 
     let msg = ExecuteMsg::UnlockPositionFunds {
-        position_idx: Uint128(1u128),
+        positions_idx: vec![Uint128(1u128)],
     };
 
     // unauthorized attempt
@@ -263,7 +263,52 @@ fn unlock_position_funds() {
     let res = execute(deps.as_mut(), env, info, msg.clone()).unwrap_err();
     assert_eq!(
         res,
-        StdError::generic_err("There are no locked funds for this position idx")
+        StdError::generic_err("There are no unlockable funds for the provided positions")
+    );
+
+    // lock 2 different positions
+    let msg = ExecuteMsg::LockPositionFundsHook {
+        position_idx: Uint128::from(2u128),
+        receiver: "addr0000".to_string(),
+    };
+    let env = mock_env_with_block_time("mint0000", &[], 1u64);
+    deps.querier.with_bank_balance(
+        &MOCK_CONTRACT_ADDR.to_string(),
+        vec![Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(100u128), // lock 100uusd
+        }],
+    );
+    execute(&mut deps, env, msg.clone()).unwrap();
+
+    let msg = ExecuteMsg::LockPositionFundsHook {
+        position_idx: Uint128(3u128),
+        receiver: "addr0000".to_string(),
+    };
+    let env = mock_env_with_block_time(2u64);
+    let info = mock_info("mint0000", &[]);
+    deps.querier.with_bank_balance(
+        &MOCK_CONTRACT_ADDR.to_string(),
+        vec![Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(300u128), // lock 200uusd
+        }],
+    );
+    execute(deps.as_mut(), env, msg).unwrap();
+
+    // unlock both positions
+    let msg = ExecuteMsg::UnlockPositionFunds {
+        positions_idx: vec![Uint128(2u128), Uint128(3u128)],
+    };
+    let env = mock_env_with_block_time("addr0000", &[], 102);
+    let res = execute(deps.as_mut(), env.clone(), msg.clone()).unwrap();
+    assert_eq!(
+        res.attributes,
+        vec![
+            attr("action", "unlock_shorting_funds"),
+            attr("unlocked_amount", "300uusd"),
+            attr("tax_amount", "3uusd"),
+        ]
     );
 }
 

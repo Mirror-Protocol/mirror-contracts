@@ -1,9 +1,7 @@
 pub mod contract;
-pub mod state;
-
-mod migrate;
 mod querier;
 mod staking;
+pub mod state;
 
 #[cfg(test)]
 mod tests;

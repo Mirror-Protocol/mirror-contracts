@@ -167,7 +167,17 @@
       ],
       "properties": {
         "withdraw_voting_rewards": {
-          "type": "object"
+          "type": "object",
+          "properties": {
+            "poll_id": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          }
         }
       },
       "additionalProperties": false
@@ -179,7 +189,17 @@
       ],
       "properties": {
         "stake_voting_rewards": {
-          "type": "object"
+          "type": "object",
+          "properties": {
+            "poll_id": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          }
         }
       },
       "additionalProperties": false

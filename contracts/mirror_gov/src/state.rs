@@ -17,6 +17,9 @@ static PREFIX_POLL_VOTER: &[u8] = b"poll_voter";
 static PREFIX_POLL: &[u8] = b"poll";
 static PREFIX_BANK: &[u8] = b"bank";
 
+const MAX_LIMIT: u32 = 30;
+const DEFAULT_LIMIT: u32 = 10;
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
     pub owner: CanonicalAddr,
@@ -55,7 +58,7 @@ pub struct Poll {
     pub yes_votes: Uint128,
     pub no_votes: Uint128,
     pub abstain_votes: Uint128,
-    pub end_height: u64,
+    pub end_time: u64,
     pub title: String,
     pub description: String,
     pub link: Option<String>,
@@ -140,8 +143,6 @@ pub fn read_poll_voters<'a>(
         .collect()
 }
 
-const MAX_LIMIT: u32 = 30;
-const DEFAULT_LIMIT: u32 = 10;
 pub fn read_polls<'a>(
     storage: &'a dyn Storage,
     filter: Option<PollStatus>,
@@ -194,6 +195,29 @@ pub fn bank_store(storage: &mut dyn Storage) -> Bucket<TokenManager> {
 
 pub fn bank_read(storage: &dyn Storage) -> ReadonlyBucket<TokenManager> {
     bucket_read(storage, PREFIX_BANK)
+}
+
+pub fn read_bank_stakers<'a>(
+    storage: &'a dyn Storage,
+    start_after: Option<CanonicalAddr>,
+    limit: Option<u32>,
+    order_by: Option<OrderBy>,
+) -> StdResult<Vec<(CanonicalAddr, TokenManager)>> {
+    let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
+    let (start, end, order_by) = match order_by {
+        Some(OrderBy::Asc) => (calc_range_start_addr(start_after), None, OrderBy::Asc),
+        _ => (None, calc_range_end_addr(start_after), OrderBy::Desc),
+    };
+
+    let stakers: ReadonlyBucket<'a, TokenManager> = ReadonlyBucket::new(storage, PREFIX_BANK);
+    stakers
+        .range(start.as_deref(), end.as_deref(), order_by.into())
+        .take(limit)
+        .map(|item| {
+            let (k, v) = item?;
+            Ok((CanonicalAddr::from(k), v))
+        })
+        .collect()
 }
 
 // this will set the first key after the provided key, by appending a 1 byte
