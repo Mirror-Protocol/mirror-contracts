@@ -51,6 +51,7 @@ pub enum QueryMsg {
     Config {},
     CollateralPrice {
         asset: String,
+        block_height: Option<u64>, // needed for aUST rate
     },
     CollateralAssetInfo {
         asset: String,

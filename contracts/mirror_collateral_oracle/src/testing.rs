@@ -298,7 +298,7 @@ fn get_oracle_price() {
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // attempt to query price
-    let query_res = query_collateral_price(&deps, "mTSLA".to_string()).unwrap();
+    let query_res = query_collateral_price(&deps, "mTSLA".to_string(), None).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
@@ -362,7 +362,7 @@ fn get_terraswap_price() {
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // attempt to query price
-    let query_res = query_collateral_price(&deps, "anc0000".to_string()).unwrap();
+    let query_res = query_collateral_price(&deps, "anc0000".to_string(), None).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
@@ -390,7 +390,7 @@ fn get_terraswap_price() {
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // attempt to query price
-    let query_res = query_collateral_price(&deps, "bluna0000".to_string()).unwrap();
+    let query_res = query_collateral_price(&deps, "bluna0000".to_string(), None).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
@@ -433,7 +433,7 @@ fn get_fixed_price() {
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // attempt to query price
-    let query_res = query_collateral_price(&deps, "aUST".to_string()).unwrap();
+    let query_res = query_collateral_price(&deps, "aUST".to_string(), None).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
@@ -474,7 +474,7 @@ fn get_band_oracle_price() {
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // attempt to query price
-    let query_res = query_collateral_price(&deps, "uluna".to_string()).unwrap();
+    let query_res = query_collateral_price(&deps, "uluna".to_string(), None).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
@@ -517,7 +517,7 @@ fn get_anchor_market_price() {
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // attempt to query price
-    let query_res = query_collateral_price(&deps, "aust0000".to_string()).unwrap();
+    let query_res = query_collateral_price(&deps, "aust0000".to_string(), None).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
@@ -560,7 +560,7 @@ fn get_native_price() {
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // attempt to query price
-    let query_res = query_collateral_price(&deps, "uluna".to_string()).unwrap();
+    let query_res = query_collateral_price(&deps, "uluna".to_string(), None).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
@@ -603,7 +603,7 @@ fn revoke_collateral() {
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // attempt to query price
-    let query_res = query_collateral_price(&deps, "aUST".to_string()).unwrap();
+    let query_res = query_collateral_price(&deps, "aUST".to_string(), None).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
@@ -645,7 +645,7 @@ fn revoke_collateral() {
     );
 
     // attempt to query price of revoked asset
-    let query_res = query_collateral_price(&deps, "aUST".to_string()).unwrap();
+    let query_res = query_collateral_price(&deps, "aUST".to_string(), None).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {

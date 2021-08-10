@@ -1,5 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "MigrateMsg",
-  "type": "object"
+  "title": "HandleMsg",
+  "type": "string",
+  "enum": []
 }

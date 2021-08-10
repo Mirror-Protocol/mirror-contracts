@@ -1,7 +1,7 @@
 use crate::querier::load_token_balance;
 use crate::staking::{
-    deposit_reward, query_staker, stake_voting_rewards, stake_voting_tokens,
-    withdraw_voting_rewards, withdraw_voting_tokens, query_shares,
+    deposit_reward, query_shares, query_staker, stake_voting_rewards, stake_voting_tokens,
+    withdraw_voting_rewards, withdraw_voting_tokens,
 };
 use crate::state::{
     bank_read, bank_store, config_read, config_store, poll_indexer_store, poll_read, poll_store,
@@ -10,13 +10,13 @@ use crate::state::{
 };
 
 use cosmwasm_std::{
-    from_binary, log, to_binary, Api, Binary, CosmosMsg, Decimal, Env, Extern, HandleResponse,
-    HandleResult, HumanAddr, InitResponse, InitResult, MigrateResponse, MigrateResult, Querier,
-    StdError, StdResult, Storage, Uint128, WasmMsg,
+    from_binary, log, to_binary, Api, Binary, CanonicalAddr, CosmosMsg, Decimal, Env, Extern,
+    HandleResponse, HandleResult, HumanAddr, InitResponse, InitResult, MigrateResponse,
+    MigrateResult, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
 
-use mirror_protocol::common::{Network, OrderBy};
+use mirror_protocol::common::OrderBy;
 use mirror_protocol::gov::{
     ConfigResponse, Cw20HookMsg, ExecuteMsg, HandleMsg, InitMsg, MigrateMsg, PollResponse,
     PollStatus, PollsResponse, QueryMsg, StateResponse, VoteOption, VoterInfo, VotersResponse,
@@ -98,8 +98,8 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             snapshot_period,
         ),
         HandleMsg::WithdrawVotingTokens { amount } => withdraw_voting_tokens(deps, env, amount),
-        HandleMsg::WithdrawVotingRewards {} => withdraw_voting_rewards(deps, env),
-        HandleMsg::StakeVotingRewards {} => stake_voting_rewards(deps, env),
+        HandleMsg::WithdrawVotingRewards { poll_id } => withdraw_voting_rewards(deps, env, poll_id),
+        HandleMsg::StakeVotingRewards { poll_id } => stake_voting_rewards(deps, env, poll_id),
         HandleMsg::CastVote {
             poll_id,
             vote,
@@ -730,6 +730,7 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
             limit,
             order_by,
         } => to_binary(&query_polls(deps, filter, start_after, limit, order_by)?),
+        QueryMsg::Voter { poll_id, address } => to_binary(&query_voter(deps, poll_id, address)?),
         QueryMsg::Voters {
             poll_id,
             start_after,
@@ -851,6 +852,21 @@ fn query_polls<S: Storage, A: Api, Q: Querier>(
     })
 }
 
+fn query_voter<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    poll_id: u64,
+    address: HumanAddr,
+) -> StdResult<VotersResponseItem> {
+    let address_raw: CanonicalAddr = deps.api.canonical_address(&address)?;
+    let voter: VoterInfo = poll_voter_read(&deps.storage, poll_id).load(&address_raw.as_slice())?;
+
+    Ok(VotersResponseItem {
+        voter: address,
+        vote: voter.vote,
+        balance: voter.balance,
+    })
+}
+
 fn query_voters<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     poll_id: u64,
@@ -858,15 +874,7 @@ fn query_voters<S: Storage, A: Api, Q: Querier>(
     limit: Option<u32>,
     order_by: Option<OrderBy>,
 ) -> StdResult<VotersResponse> {
-    let poll: Poll = match poll_read(&deps.storage).may_load(&poll_id.to_be_bytes())? {
-        Some(poll) => Some(poll),
-        None => return Err(StdError::generic_err("Poll does not exist")),
-    }
-    .unwrap();
-
-    let voters = if poll.status != PollStatus::InProgress {
-        vec![]
-    } else if let Some(start_after) = start_after {
+    let voters = if let Some(start_after) = start_after {
         read_poll_voters(
             &deps.storage,
             poll_id,
@@ -894,36 +902,10 @@ fn query_voters<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-use crate::migrate::{migrate_config, migrate_polls, migrate_state};
 pub fn migrate<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    msg: MigrateMsg,
+    _deps: &mut Extern<S, A, Q>,
+    _env: Env,
+    _msg: MigrateMsg,
 ) -> MigrateResult {
-    match msg.network {
-        Network::Mainnet => {
-            if msg.voter_weight.is_none()
-                || msg.snapshot_period.is_none()
-                || msg.voting_period.is_none()
-                || msg.effective_delay.is_none()
-                || msg.expiration_period.is_none()
-            {
-                return Err(StdError::generic_err("For mainnet migration, need to specify: 'voter_weight','snapshot_period','voting_period','effective_delay','expiration_period'"));
-            }
-
-            // migrations for voting rewards, abstain votes and new time unit
-            migrate_config(
-                &mut deps.storage,
-                msg.voter_weight.unwrap(),
-                msg.snapshot_period.unwrap(),
-                msg.voting_period.unwrap(),
-                msg.effective_delay.unwrap(),
-                msg.expiration_period.unwrap(),
-            )?;
-            migrate_state(&mut deps.storage)?;
-            migrate_polls(&mut deps.storage, env)?;
-        }
-        Network::Testnet => {}
-    }
     Ok(MigrateResponse::default())
 }

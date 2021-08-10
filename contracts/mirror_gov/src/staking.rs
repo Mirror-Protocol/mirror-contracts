@@ -131,26 +131,34 @@ fn compute_locked_balance<S: Storage, A: Api, Q: Querier>(
     token_manager: &mut TokenManager,
     voter: &CanonicalAddr,
 ) -> StdResult<u128> {
-    // filter out not in-progress polls
-    token_manager.locked_balance.retain(|(poll_id, _)| {
-        let poll: Poll = poll_read(&deps.storage)
-            .load(&poll_id.to_be_bytes())
-            .unwrap();
-
-        // cleanup not needed information, voting info in polls with no rewards
-        if poll.status != PollStatus::InProgress && poll.voters_reward.is_zero() {
-            poll_voter_store(&mut deps.storage, *poll_id).remove(&voter.as_slice());
-        }
-
-        poll.status == PollStatus::InProgress
-    });
-
-    Ok(token_manager
+    // filter out not in-progress polls and get max locked
+    let mut lock_entries_to_remove: Vec<u64> = vec![];
+    let max_locked = token_manager
         .locked_balance
         .iter()
+        .filter(|(poll_id, _)| {
+            let poll: Poll = poll_read(&deps.storage)
+                .load(&poll_id.to_be_bytes())
+                .unwrap();
+
+            // cleanup not needed information, voting info in polls with no rewards
+            if poll.status != PollStatus::InProgress && poll.voters_reward.is_zero() {
+                poll_voter_store(&mut deps.storage, *poll_id).remove(&voter.as_slice());
+                lock_entries_to_remove.push(*poll_id);
+            }
+
+            poll.status == PollStatus::InProgress
+        })
         .map(|(_, v)| v.balance.u128())
         .max()
-        .unwrap_or_default())
+        .unwrap_or_default();
+
+    // cleanup, check if there was any voter info removed
+    token_manager
+        .locked_balance
+        .retain(|(poll_id, _)| !lock_entries_to_remove.contains(poll_id));
+
+    Ok(max_locked)
 }
 
 pub fn deposit_reward<S: Storage, A: Api, Q: Querier>(
@@ -212,20 +220,31 @@ pub fn deposit_reward<S: Storage, A: Api, Q: Querier>(
 pub fn withdraw_voting_rewards<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
+    poll_id: Option<u64>,
 ) -> HandleResult {
     let config: Config = config_store(&mut deps.storage).load()?;
     let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
     let key = sender_address_raw.as_slice();
 
-    let token_manager = bank_read(&deps.storage)
+    let mut token_manager = bank_read(&deps.storage)
         .load(key)
         .or(Err(StdError::generic_err("Nothing staked")))?;
 
-    let user_reward_amount: u128 =
-        withdraw_user_voting_rewards(&mut deps.storage, &sender_address_raw, &token_manager);
+    let (user_reward_amount, w_polls) = withdraw_user_voting_rewards(
+        &mut deps.storage,
+        &sender_address_raw,
+        &token_manager,
+        poll_id,
+    )?;
     if user_reward_amount.eq(&0u128) {
         return Err(StdError::generic_err("Nothing to withdraw"));
     }
+
+    // cleanup, remove from locked_balance the polls from which we withdrew the rewards
+    token_manager
+        .locked_balance
+        .retain(|(poll_id, _)| !w_polls.contains(poll_id));
+    bank_store(&mut deps.storage).save(key, &token_manager)?;
 
     state_store(&mut deps.storage).update(|mut state| {
         state.pending_voting_rewards =
@@ -245,6 +264,7 @@ pub fn withdraw_voting_rewards<S: Storage, A: Api, Q: Querier>(
 pub fn stake_voting_rewards<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
+    poll_id: Option<u64>,
 ) -> HandleResult {
     let config: Config = config_store(&mut deps.storage).load()?;
     let mut state: State = state_store(&mut deps.storage).load()?;
@@ -255,8 +275,12 @@ pub fn stake_voting_rewards<S: Storage, A: Api, Q: Querier>(
         .load(key)
         .or(Err(StdError::generic_err("Nothing staked")))?;
 
-    let user_reward_amount: u128 =
-        withdraw_user_voting_rewards(&mut deps.storage, &sender_address_raw, &token_manager);
+    let (user_reward_amount, w_polls) = withdraw_user_voting_rewards(
+        &mut deps.storage,
+        &sender_address_raw,
+        &token_manager,
+        poll_id,
+    )?;
     if user_reward_amount.eq(&0u128) {
         return Err(StdError::generic_err("Nothing to withdraw"));
     }
@@ -280,6 +304,11 @@ pub fn stake_voting_rewards<S: Storage, A: Api, Q: Querier>(
     token_manager.share += share;
     state.total_share += share;
 
+    // cleanup, remove from locked_balance the polls from which we withdrew the rewards
+    token_manager
+        .locked_balance
+        .retain(|(poll_id, _)| !w_polls.contains(poll_id));
+
     state_store(&mut deps.storage).save(&state)?;
     bank_store(&mut deps.storage).save(key, &token_manager)?;
 
@@ -299,9 +328,22 @@ fn withdraw_user_voting_rewards<S: Storage>(
     storage: &mut S,
     user_address: &CanonicalAddr,
     token_manager: &TokenManager,
-) -> u128 {
-    let w_polls: Vec<(Poll, VoterInfo)> =
-        get_withdrawable_polls(storage, token_manager, user_address);
+    poll_id: Option<u64>,
+) -> StdResult<(u128, Vec<u64>)> {
+    let w_polls: Vec<(Poll, VoterInfo)> = match poll_id {
+        Some(poll_id) => {
+            let poll: Poll = poll_read(storage).load(&poll_id.to_be_bytes())?;
+            let voter_info = poll_voter_read(storage, poll_id).load(&user_address.as_slice())?;
+            if poll.status == PollStatus::InProgress {
+                return Err(StdError::generic_err("This poll is still in progress"));
+            }
+            if poll.voters_reward.is_zero() {
+                return Err(StdError::generic_err("This poll has no voting rewards"));
+            }
+            vec![(poll, voter_info)]
+        }
+        None => get_withdrawable_polls(storage, token_manager, user_address),
+    };
     let user_reward_amount: u128 = w_polls
         .iter()
         .map(|(poll, voting_info)| {
@@ -317,7 +359,10 @@ fn withdraw_user_voting_rewards<S: Storage>(
             poll_voting_reward.u128()
         })
         .sum();
-    user_reward_amount
+    Ok((
+        user_reward_amount,
+        w_polls.iter().map(|(poll, _)| poll.id).collect(),
+    ))
 }
 
 fn get_withdrawable_polls<S: Storage>(
