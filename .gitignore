@@ -17,3 +17,5 @@ contracts/hackatom/hash.txt
 
 # Auto-gen
 .cargo-ok
+
+artifacts
