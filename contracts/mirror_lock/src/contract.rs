@@ -1,11 +1,10 @@
-#[cfg(not(feature = "library"))]
-use cosmwasm_std::entry_point;
-
 use crate::state::{
     read_config, read_position_lock_info, remove_position_lock_info, store_config,
     store_position_lock_info, total_locked_funds_read, total_locked_funds_store, Config,
     PositionLockInfo,
 };
+#[cfg(not(feature = "library"))]
+use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     attr, to_binary, Binary, CanonicalAddr, Deps, DepsMut, Env, MessageInfo, Response, StdError,
     StdResult, Uint128,
@@ -90,12 +89,7 @@ pub fn update_config(
     }
 
     store_config(deps.storage, &config)?;
-    Ok(Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: vec![attr("action", "update_config")],
-        data: None,
-    })
+    Ok(Response::new().add_attribute("action", "update_config"))
 }
 
 pub fn lock_position_funds_hook(
@@ -151,24 +145,19 @@ pub fn lock_position_funds_hook(
     store_position_lock_info(deps.storage, &lock_info)?;
     total_locked_funds_store(deps.storage).save(&current_balance)?;
 
-    Ok(Response {
-        attributes: vec![
-            attr("action", "lock_position_funds_hook"),
-            attr("position_idx", position_idx.to_string()),
-            attr(
-                "locked_amount",
-                position_locked_amount.to_string() + &config.base_denom,
-            ),
-            attr(
-                "total_locked_amount",
-                lock_info.locked_amount.to_string() + &config.base_denom,
-            ),
-            attr("unlock_time", unlock_time),
-        ],
-        messages: vec![],
-        submessages: vec![],
-        data: None,
-    })
+    Ok(Response::new().add_attributes(vec![
+        attr("action", "lock_position_funds_hook"),
+        attr("position_idx", position_idx.to_string()),
+        attr(
+            "locked_amount",
+            position_locked_amount.to_string() + &config.base_denom,
+        ),
+        attr(
+            "total_locked_amount",
+            lock_info.locked_amount.to_string() + &config.base_denom,
+        ),
+        attr("unlock_time", unlock_time.to_string()),
+    ]))
 }
 
 pub fn unlock_positions_funds(
@@ -184,7 +173,8 @@ pub fn unlock_positions_funds(
         .iter()
         .filter_map(|position_idx| read_position_lock_info(deps.storage, *position_idx).ok())
         .filter(|lock_info| {
-            lock_info.receiver == sender_addr_raw && env.block.time.nanos() / 1_000_000_000 >= lock_info.unlock_time
+            lock_info.receiver == sender_addr_raw
+                && env.block.time.nanos() / 1_000_000_000 >= lock_info.unlock_time
         })
         .collect();
 
@@ -196,7 +186,6 @@ pub fn unlock_positions_funds(
             valid_lock_info.locked_amount.u128()
         })
         .sum();
-    
 
     let unlock_asset = Asset {
         info: AssetInfo::NativeToken {
@@ -214,24 +203,19 @@ pub fn unlock_positions_funds(
     // decrease locked amount
     total_locked_funds_store(deps.storage).update(|current| {
         current
-            .checked_sub(unlock_amount)
+            .checked_sub(Uint128::from(unlock_amount))
             .map_err(StdError::overflow)
     })?;
 
     let tax_amount: Uint128 = unlock_asset.compute_tax(&deps.querier)?;
 
-    Ok(Response {
-        attributes: vec![
+    Ok(Response::new()
+        .add_attributes(vec![
             attr("action", "unlock_shorting_funds"),
             attr("unlocked_amount", unlock_asset.to_string()),
             attr("tax_amount", tax_amount.to_string() + &config.base_denom),
-        ],
-        messages: vec![
-            unlock_asset.into_msg(&deps.querier, info.message.sender)?
-        ],
-        submessages: vec![],
-        data: None,
-    })
+        ])
+        .add_message(unlock_asset.into_msg(&deps.querier, info.sender)?))
 }
 
 pub fn release_position_funds(
@@ -275,19 +259,16 @@ pub fn release_position_funds(
 
     let tax_amount: Uint128 = unlock_asset.compute_tax(&deps.querier)?;
 
-    Ok(Response {
-        attributes: vec![
+    Ok(Response::new()
+        .add_attributes(vec![
             attr("action", "release_shorting_funds"),
             attr("position_idx", position_idx.to_string()),
             attr("unlocked_amount", unlock_asset.to_string()),
             attr("tax_amount", tax_amount.to_string() + &config.base_denom),
-        ],
-        messages: vec![
-            unlock_asset.into_msg(&deps.querier, deps.api.addr_humanize(&lock_info.receiver)?)?
-        ],
-        submessages: vec![],
-        data: None,
-    })
+        ])
+        .add_message(
+            unlock_asset.into_msg(&deps.querier, deps.api.addr_humanize(&lock_info.receiver)?)?,
+        ))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

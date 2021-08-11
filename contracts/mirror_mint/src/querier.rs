@@ -1,33 +1,25 @@
-use cosmwasm_std::{
-    to_binary, Addr, Binary, CanonicalAddr, Decimal, Deps, QueryRequest, StdError, StdResult,
-    WasmQuery,
-};
-use cosmwasm_storage::to_length_prefixed;
+use cosmwasm_std::{to_binary, Addr, Decimal, Deps, QueryRequest, StdError, StdResult, WasmQuery};
 
 use crate::state::{read_config, read_fixed_price, Config};
 use mirror_protocol::collateral_oracle::{
     CollateralPriceResponse, QueryMsg as CollateralOracleQueryMsg,
 };
-use mirror_protocol::oracle::{PriceResponse, QueryMsg as OracleQueryMsg};
+use mirror_protocol::oracle::{FeederResponse, PriceResponse, QueryMsg as OracleQueryMsg};
 use terraswap::asset::AssetInfoRaw;
 
 const PRICE_EXPIRE_TIME: u64 = 60;
 
-pub fn load_oracle_feeder(
-    deps: Deps,
-    contract_addr: Addr,
-    asset_token: &CanonicalAddr,
-) -> StdResult<CanonicalAddr> {
-    let res: StdResult<CanonicalAddr> = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
-        contract_addr: contract_addr.to_string(),
-        key: Binary::from(concat(
-            &to_length_prefixed(b"feeder"),
-            asset_token.as_slice(),
-        )),
-    }));
+pub fn load_oracle_feeder(deps: Deps, contract_addr: Addr, asset_token: Addr) -> StdResult<Addr> {
+    let res: StdResult<FeederResponse> =
+        deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+            contract_addr: contract_addr.to_string(),
+            msg: to_binary(&OracleQueryMsg::Feeder {
+                asset_token: asset_token.to_string(),
+            })?,
+        }));
 
-    let feeder: CanonicalAddr = match res {
-        Ok(v) => v,
+    let feeder: Addr = match res {
+        Ok(v) => deps.api.addr_validate(v.feeder.as_str())?,
         Err(_) => {
             return Err(StdError::generic_err("Failed to fetch the oracle feeder"));
         }
@@ -84,14 +76,24 @@ pub fn load_collateral_info(
     if let Some(end_price) = end_price {
         // load collateral_multiplier from collateral oracle
         // if asset is revoked, no need to check for old price
-        let (_, collateral_multiplier, _) =
-            query_collateral(deps, collateral_oracle, collateral_denom, None, block_height)?;
+        let (_, collateral_multiplier, _) = query_collateral(
+            deps,
+            collateral_oracle,
+            collateral_denom,
+            None,
+            block_height,
+        )?;
 
         Ok((end_price, collateral_multiplier, true))
     } else {
         // load collateral info from collateral oracle
-        let (collateral_oracle_price, collateral_multiplier, is_revoked) =
-            query_collateral(deps, collateral_oracle, collateral_denom, block_time, block_height)?;
+        let (collateral_oracle_price, collateral_multiplier, is_revoked) = query_collateral(
+            deps,
+            collateral_oracle,
+            collateral_denom,
+            block_time,
+            block_height,
+        )?;
 
         Ok((collateral_oracle_price, collateral_multiplier, is_revoked))
     }
@@ -134,7 +136,10 @@ pub fn query_collateral(
     let res: CollateralPriceResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
             contract_addr: collateral_oracle.to_string(),
-            msg: to_binary(&CollateralOracleQueryMsg::CollateralPrice { asset, block_height })?,
+            msg: to_binary(&CollateralOracleQueryMsg::CollateralPrice {
+                asset,
+                block_height,
+            })?,
         }))?;
 
     if let Some(block_time) = block_time {
@@ -144,11 +149,4 @@ pub fn query_collateral(
     }
 
     Ok((res.rate, res.multiplier, res.is_revoked))
-}
-
-#[inline]
-fn concat(namespace: &[u8], key: &[u8]) -> Vec<u8> {
-    let mut k = namespace.to_vec();
-    k.extend_from_slice(key);
-    k
 }

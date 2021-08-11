@@ -54,7 +54,7 @@ pub fn open_position(
             collateral_oracle,
             &collateral_info_raw,
             Some(env.block.time.nanos() / 1_000_000_000),
-            Some(env.block.height)
+            Some(env.block.height),
         )?)?;
 
     // assert asset migrated
@@ -146,7 +146,7 @@ pub fn open_position(
         vec![
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: asset_token.clone(),
-                send: vec![],
+                funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Mint {
                     recipient: env.contract.address.to_string(),
                     amount: mint_amount,
@@ -154,20 +154,20 @@ pub fn open_position(
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: asset_token.clone(),
-                send: vec![],
+                funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Send {
                     contract: pair_info.contract_addr.to_string(),
                     amount: mint_amount,
-                    msg: Some(to_binary(&PairCw20HookMsg::Swap {
+                    msg: to_binary(&PairCw20HookMsg::Swap {
                         belief_price: short_params.belief_price,
                         max_spread: short_params.max_spread,
                         to: Some(lock_contract.clone()),
-                    })?),
+                    })?,
                 })?,
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: lock_contract,
-                send: vec![],
+                funds: vec![],
                 msg: to_binary(&LockExecuteMsg::LockPositionFundsHook {
                     position_idx,
                     receiver: sender.to_string(),
@@ -175,7 +175,7 @@ pub fn open_position(
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: deps.api.addr_humanize(&config.staking)?.to_string(),
-                send: vec![],
+                funds: vec![],
                 msg: to_binary(&StakingExecuteMsg::IncreaseShortToken {
                     asset_token,
                     staker_addr: sender.to_string(),
@@ -187,7 +187,7 @@ pub fn open_position(
         is_short = false;
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: asset_token,
-            send: vec![],
+            funds: vec![],
             msg: to_binary(&Cw20ExecuteMsg::Mint {
                 recipient: sender.to_string(),
                 amount: mint_amount,
@@ -195,11 +195,9 @@ pub fn open_position(
         })]
     };
 
-    store_position_idx(deps.storage, position_idx + Uint128(1u128))?;
-    Ok(Response {
-        messages,
-        submessages: vec![],
-        attributes: vec![
+    store_position_idx(deps.storage, position_idx + Uint128::from(1u128))?;
+    Ok(Response::new()
+        .add_attributes(vec![
             attr("action", "open_position"),
             attr("position_idx", position_idx.to_string()),
             attr(
@@ -207,10 +205,9 @@ pub fn open_position(
                 mint_amount.to_string() + &asset_info.to_string(),
             ),
             attr("collateral_amount", collateral.to_string()),
-            attr("is_short", is_short),
-        ],
-        data: None,
-    })
+            attr("is_short", is_short.to_string()),
+        ])
+        .add_messages(messages))
 }
 
 pub fn deposit(
@@ -253,16 +250,11 @@ pub fn deposit(
     position.collateral.amount += collateral.amount;
     store_position(deps.storage, position_idx, &position)?;
 
-    Ok(Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: vec![
-            attr("action", "deposit"),
-            attr("position_idx", position_idx.to_string()),
-            attr("deposit_amount", collateral.to_string()),
-        ],
-        data: None,
-    })
+    Ok(Response::new().add_attributes(vec![
+        attr("action", "deposit"),
+        attr("position_idx", position_idx.to_string()),
+        attr("deposit_amount", collateral.to_string()),
+    ]))
 }
 
 pub fn withdraw(
@@ -318,7 +310,7 @@ pub fn withdraw(
         collateral_oracle,
         &position.collateral.info,
         Some(env.block.time.nanos() / 1_000_000_000),
-        Some(env.block.height)
+        Some(env.block.height),
     )?;
 
     // Compute new collateral amount
@@ -345,7 +337,7 @@ pub fn withdraw(
         if is_short_position(deps.storage, position_idx)? {
             messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: deps.api.addr_humanize(&config.lock)?.to_string(),
-                send: vec![],
+                funds: vec![],
                 msg: to_binary(&LockExecuteMsg::ReleasePositionFunds { position_idx })?,
             }));
         }
@@ -357,14 +349,15 @@ pub fn withdraw(
     // Compute tax amount
     let tax_amount = collateral.compute_tax(&deps.querier)?;
 
-    Ok(Response {
-        messages: vec![
-            vec![collateral.clone().into_msg(&deps.querier, position_owner)?],
-            messages,
-        ]
-        .concat(),
-        submessages: vec![],
-        attributes: vec![
+    Ok(Response::new()
+        .add_messages(
+            vec![
+                vec![collateral.clone().into_msg(&deps.querier, position_owner)?],
+                messages,
+            ]
+            .concat(),
+        )
+        .add_attributes(vec![
             attr("action", "withdraw"),
             attr("position_idx", position_idx.to_string()),
             attr("withdraw_amount", collateral.to_string()),
@@ -372,9 +365,7 @@ pub fn withdraw(
                 "tax_amount",
                 tax_amount.to_string() + &collateral.info.to_string(),
             ),
-        ],
-        data: None,
-    })
+        ]))
 }
 
 pub fn mint(
@@ -413,7 +404,7 @@ pub fn mint(
             collateral_oracle,
             &position.collateral.info,
             Some(env.block.time.nanos() / 1_000_000_000),
-            Some(env.block.height)
+            Some(env.block.height),
         )?)?;
 
     // for assets with limited minting period (preIPO assets), assert minting phase
@@ -473,7 +464,7 @@ pub fn mint(
         vec![
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: asset_token.to_string(),
-                send: vec![],
+                funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Mint {
                     recipient: env.contract.address.to_string(),
                     amount: mint_amount,
@@ -481,11 +472,11 @@ pub fn mint(
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: asset_token.to_string(),
-                send: vec![],
+                funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Send {
                     contract: pair_info.contract_addr.to_string(),
                     amount: mint_amount,
-                    msg: Some(to_binary(
+                    msg: to_binary(
                         &(if let Some(short_params) = short_params {
                             PairCw20HookMsg::Swap {
                                 belief_price: short_params.belief_price,
@@ -499,12 +490,12 @@ pub fn mint(
                                 to: Some(lock_contract.to_string()),
                             }
                         }),
-                    )?),
+                    )?,
                 })?,
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: lock_contract.to_string(),
-                send: vec![],
+                funds: vec![],
                 msg: to_binary(&LockExecuteMsg::LockPositionFundsHook {
                     position_idx,
                     receiver: position_owner.to_string(),
@@ -512,7 +503,7 @@ pub fn mint(
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: deps.api.addr_humanize(&config.staking)?.to_string(),
-                send: vec![],
+                funds: vec![],
                 msg: to_binary(&StakingExecuteMsg::IncreaseShortToken {
                     asset_token: asset_token.to_string(),
                     staker_addr: position_owner.to_string(),
@@ -527,20 +518,17 @@ pub fn mint(
                 amount: mint_amount,
                 recipient: position_owner.to_string(),
             })?,
-            send: vec![],
+            funds: vec![],
         })]
     };
 
-    Ok(Response {
-        messages,
-        submessages: vec![],
-        attributes: vec![
+    Ok(Response::new()
+        .add_attributes(vec![
             attr("action", "mint"),
             attr("position_idx", position_idx.to_string()),
             attr("mint_amount", asset.to_string()),
-        ],
-        data: None,
-    })
+        ])
+        .add_messages(messages))
 }
 
 pub fn burn(
@@ -621,7 +609,8 @@ pub fn burn(
             .unwrap();
 
         // due to rounding, include 1
-        if position.collateral.amount <= Uint128(1u128) && position.asset.amount == Uint128::zero()
+        if position.collateral.amount <= Uint128::from(1u128)
+            && position.asset.amount == Uint128::zero()
         {
             close_position = true;
             remove_position(deps.storage, position_idx)?;
@@ -660,41 +649,18 @@ pub fn burn(
             return Err(StdError::generic_err("unauthorized"));
         }
         let oracle = deps.api.addr_humanize(&config.oracle)?;
+        let current_seconds = env.block.time.nanos() / 1_000_000_000u64;
         let asset_price: Decimal = load_asset_price(
             deps.as_ref(),
             oracle,
             &asset.info.to_raw(deps.api)?,
-            Some(env.block.time),
+            Some(current_seconds),
         )?;
         let collateral_price_in_asset: Decimal = decimal_division(asset_price, collateral_price);
 
         // Subtract the protocol fee from the position's collateral
         let protocol_fee = Asset {
-            info: collateral_info,
-            amount: burn_amount * collateral_price_in_asset * config.protocol_fee_rate,
-        };
-
-        if !protocol_fee.amount.is_zero() {
-            messages.push(protocol_fee.clone().into_msg(
-                &deps.querier,
-                deps.api.addr_humanize(&config.collector)?,
-            )?);
-            position.collateral.amount = position.collateral.amount.checked_sub(protocol_fee.amount)?
-        }
-        attributes.push(attr("protocol_fee", protocol_fee.to_string()));
-
-        let oracle = deps.api.addr_humanize(&config.oracle)?;
-        let asset_price: Decimal = load_asset_price(
-            deps.as_ref(),
-            oracle,
-            &asset.info.to_raw(deps.api)?,
-            Some(env.block.time.nanos() / 1_000_000_000),
-        )?;
-        let collateral_price_in_asset: Decimal = decimal_division(asset_price, collateral_price);
-
-        // Subtract the protocol fee from the position's collateral
-        let protocol_fee = Asset {
-            info: collateral_info,
+            info: collateral_info.clone(),
             amount: burn_amount * collateral_price_in_asset * config.protocol_fee_rate,
         };
 
@@ -707,8 +673,7 @@ pub fn burn(
             position.collateral.amount = position
                 .collateral
                 .amount
-                .checked_sub(protocol_fee.amount)
-                .unwrap();
+                .checked_sub(protocol_fee.amount)?
         }
         attributes.push(attr("protocol_fee", protocol_fee.to_string()));
 
@@ -728,41 +693,42 @@ pub fn burn(
                 staker_addr: position_owner.to_string(),
                 amount: burn_amount,
             })?,
-            send: vec![],
+            funds: vec![],
         }));
         if close_position {
             messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: deps.api.addr_humanize(&config.lock)?.to_string(),
-                send: vec![],
+                funds: vec![],
                 msg: to_binary(&LockExecuteMsg::ReleasePositionFunds { position_idx })?,
             }));
         }
     }
 
-    Ok(Response {
-        messages: vec![
-            vec![CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: asset_token.to_string(),
-                msg: to_binary(&Cw20ExecuteMsg::Burn {
-                    amount: burn_amount,
-                })?,
-                send: vec![],
-            })],
-            messages,
-        ]
-        .concat(),
-        submessages: vec![],
-        attributes: vec![
+    Ok(Response::new()
+        .add_messages(
             vec![
-                attr("action", "burn"),
-                attr("position_idx", position_idx.to_string()),
-                attr("burn_amount", asset.to_string()),
-            ],
-            attributes,
-        ]
-        .concat(),
-        data: None,
-    })
+                vec![CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: asset_token.to_string(),
+                    msg: to_binary(&Cw20ExecuteMsg::Burn {
+                        amount: burn_amount,
+                    })?,
+                    funds: vec![],
+                })],
+                messages,
+            ]
+            .concat(),
+        )
+        .add_attributes(
+            vec![
+                vec![
+                    attr("action", "burn"),
+                    attr("position_idx", position_idx.to_string()),
+                    attr("burn_amount", asset.to_string()),
+                ],
+                attributes,
+            ]
+            .concat(),
+        ))
 }
 
 pub fn auction(
@@ -809,7 +775,7 @@ pub fn auction(
         collateral_oracle,
         &position.collateral.info,
         Some(env.block.time.nanos() / 1_000_000_000),
-        Some(env.block.height)
+        Some(env.block.height),
     )?;
 
     // Compute collateral price in asset unit
@@ -906,7 +872,7 @@ pub fn auction(
         msg: to_binary(&Cw20ExecuteMsg::Burn {
             amount: liquidated_asset_amount,
         })?,
-        send: vec![],
+        funds: vec![],
     }));
 
     // Deduct protocol fee
@@ -945,12 +911,12 @@ pub fn auction(
                 staker_addr: position_owner.to_string(),
                 amount: liquidated_asset_amount,
             })?,
-            send: vec![],
+            funds: vec![],
         }));
         if close_position {
             messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: deps.api.addr_humanize(&config.lock)?.to_string(),
-                send: vec![],
+                funds: vec![],
                 msg: to_binary(&LockExecuteMsg::ReleasePositionFunds { position_idx })?,
             }));
         }
@@ -958,29 +924,24 @@ pub fn auction(
 
     let collateral_info_str = collateral_info.to_string();
     let asset_info_str = asset.info.to_string();
-    Ok(Response {
-        attributes: vec![
-            attr("action", "auction"),
-            attr("position_idx", position_idx.to_string()),
-            attr("owner", position_owner.as_str()),
-            attr(
-                "return_collateral_amount",
-                return_collateral_amount.to_string() + &collateral_info_str,
-            ),
-            attr(
-                "liquidated_amount",
-                liquidated_asset_amount.to_string() + &asset_info_str,
-            ),
-            attr("tax_amount", tax_amount.to_string() + &collateral_info_str),
-            attr(
-                "protocol_fee",
-                protocol_fee.to_string() + &collateral_info_str,
-            ),
-        ],
-        messages,
-        submessages: vec![],
-        data: None,
-    })
+    Ok(Response::new().add_messages(messages).add_attributes(vec![
+        attr("action", "auction"),
+        attr("position_idx", position_idx.to_string()),
+        attr("owner", position_owner.as_str()),
+        attr(
+            "return_collateral_amount",
+            return_collateral_amount.to_string() + &collateral_info_str,
+        ),
+        attr(
+            "liquidated_amount",
+            liquidated_asset_amount.to_string() + &asset_info_str,
+        ),
+        attr("tax_amount", tax_amount.to_string() + &collateral_info_str),
+        attr(
+            "protocol_fee",
+            protocol_fee.to_string() + &collateral_info_str,
+        ),
+    ]))
 }
 
 pub fn query_position(deps: Deps, position_idx: Uint128) -> StdResult<PositionResponse> {

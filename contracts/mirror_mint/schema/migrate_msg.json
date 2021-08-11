@@ -3,7 +3,10 @@
   "title": "MigrateMsg",
   "type": "object",
   "required": [
-    "network"
+    "collateral_oracle",
+    "lock",
+    "staking",
+    "terraswap_factory"
   ],
   "properties": {
     "collateral_oracle": {
@@ -17,13 +20,6 @@
     },
     "terraswap_factory": {
       "type": "string"
-    },
-    "Network": {
-      "type": "string",
-      "enum": [
-        "mainnet",
-        "testnet"
-      ]
     }
   }
 }

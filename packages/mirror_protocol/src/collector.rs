@@ -68,10 +68,4 @@ pub struct ConfigResponse {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct MigrateMsg {
-    pub owner: String,
-    pub aust_token: String,
-    pub anchor_market: String,
-    pub bluna_token: String,
-    pub bluna_swap_denom: String,
-}
+pub struct MigrateMsg {}

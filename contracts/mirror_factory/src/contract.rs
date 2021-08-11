@@ -182,12 +182,7 @@ pub fn update_config(
 
     store_config(deps.storage, &config)?;
 
-    Ok(Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: vec![attr("action", "update_config")],
-        data: None,
-    })
+    Ok(Response::new().add_attribute("action", "update_config"))
 }
 
 pub fn update_weight(
@@ -209,16 +204,11 @@ pub fn update_weight(
     let updated_total_weight = origin_total_weight + weight - origin_weight;
     store_total_weight(deps.storage, updated_total_weight)?;
 
-    Ok(Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: vec![
-            attr("action", "update_weight"),
-            attr("asset_token", asset_token),
-            attr("weight", weight),
-        ],
-        data: None,
-    })
+    Ok(Response::new().add_attributes(vec![
+        attr("action", "update_weight"),
+        attr("asset_token", asset_token),
+        attr("weight", weight.to_string()),
+    ]))
 }
 
 // just for by passing command to other contract like update config
@@ -233,16 +223,13 @@ pub fn pass_command(
         return Err(StdError::generic_err("unauthorized"));
     }
 
-    Ok(Response {
-        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
+    Ok(
+        Response::new().add_message(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr,
             msg,
-            send: vec![],
-        })],
-        submessages: vec![],
-        attributes: vec![],
-        data: None,
-    })
+            funds: vec![],
+        })),
+    )
 }
 
 /// Whitelisting process
@@ -277,14 +264,13 @@ pub fn whitelist(
     let oracle = deps.api.addr_validate(&oracle_feeder)?;
     store_tmp_oracle(deps.storage, &oracle)?;
 
-    Ok(Response {
-        messages: vec![],
-        submessages: vec![SubMsg {
+    Ok(Response::new()
+        .add_submessage(SubMsg {
             // create asset token
             msg: WasmMsg::Instantiate {
                 admin: None,
                 code_id: config.token_code_id,
-                send: vec![],
+                funds: vec![],
                 label: "".to_string(),
                 msg: to_binary(&TokenInstantiateMsg {
                     name: name.clone(),
@@ -301,14 +287,12 @@ pub fn whitelist(
             gas_limit: None,
             id: 1,
             reply_on: ReplyOn::Success,
-        }],
-        attributes: vec![
+        })
+        .add_attributes(vec![
             attr("action", "whitelist"),
             attr("symbol", symbol),
             attr("name", name),
-        ],
-        data: None,
-    })
+        ]))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -386,7 +370,7 @@ pub fn token_creation_hook(
         ) {
             let mint_end: u64 = env.block.time.plus_seconds(mint_period).nanos() / 1_000_000_000;
             attributes = vec![
-                attr("is_pre_ipo", true),
+                attr("is_pre_ipo", "true"),
                 attr("mint_end", mint_end.to_string()),
                 attr(
                     "min_collateral_ratio_after_ipo",
@@ -400,7 +384,7 @@ pub fn token_creation_hook(
                 pre_ipo_price,
             })
         } else {
-            attributes.push(attr("is_pre_ipo", false));
+            attributes.push(attr("is_pre_ipo", "false"));
             None
         };
 
@@ -410,12 +394,12 @@ pub fn token_creation_hook(
     // Register asset to mint contract
     // Register asset to oracle contract
     // Create terraswap pair
-    Ok(Response {
-        messages: vec![
+    Ok(Response::new()
+        .add_messages(vec![
             //ASSUMPTION: These don't need to be done before pair / lp token is made
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: deps.api.addr_humanize(&config.mint_contract)?.to_string(),
-                send: vec![],
+                funds: vec![],
                 msg: to_binary(&MintExecuteMsg::RegisterAsset {
                     asset_token: asset_token.to_string(),
                     auction_discount: params.auction_discount,
@@ -425,21 +409,21 @@ pub fn token_creation_hook(
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: deps.api.addr_humanize(&config.oracle_contract)?.to_string(),
-                send: vec![],
+                funds: vec![],
                 msg: to_binary(&OracleExecuteMsg::RegisterAsset {
                     asset_token: asset_token.to_string(),
                     feeder: oracle_feeder.to_string(),
                 })?,
             }),
-        ],
-        submessages: vec![SubMsg {
+        ])
+        .add_submessage(SubMsg {
             // create terraswap pair
             msg: WasmMsg::Execute {
                 contract_addr: deps
                     .api
                     .addr_humanize(&config.terraswap_factory)?
                     .to_string(),
-                send: vec![],
+                funds: vec![],
                 msg: to_binary(&TerraswapFactoryExecuteMsg::CreatePair {
                     asset_infos: [
                         AssetInfo::NativeToken {
@@ -455,14 +439,14 @@ pub fn token_creation_hook(
             gas_limit: None,
             id: 2,
             reply_on: ReplyOn::Success,
-        }],
-        attributes: vec![
-            vec![attr("asset_token_addr", asset_token.as_str())],
-            attributes,
-        ]
-        .concat(),
-        data: None,
-    })
+        })
+        .add_attributes(
+            vec![
+                vec![attr("asset_token_addr", asset_token.as_str())],
+                attributes,
+            ]
+            .concat(),
+        ))
 }
 
 /// TerraswapCreationHook
@@ -489,22 +473,19 @@ pub fn terraswap_creation_hook(deps: DepsMut, _env: Env, asset_token: Addr) -> S
     )?;
 
     // Execute staking contract to register staking token of newly created asset
-    Ok(Response {
-        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
+    Ok(
+        Response::new().add_message(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps
                 .api
                 .addr_humanize(&config.staking_contract)?
                 .to_string(),
-            send: vec![],
+            funds: vec![],
             msg: to_binary(&StakingExecuteMsg::RegisterAsset {
                 asset_token: asset_token.to_string(),
                 staking_token: pair_info.liquidity_token.to_string(),
             })?,
-        })],
-        submessages: vec![],
-        attributes: vec![],
-        data: None,
-    })
+        })),
+    )
 }
 
 /// Distribute
@@ -533,7 +514,8 @@ pub fn distribute(deps: DepsMut, env: Env) -> StdResult<Response> {
 
         let time_slot = s.1 - s.0;
         let distribution_amount_per_sec: Decimal = Decimal::from_ratio(s.2, time_slot);
-        target_distribution_amount += distribution_amount_per_sec * Uint128(time_duration as u128);
+        target_distribution_amount +=
+            distribution_amount_per_sec * Uint128::from(time_duration as u128);
     }
 
     let staking_contract = deps.api.addr_humanize(&config.staking_contract)?;
@@ -570,28 +552,27 @@ pub fn distribute(deps: DepsMut, env: Env) -> StdResult<Response> {
     println!("{:?}", rewards);
 
     // mint token to self and try send minted tokens to staking contract
-    Ok(Response {
-        messages: rewards_vec
-            .into_iter()
-            .map(|rewards| {
-                Ok(CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: mirror_token.to_string(),
-                    msg: to_binary(&Cw20ExecuteMsg::Send {
-                        contract: staking_contract.to_string(),
-                        amount: rewards.iter().map(|v| v.1.u128()).sum::<u128>().into(),
-                        msg: Some(to_binary(&StakingCw20HookMsg::DepositReward { rewards })?),
-                    })?,
-                    send: vec![],
-                }))
-            })
-            .collect::<StdResult<Vec<CosmosMsg>>>()?,
-        submessages: vec![],
-        attributes: vec![
+    Ok(Response::new()
+        .add_messages(
+            rewards_vec
+                .into_iter()
+                .map(|rewards| {
+                    Ok(CosmosMsg::Wasm(WasmMsg::Execute {
+                        contract_addr: mirror_token.to_string(),
+                        msg: to_binary(&Cw20ExecuteMsg::Send {
+                            contract: staking_contract.to_string(),
+                            amount: rewards.iter().map(|v| v.1.u128()).sum::<u128>().into(),
+                            msg: to_binary(&StakingCw20HookMsg::DepositReward { rewards })?,
+                        })?,
+                        funds: vec![],
+                    }))
+                })
+                .collect::<StdResult<Vec<CosmosMsg>>>()?,
+        )
+        .add_attributes(vec![
             attr("action", "distribute"),
             attr("distribution_amount", distribution_amount.to_string()),
-        ],
-        data: None,
-    })
+        ]))
 }
 
 pub fn revoke_asset(
@@ -617,23 +598,20 @@ pub fn revoke_asset(
     remove_weight(deps.storage, &asset_token_raw);
     decrease_total_weight(deps.storage, NORMAL_TOKEN_WEIGHT)?;
 
-    Ok(Response {
-        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
+    Ok(Response::new()
+        .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps.api.addr_humanize(&config.mint_contract)?.to_string(),
-            send: vec![],
+            funds: vec![],
             msg: to_binary(&MintExecuteMsg::RegisterMigration {
                 asset_token: asset_token.clone(),
                 end_price,
             })?,
-        })],
-        submessages: vec![],
-        attributes: vec![
+        }))
+        .add_attributes(vec![
             attr("action", "revoke_asset"),
             attr("end_price", end_price.to_string()),
             attr("asset_token", asset_token.to_string()),
-        ],
-        data: None,
-    })
+        ]))
 }
 
 pub fn migrate_asset(
@@ -679,21 +657,21 @@ pub fn migrate_asset(
     // store oracle in temp storage to use in reply callback
     store_tmp_oracle(deps.storage, &oracle_feeder)?;
 
-    Ok(Response {
-        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
+    Ok(Response::new()
+        .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: mint_contract.to_string(),
-            send: vec![],
+            funds: vec![],
             msg: to_binary(&MintExecuteMsg::RegisterMigration {
                 asset_token: asset_token.clone(),
                 end_price,
             })?,
-        })],
-        submessages: vec![SubMsg {
+        }))
+        .add_submessage(SubMsg {
             // create asset token
             msg: WasmMsg::Instantiate {
                 admin: None,
                 code_id: config.token_code_id,
-                send: vec![],
+                funds: vec![],
                 label: "".to_string(),
                 msg: to_binary(&TokenInstantiateMsg {
                     name: name.clone(),
@@ -710,14 +688,12 @@ pub fn migrate_asset(
             gas_limit: None,
             id: 1,
             reply_on: ReplyOn::Success,
-        }],
-        attributes: vec![
+        })
+        .add_attributes(vec![
             attr("action", "migration"),
             attr("end_price", end_price.to_string()),
             attr("asset_token", asset_token.to_string()),
-        ],
-        data: None,
-    })
+        ]))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

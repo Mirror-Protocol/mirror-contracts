@@ -127,12 +127,7 @@ pub fn try_feed_price(
         store_price(deps.storage, &asset_token_raw, &state)?;
     }
 
-    Ok(Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes,
-        data: None,
-    })
+    Ok(Response::default())
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

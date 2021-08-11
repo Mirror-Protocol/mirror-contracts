@@ -69,12 +69,7 @@ pub fn udpate_config(
 
     store_config(deps.storage, &config)?;
 
-    Ok(Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: vec![attr("action", "update_config")],
-        data: None,
-    })
+    Ok(Response::new().add_attributes(vec![attr("action", "update_config")]))
 }
 
 /// Spend
@@ -96,23 +91,20 @@ pub fn spend(
     }
 
     let mirror_token = deps.api.addr_humanize(&config.mirror_token)?.to_string();
-    Ok(Response {
-        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
+    Ok(Response::new()
+        .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: mirror_token,
-            send: vec![],
+            funds: vec![],
             msg: to_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: recipient.clone(),
                 amount,
             })?,
-        })],
-        submessages: vec![],
-        attributes: vec![
+        }))
+        .add_attributes(vec![
             attr("action", "spend"),
             attr("recipient", recipient),
             attr("amount", amount),
-        ],
-        data: None,
-    })
+        ]))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

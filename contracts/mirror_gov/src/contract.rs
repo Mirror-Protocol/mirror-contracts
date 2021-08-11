@@ -2,7 +2,10 @@
 use cosmwasm_std::entry_point;
 
 use crate::querier::load_token_balance;
-use crate::staking::{deposit_reward, query_shares, query_staker, stake_voting_rewards, stake_voting_tokens, withdraw_voting_rewards, withdraw_voting_tokens};
+use crate::staking::{
+    deposit_reward, query_shares, query_staker, stake_voting_rewards, stake_voting_tokens,
+    withdraw_voting_rewards, withdraw_voting_tokens,
+};
 use crate::state::{
     bank_read, bank_store, config_read, config_store, poll_indexer_store, poll_read, poll_store,
     poll_voter_read, poll_voter_store, read_poll_voters, read_polls, state_read, state_store,
@@ -96,7 +99,9 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
             snapshot_period,
         ),
         ExecuteMsg::WithdrawVotingTokens { amount } => withdraw_voting_tokens(deps, info, amount),
-        ExecuteMsg::WithdrawVotingRewards { poll_id } => withdraw_voting_rewards(deps, info, poll_id),
+        ExecuteMsg::WithdrawVotingRewards { poll_id } => {
+            withdraw_voting_rewards(deps, info, poll_id)
+        }
         ExecuteMsg::StakeVotingRewards { poll_id } => stake_voting_rewards(deps, info, poll_id),
         ExecuteMsg::CastVote {
             poll_id,
@@ -360,20 +365,15 @@ pub fn create_poll(
 
     state_store(deps.storage).save(&state)?;
 
-    let r = Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: vec![
-            attr("action", "create_poll"),
-            attr(
-                "creator",
-                deps.api.addr_humanize(&new_poll.creator)?.as_str(),
-            ),
-            attr("poll_id", &poll_id.to_string()),
-            attr("end_time", new_poll.end_time),
-        ],
-        data: None,
-    };
+    let r = Response::new().add_attributes(vec![
+        attr("action", "create_poll"),
+        attr(
+            "creator",
+            deps.api.addr_humanize(&new_poll.creator)?.as_str(),
+        ),
+        attr("poll_id", &poll_id.to_string()),
+        attr("end_time", new_poll.end_time.to_string()),
+    ]);
     Ok(r)
 }
 
@@ -445,7 +445,7 @@ pub fn end_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Response> {
         if !a_poll.deposit_amount.is_zero() {
             messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: deps.api.addr_humanize(&config.mirror_token)?.to_string(),
-                send: vec![],
+                funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Transfer {
                     recipient: deps.api.addr_humanize(&a_poll.creator)?.to_string(),
                     amount: a_poll.deposit_amount,
@@ -467,17 +467,12 @@ pub fn end_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Response> {
     a_poll.total_balance_at_end_poll = Some(staked_weight);
     poll_store(deps.storage).save(&poll_id.to_be_bytes(), &a_poll)?;
 
-    Ok(Response {
-        messages,
-        submessages: vec![],
-        attributes: vec![
-            attr("action", "end_poll"),
-            attr("poll_id", &poll_id.to_string()),
-            attr("rejected_reason", rejected_reason),
-            attr("passed", &passed.to_string()),
-        ],
-        data: None,
-    })
+    Ok(Response::new().add_messages(messages).add_attributes(vec![
+        attr("action", "end_poll"),
+        attr("poll_id", &poll_id.to_string()),
+        attr("rejected_reason", rejected_reason),
+        attr("passed", &passed.to_string()),
+    ]))
 }
 
 /*
@@ -507,21 +502,16 @@ pub fn execute_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Response
         messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps.api.addr_humanize(&execute_data.contract)?.to_string(),
             msg: execute_data.msg,
-            send: vec![],
+            funds: vec![],
         }))
     } else {
         return Err(StdError::generic_err("The poll does not have execute_data"));
     }
 
-    Ok(Response {
-        messages,
-        submessages: vec![],
-        attributes: vec![
-            attr("action", "execute_poll"),
-            attr("poll_id", poll_id.to_string()),
-        ],
-        data: None,
-    })
+    Ok(Response::new().add_messages(messages).add_attributes(vec![
+        attr("action", "execute_poll"),
+        attr("poll_id", poll_id.to_string()),
+    ]))
 }
 
 /// ExpirePoll is used to make the poll as expired state for querying purpose
@@ -552,15 +542,10 @@ pub fn expire_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Response>
     a_poll.status = PollStatus::Expired;
     poll_store(deps.storage).save(&poll_id.to_be_bytes(), &a_poll)?;
 
-    Ok(Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: vec![
-            attr("action", "expire_poll"),
-            attr("poll_id", poll_id.to_string()),
-        ],
-        data: None,
-    })
+    Ok(Response::new().add_attributes(vec![
+        attr("action", "expire_poll"),
+        attr("poll_id", poll_id.to_string()),
+    ]))
 }
 
 pub fn cast_vote(
@@ -649,16 +634,11 @@ pub fn cast_vote(
         attr("action", "cast_vote"),
         attr("poll_id", &poll_id.to_string()),
         attr("amount", &amount.to_string()),
-        attr("voter", &info.sender.as_str()),
-        attr("vote_option", vote_info.vote),
+        attr("voter", &info.sender.to_string()),
+        attr("vote_option", vote_info.vote.to_string()),
     ];
 
-    let r = Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes,
-        data: None,
-    };
+    let r = Response::new().add_attributes(attributes);
     Ok(r)
 }
 
@@ -697,16 +677,11 @@ pub fn snapshot_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Respons
 
     poll_store(deps.storage).save(&poll_id.to_be_bytes(), &a_poll)?;
 
-    Ok(Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: vec![
-            attr("action", "snapshot_poll"),
-            attr("poll_id", poll_id.to_string()),
-            attr("staked_amount", staked_amount),
-        ],
-        data: None,
-    })
+    Ok(Response::new().add_attributes(vec![
+        attr("action", "snapshot_poll"),
+        attr("poll_id", poll_id.to_string()),
+        attr("staked_amount", staked_amount),
+    ]))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -839,12 +814,9 @@ fn query_polls(
     })
 }
 
-fn query_voter(
-    deps: Deps,
-    poll_id: u64,
-    address: String,
-) -> StdResult<VotersResponseItem> {
-    let voter: VoterInfo = poll_voter_read(deps.storage, poll_id).load(&deps.api.addr_canonicalize(&address)?.as_slice())?;
+fn query_voter(deps: Deps, poll_id: u64, address: String) -> StdResult<VotersResponseItem> {
+    let voter: VoterInfo = poll_voter_read(deps.storage, poll_id)
+        .load(&deps.api.addr_canonicalize(&address)?.as_slice())?;
     Ok(VotersResponseItem {
         voter: address,
         vote: voter.vote,
@@ -859,7 +831,7 @@ fn query_voters(
     limit: Option<u32>,
     order_by: Option<OrderBy>,
 ) -> StdResult<VotersResponse> {
-   let voters = if let Some(start_after) = start_after {
+    let voters = if let Some(start_after) = start_after {
         read_poll_voters(
             deps.storage,
             poll_id,

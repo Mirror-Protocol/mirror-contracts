@@ -1,7 +1,7 @@
 use cosmwasm_std::testing::{mock_env, mock_info};
 use cosmwasm_std::{
-    attr, from_binary, to_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, StdError, Uint128,
-    WasmMsg,
+    attr, from_binary, to_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, StdError, SubMsg,
+    Uint128, WasmMsg,
 };
 
 use crate::contract::{execute, instantiate, query};
@@ -110,7 +110,7 @@ fn submit_order() {
         res.attributes,
         vec![
             attr("action", "submit_order"),
-            attr("order_id", 1),
+            attr("order_id", 1.to_string()),
             attr("bidder_addr", "addr0000"),
             attr("offer_asset", "1000000uusd"),
             attr("ask_asset", "1000000mAAPL"),
@@ -127,7 +127,7 @@ fn submit_order() {
 
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
         sender: "addr0000".to_string(),
-        amount: Uint128(1000000u128),
+        amount: Uint128::new(1000000u128),
         msg: to_binary(&Cw20HookMsg::SubmitOrder {
             ask_asset: Asset {
                 amount: Uint128::from(1000000u128),
@@ -145,7 +145,7 @@ fn submit_order() {
         res.attributes,
         vec![
             attr("action", "submit_order"),
-            attr("order_id", 2),
+            attr("order_id", 2.to_string()),
             attr("bidder_addr", "addr0000"),
             attr("offer_asset", "1000000mAAPL"),
             attr("ask_asset", "1000000uusd"),
@@ -165,7 +165,7 @@ fn cancel_order_native_token() {
     let mut deps = mock_dependencies(&[]);
     deps.querier.with_tax(
         Decimal::percent(1),
-        &[(&"uusd".to_string(), &Uint128(1000000u128))],
+        &[(&"uusd".to_string(), &Uint128::new(1000000u128))],
     );
 
     let msg = InstantiateMsg {};
@@ -213,19 +213,19 @@ fn cancel_order_native_token() {
         res.attributes,
         vec![
             attr("action", "cancel_order"),
-            attr("order_id", 1),
+            attr("order_id", 1.to_string()),
             attr("bidder_refund", "1000000uusd")
         ]
     );
     assert_eq!(
         res.messages,
-        vec![CosmosMsg::Bank(BankMsg::Send {
+        vec![SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
             to_address: "addr0000".to_string(),
             amount: vec![Coin {
                 denom: "uusd".to_string(),
-                amount: Uint128(990099u128),
+                amount: Uint128::new(990099u128),
             }]
-        })]
+        }))]
     );
 
     // failed no order exists
@@ -238,7 +238,7 @@ fn cancel_order_token() {
     let mut deps = mock_dependencies(&[]);
     deps.querier.with_tax(
         Decimal::percent(1),
-        &[(&"uusd".to_string(), &Uint128(1000000u128))],
+        &[(&"uusd".to_string(), &Uint128::new(1000000u128))],
     );
 
     let msg = InstantiateMsg {};
@@ -249,7 +249,7 @@ fn cancel_order_token() {
 
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
         sender: "addr0000".to_string(),
-        amount: Uint128(1000000u128),
+        amount: Uint128::new(1000000u128),
         msg: to_binary(&Cw20HookMsg::SubmitOrder {
             ask_asset: Asset {
                 amount: Uint128::from(1000000u128),
@@ -280,21 +280,21 @@ fn cancel_order_token() {
         res.attributes,
         vec![
             attr("action", "cancel_order"),
-            attr("order_id", 1),
+            attr("order_id", 1.to_string()),
             attr("bidder_refund", "1000000mAAPL")
         ]
     );
     assert_eq!(
         res.messages,
-        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "mAAPL".to_string(),
-            send: vec![],
+            funds: vec![],
             msg: to_binary(&Cw20ExecuteMsg::Transfer {
-                amount: Uint128(1000000u128),
+                amount: Uint128::new(1000000u128),
                 recipient: "addr0000".to_string(),
             })
             .unwrap(),
-        })]
+        }))]
     );
 
     // failed no order exists
@@ -308,8 +308,8 @@ fn execute_order_native_token() {
     deps.querier.with_tax(
         Decimal::percent(1),
         &[
-            (&"uusd".to_string(), &Uint128(1000000u128)),
-            (&"ukrw".to_string(), &Uint128(1000000u128)),
+            (&"uusd".to_string(), &Uint128::new(1000000u128)),
+            (&"ukrw".to_string(), &Uint128::new(1000000u128)),
         ],
     );
 
@@ -346,7 +346,7 @@ fn execute_order_native_token() {
     // assertion; native asset balance
     let msg = ExecuteMsg::ExecuteOrder {
         execute_asset: Asset {
-            amount: Uint128(500000u128),
+            amount: Uint128::new(500000u128),
             info: AssetInfo::NativeToken {
                 denom: "uusd".to_string(),
             },
@@ -386,7 +386,7 @@ fn execute_order_native_token() {
     );
     let msg = ExecuteMsg::ExecuteOrder {
         execute_asset: Asset {
-            amount: Uint128(500000u128),
+            amount: Uint128::new(500000u128),
             info: AssetInfo::NativeToken {
                 denom: "ukrw".to_string(),
             },
@@ -398,7 +398,7 @@ fn execute_order_native_token() {
         res.attributes,
         vec![
             attr("action", "execute_order"),
-            attr("order_id", 1),
+            attr("order_id", 1.to_string()),
             attr("executor_receive", "500000uusd"),
             attr("bidder_receive", "500000ukrw"),
         ]
@@ -406,28 +406,28 @@ fn execute_order_native_token() {
     assert_eq!(
         res.messages,
         vec![
-            CosmosMsg::Bank(BankMsg::Send {
+            SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
                 to_address: "addr0001".to_string(),
                 amount: vec![Coin {
                     denom: "uusd".to_string(),
                     amount: Uint128::from(495049u128)
                 }]
-            }),
-            CosmosMsg::Bank(BankMsg::Send {
+            })),
+            SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
                 to_address: "addr0000".to_string(),
                 amount: vec![Coin {
                     denom: "ukrw".to_string(),
                     amount: Uint128::from(495049u128)
                 }]
-            }),
+            })),
         ]
     );
 
     let resp: OrderResponse =
         from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Order { order_id: 1 }).unwrap())
             .unwrap();
-    assert_eq!(resp.filled_ask_amount, Uint128(500000u128));
-    assert_eq!(resp.filled_offer_amount, Uint128(500000u128));
+    assert_eq!(resp.filled_ask_amount, Uint128::new(500000u128));
+    assert_eq!(resp.filled_offer_amount, Uint128::new(500000u128));
 
     // fill left amount
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -435,7 +435,7 @@ fn execute_order_native_token() {
         res.attributes,
         vec![
             attr("action", "execute_order"),
-            attr("order_id", 1),
+            attr("order_id", 1.to_string()),
             attr("executor_receive", "500000uusd"),
             attr("bidder_receive", "500000ukrw"),
         ]
@@ -443,20 +443,20 @@ fn execute_order_native_token() {
     assert_eq!(
         res.messages,
         vec![
-            CosmosMsg::Bank(BankMsg::Send {
+            SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
                 to_address: "addr0001".to_string(),
                 amount: vec![Coin {
                     denom: "uusd".to_string(),
                     amount: Uint128::from(495049u128)
                 }]
-            }),
-            CosmosMsg::Bank(BankMsg::Send {
+            })),
+            SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
                 to_address: "addr0000".to_string(),
                 amount: vec![Coin {
                     denom: "ukrw".to_string(),
                     amount: Uint128::from(495049u128)
                 }]
-            }),
+            })),
         ]
     );
 
@@ -472,8 +472,8 @@ fn execute_order_token() {
     deps.querier.with_tax(
         Decimal::percent(1),
         &[
-            (&"uusd".to_string(), &Uint128(1000000u128)),
-            (&"ukrw".to_string(), &Uint128(1000000u128)),
+            (&"uusd".to_string(), &Uint128::new(1000000u128)),
+            (&"ukrw".to_string(), &Uint128::new(1000000u128)),
         ],
     );
 
@@ -521,7 +521,7 @@ fn execute_order_token() {
         res.attributes,
         vec![
             attr("action", "execute_order"),
-            attr("order_id", 1),
+            attr("order_id", 1.to_string()),
             attr("executor_receive", "500000token0000"),
             attr("bidder_receive", "500000token0001"),
         ]
@@ -529,32 +529,32 @@ fn execute_order_token() {
     assert_eq!(
         res.messages,
         vec![
-            CosmosMsg::Wasm(WasmMsg::Execute {
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "token0000".to_string(),
-                send: vec![],
+                funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Transfer {
                     recipient: "addr0001".to_string(),
                     amount: Uint128::from(500000u128)
                 })
                 .unwrap(),
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "token0001".to_string(),
-                send: vec![],
+                funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Transfer {
                     recipient: "addr0000".to_string(),
                     amount: Uint128::from(500000u128)
                 })
                 .unwrap(),
-            }),
+            })),
         ]
     );
 
     let resp: OrderResponse =
         from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Order { order_id: 1 }).unwrap())
             .unwrap();
-    assert_eq!(resp.filled_ask_amount, Uint128(500000u128));
-    assert_eq!(resp.filled_offer_amount, Uint128(500000u128));
+    assert_eq!(resp.filled_ask_amount, Uint128::new(500000u128));
+    assert_eq!(resp.filled_offer_amount, Uint128::new(500000u128));
 
     // fill left amount
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -562,7 +562,7 @@ fn execute_order_token() {
         res.attributes,
         vec![
             attr("action", "execute_order"),
-            attr("order_id", 1),
+            attr("order_id", 1.to_string()),
             attr("executor_receive", "500000token0000"),
             attr("bidder_receive", "500000token0001"),
         ]
@@ -570,24 +570,24 @@ fn execute_order_token() {
     assert_eq!(
         res.messages,
         vec![
-            CosmosMsg::Wasm(WasmMsg::Execute {
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "token0000".to_string(),
-                send: vec![],
+                funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Transfer {
                     recipient: "addr0001".to_string(),
                     amount: Uint128::from(500000u128)
                 })
                 .unwrap(),
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "token0001".to_string(),
-                send: vec![],
+                funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Transfer {
                     recipient: "addr0000".to_string(),
                     amount: Uint128::from(500000u128)
                 })
                 .unwrap(),
-            }),
+            })),
         ]
     );
 
@@ -603,8 +603,8 @@ fn orders_querier() {
     deps.querier.with_tax(
         Decimal::percent(1),
         &[
-            (&"uusd".to_string(), &Uint128(1000000u128)),
-            (&"ukrw".to_string(), &Uint128(1000000u128)),
+            (&"uusd".to_string(), &Uint128::new(1000000u128)),
+            (&"ukrw".to_string(), &Uint128::new(1000000u128)),
         ],
     );
 

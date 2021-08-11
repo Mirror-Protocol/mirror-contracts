@@ -48,7 +48,7 @@ pub fn instantiate(
     };
 
     store_config(deps.storage, &config)?;
-    store_position_idx(deps.storage, Uint128(1u128))?;
+    store_position_idx(deps.storage, Uint128::from(1u128))?;
     Ok(Response::default())
 }
 
@@ -268,12 +268,7 @@ pub fn update_config(
     }
 
     store_config(deps.storage, &config)?;
-    Ok(Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: vec![attr("action", "update_config")],
-        data: None,
-    })
+    Ok(Response::new().add_attribute("action", "update_config"))
 }
 
 pub fn update_asset(
@@ -308,12 +303,7 @@ pub fn update_asset(
     }
 
     store_asset_config(deps.storage, &asset_token_raw, &asset)?;
-    Ok(Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: vec![attr("action", "update_asset")],
-        data: None,
-    })
+    Ok(Response::new().add_attribute("action", "update_asset"))
 }
 
 pub fn register_asset(
@@ -351,7 +341,7 @@ pub fn register_asset(
                 .api
                 .addr_humanize(&config.collateral_oracle)?
                 .to_string(),
-            send: vec![],
+            funds: vec![],
             msg: to_binary(&CollateralOracleExecuteMsg::RegisterCollateralAsset {
                 asset: AssetInfo::Token {
                     contract_addr: asset_token.clone(),
@@ -375,12 +365,12 @@ pub fn register_asset(
         },
     )?;
 
-    Ok(Response {
-        messages,
-        submessages: vec![],
-        attributes: vec![attr("action", "register"), attr("asset_token", asset_token)],
-        data: None,
-    })
+    Ok(Response::new()
+        .add_attributes(vec![
+            attr("action", "register"),
+            attr("asset_token", asset_token),
+        ])
+        .add_messages(messages))
 }
 
 pub fn register_migration(
@@ -410,37 +400,34 @@ pub fn register_migration(
     )?;
 
     // flag asset as revoked in the collateral oracle
-    Ok(Response {
-        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
+    Ok(Response::new()
+        .add_messages(vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps
                 .api
                 .addr_humanize(&config.collateral_oracle)?
                 .to_string(),
-            send: vec![],
+            funds: vec![],
             msg: to_binary(&CollateralOracleExecuteMsg::RevokeCollateralAsset {
                 asset: AssetInfo::Token {
                     contract_addr: asset_token.clone(),
                 },
             })?,
-        })],
-        submessages: vec![],
-        attributes: vec![
+        })])
+        .add_attributes(vec![
             attr("action", "migrate_asset"),
             attr("asset_token", asset_token.as_str()),
             attr("end_price", end_price.to_string()),
-        ],
-        data: None,
-    })
+        ]))
 }
 
 pub fn trigger_ipo(deps: DepsMut, info: MessageInfo, asset_token: Addr) -> StdResult<Response> {
     let config = read_config(deps.storage)?;
     let asset_token_raw: CanonicalAddr = deps.api.addr_canonicalize(asset_token.as_str())?;
-    let oracle_feeder: Addr = deps.api.addr_humanize(&load_oracle_feeder(
+    let oracle_feeder: Addr = load_oracle_feeder(
         deps.as_ref(),
         deps.api.addr_humanize(&config.oracle)?,
-        &asset_token_raw,
-    )?)?;
+        asset_token.clone(),
+    )?;
 
     // only asset feeder can trigger ipo
     if oracle_feeder != info.sender {
@@ -460,13 +447,13 @@ pub fn trigger_ipo(deps: DepsMut, info: MessageInfo, asset_token: Addr) -> StdRe
     store_asset_config(deps.storage, &asset_token_raw, &asset_config)?;
 
     // register asset in collateral oracle
-    Ok(Response {
-        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
+    Ok(Response::new()
+        .add_messages(vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps
                 .api
                 .addr_humanize(&config.collateral_oracle)?
                 .to_string(),
-            send: vec![],
+            funds: vec![],
             msg: to_binary(&CollateralOracleExecuteMsg::RegisterCollateralAsset {
                 asset: AssetInfo::Token {
                     contract_addr: asset_token.clone(),
@@ -474,14 +461,11 @@ pub fn trigger_ipo(deps: DepsMut, info: MessageInfo, asset_token: Addr) -> StdRe
                 multiplier: Decimal::one(), // default collateral multiplier for new mAssets
                 price_source: SourceType::MirrorOracle {},
             })?,
-        })],
-        submessages: vec![],
-        attributes: vec![
+        })])
+        .add_attributes(vec![
             attr("action", "trigger_ipo"),
             attr("asset_token", asset_token.as_str()),
-        ],
-        data: None,
-    })
+        ]))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -554,6 +538,6 @@ pub fn query_asset_config(deps: Deps, asset_token: String) -> StdResult<AssetCon
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
+pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
     Ok(Response::default())
 }

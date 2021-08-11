@@ -1,10 +1,11 @@
-#[cfg(not(feature = "library"))]
-use cosmwasm_std::entry_point;
+use crate::errors::ContractError;
 use crate::state::{read_config, store_config, Config};
 use crate::swap::{convert, luna_swap_hook};
+#[cfg(not(feature = "library"))]
+use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    attr, to_binary, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response, StdError,
-    StdResult, WasmMsg,
+    attr, to_binary, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+    WasmMsg,
 };
 use cw20::Cw20ExecuteMsg;
 use mirror_protocol::collector::{
@@ -45,7 +46,7 @@ pub fn execute(
     env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
-) -> StdResult<Response<TerraMsgWrapper>> {
+) -> Result<Response<TerraMsgWrapper>, ContractError> {
     match msg {
         ExecuteMsg::UpdateConfig {
             owner,
@@ -60,8 +61,8 @@ pub fn execute(
         } => update_config(
             deps,
             info,
-            distribution_contract,
             owner,
+            distribution_contract,
             terraswap_factory,
             mirror_token,
             base_denom,
@@ -91,10 +92,10 @@ pub fn update_config(
     anchor_market: Option<String>,
     bluna_token: Option<String>,
     bluna_swap_denom: Option<String>,
-) -> StdResult<Response<TerraMsgWrapper>> {
+) -> Result<Response<TerraMsgWrapper>, ContractError> {
     let mut config: Config = read_config(deps.storage)?;
     if config.owner != deps.api.addr_canonicalize(info.sender.as_str())? {
-        return Err(StdError::generic_err("unauthorized"));
+        return Err(ContractError::Unauthorized {});
     }
 
     if let Some(owner) = owner {
@@ -133,26 +134,20 @@ pub fn update_config(
         config.bluna_swap_denom = bluna_swap_denom;
     }
 
-    Ok(Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: vec![attr("action", "update_config")],
-        data: None,
-    })
+    Ok(Response::new().add_attributes(vec![attr("action", "update_config")]))
 }
 
 // Anyone can execute send function to receive staking token rewards
-pub fn distribute(deps: DepsMut, env: Env) -> StdResult<Response<TerraMsgWrapper>> {
+pub fn distribute(deps: DepsMut, env: Env) -> Result<Response<TerraMsgWrapper>, ContractError> {
     let config: Config = read_config(deps.storage)?;
     let amount = query_token_balance(
         &deps.querier,
-        deps.api,
         deps.api.addr_humanize(&config.mirror_token)?,
         env.contract.address,
     )?;
 
-    Ok(Response {
-        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
+    Ok(Response::new()
+        .add_messages(vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps.api.addr_humanize(&config.mirror_token)?.to_string(),
             msg: to_binary(&Cw20ExecuteMsg::Send {
                 contract: deps
@@ -160,17 +155,14 @@ pub fn distribute(deps: DepsMut, env: Env) -> StdResult<Response<TerraMsgWrapper
                     .addr_humanize(&config.distribution_contract)?
                     .to_string(),
                 amount,
-                msg: Some(to_binary(&DepositReward {})?),
+                msg: to_binary(&DepositReward {})?,
             })?,
-            send: vec![],
-        })],
-        submessages: vec![],
-        attributes: vec![
+            funds: vec![],
+        })])
+        .add_attributes(vec![
             attr("action", "distribute"),
             attr("amount", amount.to_string()),
-        ],
-        data: None,
-    })
+        ]))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -204,6 +196,6 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
+pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
     Ok(Response::default())
 }

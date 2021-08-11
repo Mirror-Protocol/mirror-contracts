@@ -5,7 +5,7 @@ mod tests {
     use crate::state::{read_pool_info, rewards_read, store_pool_info, PoolInfo, RewardInfo};
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
     use cosmwasm_std::{
-        from_binary, to_binary, Addr, Api, CosmosMsg, Decimal, StdError, Uint128, WasmMsg,
+        from_binary, to_binary, Addr, Api, CosmosMsg, Decimal, StdError, SubMsg, Uint128, WasmMsg,
     };
     use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
     use mirror_protocol::staking::{
@@ -57,7 +57,7 @@ mod tests {
         // bond 100 tokens
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
             sender: "addr".to_string(),
-            amount: Uint128(100u128),
+            amount: Uint128::new(100u128),
             msg: to_binary(&Cw20HookMsg::Bond {
                 asset_token: "asset".to_string(),
             })
@@ -70,7 +70,7 @@ mod tests {
         let msg = ExecuteMsg::IncreaseShortToken {
             asset_token: "asset".to_string(),
             staker_addr: "addr".to_string(),
-            amount: Uint128(100u128),
+            amount: Uint128::new(100u128),
         };
         let info = mock_info("mint", &[]);
         let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -79,9 +79,9 @@ mod tests {
         // premium is 0, so rewards distributed 80:20
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
             sender: "factory".to_string(),
-            amount: Uint128(100u128),
+            amount: Uint128::new(100u128),
             msg: to_binary(&Cw20HookMsg::DepositReward {
-                rewards: vec![("asset".to_string(), Uint128(100u128))],
+                rewards: vec![("asset".to_string(), Uint128::new(100u128))],
             })
             .unwrap(),
         });
@@ -103,8 +103,8 @@ mod tests {
         assert_eq!(
             res.clone(),
             PoolInfoResponse {
-                total_bond_amount: Uint128(100u128),
-                total_short_amount: Uint128(100u128),
+                total_bond_amount: Uint128::new(100u128),
+                total_short_amount: Uint128::new(100u128),
                 reward_index: Decimal::from_ratio(80u128, 100u128),
                 short_reward_index: Decimal::from_ratio(20u128, 100u128),
                 ..res
@@ -143,8 +143,8 @@ mod tests {
         assert_eq!(
             res.clone(),
             PoolInfoResponse {
-                total_bond_amount: Uint128(100u128),
-                total_short_amount: Uint128(100u128),
+                total_bond_amount: Uint128::new(100u128),
+                total_short_amount: Uint128::new(100u128),
                 reward_index: Decimal::from_ratio(60u128, 100u128),
                 short_reward_index: Decimal::from_ratio(40u128, 100u128),
                 ..res
@@ -196,9 +196,9 @@ mod tests {
         // premium is 0, so rewards distributed 80:20
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
             sender: "factory".to_string(),
-            amount: Uint128(100u128),
+            amount: Uint128::new(100u128),
             msg: to_binary(&Cw20HookMsg::DepositReward {
-                rewards: vec![("asset".to_string(), Uint128(100u128))],
+                rewards: vec![("asset".to_string(), Uint128::new(100u128))],
             })
             .unwrap(),
         });
@@ -222,8 +222,8 @@ mod tests {
             PoolInfoResponse {
                 reward_index: Decimal::zero(),
                 short_reward_index: Decimal::zero(),
-                pending_reward: Uint128(80u128),
-                short_pending_reward: Uint128(20u128),
+                pending_reward: Uint128::new(80u128),
+                short_pending_reward: Uint128::new(20u128),
                 ..res
             }
         );
@@ -262,8 +262,8 @@ mod tests {
             PoolInfoResponse {
                 reward_index: Decimal::zero(),
                 short_reward_index: Decimal::zero(),
-                pending_reward: Uint128(60u128),
-                short_pending_reward: Uint128(40u128),
+                pending_reward: Uint128::new(60u128),
+                short_pending_reward: Uint128::new(40u128),
                 ..res
             }
         );
@@ -312,7 +312,7 @@ mod tests {
         // bond 100 tokens
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
             sender: "addr".to_string(),
-            amount: Uint128(100u128),
+            amount: Uint128::new(100u128),
             msg: to_binary(&Cw20HookMsg::Bond {
                 asset_token: "asset".to_string(),
             })
@@ -325,7 +325,7 @@ mod tests {
         let msg = ExecuteMsg::IncreaseShortToken {
             asset_token: "asset".to_string(),
             staker_addr: "addr".to_string(),
-            amount: Uint128(100u128),
+            amount: Uint128::new(100u128),
         };
         let info = mock_info("mint", &[]);
         let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -334,9 +334,9 @@ mod tests {
         // premium is 0, so rewards distributed 80:20
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
             sender: "factory".to_string(),
-            amount: Uint128(100u128),
+            amount: Uint128::new(100u128),
             msg: to_binary(&Cw20HookMsg::DepositReward {
-                rewards: vec![("asset".to_string(), Uint128(100u128))],
+                rewards: vec![("asset".to_string(), Uint128::new(100u128))],
             })
             .unwrap(),
         });
@@ -351,7 +351,7 @@ mod tests {
         assert_eq!(
             RewardInfo {
                 pending_reward: Uint128::zero(),
-                bond_amount: Uint128(100u128),
+                bond_amount: Uint128::new(100u128),
                 index: Decimal::zero(),
             },
             reward_info
@@ -360,7 +360,7 @@ mod tests {
         // bond 100 more tokens
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
             sender: "addr".to_string(),
-            amount: Uint128(100u128),
+            amount: Uint128::new(100u128),
             msg: to_binary(&Cw20HookMsg::Bond {
                 asset_token: "asset".to_string(),
             })
@@ -373,8 +373,8 @@ mod tests {
         let reward_info: RewardInfo = reward_bucket.load(asset_raw.as_slice()).unwrap();
         assert_eq!(
             RewardInfo {
-                pending_reward: Uint128(80u128),
-                bond_amount: Uint128(200u128),
+                pending_reward: Uint128::new(80u128),
+                bond_amount: Uint128::new(200u128),
                 index: Decimal::from_ratio(80u128, 100u128),
             },
             reward_info
@@ -383,9 +383,9 @@ mod tests {
         // factory deposit 100 reward tokens; = 0.8 + 0.4 = 1.2 is reward_index
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
             sender: "factory".to_string(),
-            amount: Uint128(100u128),
+            amount: Uint128::new(100u128),
             msg: to_binary(&Cw20HookMsg::DepositReward {
-                rewards: vec![("asset".to_string(), Uint128(100u128))],
+                rewards: vec![("asset".to_string(), Uint128::new(100u128))],
             })
             .unwrap(),
         });
@@ -395,7 +395,7 @@ mod tests {
         // unbond
         let msg = ExecuteMsg::Unbond {
             asset_token: "asset".to_string(),
-            amount: Uint128(100u128),
+            amount: Uint128::new(100u128),
         };
         let info = mock_info("addr", &[]);
         let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -404,8 +404,8 @@ mod tests {
         let reward_info: RewardInfo = reward_bucket.load(asset_raw.as_slice()).unwrap();
         assert_eq!(
             RewardInfo {
-                pending_reward: Uint128(160u128),
-                bond_amount: Uint128(100u128),
+                pending_reward: Uint128::new(160u128),
+                bond_amount: Uint128::new(100u128),
                 index: Decimal::from_ratio(120u128, 100u128),
             },
             reward_info
@@ -455,7 +455,7 @@ mod tests {
         // bond 100 tokens
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
             sender: "addr".to_string(),
-            amount: Uint128(100u128),
+            amount: Uint128::new(100u128),
             msg: to_binary(&Cw20HookMsg::Bond {
                 asset_token: "asset".to_string(),
             })
@@ -468,9 +468,9 @@ mod tests {
         // premium_rate is zero; distribute weight => 80:20
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
             sender: "factory".to_string(),
-            amount: Uint128(100u128),
+            amount: Uint128::new(100u128),
             msg: to_binary(&Cw20HookMsg::DepositReward {
-                rewards: vec![("asset".to_string(), Uint128(100u128))],
+                rewards: vec![("asset".to_string(), Uint128::new(100u128))],
             })
             .unwrap(),
         });
@@ -485,15 +485,15 @@ mod tests {
 
         assert_eq!(
             res.messages,
-            vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "reward".to_string(),
                 msg: to_binary(&Cw20ExecuteMsg::Transfer {
                     recipient: "addr".to_string(),
-                    amount: Uint128(80u128),
+                    amount: Uint128::new(80u128),
                 })
                 .unwrap(),
-                send: vec![],
-            })]
+                funds: vec![],
+            }))]
         );
     }
 
@@ -562,7 +562,7 @@ mod tests {
         // bond 100 tokens
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
             sender: "addr".to_string(),
-            amount: Uint128(100u128),
+            amount: Uint128::new(100u128),
             msg: to_binary(&Cw20HookMsg::Bond {
                 asset_token: "asset".to_string(),
             })
@@ -574,7 +574,7 @@ mod tests {
         // bond second 1000 tokens
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
             sender: "addr".to_string(),
-            amount: Uint128(1000u128),
+            amount: Uint128::new(1000u128),
             msg: to_binary(&Cw20HookMsg::Bond {
                 asset_token: "asset2".to_string(),
             })
@@ -587,7 +587,7 @@ mod tests {
         let msg = ExecuteMsg::IncreaseShortToken {
             asset_token: "asset".to_string(),
             staker_addr: "addr".to_string(),
-            amount: Uint128(50u128),
+            amount: Uint128::new(50u128),
         };
         let info = mock_info("mint", &[]);
         let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -595,11 +595,11 @@ mod tests {
         // factory deposit asset
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
             sender: "factory".to_string(),
-            amount: Uint128(300u128),
+            amount: Uint128::new(300u128),
             msg: to_binary(&Cw20HookMsg::DepositReward {
                 rewards: vec![
-                    ("asset".to_string(), Uint128(100u128)),
-                    ("asset2".to_string(), Uint128(200u128)),
+                    ("asset".to_string(), Uint128::new(100u128)),
+                    ("asset2".to_string(), Uint128::new(200u128)),
                 ],
             })
             .unwrap(),
@@ -624,20 +624,20 @@ mod tests {
                 reward_infos: vec![
                     RewardInfoResponseItem {
                         asset_token: "asset".to_string(),
-                        bond_amount: Uint128(100u128),
-                        pending_reward: Uint128(80u128),
+                        bond_amount: Uint128::new(100u128),
+                        pending_reward: Uint128::new(80u128),
                         is_short: false,
                     },
                     RewardInfoResponseItem {
                         asset_token: "asset2".to_string(),
-                        bond_amount: Uint128(1000u128),
-                        pending_reward: Uint128(160u128),
+                        bond_amount: Uint128::new(1000u128),
+                        pending_reward: Uint128::new(160u128),
                         is_short: false,
                     },
                     RewardInfoResponseItem {
                         asset_token: "asset".to_string(),
-                        bond_amount: Uint128(50u128),
-                        pending_reward: Uint128(20u128),
+                        bond_amount: Uint128::new(50u128),
+                        pending_reward: Uint128::new(20u128),
                         is_short: true,
                     },
                 ],
@@ -651,15 +651,15 @@ mod tests {
 
         assert_eq!(
             res.messages,
-            vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "reward".to_string(),
                 msg: to_binary(&Cw20ExecuteMsg::Transfer {
                     recipient: "addr".to_string(),
-                    amount: Uint128(260u128),
+                    amount: Uint128::new(260u128),
                 })
                 .unwrap(),
-                send: vec![],
-            })]
+                funds: vec![],
+            }))]
         );
 
         let data = query(
@@ -679,19 +679,19 @@ mod tests {
                 reward_infos: vec![
                     RewardInfoResponseItem {
                         asset_token: "asset".to_string(),
-                        bond_amount: Uint128(100u128),
+                        bond_amount: Uint128::new(100u128),
                         pending_reward: Uint128::zero(),
                         is_short: false,
                     },
                     RewardInfoResponseItem {
                         asset_token: "asset2".to_string(),
-                        bond_amount: Uint128(1000u128),
+                        bond_amount: Uint128::new(1000u128),
                         pending_reward: Uint128::zero(),
                         is_short: false,
                     },
                     RewardInfoResponseItem {
                         asset_token: "asset".to_string(),
-                        bond_amount: Uint128(50u128),
+                        bond_amount: Uint128::new(50u128),
                         pending_reward: Uint128::zero(),
                         is_short: true,
                     },

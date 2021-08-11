@@ -3,13 +3,11 @@ use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Api, CanonicalAddr, Coin, ContractResult, Decimal,
-    OwnedDeps, Querier, QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, WasmQuery,
+    from_binary, from_slice, to_binary, Api, Coin, ContractResult, Decimal, OwnedDeps, Querier,
+    QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, WasmQuery,
 };
-use cosmwasm_storage::to_length_prefixed;
-
+use cw20::BalanceResponse;
 use std::collections::HashMap;
-
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 use terraswap::asset::{AssetInfo, PairInfo};
 
@@ -129,6 +127,7 @@ impl Querier for WasmMockQuerier {
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     Pair { asset_infos: [AssetInfo; 2] },
+    Balance { address: String },
 }
 
 impl WasmMockQuerier {
@@ -160,10 +159,9 @@ impl WasmMockQuerier {
                     panic!("DO NOT ENTER HERE")
                 }
             }
-            QueryRequest::Wasm(WasmQuery::Smart {
-                contract_addr: _,
-                msg,
-            }) => match from_binary(&msg).unwrap() {
+            QueryRequest::Wasm(WasmQuery::Smart { contract_addr, msg }) => match from_binary(&msg)
+                .unwrap()
+            {
                 QueryMsg::Pair { asset_infos } => {
                     let key = asset_infos[0].to_string() + asset_infos[1].to_string().as_str();
                     match self.terraswap_factory_querier.pairs.get(&key) {
@@ -185,55 +183,38 @@ impl WasmMockQuerier {
                         }),
                     }
                 }
-            },
-            QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
-                let key: &[u8] = key.as_slice();
-                let prefix_balance = to_length_prefixed(b"balance").to_vec();
-
-                let balances: &HashMap<String, Uint128> =
-                    match self.token_querier.balances.get(contract_addr) {
-                        Some(balances) => balances,
-                        None => {
-                            return SystemResult::Err(SystemError::InvalidRequest {
-                                error: format!(
-                                    "No balance info exists for the contract {}",
-                                    contract_addr
-                                ),
-                                request: key.into(),
-                            })
-                        }
-                    };
-
-                if key[..prefix_balance.len()].to_vec() == prefix_balance {
-                    let key_address: &[u8] = &key[prefix_balance.len()..];
-                    let address_raw: CanonicalAddr = CanonicalAddr::from(key_address);
-
-                    // let api: MockApi = MockApi::new(self.canonical_length);
-                    let address: String = match api.addr_humanize(&address_raw) {
-                        Ok(v) => v.to_string(),
-                        Err(e) => {
-                            return SystemResult::Err(SystemError::InvalidRequest {
-                                error: format!("Parsing query request: {}", e),
-                                request: key.into(),
-                            })
-                        }
-                    };
+                QueryMsg::Balance { address } => {
+                    let balances: &HashMap<String, Uint128> =
+                        match self.token_querier.balances.get(contract_addr) {
+                            Some(balances) => balances,
+                            None => {
+                                return SystemResult::Err(SystemError::InvalidRequest {
+                                    error: format!(
+                                        "No balance info exists for the contract {}",
+                                        contract_addr
+                                    ),
+                                    request: msg.as_slice().into(),
+                                })
+                            }
+                        };
 
                     let balance = match balances.get(&address) {
-                        Some(v) => v,
+                        Some(v) => *v,
                         None => {
-                            return SystemResult::Err(SystemError::InvalidRequest {
-                                error: "Balance not found".to_string(),
-                                request: key.into(),
-                            })
+                            return SystemResult::Ok(ContractResult::Ok(
+                                to_binary(&BalanceResponse {
+                                    balance: Uint128::zero(),
+                                })
+                                .unwrap(),
+                            ));
                         }
                     };
 
-                    SystemResult::Ok(ContractResult::from(to_binary(&balance)))
-                } else {
-                    panic!("DO NOT ENTER HERE")
+                    SystemResult::Ok(ContractResult::Ok(
+                        to_binary(&BalanceResponse { balance }).unwrap(),
+                    ))
                 }
-            }
+            },
             _ => self.base.handle_query(request),
         }
     }

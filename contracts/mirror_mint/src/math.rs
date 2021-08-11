@@ -1,6 +1,6 @@
 use cosmwasm_std::{Decimal, Uint128};
 
-const DECIMAL_FRACTIONAL: Uint128 = Uint128(1_000_000_000u128);
+const DECIMAL_FRACTIONAL: Uint128 = Uint128::new(1_000_000_000u128);
 
 pub fn reverse_decimal(decimal: Decimal) -> Decimal {
     Decimal::from_ratio(DECIMAL_FRACTIONAL, decimal * DECIMAL_FRACTIONAL)
