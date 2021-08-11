@@ -8,5 +8,5 @@ pub mod limit_order;
 pub mod lock;
 pub mod mint;
 pub mod oracle;
-pub mod staking;
 pub mod short_reward;
+pub mod staking;

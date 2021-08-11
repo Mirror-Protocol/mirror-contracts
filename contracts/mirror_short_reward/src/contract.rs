@@ -1,10 +1,14 @@
-#[cfg(not(feature = "library"))]
-use cosmwasm_std::entry_point;
 use crate::math::{
     decimal_division, decimal_multiplication, decimal_subtraction, erf_plus_one, Sign,
 };
-use cosmwasm_std::{Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Response, StdResult, to_binary};
-use mirror_protocol::short_reward::{ExecuteMsg, InstantiateMsg, QueryMsg, ShortRewardWeightResponse};
+#[cfg(not(feature = "library"))]
+use cosmwasm_std::entry_point;
+use cosmwasm_std::{
+    to_binary, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+};
+use mirror_protocol::short_reward::{
+    ExecuteMsg, InstantiateMsg, QueryMsg, ShortRewardWeightResponse,
+};
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -17,15 +21,16 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn execute(_deps: DepsMut, _env: Env, _info: MessageInfo, _msg: ExecuteMsg) -> StdResult<Response> {
+pub fn execute(
+    _deps: DepsMut,
+    _env: Env,
+    _info: MessageInfo,
+    _msg: ExecuteMsg,
+) -> StdResult<Response> {
     Ok(Response::default())
 }
 
-pub fn query(
-    _deps: Deps,
-    _env: Env,
-    msg: QueryMsg,
-) -> StdResult<Binary> {
+pub fn query(_deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::ShortRewardWeight { premium_rate } => {
             to_binary(&query_short_reward_weight(premium_rate)?)
@@ -33,9 +38,7 @@ pub fn query(
     }
 }
 
-pub fn query_short_reward_weight(
-    premium_rate: Decimal,
-) -> StdResult<ShortRewardWeightResponse> {
+pub fn query_short_reward_weight(premium_rate: Decimal) -> StdResult<ShortRewardWeightResponse> {
     if premium_rate > Decimal::percent(7) {
         return Ok(ShortRewardWeightResponse {
             short_reward_weight: Decimal::percent(40),

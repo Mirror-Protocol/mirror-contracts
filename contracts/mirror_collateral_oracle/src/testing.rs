@@ -3,7 +3,7 @@ use crate::contract::{
 };
 use crate::mock_querier::mock_dependencies;
 use cosmwasm_std::testing::{mock_env, mock_info};
-use cosmwasm_std::{Addr, Decimal, StdError, Uint128};
+use cosmwasm_std::{Decimal, StdError, Uint128};
 use mirror_protocol::collateral_oracle::{
     CollateralInfoResponse, CollateralPriceResponse, ExecuteMsg, InstantiateMsg, SourceType,
 };
@@ -115,7 +115,7 @@ fn register_collateral() {
 
     let msg = ExecuteMsg::RegisterCollateralAsset {
         asset: AssetInfo::Token {
-            contract_addr: Addr::unchecked("mTSLA"),
+            contract_addr: "mTSLA".to_string(),
         },
         multiplier: Decimal::percent(100),
         price_source: SourceType::MirrorOracle {},
@@ -166,7 +166,7 @@ fn update_collateral() {
 
     let msg = ExecuteMsg::RegisterCollateralAsset {
         asset: AssetInfo::Token {
-            contract_addr: Addr::unchecked("mTSLA"),
+            contract_addr: "mTSLA".to_string(),
         },
         multiplier: Decimal::percent(100),
         price_source: SourceType::MirrorOracle {},
@@ -192,7 +192,7 @@ fn update_collateral() {
     // update collateral query
     let msg = ExecuteMsg::UpdateCollateralPriceSource {
         asset: AssetInfo::Token {
-            contract_addr: Addr::unchecked("mTSLA"),
+            contract_addr: "mTSLA".to_string(),
         },
         price_source: SourceType::FixedPrice {
             price: Decimal::zero(),
@@ -224,7 +224,7 @@ fn update_collateral() {
     // update collateral premium - invalid msg
     let msg = ExecuteMsg::UpdateCollateralMultiplier {
         asset: AssetInfo::Token {
-            contract_addr: Addr::unchecked("mTSLA"),
+            contract_addr: "mTSLA".to_string(),
         },
         multiplier: Decimal::zero(),
     };
@@ -240,7 +240,7 @@ fn update_collateral() {
     // update collateral premium - valid msg
     let msg = ExecuteMsg::UpdateCollateralMultiplier {
         asset: AssetInfo::Token {
-            contract_addr: Addr::unchecked("mTSLA"),
+            contract_addr: "mTSLA".to_string(),
         },
         multiplier: Decimal::percent(120),
     };
@@ -290,7 +290,7 @@ fn get_oracle_price() {
 
     let msg = ExecuteMsg::RegisterCollateralAsset {
         asset: AssetInfo::Token {
-            contract_addr: Addr::unchecked("mTSLA"),
+            contract_addr: "mTSLA".to_string(),
         },
         multiplier: Decimal::percent(100),
         price_source: SourceType::MirrorOracle {},
@@ -350,7 +350,7 @@ fn get_terraswap_price() {
 
     let msg = ExecuteMsg::RegisterCollateralAsset {
         asset: AssetInfo::Token {
-            contract_addr: Addr::unchecked("anc0000"),
+            contract_addr: "anc0000".to_string(),
         },
         multiplier: Decimal::percent(100),
         price_source: SourceType::Terraswap {
@@ -378,7 +378,7 @@ fn get_terraswap_price() {
     // register collateral with intermediate denom
     let msg = ExecuteMsg::RegisterCollateralAsset {
         asset: AssetInfo::Token {
-            contract_addr: Addr::unchecked("bluna0000"),
+            contract_addr: "bluna0000".to_string(),
         },
         multiplier: Decimal::percent(100),
         price_source: SourceType::Terraswap {
@@ -422,7 +422,7 @@ fn get_fixed_price() {
 
     let msg = ExecuteMsg::RegisterCollateralAsset {
         asset: AssetInfo::Token {
-            contract_addr: Addr::unchecked("aUST"),
+            contract_addr: "aUST".to_string(),
         },
         multiplier: Decimal::percent(100),
         price_source: SourceType::FixedPrice {
@@ -506,7 +506,7 @@ fn get_anchor_market_price() {
 
     let msg = ExecuteMsg::RegisterCollateralAsset {
         asset: AssetInfo::Token {
-            contract_addr: Addr::unchecked("aust0000"),
+            contract_addr: "aust0000".to_string(),
         },
         multiplier: Decimal::percent(100),
         price_source: SourceType::AnchorMarket {
@@ -592,7 +592,7 @@ fn revoke_collateral() {
 
     let msg = ExecuteMsg::RegisterCollateralAsset {
         asset: AssetInfo::Token {
-            contract_addr: Addr::unchecked("aUST"),
+            contract_addr: "aUST".to_string(),
         },
         multiplier: Decimal::percent(100),
         price_source: SourceType::FixedPrice {
@@ -619,7 +619,7 @@ fn revoke_collateral() {
     // revoke the asset
     let msg = ExecuteMsg::RevokeCollateralAsset {
         asset: AssetInfo::Token {
-            contract_addr: Addr::unchecked("aUST"),
+            contract_addr: "aUST".to_string(),
         },
     };
 

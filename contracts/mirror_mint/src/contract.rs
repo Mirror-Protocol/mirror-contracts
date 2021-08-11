@@ -178,7 +178,7 @@ pub fn receive_cw20(
 ) -> StdResult<Response> {
     let passed_asset: Asset = Asset {
         info: AssetInfo::Token {
-            contract_addr: info.sender.clone(),
+            contract_addr: info.sender.to_string(),
         },
         amount: cw20_msg.amount,
     };
@@ -344,7 +344,7 @@ pub fn register_asset(
             funds: vec![],
             msg: to_binary(&CollateralOracleExecuteMsg::RegisterCollateralAsset {
                 asset: AssetInfo::Token {
-                    contract_addr: asset_token.clone(),
+                    contract_addr: asset_token.to_string(),
                 },
                 multiplier: Decimal::one(), // default collateral multiplier for new mAssets
                 price_source: SourceType::MirrorOracle {},
@@ -409,7 +409,7 @@ pub fn register_migration(
             funds: vec![],
             msg: to_binary(&CollateralOracleExecuteMsg::RevokeCollateralAsset {
                 asset: AssetInfo::Token {
-                    contract_addr: asset_token.clone(),
+                    contract_addr: asset_token.to_string(),
                 },
             })?,
         })])
@@ -456,7 +456,7 @@ pub fn trigger_ipo(deps: DepsMut, info: MessageInfo, asset_token: Addr) -> StdRe
             funds: vec![],
             msg: to_binary(&CollateralOracleExecuteMsg::RegisterCollateralAsset {
                 asset: AssetInfo::Token {
-                    contract_addr: asset_token.clone(),
+                    contract_addr: asset_token.to_string(),
                 },
                 multiplier: Decimal::one(), // default collateral multiplier for new mAssets
                 price_source: SourceType::MirrorOracle {},

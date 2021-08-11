@@ -13,9 +13,7 @@ pub enum ExecuteMsg {}
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
-    ShortRewardWeight { 
-        premium_rate: Decimal,
-    },
+    ShortRewardWeight { premium_rate: Decimal },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

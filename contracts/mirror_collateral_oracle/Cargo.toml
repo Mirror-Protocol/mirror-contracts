@@ -39,7 +39,7 @@ cosmwasm-storage = { version = "0.16.0", features = ["iterator"] }
 mirror-protocol = { version = "2.1.0", path = "../../packages/mirror_protocol" }
 schemars = "0.8.1"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
-terraswap = "2.4.0-rc2"
+terraswap = "2.4.0"
 cosmwasm-bignumber = "2.2.0"
 terra-cosmwasm = "2.2.0"
 

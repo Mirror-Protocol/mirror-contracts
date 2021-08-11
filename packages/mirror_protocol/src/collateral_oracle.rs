@@ -49,8 +49,13 @@ pub enum ExecuteMsg {
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     Config {},
-    CollateralPrice { asset: String, block_height: Option<u64> },
-    CollateralAssetInfo { asset: String },
+    CollateralPrice {
+        asset: String,
+        block_height: Option<u64>,
+    },
+    CollateralAssetInfo {
+        asset: String,
+    },
     CollateralAssetInfos {},
 }
 

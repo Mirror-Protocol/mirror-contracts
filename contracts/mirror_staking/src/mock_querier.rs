@@ -95,8 +95,8 @@ impl WasmMockQuerier {
                 MockQueryMsg::Pair { asset_infos } => {
                     SystemResult::Ok(ContractResult::from(to_binary(&PairInfo {
                         asset_infos: asset_infos.clone(),
-                        contract_addr: self.pair_addr.clone(),
-                        liquidity_token: Addr::unchecked("lptoken"),
+                        contract_addr: self.pair_addr.to_string(),
+                        liquidity_token: "lptoken".to_string(),
                     })))
                 }
                 MockQueryMsg::ShortRewardWeight { .. } => SystemResult::Ok(ContractResult::from(
@@ -156,7 +156,7 @@ impl WasmMockQuerier {
                 },
                 Asset {
                     info: AssetInfo::Token {
-                        contract_addr: Addr::unchecked("asset"),
+                        contract_addr: "asset".to_string(),
                     },
                     amount: Uint128::zero(),
                 },

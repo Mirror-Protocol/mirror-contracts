@@ -1,7 +1,7 @@
 use cosmwasm_std::testing::{mock_env, mock_info};
 use cosmwasm_std::{
-    attr, from_binary, to_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, StdError, SubMsg,
-    Uint128, WasmMsg,
+    attr, from_binary, to_binary, BankMsg, Coin, CosmosMsg, Decimal, StdError, SubMsg, Uint128,
+    WasmMsg,
 };
 
 use crate::contract::{execute, instantiate, query};
@@ -40,13 +40,13 @@ fn submit_order() {
         offer_asset: Asset {
             amount: Uint128::from(1000000u128),
             info: AssetInfo::Token {
-                contract_addr: Addr::unchecked("mAAPL"),
+                contract_addr: "mAAPL".to_string(),
             },
         },
         ask_asset: Asset {
             amount: Uint128::from(1000000u128),
             info: AssetInfo::Token {
-                contract_addr: Addr::unchecked("mAAPL"),
+                contract_addr: "mAAPL".to_string(),
             },
         },
     };
@@ -68,7 +68,7 @@ fn submit_order() {
         ask_asset: Asset {
             amount: Uint128::from(1000000u128),
             info: AssetInfo::Token {
-                contract_addr: Addr::unchecked("mAAPL"),
+                contract_addr: "mAAPL".to_string(),
             },
         },
     };
@@ -93,7 +93,7 @@ fn submit_order() {
         ask_asset: Asset {
             amount: Uint128::from(1000000u128),
             info: AssetInfo::Token {
-                contract_addr: Addr::unchecked("mAAPL"),
+                contract_addr: "mAAPL".to_string(),
             },
         },
     };
@@ -184,7 +184,7 @@ fn cancel_order_native_token() {
         ask_asset: Asset {
             amount: Uint128::from(1000000u128),
             info: AssetInfo::Token {
-                contract_addr: Addr::unchecked("mAAPL"),
+                contract_addr: "mAAPL".to_string(),
             },
         },
     };
@@ -490,7 +490,7 @@ fn execute_order_token() {
             ask_asset: Asset {
                 amount: Uint128::from(1000000u128),
                 info: AssetInfo::Token {
-                    contract_addr: Addr::unchecked("token0001"),
+                    contract_addr: "token0001".to_string(),
                 },
             },
         })
@@ -645,7 +645,7 @@ fn orders_querier() {
             ask_asset: Asset {
                 amount: Uint128::from(1000000u128),
                 info: AssetInfo::Token {
-                    contract_addr: Addr::unchecked("token0001"),
+                    contract_addr: "token0001".to_string(),
                 },
             },
         })
@@ -680,13 +680,13 @@ fn orders_querier() {
         offer_asset: Asset {
             amount: Uint128::from(1000000u128),
             info: AssetInfo::Token {
-                contract_addr: Addr::unchecked("token0000"),
+                contract_addr: "token0000".to_string(),
             },
         },
         ask_asset: Asset {
             amount: Uint128::from(1000000u128),
             info: AssetInfo::Token {
-                contract_addr: Addr::unchecked("token0001"),
+                contract_addr: "token0001".to_string(),
             },
         },
         filled_offer_amount: Uint128::zero(),

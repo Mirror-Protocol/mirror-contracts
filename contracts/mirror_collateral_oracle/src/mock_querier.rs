@@ -1,6 +1,6 @@
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Addr, Coin, ContractResult, Decimal, OwnedDeps, Querier,
+    from_binary, from_slice, to_binary, Coin, ContractResult, Decimal, OwnedDeps, Querier,
     QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, WasmQuery,
 };
 use schemars::JsonSchema;
@@ -200,7 +200,7 @@ impl WasmMockQuerier {
                             Asset {
                                 amount: v.3,
                                 info: AssetInfo::Token {
-                                    contract_addr: Addr::unchecked(v.2.clone()),
+                                    contract_addr: v.2.to_string(),
                                 },
                             },
                         ],

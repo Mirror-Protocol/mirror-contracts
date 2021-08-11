@@ -4,8 +4,8 @@ mod test {
     use crate::mock_querier::mock_dependencies;
     use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
     use cosmwasm_std::{
-        attr, from_binary, to_binary, Addr, BankMsg, BlockInfo, Coin, CosmosMsg, Decimal, Env,
-        SubMsg, Timestamp, Uint128, WasmMsg,
+        attr, from_binary, to_binary, BankMsg, BlockInfo, Coin, CosmosMsg, Decimal, Env, SubMsg,
+        Timestamp, Uint128, WasmMsg,
     };
     use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
     use mirror_protocol::lock::ExecuteMsg as LockExecuteMsg;
@@ -97,7 +97,7 @@ mod test {
                 amount: Uint128::from(1000000u128),
             },
             asset_info: AssetInfo::Token {
-                contract_addr: Addr::unchecked("asset0000"),
+                contract_addr: "asset0000".to_string(),
             },
             collateral_ratio: Decimal::percent(150),
             short_params: Some(ShortParams {
@@ -192,7 +192,7 @@ mod test {
                 owner: "addr0000".to_string(),
                 asset: Asset {
                     info: AssetInfo::Token {
-                        contract_addr: Addr::unchecked("asset0000"),
+                        contract_addr: "asset0000".to_string(),
                     },
                     amount: Uint128::from(666666u128),
                 },
@@ -270,7 +270,7 @@ mod test {
                 amount: Uint128::from(1000000u128),
             },
             asset_info: AssetInfo::Token {
-                contract_addr: Addr::unchecked("asset0000"),
+                contract_addr: "asset0000".to_string(),
             },
             collateral_ratio: Decimal::percent(200),
             short_params: Some(ShortParams {
@@ -294,7 +294,7 @@ mod test {
             position_idx: Uint128::from(1u128),
             asset: Asset {
                 info: AssetInfo::Token {
-                    contract_addr: Addr::unchecked("asset0000"),
+                    contract_addr: "asset0000".to_string(),
                 },
                 amount: Uint128::from(100u128),
             },
@@ -424,7 +424,7 @@ mod test {
                 amount: Uint128::from(1000000u128),
             },
             asset_info: AssetInfo::Token {
-                contract_addr: Addr::unchecked("asset0000"),
+                contract_addr: "asset0000".to_string(),
             },
             collateral_ratio: Decimal::percent(200),
             short_params: Some(ShortParams {
@@ -560,7 +560,7 @@ mod test {
                 amount: Uint128::from(1000000u128),
             },
             asset_info: AssetInfo::Token {
-                contract_addr: Addr::unchecked("asset0000"),
+                contract_addr: "asset0000".to_string(),
             },
             collateral_ratio: Decimal::percent(150),
             short_params: Some(ShortParams {
@@ -700,7 +700,7 @@ mod test {
                 amount: Uint128::from(200u128), // will mint 100 mAsset and lock 100 UST
             },
             asset_info: AssetInfo::Token {
-                contract_addr: Addr::unchecked("asset0000"),
+                contract_addr: "asset0000".to_string(),
             },
             collateral_ratio: Decimal::percent(200),
             short_params: Some(ShortParams {

@@ -56,7 +56,7 @@ fn direct_swap(
                 denom: config.base_denom.clone(),
             },
             AssetInfo::Token {
-                contract_addr: asset_token.clone(),
+                contract_addr: asset_token.to_string(),
             },
         ],
     )?;
@@ -163,7 +163,7 @@ fn bluna_swap(
                 denom: config.bluna_swap_denom.clone(),
             },
             AssetInfo::Token {
-                contract_addr: asset_token.clone(),
+                contract_addr: asset_token.to_string(),
             },
         ],
     )?;

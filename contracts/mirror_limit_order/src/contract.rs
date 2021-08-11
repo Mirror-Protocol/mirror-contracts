@@ -69,7 +69,7 @@ pub fn receive_cw20(
 
     let provided_asset = Asset {
         info: AssetInfo::Token {
-            contract_addr: info.sender,
+            contract_addr: info.sender.to_string(),
         },
         amount: cw20_msg.amount,
     };

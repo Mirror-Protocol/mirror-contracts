@@ -24,7 +24,7 @@ pub fn compute_premium_rate(
                 denom: base_denom.to_string(),
             },
             AssetInfo::Token {
-                contract_addr: asset_token.clone(),
+                contract_addr: asset_token.to_string(),
             },
         ],
     )?;

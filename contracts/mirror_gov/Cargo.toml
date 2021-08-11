@@ -35,7 +35,7 @@ overflow-checks = true
 backtraces = ["cosmwasm-std/backtraces"]
 
 [dependencies]
-cw20 = { version = "0.8.0-rc2" } 
+cw20 = { version = "0.8.0" } 
 cosmwasm-std = { version = "0.16.0" }
 cosmwasm-storage = { version = "0.16.0" }
 mirror-protocol = { version = "2.1.0", path = "../../packages/mirror_protocol" }

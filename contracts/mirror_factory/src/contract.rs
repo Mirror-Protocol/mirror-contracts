@@ -430,7 +430,7 @@ pub fn token_creation_hook(
                             denom: config.base_denom,
                         },
                         AssetInfo::Token {
-                            contract_addr: asset_token.clone(),
+                            contract_addr: asset_token.to_string(),
                         },
                     ],
                 })?,
@@ -461,7 +461,7 @@ pub fn terraswap_creation_hook(deps: DepsMut, _env: Env, asset_token: Addr) -> S
             denom: config.base_denom,
         },
         AssetInfo::Token {
-            contract_addr: asset_token.clone(),
+            contract_addr: asset_token.to_string(),
         },
     ];
 

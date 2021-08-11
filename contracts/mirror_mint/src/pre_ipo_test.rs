@@ -4,8 +4,8 @@ mod tests {
     use crate::mock_querier::mock_dependencies;
     use cosmwasm_std::testing::{mock_env, mock_info};
     use cosmwasm_std::{
-        attr, from_binary, to_binary, Addr, BlockInfo, Coin, CosmosMsg, Decimal, Env, StdError,
-        SubMsg, Timestamp, Uint128, WasmMsg,
+        attr, from_binary, to_binary, BlockInfo, Coin, CosmosMsg, Decimal, Env, StdError, SubMsg,
+        Timestamp, Uint128, WasmMsg,
     };
     use cw20::Cw20ReceiveMsg;
     use mirror_protocol::collateral_oracle::{ExecuteMsg::RegisterCollateralAsset, SourceType};
@@ -96,7 +96,7 @@ mod tests {
                 amount: Uint128::from(2000000000u128),
             },
             asset_info: AssetInfo::Token {
-                contract_addr: Addr::unchecked("preIPOAsset0000"),
+                contract_addr: "preIPOAsset0000".to_string(),
             },
             collateral_ratio: Decimal::percent(2000),
             short_params: None,
@@ -128,7 +128,7 @@ mod tests {
             position_idx: Uint128::from(1u128),
             asset: Asset {
                 info: AssetInfo::Token {
-                    contract_addr: Addr::unchecked("preIPOAsset0000"),
+                    contract_addr: "preIPOAsset0000".to_string(),
                 },
                 amount: Uint128::from(2000000u128),
             },
@@ -164,7 +164,7 @@ mod tests {
                 amount: Uint128::from(1000000000u128),
             },
             asset_info: AssetInfo::Token {
-                contract_addr: Addr::unchecked("preIPOAsset0000"),
+                contract_addr: "preIPOAsset0000".to_string(),
             },
             collateral_ratio: Decimal::percent(10000),
             short_params: None,
@@ -193,7 +193,7 @@ mod tests {
             position_idx: Uint128::from(1u128),
             asset: Asset {
                 info: AssetInfo::Token {
-                    contract_addr: Addr::unchecked("preIPOAsset0000"),
+                    contract_addr: "preIPOAsset0000".to_string(),
                 },
                 amount: Uint128::from(2000000u128),
             },
@@ -263,7 +263,7 @@ mod tests {
                 funds: vec![],
                 msg: to_binary(&RegisterCollateralAsset {
                     asset: AssetInfo::Token {
-                        contract_addr: Addr::unchecked("preIPOAsset0000"),
+                        contract_addr: "preIPOAsset0000".to_string(),
                     },
                     multiplier: Decimal::one(),
                     price_source: SourceType::MirrorOracle {},
@@ -302,7 +302,7 @@ mod tests {
                 amount: Uint128::from(9000u128),
             },
             asset_info: AssetInfo::Token {
-                contract_addr: Addr::unchecked("preIPOAsset0000"),
+                contract_addr: "preIPOAsset0000".to_string(),
             },
             collateral_ratio: Decimal::percent(150), // new minCR
             short_params: None,

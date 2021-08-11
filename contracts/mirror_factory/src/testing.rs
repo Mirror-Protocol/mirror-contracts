@@ -8,7 +8,7 @@ use crate::state::{
 };
 use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage};
 use cosmwasm_std::{
-    attr, from_binary, to_binary, Addr, CanonicalAddr, ContractResult, CosmosMsg, Decimal, Env,
+    attr, from_binary, to_binary, CanonicalAddr, ContractResult, CosmosMsg, Decimal, Env,
     OwnedDeps, Reply, ReplyOn, StdError, SubMsg, Timestamp, Uint128, WasmMsg,
 };
 use cosmwasm_std::{Api, SubMsgExecutionResponse};
@@ -471,7 +471,7 @@ fn test_token_creation_hook() {
                                 denom: BASE_DENOM.to_string(),
                             },
                             AssetInfo::Token {
-                                contract_addr: Addr::unchecked("asset0000"),
+                                contract_addr: "asset0000".to_string(),
                             },
                         ],
                     })
@@ -603,7 +603,7 @@ fn test_token_creation_hook_without_weight() {
                                 denom: BASE_DENOM.to_string(),
                             },
                             AssetInfo::Token {
-                                contract_addr: Addr::unchecked("asset0000"),
+                                contract_addr: "asset0000".to_string(),
                             },
                         ],
                     })
@@ -1575,7 +1575,7 @@ fn test_whitelist_pre_ipo_asset() {
                                 denom: BASE_DENOM.to_string(),
                             },
                             AssetInfo::Token {
-                                contract_addr: Addr::unchecked("asset0000"),
+                                contract_addr: "asset0000".to_string(),
                             },
                         ],
                     })

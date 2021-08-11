@@ -5,8 +5,8 @@ mod tests {
     use crate::mock_querier::mock_dependencies;
     use cosmwasm_std::testing::{mock_env, mock_info};
     use cosmwasm_std::{
-        attr, from_binary, to_binary, Addr, BankMsg, BlockInfo, Coin, CosmosMsg, Decimal, Env,
-        StdError, SubMsg, Timestamp, Uint128, WasmMsg,
+        attr, from_binary, to_binary, BankMsg, BlockInfo, Coin, CosmosMsg, Decimal, Env, StdError,
+        SubMsg, Timestamp, Uint128, WasmMsg,
     };
     use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
     use mirror_protocol::common::OrderBy;
@@ -86,7 +86,7 @@ mod tests {
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
             msg: to_binary(&Cw20HookMsg::OpenPosition {
                 asset_info: AssetInfo::Token {
-                    contract_addr: Addr::unchecked("asset9999"),
+                    contract_addr: "asset9999".to_string(),
                 },
                 collateral_ratio: Decimal::percent(150),
                 short_params: None,
@@ -108,7 +108,7 @@ mod tests {
                 amount: Uint128::from(1000000u128),
             },
             asset_info: AssetInfo::Token {
-                contract_addr: Addr::unchecked("asset0000"),
+                contract_addr: "asset0000".to_string(),
             },
             collateral_ratio: Decimal::percent(140),
             short_params: None,
@@ -139,7 +139,7 @@ mod tests {
                 amount: Uint128::from(1000000u128),
             },
             asset_info: AssetInfo::Token {
-                contract_addr: Addr::unchecked("asset0000"),
+                contract_addr: "asset0000".to_string(),
             },
             collateral_ratio: Decimal::percent(150),
             short_params: None,
@@ -186,7 +186,7 @@ mod tests {
                 owner: "addr0000".to_string(),
                 asset: Asset {
                     info: AssetInfo::Token {
-                        contract_addr: Addr::unchecked("asset0000"),
+                        contract_addr: "asset0000".to_string(),
                     },
                     amount: Uint128::from(666666u128),
                 },
@@ -222,7 +222,7 @@ mod tests {
                     owner: "addr0000".to_string(),
                     asset: Asset {
                         info: AssetInfo::Token {
-                            contract_addr: Addr::unchecked("asset0000"),
+                            contract_addr: "asset0000".to_string(),
                         },
                         amount: Uint128::from(666666u128),
                     },
@@ -241,12 +241,12 @@ mod tests {
         let msg = ExecuteMsg::OpenPosition {
             collateral: Asset {
                 info: AssetInfo::Token {
-                    contract_addr: Addr::unchecked("asset0001"),
+                    contract_addr: "asset0001".to_string(),
                 },
                 amount: Uint128::from(1000000u128),
             },
             asset_info: AssetInfo::Token {
-                contract_addr: Addr::unchecked("asset0000"),
+                contract_addr: "asset0000".to_string(),
             },
             collateral_ratio: Decimal::percent(150),
             short_params: None,
@@ -260,7 +260,7 @@ mod tests {
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
             msg: to_binary(&Cw20HookMsg::OpenPosition {
                 asset_info: AssetInfo::Token {
-                    contract_addr: Addr::unchecked("asset0000"),
+                    contract_addr: "asset0000".to_string(),
                 },
                 collateral_ratio: Decimal::percent(300), // 15 * 2 (multiplier)
                 short_params: None,
@@ -313,13 +313,13 @@ mod tests {
                 owner: "addr0000".to_string(),
                 asset: Asset {
                     info: AssetInfo::Token {
-                        contract_addr: Addr::unchecked("asset0000"),
+                        contract_addr: "asset0000".to_string(),
                     },
                     amount: Uint128::from(166666u128),
                 },
                 collateral: Asset {
                     info: AssetInfo::Token {
-                        contract_addr: Addr::unchecked("asset0001"),
+                        contract_addr: "asset0001".to_string(),
                     },
                     amount: Uint128::from(1000000u128),
                 },
@@ -350,13 +350,13 @@ mod tests {
                         owner: "addr0000".to_string(),
                         asset: Asset {
                             info: AssetInfo::Token {
-                                contract_addr: Addr::unchecked("asset0000"),
+                                contract_addr: "asset0000".to_string(),
                             },
                             amount: Uint128::from(166666u128),
                         },
                         collateral: Asset {
                             info: AssetInfo::Token {
-                                contract_addr: Addr::unchecked("asset0001"),
+                                contract_addr: "asset0001".to_string(),
                             },
                             amount: Uint128::from(1000000u128),
                         },
@@ -367,7 +367,7 @@ mod tests {
                         owner: "addr0000".to_string(),
                         asset: Asset {
                             info: AssetInfo::Token {
-                                contract_addr: Addr::unchecked("asset0000"),
+                                contract_addr: "asset0000".to_string(),
                             },
                             amount: Uint128::from(666666u128),
                         },
@@ -404,7 +404,7 @@ mod tests {
                     owner: "addr0000".to_string(),
                     asset: Asset {
                         info: AssetInfo::Token {
-                            contract_addr: Addr::unchecked("asset0000"),
+                            contract_addr: "asset0000".to_string(),
                         },
                         amount: Uint128::from(666666u128),
                     },
@@ -482,7 +482,7 @@ mod tests {
                 amount: Uint128::from(1000000u128),
             },
             asset_info: AssetInfo::Token {
-                contract_addr: Addr::unchecked("asset0000"),
+                contract_addr: "asset0000".to_string(),
             },
             collateral_ratio: Decimal::percent(150),
             short_params: None,
@@ -501,7 +501,7 @@ mod tests {
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
             msg: to_binary(&Cw20HookMsg::OpenPosition {
                 asset_info: AssetInfo::Token {
-                    contract_addr: Addr::unchecked("asset0000"),
+                    contract_addr: "asset0000".to_string(),
                 },
                 collateral_ratio: Decimal::percent(150),
                 short_params: None,
@@ -548,7 +548,7 @@ mod tests {
                 owner: "addr0000".to_string(),
                 asset: Asset {
                     info: AssetInfo::Token {
-                        contract_addr: Addr::unchecked("asset0000"),
+                        contract_addr: "asset0000".to_string(),
                     },
                     amount: Uint128::from(666666u128),
                 },
@@ -567,7 +567,7 @@ mod tests {
             position_idx: Uint128::from(2u128),
             collateral: Asset {
                 info: AssetInfo::Token {
-                    contract_addr: Addr::unchecked("asset0001"),
+                    contract_addr: "asset0001".to_string(),
                 },
                 amount: Uint128::from(1000000u128),
             },
@@ -608,13 +608,13 @@ mod tests {
                 owner: "addr0000".to_string(),
                 asset: Asset {
                     info: AssetInfo::Token {
-                        contract_addr: Addr::unchecked("asset0000"),
+                        contract_addr: "asset0000".to_string(),
                     },
                     amount: Uint128::from(333333u128),
                 },
                 collateral: Asset {
                     info: AssetInfo::Token {
-                        contract_addr: Addr::unchecked("asset0001"),
+                        contract_addr: "asset0001".to_string(),
                     },
                     amount: Uint128::from(2000000u128),
                 },
@@ -691,7 +691,7 @@ mod tests {
                 amount: Uint128::from(1000000u128),
             },
             asset_info: AssetInfo::Token {
-                contract_addr: Addr::unchecked("asset0000"),
+                contract_addr: "asset0000".to_string(),
             },
             collateral_ratio: Decimal::percent(150),
             short_params: None,
@@ -710,7 +710,7 @@ mod tests {
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
             msg: to_binary(&Cw20HookMsg::OpenPosition {
                 asset_info: AssetInfo::Token {
-                    contract_addr: Addr::unchecked("asset0000"),
+                    contract_addr: "asset0000".to_string(),
                 },
                 collateral_ratio: Decimal::percent(150),
                 short_params: None,
@@ -762,7 +762,7 @@ mod tests {
             position_idx: Uint128::from(1u128),
             asset: Asset {
                 info: AssetInfo::Token {
-                    contract_addr: Addr::unchecked("asset0000"),
+                    contract_addr: "asset0000".to_string(),
                 },
                 amount: Uint128::from(6668u128),
             },
@@ -783,7 +783,7 @@ mod tests {
             position_idx: Uint128::from(1u128),
             asset: Asset {
                 info: AssetInfo::Token {
-                    contract_addr: Addr::unchecked("asset0000"),
+                    contract_addr: "asset0000".to_string(),
                 },
                 amount: Uint128::from(6667u128),
             },
@@ -818,7 +818,7 @@ mod tests {
             position_idx: Uint128::from(2u128),
             asset: Asset {
                 info: AssetInfo::Token {
-                    contract_addr: Addr::unchecked("asset0000"),
+                    contract_addr: "asset0000".to_string(),
                 },
                 amount: Uint128::from(333334u128),
             },
@@ -839,7 +839,7 @@ mod tests {
             position_idx: Uint128::from(2u128),
             asset: Asset {
                 info: AssetInfo::Token {
-                    contract_addr: Addr::unchecked("asset0000"),
+                    contract_addr: "asset0000".to_string(),
                 },
                 amount: Uint128::from(333333u128),
             },
@@ -938,7 +938,7 @@ mod tests {
                 amount: Uint128::from(1000000u128),
             },
             asset_info: AssetInfo::Token {
-                contract_addr: Addr::unchecked("asset0000"),
+                contract_addr: "asset0000".to_string(),
             },
             collateral_ratio: Decimal::percent(150),
             short_params: None,
@@ -957,7 +957,7 @@ mod tests {
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
             msg: to_binary(&Cw20HookMsg::OpenPosition {
                 asset_info: AssetInfo::Token {
-                    contract_addr: Addr::unchecked("asset0000"),
+                    contract_addr: "asset0000".to_string(),
                 },
                 collateral_ratio: Decimal::percent(150),
                 short_params: None,
@@ -1005,7 +1005,7 @@ mod tests {
             position_idx: Uint128::from(1u128),
             asset: Asset {
                 info: AssetInfo::Token {
-                    contract_addr: Addr::unchecked("asset0000"),
+                    contract_addr: "asset0000".to_string(),
                 },
                 amount: Uint128::from(6667u128),
             },
@@ -1079,7 +1079,7 @@ mod tests {
             position_idx: Uint128::from(2u128),
             asset: Asset {
                 info: AssetInfo::Token {
-                    contract_addr: Addr::unchecked("asset0000"),
+                    contract_addr: "asset0000".to_string(),
                 },
                 amount: Uint128::from(333333u128),
             },
@@ -1223,7 +1223,7 @@ mod tests {
                 amount: Uint128::from(1000000u128),
             },
             asset_info: AssetInfo::Token {
-                contract_addr: Addr::unchecked("asset0000"),
+                contract_addr: "asset0000".to_string(),
             },
             collateral_ratio: Decimal::percent(150),
             short_params: None,
@@ -1242,7 +1242,7 @@ mod tests {
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
             msg: to_binary(&Cw20HookMsg::OpenPosition {
                 asset_info: AssetInfo::Token {
-                    contract_addr: Addr::unchecked("asset0000"),
+                    contract_addr: "asset0000".to_string(),
                 },
                 collateral_ratio: Decimal::percent(150),
                 short_params: None,
@@ -1305,7 +1305,7 @@ mod tests {
             position_idx: Uint128::from(2u128),
             collateral: Some(Asset {
                 info: AssetInfo::Token {
-                    contract_addr: Addr::unchecked("asset0001"),
+                    contract_addr: "asset0001".to_string(),
                 },
                 amount: Uint128::from(2u128),
             }),
@@ -1325,7 +1325,7 @@ mod tests {
             position_idx: Uint128::from(2u128),
             collateral: Some(Asset {
                 info: AssetInfo::Token {
-                    contract_addr: Addr::unchecked("asset0001"),
+                    contract_addr: "asset0001".to_string(),
                 },
                 amount: Uint128::from(1u128),
             }),
@@ -1424,7 +1424,7 @@ mod tests {
                 amount: Uint128::from(1000000u128),
             },
             asset_info: AssetInfo::Token {
-                contract_addr: Addr::unchecked("asset0000"),
+                contract_addr: "asset0000".to_string(),
             },
             collateral_ratio: Decimal::percent(150),
             short_params: None,
@@ -1443,7 +1443,7 @@ mod tests {
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
             msg: to_binary(&Cw20HookMsg::OpenPosition {
                 asset_info: AssetInfo::Token {
-                    contract_addr: Addr::unchecked("asset0000"),
+                    contract_addr: "asset0000".to_string(),
                 },
                 collateral_ratio: Decimal::percent(150),
                 short_params: None,

@@ -3,9 +3,7 @@ mod tests {
     use crate::contract::{execute, instantiate, query};
     use crate::mock_querier::mock_dependencies;
     use cosmwasm_std::testing::{mock_env, mock_info};
-    use cosmwasm_std::{
-        from_binary, to_binary, Addr, CosmosMsg, Decimal, StdError, SubMsg, WasmMsg,
-    };
+    use cosmwasm_std::{from_binary, to_binary, CosmosMsg, Decimal, StdError, SubMsg, WasmMsg};
     use mirror_protocol::collateral_oracle::{ExecuteMsg::RegisterCollateralAsset, SourceType};
     use mirror_protocol::mint::{
         AssetConfigResponse, ConfigResponse, ExecuteMsg, IPOParams, InstantiateMsg, QueryMsg,
@@ -132,7 +130,7 @@ mod tests {
                 funds: vec![],
                 msg: to_binary(&RegisterCollateralAsset {
                     asset: AssetInfo::Token {
-                        contract_addr: Addr::unchecked("asset0000"),
+                        contract_addr: "asset0000".to_string(),
                     },
                     multiplier: Decimal::one(),
                     price_source: SourceType::MirrorOracle {},

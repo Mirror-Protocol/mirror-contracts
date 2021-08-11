@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Addr, Api, CanonicalAddr, Coin, ContractResult, Decimal,
-    Empty, OwnedDeps, Querier, QuerierResult, QueryRequest, SystemError, SystemResult, WasmQuery,
+    from_binary, from_slice, to_binary, Api, CanonicalAddr, Coin, ContractResult, Decimal, Empty,
+    OwnedDeps, Querier, QuerierResult, QueryRequest, SystemError, SystemResult, WasmQuery,
 };
 use cosmwasm_storage::to_length_prefixed;
 
@@ -166,8 +166,8 @@ impl WasmMockQuerier {
                     let key = asset_infos[0].to_string() + asset_infos[1].to_string().as_str();
                     match self.terraswap_factory_querier.pairs.get(&key) {
                         Some(v) => SystemResult::Ok(ContractResult::from(to_binary(&PairInfo {
-                            contract_addr: Addr::unchecked("pair"),
-                            liquidity_token: Addr::unchecked(v.clone()),
+                            contract_addr: "pair".to_string(),
+                            liquidity_token: v.to_string(),
                             asset_infos: [
                                 AssetInfo::NativeToken {
                                     denom: "uusd".to_string(),

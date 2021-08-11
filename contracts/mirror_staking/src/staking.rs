@@ -156,7 +156,7 @@ pub fn auto_stake(
                 native_asset_op = Some(asset.clone())
             }
             AssetInfo::Token { contract_addr } => {
-                token_info_op = Some((contract_addr, asset.amount))
+                token_info_op = Some((deps.api.addr_validate(&contract_addr)?, asset.amount))
             }
         }
     }
@@ -192,7 +192,7 @@ pub fn auto_stake(
     // get current lp token amount to later compute the recived amount
     let prev_staking_token_amount = query_token_balance(
         &deps.querier,
-        terraswap_pair.liquidity_token.clone(),
+        deps.api.addr_validate(&terraswap_pair.liquidity_token)?,
         env.contract.address.clone(),
     )?;
 
@@ -234,7 +234,7 @@ pub fn auto_stake(
                         Asset {
                             amount: token_amount,
                             info: AssetInfo::Token {
-                                contract_addr: token_addr.clone(),
+                                contract_addr: token_addr.to_string(),
                             },
                         },
                     ],

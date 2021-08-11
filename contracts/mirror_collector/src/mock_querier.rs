@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Api, Coin, ContractResult, Decimal, OwnedDeps, Querier,
+    from_binary, from_slice, to_binary, Coin, ContractResult, Decimal, OwnedDeps, Querier,
     QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, WasmQuery,
 };
 use cw20::BalanceResponse;
@@ -132,7 +132,6 @@ pub enum QueryMsg {
 
 impl WasmMockQuerier {
     pub fn handle_query(&self, request: &QueryRequest<TerraQueryWrapper>) -> QuerierResult {
-        let api: MockApi = MockApi::default();
         match &request {
             QueryRequest::Custom(TerraQueryWrapper { route, query_data }) => {
                 if route == &TerraRoute::Treasury {
@@ -166,8 +165,8 @@ impl WasmMockQuerier {
                     let key = asset_infos[0].to_string() + asset_infos[1].to_string().as_str();
                     match self.terraswap_factory_querier.pairs.get(&key) {
                         Some(v) => SystemResult::Ok(ContractResult::from(to_binary(&PairInfo {
-                            contract_addr: api.addr_validate(v.clone().as_str()).unwrap(),
-                            liquidity_token: api.addr_validate("liquidity").unwrap(),
+                            contract_addr: v.to_string(),
+                            liquidity_token: "liquidity".to_string(),
                             asset_infos: [
                                 AssetInfo::NativeToken {
                                     denom: "uusd".to_string(),

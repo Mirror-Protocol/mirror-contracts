@@ -490,7 +490,7 @@ mod tests {
             },
             Asset {
                 info: AssetInfo::Token {
-                    contract_addr: Addr::unchecked("asset"),
+                    contract_addr: "asset".to_string(),
                 },
                 amount: Uint128::from(1u128),
             },
@@ -551,13 +551,13 @@ mod tests {
             assets: [
                 Asset {
                     info: AssetInfo::Token {
-                        contract_addr: Addr::unchecked("asset"),
+                        contract_addr: "asset".to_string(),
                     },
                     amount: Uint128::from(1u128),
                 },
                 Asset {
                     info: AssetInfo::Token {
-                        contract_addr: Addr::unchecked("asset"),
+                        contract_addr: "asset".to_string(),
                     },
                     amount: Uint128::from(1u128),
                 },
@@ -578,7 +578,7 @@ mod tests {
                 },
                 Asset {
                     info: AssetInfo::Token {
-                        contract_addr: Addr::unchecked("asset"),
+                        contract_addr: "asset".to_string(),
                     },
                     amount: Uint128::new(1u128),
                 },
@@ -639,7 +639,7 @@ mod tests {
                             },
                             Asset {
                                 info: AssetInfo::Token {
-                                    contract_addr: Addr::unchecked("asset")
+                                    contract_addr: "asset".to_string()
                                 },
                                 amount: Uint128::new(1u128),
                             },

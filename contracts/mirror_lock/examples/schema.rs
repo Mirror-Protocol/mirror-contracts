@@ -4,7 +4,7 @@ use std::fs::create_dir_all;
 use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 
 use mirror_protocol::lock::{
-    ConfigResponse, ExecuteMsg, InstantiateMsg, PositionLockInfoResponse, QueryMsg,
+    ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, PositionLockInfoResponse, QueryMsg,
 };
 
 fn main() {
