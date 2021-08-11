@@ -5,7 +5,7 @@ mod tests {
     use cosmwasm_std::testing::{mock_env, mock_info};
     use cosmwasm_std::{
         attr, from_binary, to_binary, Addr, BlockInfo, Coin, CosmosMsg, Decimal, Env, StdError,
-        Timestamp, Uint128, WasmMsg,
+        SubMsg, Timestamp, Uint128, WasmMsg,
     };
     use cw20::Cw20ReceiveMsg;
     use mirror_protocol::collateral_oracle::{ExecuteMsg::RegisterCollateralAsset, SourceType};
@@ -93,7 +93,7 @@ mod tests {
                 info: AssetInfo::NativeToken {
                     denom: "uusd".to_string(),
                 },
-                amount: Uint128(2000000000u128),
+                amount: Uint128::from(2000000000u128),
             },
             asset_info: AssetInfo::Token {
                 contract_addr: Addr::unchecked("preIPOAsset0000"),
@@ -107,7 +107,7 @@ mod tests {
             "addr0000",
             &[Coin {
                 denom: "uusd".to_string(),
-                amount: Uint128(2000000000u128),
+                amount: Uint128::from(2000000000u128),
             }],
         );
         let res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
@@ -125,12 +125,12 @@ mod tests {
 
         // mint successfully at creation_time + 1
         let msg = ExecuteMsg::Mint {
-            position_idx: Uint128(1u128),
+            position_idx: Uint128::from(1u128),
             asset: Asset {
                 info: AssetInfo::Token {
                     contract_addr: Addr::unchecked("preIPOAsset0000"),
                 },
-                amount: Uint128(2000000u128),
+                amount: Uint128::from(2000000u128),
             },
             short_params: None,
         };
@@ -141,7 +141,7 @@ mod tests {
             sender: "addr0000".to_string(),
             amount: Uint128::from(1000000u128),
             msg: to_binary(&Cw20HookMsg::Burn {
-                position_idx: Uint128(1u128),
+                position_idx: Uint128::from(1u128),
             })
             .unwrap(),
         });
@@ -161,7 +161,7 @@ mod tests {
                 info: AssetInfo::NativeToken {
                     denom: "uusd".to_string(),
                 },
-                amount: Uint128(1000000000u128),
+                amount: Uint128::from(1000000000u128),
             },
             asset_info: AssetInfo::Token {
                 contract_addr: Addr::unchecked("preIPOAsset0000"),
@@ -175,7 +175,7 @@ mod tests {
             "addr0000",
             &[Coin {
                 denom: "uusd".to_string(),
-                amount: Uint128(1000000000u128),
+                amount: Uint128::from(1000000000u128),
             }],
         );
 
@@ -190,12 +190,12 @@ mod tests {
 
         // mint disabled
         let msg = ExecuteMsg::Mint {
-            position_idx: Uint128(1u128),
+            position_idx: Uint128::from(1u128),
             asset: Asset {
                 info: AssetInfo::Token {
                     contract_addr: Addr::unchecked("preIPOAsset0000"),
                 },
-                amount: Uint128(2000000u128),
+                amount: Uint128::from(2000000u128),
             },
             short_params: None,
         };
@@ -213,7 +213,7 @@ mod tests {
             sender: "addr0000".to_string(),
             amount: Uint128::from(1000000u128),
             msg: to_binary(&Cw20HookMsg::Burn {
-                position_idx: Uint128(1u128),
+                position_idx: Uint128::from(1u128),
             })
             .unwrap(),
         });
@@ -258,9 +258,9 @@ mod tests {
         );
         assert_eq!(
             res.messages,
-            vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "collateraloracle0000".to_string(),
-                send: vec![],
+                funds: vec![],
                 msg: to_binary(&RegisterCollateralAsset {
                     asset: AssetInfo::Token {
                         contract_addr: Addr::unchecked("preIPOAsset0000"),
@@ -269,7 +269,7 @@ mod tests {
                     price_source: SourceType::MirrorOracle {},
                 })
                 .unwrap(),
-            })]
+            }))]
         );
 
         let res = query(
@@ -299,7 +299,7 @@ mod tests {
                 info: AssetInfo::NativeToken {
                     denom: "uusd".to_string(),
                 },
-                amount: Uint128(9000u128),
+                amount: Uint128::from(9000u128),
             },
             asset_info: AssetInfo::Token {
                 contract_addr: Addr::unchecked("preIPOAsset0000"),
@@ -312,7 +312,7 @@ mod tests {
             "addr0000",
             &[Coin {
                 denom: "uusd".to_string(),
-                amount: Uint128(9000u128),
+                amount: Uint128::from(9000u128),
             }],
         );
         let res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();

@@ -5,7 +5,7 @@ mod test {
     use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
     use cosmwasm_std::{
         attr, from_binary, to_binary, Addr, BankMsg, BlockInfo, Coin, CosmosMsg, Decimal, Env,
-        Timestamp, Uint128, WasmMsg,
+        SubMsg, Timestamp, Uint128, WasmMsg,
     };
     use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
     use mirror_protocol::lock::ExecuteMsg as LockExecuteMsg;
@@ -94,7 +94,7 @@ mod test {
                 info: AssetInfo::NativeToken {
                     denom: "uusd".to_string(),
                 },
-                amount: Uint128(1000000u128),
+                amount: Uint128::from(1000000u128),
             },
             asset_info: AssetInfo::Token {
                 contract_addr: Addr::unchecked("asset0000"),
@@ -111,7 +111,7 @@ mod test {
             "addr0000",
             &[Coin {
                 denom: "uusd".to_string(),
-                amount: Uint128(1000000u128),
+                amount: Uint128::from(1000000u128),
             }],
         );
         let res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
@@ -130,51 +130,49 @@ mod test {
         assert_eq!(
             res.messages,
             vec![
-                CosmosMsg::Wasm(WasmMsg::Execute {
+                SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: "asset0000".to_string(),
-                    send: vec![],
+                    funds: vec![],
                     msg: to_binary(&Cw20ExecuteMsg::Mint {
                         recipient: MOCK_CONTRACT_ADDR.to_string(),
-                        amount: Uint128(666666u128),
+                        amount: Uint128::from(666666u128),
                     })
                     .unwrap()
-                }),
-                CosmosMsg::Wasm(WasmMsg::Execute {
+                })),
+                SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: "asset0000".to_string(),
-                    send: vec![],
+                    funds: vec![],
                     msg: to_binary(&Cw20ExecuteMsg::Send {
                         contract: "pair0000".to_string(),
-                        amount: Uint128(666666u128),
-                        msg: Some(
-                            to_binary(&PairCw20HookMsg::Swap {
-                                belief_price: None,
-                                max_spread: None,
-                                to: Some("lock0000".to_string()),
-                            })
-                            .unwrap()
-                        )
+                        amount: Uint128::from(666666u128),
+                        msg: to_binary(&PairCw20HookMsg::Swap {
+                            belief_price: None,
+                            max_spread: None,
+                            to: Some("lock0000".to_string()),
+                        })
+                        .unwrap()
                     })
                     .unwrap()
-                }),
-                CosmosMsg::Wasm(WasmMsg::Execute {
+                })),
+                SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: "lock0000".to_string(),
-                    send: vec![],
+                    funds: vec![],
                     msg: to_binary(&LockExecuteMsg::LockPositionFundsHook {
-                        position_idx: Uint128(1u128),
+                        position_idx: Uint128::from(1u128),
                         receiver: "addr0000".to_string(),
                     })
                     .unwrap(),
-                }),
-                CosmosMsg::Wasm(WasmMsg::Execute {
+                })),
+                SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: "staking0000".to_string(),
-                    send: vec![],
+                    funds: vec![],
                     msg: to_binary(&StakingExecuteMsg::IncreaseShortToken {
                         asset_token: "asset0000".to_string(),
                         staker_addr: "addr0000".to_string(),
-                        amount: Uint128(666666u128),
+                        amount: Uint128::from(666666u128),
                     })
                     .unwrap(),
-                })
+                }))
             ]
         );
 
@@ -182,7 +180,7 @@ mod test {
             deps.as_ref(),
             mock_env(),
             QueryMsg::Position {
-                position_idx: Uint128(1u128),
+                position_idx: Uint128::from(1u128),
             },
         )
         .unwrap();
@@ -190,19 +188,19 @@ mod test {
         assert_eq!(
             position,
             PositionResponse {
-                idx: Uint128(1u128),
+                idx: Uint128::from(1u128),
                 owner: "addr0000".to_string(),
                 asset: Asset {
                     info: AssetInfo::Token {
                         contract_addr: Addr::unchecked("asset0000"),
                     },
-                    amount: Uint128(666666u128),
+                    amount: Uint128::from(666666u128),
                 },
                 collateral: Asset {
                     info: AssetInfo::NativeToken {
                         denom: "uusd".to_string(),
                     },
-                    amount: Uint128(1000000u128),
+                    amount: Uint128::from(1000000u128),
                 },
                 is_short: true,
             }
@@ -269,7 +267,7 @@ mod test {
                 info: AssetInfo::NativeToken {
                     denom: "uusd".to_string(),
                 },
-                amount: Uint128(1000000u128),
+                amount: Uint128::from(1000000u128),
             },
             asset_info: AssetInfo::Token {
                 contract_addr: Addr::unchecked("asset0000"),
@@ -286,19 +284,19 @@ mod test {
             "addr0000",
             &[Coin {
                 denom: "uusd".to_string(),
-                amount: Uint128(1000000u128),
+                amount: Uint128::from(1000000u128),
             }],
         );
         let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
         // mint more tokens from the short position
         let msg = ExecuteMsg::Mint {
-            position_idx: Uint128(1u128),
+            position_idx: Uint128::from(1u128),
             asset: Asset {
                 info: AssetInfo::Token {
                     contract_addr: Addr::unchecked("asset0000"),
                 },
-                amount: Uint128(100u128),
+                amount: Uint128::from(100u128),
             },
             short_params: None,
         };
@@ -317,51 +315,49 @@ mod test {
         assert_eq!(
             res.messages,
             vec![
-                CosmosMsg::Wasm(WasmMsg::Execute {
+                SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: "asset0000".to_string(),
-                    send: vec![],
+                    funds: vec![],
                     msg: to_binary(&Cw20ExecuteMsg::Mint {
                         recipient: MOCK_CONTRACT_ADDR.to_string(),
-                        amount: Uint128(100u128),
+                        amount: Uint128::from(100u128),
                     })
                     .unwrap()
-                }),
-                CosmosMsg::Wasm(WasmMsg::Execute {
+                })),
+                SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: "asset0000".to_string(),
-                    send: vec![],
+                    funds: vec![],
                     msg: to_binary(&Cw20ExecuteMsg::Send {
                         contract: "pair0000".to_string(),
-                        amount: Uint128(100u128),
-                        msg: Some(
-                            to_binary(&PairCw20HookMsg::Swap {
-                                belief_price: None,
-                                max_spread: None,
-                                to: Some("lock0000".to_string()),
-                            })
-                            .unwrap()
-                        )
+                        amount: Uint128::from(100u128),
+                        msg: to_binary(&PairCw20HookMsg::Swap {
+                            belief_price: None,
+                            max_spread: None,
+                            to: Some("lock0000".to_string()),
+                        })
+                        .unwrap()
                     })
                     .unwrap()
-                }),
-                CosmosMsg::Wasm(WasmMsg::Execute {
+                })),
+                SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: "lock0000".to_string(),
-                    send: vec![],
+                    funds: vec![],
                     msg: to_binary(&LockExecuteMsg::LockPositionFundsHook {
-                        position_idx: Uint128(1u128),
+                        position_idx: Uint128::from(1u128),
                         receiver: "addr0000".to_string(),
                     })
                     .unwrap(),
-                }),
-                CosmosMsg::Wasm(WasmMsg::Execute {
+                })),
+                SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: "staking0000".to_string(),
-                    send: vec![],
+                    funds: vec![],
                     msg: to_binary(&StakingExecuteMsg::IncreaseShortToken {
                         asset_token: "asset0000".to_string(),
                         staker_addr: "addr0000".to_string(),
-                        amount: Uint128(100u128),
+                        amount: Uint128::from(100u128),
                     })
                     .unwrap(),
-                })
+                }))
             ]
         );
     }
@@ -425,7 +421,7 @@ mod test {
                 info: AssetInfo::NativeToken {
                     denom: "uusd".to_string(),
                 },
-                amount: Uint128(1000000u128),
+                amount: Uint128::from(1000000u128),
             },
             asset_info: AssetInfo::Token {
                 contract_addr: Addr::unchecked("asset0000"),
@@ -442,7 +438,7 @@ mod test {
             "addr0000",
             &[Coin {
                 denom: "uusd".to_string(),
-                amount: Uint128(1000000u128),
+                amount: Uint128::from(1000000u128),
             }],
         );
         let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
@@ -450,9 +446,9 @@ mod test {
         // burn asset tokens from the short position
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
             sender: "addr0000".to_string(),
-            amount: Uint128(100u128),
+            amount: Uint128::from(100u128),
             msg: to_binary(&Cw20HookMsg::Burn {
-                position_idx: Uint128(1u128),
+                position_idx: Uint128::from(1u128),
             })
             .unwrap(),
         });
@@ -473,31 +469,31 @@ mod test {
         assert_eq!(
             res.messages,
             vec![
-                CosmosMsg::Wasm(WasmMsg::Execute {
+                SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: "asset0000".to_string(),
-                    send: vec![],
+                    funds: vec![],
                     msg: to_binary(&Cw20ExecuteMsg::Burn {
-                        amount: Uint128(100u128),
+                        amount: Uint128::from(100u128),
                     })
                     .unwrap(),
-                }),
-                CosmosMsg::Bank(BankMsg::Send {
+                })),
+                SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
                     to_address: "collector0000".to_string(),
                     amount: vec![Coin {
                         denom: "uusd".to_string(),
-                        amount: Uint128(1u128)
+                        amount: Uint128::from(1u128)
                     }],
-                }),
-                CosmosMsg::Wasm(WasmMsg::Execute {
+                })),
+                SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: "staking0000".to_string(),
-                    send: vec![],
+                    funds: vec![],
                     msg: to_binary(&StakingExecuteMsg::DecreaseShortToken {
                         staker_addr: "addr0000".to_string(),
                         asset_token: "asset0000".to_string(),
-                        amount: Uint128(100u128),
+                        amount: Uint128::from(100u128),
                     })
                     .unwrap(),
-                })
+                }))
             ]
         );
     }
@@ -561,7 +557,7 @@ mod test {
                 info: AssetInfo::NativeToken {
                     denom: "uusd".to_string(),
                 },
-                amount: Uint128(1000000u128),
+                amount: Uint128::from(1000000u128),
             },
             asset_info: AssetInfo::Token {
                 contract_addr: Addr::unchecked("asset0000"),
@@ -578,7 +574,7 @@ mod test {
             "addr0000",
             &[Coin {
                 denom: "uusd".to_string(),
-                amount: Uint128(1000000u128),
+                amount: Uint128::from(1000000u128),
             }],
         );
         let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
@@ -592,9 +588,9 @@ mod test {
 
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
             sender: "addr0000".to_string(),
-            amount: Uint128(100u128),
+            amount: Uint128::from(100u128),
             msg: to_binary(&Cw20HookMsg::Auction {
-                position_idx: Uint128(1u128),
+                position_idx: Uint128::from(1u128),
             })
             .unwrap(),
         });
@@ -617,38 +613,38 @@ mod test {
         assert_eq!(
             res.messages,
             vec![
-                CosmosMsg::Wasm(WasmMsg::Execute {
+                SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: "asset0000".to_string(),
                     msg: to_binary(&Cw20ExecuteMsg::Burn {
-                        amount: Uint128(100u128),
+                        amount: Uint128::from(100u128),
                     })
                     .unwrap(),
-                    send: vec![],
-                }),
-                CosmosMsg::Bank(BankMsg::Send {
+                    funds: vec![],
+                })),
+                SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
                     to_address: "addr0000".to_string(),
                     amount: vec![Coin {
                         denom: "uusd".to_string(),
-                        amount: Uint128(142u128)
+                        amount: Uint128::from(142u128)
                     }],
-                }),
-                CosmosMsg::Bank(BankMsg::Send {
+                })),
+                SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
                     to_address: "collector0000".to_string(),
                     amount: vec![Coin {
                         denom: "uusd".to_string(),
-                        amount: Uint128(1u128)
+                        amount: Uint128::from(1u128)
                     }]
-                }),
-                CosmosMsg::Wasm(WasmMsg::Execute {
+                })),
+                SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: "staking0000".to_string(),
-                    send: vec![],
+                    funds: vec![],
                     msg: to_binary(&StakingExecuteMsg::DecreaseShortToken {
                         staker_addr: "addr0000".to_string(),
                         asset_token: "asset0000".to_string(),
-                        amount: Uint128(100u128),
+                        amount: Uint128::from(100u128),
                     })
                     .unwrap(),
-                })
+                }))
             ]
         );
     }
@@ -701,7 +697,7 @@ mod test {
                 info: AssetInfo::NativeToken {
                     denom: "uusd".to_string(),
                 },
-                amount: Uint128(200u128), // will mint 100 mAsset and lock 100 UST
+                amount: Uint128::from(200u128), // will mint 100 mAsset and lock 100 UST
             },
             asset_info: AssetInfo::Token {
                 contract_addr: Addr::unchecked("asset0000"),
@@ -718,7 +714,7 @@ mod test {
             "addr0000",
             &[Coin {
                 denom: "uusd".to_string(),
-                amount: Uint128(200u128),
+                amount: Uint128::from(200u128),
             }],
         );
         let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
@@ -726,9 +722,9 @@ mod test {
         // burn all asset tokens from the short position
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
             sender: "addr0000".to_string(),
-            amount: Uint128(100u128),
+            amount: Uint128::from(100u128),
             msg: to_binary(&Cw20HookMsg::Burn {
-                position_idx: Uint128(1u128),
+                position_idx: Uint128::from(1u128),
             })
             .unwrap(),
         });
@@ -738,12 +734,12 @@ mod test {
 
         // withdraw all collateral
         let msg = ExecuteMsg::Withdraw {
-            position_idx: Uint128(1u128),
+            position_idx: Uint128::from(1u128),
             collateral: Some(Asset {
                 info: AssetInfo::NativeToken {
                     denom: "uusd".to_string(),
                 },
-                amount: Uint128(199u128), // 1 collateral spent as protocol fee
+                amount: Uint128::from(199u128), // 1 collateral spent as protocol fee
             }),
         };
         let env = mock_env_with_block_time(1000);
@@ -753,14 +749,15 @@ mod test {
         dbg!(&res.messages);
         // refunds collateral and releases locked funds from lock contract
         assert_eq!(
-            res.messages.contains(&CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "lock0000".to_string(),
-                send: vec![],
-                msg: to_binary(&LockExecuteMsg::ReleasePositionFunds {
-                    position_idx: Uint128(1u128),
-                })
-                .unwrap(),
-            })),
+            res.messages
+                .contains(&SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: "lock0000".to_string(),
+                    funds: vec![],
+                    msg: to_binary(&LockExecuteMsg::ReleasePositionFunds {
+                        position_idx: Uint128::from(1u128),
+                    })
+                    .unwrap(),
+                }))),
             true
         );
     }

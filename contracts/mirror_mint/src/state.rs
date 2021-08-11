@@ -240,7 +240,7 @@ pub fn read_positions_with_user_indexer(
         .take(limit)
         .map(|item| {
             let (k, _) = item?;
-            read_position(storage, Uint128(bytes_to_u128(&k)?))
+            read_position(storage, Uint128::from(bytes_to_u128(&k)?))
         })
         .collect()
 }
@@ -266,7 +266,7 @@ pub fn read_positions_with_asset_indexer(
         .take(limit)
         .map(|item| {
             let (k, _) = item?;
-            read_position(storage, Uint128(bytes_to_u128(&k)?))
+            read_position(storage, Uint128::from(bytes_to_u128(&k)?))
         })
         .collect()
 }

@@ -1,16 +1,15 @@
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Addr, Api, CanonicalAddr, Coin, ContractResult, Decimal,
-    OwnedDeps, Querier, QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, WasmQuery,
+    from_binary, from_slice, to_binary, Addr, Api, Coin, ContractResult, Decimal, OwnedDeps,
+    Querier, QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, WasmQuery,
 };
-use cosmwasm_storage::to_length_prefixed;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::math::decimal_division;
 use mirror_protocol::collateral_oracle::CollateralPriceResponse;
-use mirror_protocol::oracle::PriceResponse;
+use mirror_protocol::oracle::{FeederResponse, PriceResponse};
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 use terraswap::{asset::AssetInfo, asset::PairInfo};
 
@@ -36,35 +35,6 @@ pub struct WasmMockQuerier {
     collateral_oracle_querier: CollateralOracleQuerier,
     terraswap_pair_querier: TerraswapPairQuerier,
     oracle_querier: OracleQuerier,
-}
-
-#[derive(Clone, Default)]
-pub struct TokenQuerier {
-    // this lets us iterate over all pairs that match the first string
-    balances: HashMap<String, HashMap<String, Uint128>>,
-}
-
-impl TokenQuerier {
-    pub fn new(balances: &[(&String, &[(&String, &Uint128)])]) -> Self {
-        TokenQuerier {
-            balances: balances_to_map(balances),
-        }
-    }
-}
-
-pub(crate) fn balances_to_map(
-    balances: &[(&String, &[(&String, &Uint128)])],
-) -> HashMap<String, HashMap<String, Uint128>> {
-    let mut balances_map: HashMap<String, HashMap<String, Uint128>> = HashMap::new();
-    for (contract_addr, balances) in balances.iter() {
-        let mut contract_balances_map: HashMap<String, Uint128> = HashMap::new();
-        for (addr, balance) in balances.iter() {
-            contract_balances_map.insert(addr.to_string(), **balance);
-        }
-
-        balances_map.insert(contract_addr.to_string(), contract_balances_map);
-    }
-    balances_map
 }
 
 #[derive(Clone, Default)]
@@ -221,6 +191,9 @@ pub enum MockQueryMsg {
     Pair {
         asset_infos: [AssetInfo; 2],
     },
+    Feeder {
+        asset_token: String,
+    },
 }
 
 impl WasmMockQuerier {
@@ -317,90 +290,23 @@ impl WasmMockQuerier {
                         }),
                     }
                 }
-            },
-            QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
-                let key: &[u8] = key.as_slice();
-                let prefix_feeder = to_length_prefixed(b"feeder").to_vec();
-
-                if key.len() > prefix_balance.len()
-                    && key[..prefix_balance.len()].to_vec() == prefix_balance
-                {
-                    let balances: &HashMap<String, Uint128> =
-                        match self.token_querier.balances.get(contract_addr) {
-                            Some(balances) => balances,
-                            None => {
-                                return SystemResult::Err(SystemError::InvalidRequest {
-                                    error: format!(
-                                        "No balance info exists for the contract {}",
-                                        contract_addr
-                                    ),
-                                    request: key.into(),
-                                })
-                            }
-                        };
-
-                    let key_address: &[u8] = &key[prefix_balance.len()..];
-                    let address_raw: CanonicalAddr = CanonicalAddr::from(key_address);
-
-                    let api: MockApi = MockApi::default();
-                    let address: Addr = match api.addr_humanize(&address_raw) {
-                        Ok(v) => v,
-                        Err(e) => {
-                            return SystemResult::Err(SystemError::InvalidRequest {
-                                error: format!("Parsing query request: {}", e),
-                                request: key.into(),
-                            })
+                MockQueryMsg::Feeder { asset_token } => {
+                    match self.oracle_querier.feeders.get(&asset_token) {
+                        Some(v) => {
+                            SystemResult::Ok(ContractResult::from(to_binary(&FeederResponse {
+                                asset_token,
+                                feeder: v.to_string(),
+                            })))
                         }
-                    };
-
-                    let balance = match balances.get(&address.to_string()) {
-                        Some(v) => v,
                         None => {
                             return SystemResult::Err(SystemError::InvalidRequest {
-                                error: "Balance not found".to_string(),
-                                request: key.into(),
+                                error: format!("Oracle Feeder is not found for {}", asset_token),
+                                request: msg.as_slice().into(),
                             })
                         }
-                    };
-
-                    SystemResult::Ok(ContractResult::from(to_binary(
-                        &to_binary(&balance).unwrap(),
-                    )))
-                } else if key.len() > prefix_feeder.len()
-                    && key[..prefix_feeder.len()].to_vec() == prefix_feeder
-                {
-                    let api: MockApi = MockApi::default();
-                    let rest_key: &[u8] = &key[prefix_feeder.len()..];
-
-                    if contract_addr == "oracle0000" {
-                        let asset_token = api
-                            .addr_humanize(&(CanonicalAddr::from(rest_key.to_vec())))
-                            .unwrap()
-                            .to_string();
-
-                        let feeder = match self.oracle_querier.feeders.get(&asset_token) {
-                            Some(v) => v,
-                            None => {
-                                return SystemResult::Err(SystemError::InvalidRequest {
-                                    error: format!(
-                                        "Oracle Feeder is not found for {}",
-                                        asset_token
-                                    ),
-                                    request: key.into(),
-                                })
-                            }
-                        };
-
-                        SystemResult::Ok(ContractResult::from(to_binary(
-                            &api.addr_canonicalize(&feeder).unwrap(),
-                        )))
-                    } else {
-                        panic!("DO NOT ENTER HERE")
                     }
-                } else {
-                    panic!("DO NOT ENTER HERE")
                 }
-            }
+            },
             _ => self.base.handle_query(request),
         }
     }
@@ -416,11 +322,6 @@ impl WasmMockQuerier {
             terraswap_pair_querier: TerraswapPairQuerier::default(),
             oracle_querier: OracleQuerier::default(),
         }
-    }
-
-    // configure the mint whitelist mock querier
-    pub fn with_token_balances(&mut self, balances: &[(&String, &[(&String, &Uint128)])]) {
-        self.token_querier = TokenQuerier::new(balances);
     }
 
     // configure the token owner mock querier
