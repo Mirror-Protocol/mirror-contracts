@@ -31,7 +31,7 @@ pub fn adjust_premium(deps: DepsMut, env: Env, asset_tokens: Vec<String>) -> Std
         let asset_token_addr = deps.api.addr_validate(asset_token)?;
 
         let (premium_rate, no_price_feed) = compute_premium_rate(
-            &deps.querier,
+            deps.as_ref(),
             oracle_contract.clone(),
             terraswap_factory.clone(),
             asset_token_addr,
@@ -42,7 +42,7 @@ pub fn adjust_premium(deps: DepsMut, env: Env, asset_tokens: Vec<String>) -> Std
         let short_reward_weight = if no_price_feed {
             Decimal::zero()
         } else {
-            compute_short_reward_weight(deps, short_reward_contract, premium_rate)?
+            compute_short_reward_weight(&deps.querier, short_reward_contract.clone(), premium_rate)?
         };
 
         store_pool_info(
@@ -57,10 +57,7 @@ pub fn adjust_premium(deps: DepsMut, env: Env, asset_tokens: Vec<String>) -> Std
         )?;
     }
 
-    Ok(Response {
-        attributes: vec![attr("action", "premium_adjustment")],
-        ..Response::default()
-    })
+    Ok(Response::new().add_attributes(vec![attr("action", "premium_adjustment")]))
 }
 
 // deposit_reward must be from reward token contract
@@ -103,15 +100,10 @@ pub fn deposit_reward(
         store_pool_info(deps.storage, &asset_token_raw, &pool_info)?;
     }
 
-    Ok(Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: vec![
-            attr("action", "deposit_reward"),
-            attr("rewards_amount", rewards_amount.to_string()),
-        ],
-        data: None,
-    })
+    Ok(Response::new().add_attributes(vec![
+        attr("action", "deposit_reward"),
+        attr("rewards_amount", rewards_amount.to_string()),
+    ]))
 }
 
 // withdraw all rewards or single reward depending on asset_token
@@ -127,22 +119,19 @@ pub fn withdraw_reward(
 
     let amount = normal_reward + short_reward;
     let config: Config = read_config(deps.storage)?;
-    Ok(Response {
-        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
+    Ok(Response::new()
+        .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps.api.addr_humanize(&config.mirror_token)?.to_string(),
             msg: to_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: info.sender.to_string(),
                 amount,
             })?,
-            send: vec![],
-        })],
-        submessages: vec![],
-        attributes: vec![
+            funds: vec![],
+        }))
+        .add_attributes(vec![
             attr("action", "withdraw"),
             attr("amount", amount.to_string()),
-        ],
-        data: None,
-    })
+        ]))
 }
 
 fn _withdraw_reward(

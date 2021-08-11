@@ -63,6 +63,9 @@ pub enum MockQueryMsg {
     ShortRewardWeight {
         premium_rate: Decimal,
     },
+    Balance {
+        address: String,
+    },
 }
 
 impl WasmMockQuerier {
@@ -88,30 +91,40 @@ impl WasmMockQuerier {
             QueryRequest::Wasm(WasmQuery::Smart {
                 contract_addr: _,
                 msg,
-            }) => match from_binary(&msg) {
-                MockQueryMsg::Pair { asset_infos } => Ok(to_binary(&PairInfo {
-                    asset_infos: asset_infos.clone(),
-                    contract_addr: self.pair_addr.clone(),
-                    liquidity_token: "lptoken".to_string(),
-                })),
-                MockQueryMsg::ShortRewardWeight { .. } => {
-                    Ok(to_binary(&ShortRewardWeightResponse {
-                        short_reward_weight: self.short_reward_weight,
-                    }))
+            }) => match from_binary(&msg).unwrap() {
+                MockQueryMsg::Pair { asset_infos } => {
+                    SystemResult::Ok(ContractResult::from(to_binary(&PairInfo {
+                        asset_infos: asset_infos.clone(),
+                        contract_addr: self.pair_addr.clone(),
+                        liquidity_token: Addr::unchecked("lptoken"),
+                    })))
                 }
-                MockQueryMsg::Pool {} => Ok(to_binary(&PoolResponse {
-                    assets: self.pool_assets.clone(),
-                    total_share: Uint128::zero(),
-                })),
+                MockQueryMsg::ShortRewardWeight { .. } => SystemResult::Ok(ContractResult::from(
+                    to_binary(&ShortRewardWeightResponse {
+                        short_reward_weight: self.short_reward_weight,
+                    }),
+                )),
+                MockQueryMsg::Pool {} => {
+                    SystemResult::Ok(ContractResult::from(to_binary(&PoolResponse {
+                        assets: self.pool_assets.clone(),
+                        total_share: Uint128::zero(),
+                    })))
+                }
                 MockQueryMsg::Price {
                     base_asset: _,
                     quote_asset: _,
-                } => Ok(to_binary(&PriceResponse {
+                } => SystemResult::Ok(ContractResult::from(to_binary(&PriceResponse {
                     rate: self.oracle_price,
                     last_updated_base: 100,
                     last_updated_quote: 100,
-                })),
+                }))),
+                MockQueryMsg::Balance { address: _ } => {
+                    SystemResult::Ok(ContractResult::from(to_binary(&cw20::BalanceResponse {
+                        balance: self.token_balance,
+                    })))
+                }
             },
+
             QueryRequest::Wasm(WasmQuery::Raw {
                 contract_addr: _,
                 key,
@@ -150,7 +163,7 @@ impl WasmMockQuerier {
             ],
             oracle_price: Decimal::zero(),
             token_balance: Uint128::zero(),
-            tax: (Decimal::percent(1), Uint128(1000000)),
+            tax: (Decimal::percent(1), Uint128::new(1000000)),
             short_reward_weight: Decimal::percent(20),
         }
     }

@@ -31,17 +31,12 @@ pub fn bond(
         false,
     )?;
 
-    Ok(Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: vec![
-            attr("action", "bond"),
-            attr("staker_addr", staker_addr.as_str()),
-            attr("asset_token", asset_token.as_str()),
-            attr("amount", amount.to_string()),
-        ],
-        data: None,
-    })
+    Ok(Response::new().add_attributes(vec![
+        attr("action", "bond"),
+        attr("staker_addr", staker_addr.as_str()),
+        attr("asset_token", asset_token.as_str()),
+        attr("amount", amount.to_string()),
+    ]))
 }
 
 pub fn unbond(
@@ -60,24 +55,21 @@ pub fn unbond(
         false,
     )?;
 
-    Ok(Response {
-        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
+    Ok(Response::new()
+        .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps.api.addr_humanize(&staking_token)?.to_string(),
             msg: to_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: staker_addr.to_string(),
                 amount,
             })?,
-            send: vec![],
-        })],
-        submessages: vec![],
-        attributes: vec![
+            funds: vec![],
+        }))
+        .add_attributes(vec![
             attr("action", "unbond"),
             attr("staker_addr", staker_addr.as_str()),
             attr("asset_token", asset_token.as_str()),
             attr("amount", amount.to_string()),
-        ],
-        data: None,
-    })
+        ]))
 }
 
 // only mint contract can execute the operation
@@ -104,17 +96,12 @@ pub fn increase_short_token(
         true,
     )?;
 
-    Ok(Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: vec![
-            attr("action", "increase_short_token"),
-            attr("staker_addr", staker_addr.as_str()),
-            attr("asset_token", asset_token.as_str()),
-            attr("amount", amount.to_string()),
-        ],
-        data: None,
-    })
+    Ok(Response::new().add_attributes(vec![
+        attr("action", "increase_short_token"),
+        attr("staker_addr", staker_addr.as_str()),
+        attr("asset_token", asset_token.as_str()),
+        attr("amount", amount.to_string()),
+    ]))
 }
 
 // only mint contract can execute the operation
@@ -142,17 +129,12 @@ pub fn decrease_short_token(
         true,
     )?;
 
-    Ok(Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: vec![
-            attr("action", "decrease_short_token"),
-            attr("staker_addr", staker_addr.as_str()),
-            attr("asset_token", asset_token.as_str()),
-            attr("amount", amount.to_string()),
-        ],
-        data: None,
-    })
+    Ok(Response::new().add_attributes(vec![
+        attr("action", "decrease_short_token"),
+        attr("staker_addr", staker_addr.as_str()),
+        attr("asset_token", asset_token.as_str()),
+        attr("amount", amount.to_string()),
+    ]))
 }
 
 pub fn auto_stake(
@@ -210,7 +192,6 @@ pub fn auto_stake(
     // get current lp token amount to later compute the recived amount
     let prev_staking_token_amount = query_token_balance(
         &deps.querier,
-        deps.api,
         terraswap_pair.liquidity_token.clone(),
         env.contract.address.clone(),
     )?;
@@ -222,8 +203,8 @@ pub fn auto_stake(
     // 2. Increase allowance of token for pair contract
     // 3. Provide liquidity
     // 4. Execute staking hook, will stake in the name of the sender
-    Ok(Response {
-        messages: vec![
+    Ok(Response::new()
+        .add_messages(vec![
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: token_addr.to_string(),
                 msg: to_binary(&Cw20ExecuteMsg::TransferFrom {
@@ -231,7 +212,7 @@ pub fn auto_stake(
                     recipient: env.contract.address.to_string(),
                     amount: token_amount,
                 })?,
-                send: vec![],
+                funds: vec![],
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: token_addr.to_string(),
@@ -240,7 +221,7 @@ pub fn auto_stake(
                     amount: token_amount,
                     expires: None,
                 })?,
-                send: vec![],
+                funds: vec![],
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: terraswap_pair.contract_addr.to_string(),
@@ -258,8 +239,9 @@ pub fn auto_stake(
                         },
                     ],
                     slippage_tolerance,
+                    receiver: None,
                 })?,
-                send: vec![Coin {
+                funds: vec![Coin {
                     denom: native_asset.info.to_string(),
                     amount: native_asset.amount.checked_sub(tax_amount)?,
                 }],
@@ -272,17 +254,14 @@ pub fn auto_stake(
                     staker_addr: info.sender.to_string(),
                     prev_staking_token_amount,
                 })?,
-                send: vec![],
+                funds: vec![],
             }),
-        ],
-        submessages: vec![],
-        attributes: vec![
+        ])
+        .add_attributes(vec![
             attr("action", "auto_stake"),
             attr("asset_token", token_addr.to_string()),
             attr("tax_amount", tax_amount.to_string()),
-        ],
-        data: None,
-    })
+        ]))
 }
 
 pub fn auto_stake_hook(
@@ -301,7 +280,7 @@ pub fn auto_stake_hook(
 
     // stake all lp tokens received, compare with staking token amount before liquidity provision was executed
     let current_staking_token_amount =
-        query_token_balance(&deps.querier, deps.api, staking_token, env.contract.address)?;
+        query_token_balance(&deps.querier, staking_token, env.contract.address)?;
     let amount_to_stake = current_staking_token_amount.checked_sub(prev_staking_token_amount)?;
 
     bond(deps, staker_addr, asset_token, amount_to_stake)

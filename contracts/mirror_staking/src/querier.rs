@@ -1,11 +1,13 @@
-use cosmwasm_std::{Addr, Decimal, Deps, QuerierWrapper, QueryRequest, StdResult, WasmQuery, to_binary};
+use crate::math::{decimal_division, decimal_subtraction};
+use cosmwasm_std::{
+    to_binary, Addr, Decimal, Deps, QuerierWrapper, QueryRequest, StdResult, Uint128, WasmQuery,
+};
+use mirror_protocol::oracle::{PriceResponse, QueryMsg as OracleQueryMsg};
+use mirror_protocol::short_reward::{QueryMsg as ShortRewardQueryMsg, ShortRewardWeightResponse};
 use terraswap::{
     asset::AssetInfo, asset::PairInfo, pair::PoolResponse, pair::QueryMsg as PairQueryMsg,
     querier::query_pair_info,
 };
-use crate::math::{decimal_division, decimal_subtraction};
-use mirror_protocol::oracle::{PriceResponse, QueryMsg as OracleQueryMsg};
-use mirror_protocol::short_reward::{QueryMsg as ShortRewardQueryMsg, ShortRewardWeightResponse};
 
 pub fn compute_premium_rate(
     deps: Deps,
@@ -64,7 +66,7 @@ pub fn compute_premium_rate(
 }
 
 pub fn compute_short_reward_weight(
-    querier: &dyn QuerierWrapper,
+    querier: &QuerierWrapper,
     short_reward_contract: Addr,
     premium_rate: Decimal,
 ) -> StdResult<Decimal> {
@@ -75,7 +77,6 @@ pub fn compute_short_reward_weight(
 
     Ok(res.short_reward_weight)
 }
-
 
 pub fn query_price(
     deps: Deps,

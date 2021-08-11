@@ -3,7 +3,7 @@ mod tests {
 
     use crate::contract::{execute, instantiate, query};
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cosmwasm_std::{attr, from_binary, Decimal, StdError, Uint128};
+    use cosmwasm_std::{attr, from_binary, Addr, Decimal, StdError, Uint128};
 
     use mirror_protocol::staking::{
         ConfigResponse, ExecuteMsg, InstantiateMsg, PoolInfoResponse, QueryMsg,
@@ -41,7 +41,7 @@ mod tests {
                 terraswap_factory: "terraswap_factory".to_string(),
                 base_denom: "uusd".to_string(),
                 premium_min_update_interval: 3600,
-                short_reward_contract: HumanAddr::from("short_reward"),
+                short_reward_contract: Addr::unchecked("short_reward").to_string(),
             },
             config
         );
@@ -59,7 +59,7 @@ mod tests {
             terraswap_factory: "terraswap_factory".to_string(),
             base_denom: "uusd".to_string(),
             premium_min_update_interval: 3600,
-            short_reward_contract: HumanAddr::from("short_reward"),
+            short_reward_contract: Addr::unchecked("short_reward").to_string(),
         };
 
         let info = mock_info("addr", &[]);
@@ -70,7 +70,7 @@ mod tests {
         let msg = ExecuteMsg::UpdateConfig {
             owner: Some("owner2".to_string()),
             premium_min_update_interval: Some(7200),
-            short_reward_contract: Some(HumanAddr::from("new_short_reward")),
+            short_reward_contract: Some(Addr::unchecked("new_short_reward").to_string()),
         };
 
         let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -88,7 +88,7 @@ mod tests {
                 terraswap_factory: "terraswap_factory".to_string(),
                 base_denom: "uusd".to_string(),
                 premium_min_update_interval: 7200,
-                short_reward_contract: HumanAddr::from("new_short_reward"),
+                short_reward_contract: Addr::unchecked("new_short_reward").to_string(),
             },
             config
         );
@@ -120,7 +120,7 @@ mod tests {
             terraswap_factory: "terraswap_factory".to_string(),
             base_denom: "uusd".to_string(),
             premium_min_update_interval: 3600,
-            short_reward_contract: HumanAddr::from("short_reward"),
+            short_reward_contract: Addr::unchecked("short_reward").to_string(),
         };
 
         let info = mock_info("addr", &[]);
