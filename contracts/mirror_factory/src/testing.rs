@@ -7,11 +7,11 @@ use crate::state::{
     store_total_weight, store_weight,
 };
 use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage};
-use cosmwasm_std::Api;
 use cosmwasm_std::{
     attr, from_binary, to_binary, Addr, CanonicalAddr, ContractResult, CosmosMsg, Decimal, Env,
-    OwnedDeps, Reply, ReplyOn, StdError, SubMsg, SubcallResponse, Timestamp, Uint128, WasmMsg,
+    OwnedDeps, Reply, ReplyOn, StdError, SubMsg, Timestamp, Uint128, WasmMsg,
 };
+use cosmwasm_std::{Api, SubMsgExecutionResponse};
 use cw20::{Cw20ExecuteMsg, MinterResponse};
 
 use mirror_protocol::factory::{
@@ -318,12 +318,12 @@ fn test_whitelist() {
 
     // token creation msg should be returned
     assert_eq!(
-        res.submessages,
+        res.messages,
         vec![SubMsg {
             msg: WasmMsg::Instantiate {
                 admin: None,
                 code_id: TOKEN_CODE_ID,
-                send: vec![],
+                funds: vec![],
                 label: "".to_string(),
                 msg: to_binary(&TokenInstantiateMsg {
                     name: "apple derivative".to_string(),
@@ -426,7 +426,7 @@ fn test_token_creation_hook() {
 
     let reply_msg = Reply {
         id: 1,
-        result: ContractResult::Ok(SubcallResponse {
+        result: ContractResult::Ok(SubMsgExecutionResponse {
             events: vec![],
             data: Some(token_inst_res.write_to_bytes().unwrap().into()),
         }),
@@ -441,9 +441,9 @@ fn test_token_creation_hook() {
     assert_eq!(
         res.messages,
         vec![
-            CosmosMsg::Wasm(WasmMsg::Execute {
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "mint0000".to_string(),
-                send: vec![],
+                funds: vec![],
                 msg: to_binary(&MintExecuteMsg::RegisterAsset {
                     asset_token: "asset0000".to_string(),
                     auction_discount: Decimal::percent(5),
@@ -451,49 +451,45 @@ fn test_token_creation_hook() {
                     ipo_params: None,
                 })
                 .unwrap(),
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "oracle0000".to_string(),
-                send: vec![],
+                funds: vec![],
                 msg: to_binary(&OracleExecuteMsg::RegisterAsset {
                     asset_token: "asset0000".to_string(),
                     feeder: "feeder0000".to_string(),
                 })
                 .unwrap(),
-            }),
-        ]
-    );
-
-    assert_eq!(
-        res.submessages,
-        vec![SubMsg {
-            msg: WasmMsg::Execute {
-                contract_addr: "terraswapfactory".to_string(),
-                send: vec![],
-                msg: to_binary(&TerraswapFactoryExecuteMsg::CreatePair {
-                    asset_infos: [
-                        AssetInfo::NativeToken {
-                            denom: BASE_DENOM.to_string(),
-                        },
-                        AssetInfo::Token {
-                            contract_addr: Addr::unchecked("asset0000"),
-                        },
-                    ],
-                })
-                .unwrap(),
+            })),
+            SubMsg {
+                msg: WasmMsg::Execute {
+                    contract_addr: "terraswapfactory".to_string(),
+                    funds: vec![],
+                    msg: to_binary(&TerraswapFactoryExecuteMsg::CreatePair {
+                        asset_infos: [
+                            AssetInfo::NativeToken {
+                                denom: BASE_DENOM.to_string(),
+                            },
+                            AssetInfo::Token {
+                                contract_addr: Addr::unchecked("asset0000"),
+                            },
+                        ],
+                    })
+                    .unwrap(),
+                }
+                .into(),
+                gas_limit: None,
+                id: 2,
+                reply_on: ReplyOn::Success,
             }
-            .into(),
-            gas_limit: None,
-            id: 2,
-            reply_on: ReplyOn::Success,
-        }]
+        ]
     );
 
     assert_eq!(
         res.attributes,
         vec![
             attr("asset_token_addr", "asset0000"),
-            attr("is_pre_ipo", false),
+            attr("is_pre_ipo", "false"),
         ]
     );
 
@@ -562,7 +558,7 @@ fn test_token_creation_hook_without_weight() {
 
     let reply_msg = Reply {
         id: 1,
-        result: ContractResult::Ok(SubcallResponse {
+        result: ContractResult::Ok(SubMsgExecutionResponse {
             events: vec![],
             data: Some(token_inst_res.write_to_bytes().unwrap().into()),
         }),
@@ -577,9 +573,9 @@ fn test_token_creation_hook_without_weight() {
     assert_eq!(
         res.messages,
         vec![
-            CosmosMsg::Wasm(WasmMsg::Execute {
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "mint0000".to_string(),
-                send: vec![],
+                funds: vec![],
                 msg: to_binary(&MintExecuteMsg::RegisterAsset {
                     asset_token: "asset0000".to_string(),
                     auction_discount: Decimal::percent(5),
@@ -587,42 +583,38 @@ fn test_token_creation_hook_without_weight() {
                     ipo_params: None,
                 })
                 .unwrap(),
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "oracle0000".to_string(),
-                send: vec![],
+                funds: vec![],
                 msg: to_binary(&OracleExecuteMsg::RegisterAsset {
                     asset_token: "asset0000".to_string(),
                     feeder: "feeder0000".to_string(),
                 })
                 .unwrap(),
-            }),
-        ]
-    );
-
-    assert_eq!(
-        res.submessages,
-        vec![SubMsg {
-            msg: WasmMsg::Execute {
-                contract_addr: "terraswapfactory".to_string(),
-                send: vec![],
-                msg: to_binary(&TerraswapFactoryExecuteMsg::CreatePair {
-                    asset_infos: [
-                        AssetInfo::NativeToken {
-                            denom: BASE_DENOM.to_string(),
-                        },
-                        AssetInfo::Token {
-                            contract_addr: Addr::unchecked("asset0000"),
-                        },
-                    ],
-                })
-                .unwrap(),
+            })),
+            SubMsg {
+                msg: WasmMsg::Execute {
+                    contract_addr: "terraswapfactory".to_string(),
+                    funds: vec![],
+                    msg: to_binary(&TerraswapFactoryExecuteMsg::CreatePair {
+                        asset_infos: [
+                            AssetInfo::NativeToken {
+                                denom: BASE_DENOM.to_string(),
+                            },
+                            AssetInfo::Token {
+                                contract_addr: Addr::unchecked("asset0000"),
+                            },
+                        ],
+                    })
+                    .unwrap(),
+                }
+                .into(),
+                gas_limit: None,
+                id: 2,
+                reply_on: ReplyOn::Success,
             }
-            .into(),
-            gas_limit: None,
-            id: 2,
-            reply_on: ReplyOn::Success,
-        }]
+        ]
     );
 
     let res = query(deps.as_ref(), mock_env(), QueryMsg::DistributionInfo {}).unwrap();
@@ -692,7 +684,7 @@ fn test_terraswap_creation_hook() {
 
     let reply_msg = Reply {
         id: 1,
-        result: ContractResult::Ok(SubcallResponse {
+        result: ContractResult::Ok(SubMsgExecutionResponse {
             events: vec![],
             data: Some(token_inst_res.write_to_bytes().unwrap().into()),
         }),
@@ -706,7 +698,7 @@ fn test_terraswap_creation_hook() {
 
     let reply_msg2 = Reply {
         id: 2,
-        result: ContractResult::Ok(SubcallResponse {
+        result: ContractResult::Ok(SubMsgExecutionResponse {
             events: vec![],
             data: None,
         }),
@@ -716,15 +708,15 @@ fn test_terraswap_creation_hook() {
 
     assert_eq!(
         res.messages,
-        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "staking0000".to_string(),
-            send: vec![],
+            funds: vec![],
             msg: to_binary(&StakingExecuteMsg::RegisterAsset {
                 asset_token: "asset0000".to_string(),
                 staking_token: "LP0000".to_string(),
             })
             .unwrap(),
-        })]
+        }))]
     );
 }
 
@@ -786,7 +778,7 @@ fn test_distribute() {
 
     let reply_msg = Reply {
         id: 1,
-        result: ContractResult::Ok(SubcallResponse {
+        result: ContractResult::Ok(SubMsgExecutionResponse {
             events: vec![],
             data: Some(token_inst_res.write_to_bytes().unwrap().into()),
         }),
@@ -800,7 +792,7 @@ fn test_distribute() {
 
     let reply_msg2 = Reply {
         id: 2,
-        result: ContractResult::Ok(SubcallResponse {
+        result: ContractResult::Ok(SubMsgExecutionResponse {
             events: vec![],
             data: None,
         }),
@@ -830,7 +822,7 @@ fn test_distribute() {
 
     let reply_msg = Reply {
         id: 1,
-        result: ContractResult::Ok(SubcallResponse {
+        result: ContractResult::Ok(SubMsgExecutionResponse {
             events: vec![],
             data: Some(token_inst_res.write_to_bytes().unwrap().into()),
         }),
@@ -844,7 +836,7 @@ fn test_distribute() {
 
     let reply_msg2 = Reply {
         id: 2,
-        result: ContractResult::Ok(SubcallResponse {
+        result: ContractResult::Ok(SubMsgExecutionResponse {
             events: vec![],
             data: None,
         }),
@@ -882,25 +874,23 @@ fn test_distribute() {
     // asset0001 -> 7200 * 1/5
     assert_eq!(
         res.messages,
-        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "mirror0000".to_string(),
             msg: to_binary(&Cw20ExecuteMsg::Send {
                 contract: "staking0000".to_string(),
-                amount: Uint128(7200u128),
-                msg: Some(
-                    to_binary(&StakingCw20HookMsg::DepositReward {
-                        rewards: vec![
-                            ("asset0000".to_string(), Uint128(7200u128 * 1 / 5)),
-                            ("asset0001".to_string(), Uint128(7200u128 * 1 / 5)),
-                            ("mirror0000".to_string(), Uint128(7200u128 * 3 / 5)),
-                        ],
-                    })
-                    .unwrap()
-                ),
+                amount: Uint128::from(7200u128),
+                msg: to_binary(&StakingCw20HookMsg::DepositReward {
+                    rewards: vec![
+                        ("asset0000".to_string(), Uint128::from(7200u128 * 1 / 5)),
+                        ("asset0001".to_string(), Uint128::from(7200u128 * 1 / 5)),
+                        ("mirror0000".to_string(), Uint128::from(7200u128 * 3 / 5)),
+                    ],
+                })
+                .unwrap(),
             })
             .unwrap(),
-            send: vec![],
-        }),],
+            funds: vec![],
+        }))],
     );
 
     let res = query(deps.as_ref(), mock_env(), QueryMsg::DistributionInfo {}).unwrap();
@@ -952,7 +942,7 @@ fn whitelist_token(
 
     let reply_msg = Reply {
         id: 1,
-        result: ContractResult::Ok(SubcallResponse {
+        result: ContractResult::Ok(SubMsgExecutionResponse {
             events: vec![],
             data: Some(token_inst_res.write_to_bytes().unwrap().into()),
         }),
@@ -967,7 +957,7 @@ fn whitelist_token(
     // callback 2
     let reply_msg2 = Reply {
         id: 2,
-        result: ContractResult::Ok(SubcallResponse {
+        result: ContractResult::Ok(SubMsgExecutionResponse {
             events: vec![],
             data: None,
         }),
@@ -983,91 +973,104 @@ fn test_distribute_split() {
     let asset0 = deps
         .api
         .addr_humanize(&CanonicalAddr::from(vec![
-            1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ]))
         .unwrap()
         .to_string();
     let asset1 = deps
         .api
         .addr_humanize(&CanonicalAddr::from(vec![
-            1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ]))
         .unwrap()
         .to_string();
     let asset2 = deps
         .api
         .addr_humanize(&CanonicalAddr::from(vec![
-            1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ]))
         .unwrap()
         .to_string();
     let asset3 = deps
         .api
         .addr_humanize(&CanonicalAddr::from(vec![
-            1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ]))
         .unwrap()
         .to_string();
     let asset4 = deps
         .api
         .addr_humanize(&CanonicalAddr::from(vec![
-            1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ]))
         .unwrap()
         .to_string();
     let asset5 = deps
         .api
         .addr_humanize(&CanonicalAddr::from(vec![
-            1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ]))
         .unwrap()
         .to_string();
     let asset6 = deps
         .api
         .addr_humanize(&CanonicalAddr::from(vec![
-            1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ]))
         .unwrap()
         .to_string();
     let asset7 = deps
         .api
         .addr_humanize(&CanonicalAddr::from(vec![
-            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ]))
         .unwrap()
         .to_string();
     let asset8 = deps
         .api
         .addr_humanize(&CanonicalAddr::from(vec![
-            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ]))
         .unwrap()
         .to_string();
     let asset9 = deps
         .api
         .addr_humanize(&CanonicalAddr::from(vec![
-            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ]))
         .unwrap()
         .to_string();
     let asset10 = deps
         .api
         .addr_humanize(&CanonicalAddr::from(vec![
-            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ]))
         .unwrap()
         .to_string();
     let asset11 = deps
         .api
         .addr_humanize(&CanonicalAddr::from(vec![
-            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ]))
         .unwrap()
         .to_string();
     let mirror_addr = deps
         .api
         .addr_humanize(&CanonicalAddr::from(vec![
-            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ]))
         .unwrap()
         .to_string();
@@ -1184,55 +1187,51 @@ fn test_distribute_split() {
 
     assert_eq!(
         res.messages[0],
-        CosmosMsg::Wasm(WasmMsg::Execute {
+        SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: mirror_addr.to_string(),
             msg: to_binary(&Cw20ExecuteMsg::Send {
                 contract: "staking0000".to_string(),
-                amount: Uint128(7200u128 * 10 / 15),
-                msg: Some(
-                    to_binary(&StakingCw20HookMsg::DepositReward {
-                        rewards: vec![
-                            (asset0, Uint128(7200u128 * 1 / 15)),
-                            (asset1, Uint128(7200u128 * 1 / 15)),
-                            (asset2, Uint128(7200u128 * 1 / 15)),
-                            (asset3, Uint128(7200u128 * 1 / 15)),
-                            (asset4, Uint128(7200u128 * 1 / 15)),
-                            (asset5, Uint128(7200u128 * 1 / 15)),
-                            (asset6, Uint128(7200u128 * 1 / 15)),
-                            (asset7, Uint128(7200u128 * 1 / 15)),
-                            (asset8, Uint128(7200u128 * 1 / 15)),
-                            (asset9, Uint128(7200u128 * 1 / 15)),
-                        ],
-                    })
-                    .unwrap()
-                ),
+                amount: Uint128::from(7200u128 * 10 / 15),
+                msg: to_binary(&StakingCw20HookMsg::DepositReward {
+                    rewards: vec![
+                        (asset0, Uint128::from(7200u128 * 1 / 15)),
+                        (asset1, Uint128::from(7200u128 * 1 / 15)),
+                        (asset2, Uint128::from(7200u128 * 1 / 15)),
+                        (asset3, Uint128::from(7200u128 * 1 / 15)),
+                        (asset4, Uint128::from(7200u128 * 1 / 15)),
+                        (asset5, Uint128::from(7200u128 * 1 / 15)),
+                        (asset6, Uint128::from(7200u128 * 1 / 15)),
+                        (asset7, Uint128::from(7200u128 * 1 / 15)),
+                        (asset8, Uint128::from(7200u128 * 1 / 15)),
+                        (asset9, Uint128::from(7200u128 * 1 / 15)),
+                    ],
+                })
+                .unwrap(),
             })
             .unwrap(),
-            send: vec![],
-        }),
+            funds: vec![],
+        })),
     );
 
     assert_eq!(
         res.messages[1],
-        CosmosMsg::Wasm(WasmMsg::Execute {
+        SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: mirror_addr.to_string(),
             msg: to_binary(&Cw20ExecuteMsg::Send {
                 contract: "staking0000".to_string(),
-                amount: Uint128(7200u128 * 5 / 15),
-                msg: Some(
-                    to_binary(&StakingCw20HookMsg::DepositReward {
-                        rewards: vec![
-                            (asset10.to_string(), Uint128(7200u128 * 1 / 15)),
-                            (asset11.to_string(), Uint128(7200u128 * 1 / 15)),
-                            (mirror_addr.to_string(), Uint128(7200u128 * 3 / 15)),
-                        ],
-                    })
-                    .unwrap()
-                ),
+                amount: Uint128::from(7200u128 * 5 / 15),
+                msg: to_binary(&StakingCw20HookMsg::DepositReward {
+                    rewards: vec![
+                        (asset10.to_string(), Uint128::from(7200u128 * 1 / 15)),
+                        (asset11.to_string(), Uint128::from(7200u128 * 1 / 15)),
+                        (mirror_addr.to_string(), Uint128::from(7200u128 * 3 / 15)),
+                    ],
+                })
+                .unwrap()
             })
             .unwrap(),
-            send: vec![],
-        }),
+            funds: vec![],
+        })),
     );
 }
 
@@ -1307,15 +1306,15 @@ fn test_revocation() {
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
         res.messages,
-        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "mint0000".to_string(),
-            send: vec![],
+            funds: vec![],
             msg: to_binary(&MintExecuteMsg::RegisterMigration {
                 asset_token: "asset0000".to_string(),
                 end_price: Decimal::from_ratio(2u128, 1u128),
             })
             .unwrap(),
-        }),]
+        }))]
     );
 
     let msg = ExecuteMsg::RevokeAsset {
@@ -1327,15 +1326,15 @@ fn test_revocation() {
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
         res.messages,
-        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "mint0000".to_string(),
-            send: vec![],
+            funds: vec![],
             msg: to_binary(&MintExecuteMsg::RegisterMigration {
                 asset_token: "asset0001".to_string(),
                 end_price: Decimal::from_ratio(2u128, 1u128),
             })
             .unwrap(),
-        }),]
+        }))]
     );
 }
 
@@ -1396,42 +1395,40 @@ fn test_migration() {
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
         res.messages,
-        vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: "mint0000".to_string(),
-            send: vec![],
-            msg: to_binary(&MintExecuteMsg::RegisterMigration {
-                asset_token: "asset0000".to_string(),
-                end_price: Decimal::from_ratio(2u128, 1u128),
-            })
-            .unwrap(),
-        }),]
-    );
-
-    assert_eq!(
-        res.submessages,
-        vec![SubMsg {
-            msg: WasmMsg::Instantiate {
-                admin: None,
-                code_id: TOKEN_CODE_ID,
-                send: vec![],
-                label: "".to_string(),
-                msg: to_binary(&TokenInstantiateMsg {
-                    name: "apple migration".to_string(),
-                    symbol: "mAPPL2".to_string(),
-                    decimals: 6u8,
-                    initial_balances: vec![],
-                    mint: Some(MinterResponse {
-                        minter: "mint0000".to_string(),
-                        cap: None,
-                    }),
+        vec![
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "mint0000".to_string(),
+                funds: vec![],
+                msg: to_binary(&MintExecuteMsg::RegisterMigration {
+                    asset_token: "asset0000".to_string(),
+                    end_price: Decimal::from_ratio(2u128, 1u128),
                 })
                 .unwrap(),
+            })),
+            SubMsg {
+                msg: WasmMsg::Instantiate {
+                    admin: None,
+                    code_id: TOKEN_CODE_ID,
+                    funds: vec![],
+                    label: "".to_string(),
+                    msg: to_binary(&TokenInstantiateMsg {
+                        name: "apple migration".to_string(),
+                        symbol: "mAPPL2".to_string(),
+                        decimals: 6u8,
+                        initial_balances: vec![],
+                        mint: Some(MinterResponse {
+                            minter: "mint0000".to_string(),
+                            cap: None,
+                        }),
+                    })
+                    .unwrap(),
+                }
+                .into(),
+                gas_limit: None,
+                id: 1,
+                reply_on: ReplyOn::Success,
             }
-            .into(),
-            gas_limit: None,
-            id: 1,
-            reply_on: ReplyOn::Success,
-        }]
+        ]
     );
 }
 
@@ -1479,12 +1476,12 @@ fn test_whitelist_pre_ipo_asset() {
 
     // token creation submsg should be returned
     assert_eq!(
-        res.submessages,
+        res.messages,
         vec![SubMsg {
             msg: WasmMsg::Instantiate {
                 admin: None,
                 code_id: TOKEN_CODE_ID,
-                send: vec![],
+                funds: vec![],
                 label: "".to_string(),
                 msg: to_binary(&TokenInstantiateMsg {
                     name: "pre-IPO asset".to_string(),
@@ -1528,7 +1525,7 @@ fn test_whitelist_pre_ipo_asset() {
 
     let reply_msg = Reply {
         id: 1,
-        result: ContractResult::Ok(SubcallResponse {
+        result: ContractResult::Ok(SubMsgExecutionResponse {
             events: vec![],
             data: Some(token_inst_res.write_to_bytes().unwrap().into()),
         }),
@@ -1543,9 +1540,9 @@ fn test_whitelist_pre_ipo_asset() {
     assert_eq!(
         res.messages,
         vec![
-            CosmosMsg::Wasm(WasmMsg::Execute {
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "mint0000".to_string(),
-                send: vec![],
+                funds: vec![],
                 msg: to_binary(&MintExecuteMsg::RegisterAsset {
                     asset_token: "asset0000".to_string(),
                     auction_discount: Decimal::percent(5),
@@ -1558,52 +1555,48 @@ fn test_whitelist_pre_ipo_asset() {
                     }),
                 })
                 .unwrap(),
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "oracle0000".to_string(),
-                send: vec![],
+                funds: vec![],
                 msg: to_binary(&OracleExecuteMsg::RegisterAsset {
                     asset_token: "asset0000".to_string(),
                     feeder: "feeder0000".to_string(),
                 })
                 .unwrap(),
-            }),
-        ]
-    );
-
-    assert_eq!(
-        res.submessages,
-        vec![SubMsg {
-            msg: WasmMsg::Execute {
-                contract_addr: "terraswapfactory".to_string(),
-                send: vec![],
-                msg: to_binary(&TerraswapFactoryExecuteMsg::CreatePair {
-                    asset_infos: [
-                        AssetInfo::NativeToken {
-                            denom: BASE_DENOM.to_string(),
-                        },
-                        AssetInfo::Token {
-                            contract_addr: Addr::unchecked("asset0000"),
-                        },
-                    ],
-                })
-                .unwrap(),
+            })),
+            SubMsg {
+                msg: WasmMsg::Execute {
+                    contract_addr: "terraswapfactory".to_string(),
+                    funds: vec![],
+                    msg: to_binary(&TerraswapFactoryExecuteMsg::CreatePair {
+                        asset_infos: [
+                            AssetInfo::NativeToken {
+                                denom: BASE_DENOM.to_string(),
+                            },
+                            AssetInfo::Token {
+                                contract_addr: Addr::unchecked("asset0000"),
+                            },
+                        ],
+                    })
+                    .unwrap(),
+                }
+                .into(),
+                gas_limit: None,
+                id: 2,
+                reply_on: ReplyOn::Success,
             }
-            .into(),
-            gas_limit: None,
-            id: 2,
-            reply_on: ReplyOn::Success,
-        }]
+        ]
     );
 
     assert_eq!(
         res.attributes,
         vec![
             attr("asset_token_addr", "asset0000"),
-            attr("is_pre_ipo", true),
+            attr("is_pre_ipo", "true"),
             attr(
                 "mint_end",
-                mock_env().block.time.plus_seconds(10000u64).nanos() / 1_000_000_000
+                (mock_env().block.time.plus_seconds(10000u64).nanos() / 1_000_000_000).to_string()
             ),
             attr("min_collateral_ratio_after_ipo", "1.5"),
             attr("pre_ipo_price", "0.01"),

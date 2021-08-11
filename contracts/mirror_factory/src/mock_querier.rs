@@ -189,11 +189,13 @@ impl WasmMockQuerier {
                 } => match self.oracle_price_querier.oracle_price.get(&base_asset) {
                     Some(base_price) => {
                         match self.oracle_price_querier.oracle_price.get(&quote_asset) {
-                            Some(quote_price) => SystemResult::Ok(ContractResult::from(to_binary(&PriceResponse {
-                                rate: decimal_division(*base_price, *quote_price),
-                                last_updated_base: 1000u64,
-                                last_updated_quote: 1000u64,
-                            }))),
+                            Some(quote_price) => {
+                                SystemResult::Ok(ContractResult::from(to_binary(&PriceResponse {
+                                    rate: decimal_division(*base_price, *quote_price),
+                                    last_updated_base: 1000u64,
+                                    last_updated_quote: 1000u64,
+                                })))
+                            }
                             None => SystemResult::Err(SystemError::InvalidRequest {
                                 error: "No oracle price exists".to_string(),
                                 request: msg.as_slice().into(),

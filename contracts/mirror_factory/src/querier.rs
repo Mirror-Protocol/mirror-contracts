@@ -1,4 +1,7 @@
-use cosmwasm_std::{Addr, Binary, CanonicalAddr, Decimal, Deps, QueryRequest, StdError, StdResult, WasmQuery, to_binary};
+use cosmwasm_std::{
+    to_binary, Addr, Binary, CanonicalAddr, Decimal, Deps, QueryRequest, StdError, StdResult,
+    WasmQuery,
+};
 
 use cosmwasm_storage::to_length_prefixed;
 use mirror_protocol::mint::IPOParams;
