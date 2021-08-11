@@ -1,7 +1,7 @@
 use crate::contract::{execute, instantiate, query};
 
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-use cosmwasm_std::{from_binary, to_binary, CosmosMsg, StdError, Uint128, WasmMsg};
+use cosmwasm_std::{from_binary, to_binary, CosmosMsg, StdError, SubMsg, Uint128, WasmMsg};
 use cw20::Cw20ExecuteMsg;
 use mirror_protocol::community::{ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
 
@@ -150,14 +150,14 @@ fn test_spend() {
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
         res.messages,
-        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "mirror0000".to_string(),
-            send: vec![],
+            funds: vec![],
             msg: to_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: "addr0000".to_string(),
                 amount: Uint128::from(1000000u128),
             })
             .unwrap(),
-        })]
+        }))]
     );
 }

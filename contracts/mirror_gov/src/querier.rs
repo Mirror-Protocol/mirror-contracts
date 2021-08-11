@@ -1,4 +1,6 @@
-use cosmwasm_std::{Binary, CanonicalAddr, QuerierWrapper, QueryRequest, StdResult, Uint128, WasmQuery};
+use cosmwasm_std::{
+    Binary, CanonicalAddr, QuerierWrapper, QueryRequest, StdResult, Uint128, WasmQuery,
+};
 
 use cosmwasm_storage::to_length_prefixed;
 

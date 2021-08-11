@@ -9,11 +9,15 @@ use crate::state::{
 use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
     attr, coins, from_binary, to_binary, Addr, Api, CanonicalAddr, CosmosMsg, Decimal, Deps,
-    DepsMut, Env, Response, StdError, Timestamp, Uint128, WasmMsg,
+    DepsMut, Env, Response, StdError, SubMsg, Timestamp, Uint128, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 use mirror_protocol::common::OrderBy;
-use mirror_protocol::gov::{ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, PollExecuteMsg, PollResponse, PollStatus, PollsResponse, QueryMsg, SharesResponse, SharesResponseItem, StakerResponse, StateResponse, VoteOption, VoterInfo, VotersResponse, VotersResponseItem};
+use mirror_protocol::gov::{
+    ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, PollExecuteMsg, PollResponse,
+    PollStatus, PollsResponse, QueryMsg, SharesResponse, SharesResponseItem, StakerResponse,
+    StateResponse, VoteOption, VoterInfo, VotersResponse, VotersResponseItem,
+};
 
 const VOTING_TOKEN: &str = "voting_token";
 const TEST_CREATOR: &str = "creator";
@@ -38,7 +42,7 @@ fn mock_instantiate(deps: DepsMut) {
         voting_period: DEFAULT_VOTING_PERIOD,
         effective_delay: DEFAULT_EFFECTIVE_DELAY,
         expiration_period: DEFAULT_EXPIRATION_PERIOD,
-        proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+        proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
         voter_weight: DEFAULT_VOTER_WEIGHT,
         snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
     };
@@ -63,7 +67,7 @@ fn init_msg() -> InstantiateMsg {
         voting_period: DEFAULT_VOTING_PERIOD,
         effective_delay: DEFAULT_EFFECTIVE_DELAY,
         expiration_period: DEFAULT_EXPIRATION_PERIOD,
-        proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+        proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
         voter_weight: DEFAULT_VOTER_WEIGHT,
         snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
     }
@@ -89,7 +93,7 @@ fn proper_initialization() {
             voting_period: DEFAULT_VOTING_PERIOD,
             effective_delay: DEFAULT_EFFECTIVE_DELAY,
             expiration_period: DEFAULT_EXPIRATION_PERIOD,
-            proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+            proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
             voter_weight: DEFAULT_VOTER_WEIGHT,
             snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
         }
@@ -133,7 +137,7 @@ fn fails_create_poll_invalid_quorum() {
         voting_period: DEFAULT_VOTING_PERIOD,
         effective_delay: DEFAULT_EFFECTIVE_DELAY,
         expiration_period: DEFAULT_EXPIRATION_PERIOD,
-        proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+        proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
         voter_weight: DEFAULT_VOTER_WEIGHT,
         snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
     };
@@ -158,7 +162,7 @@ fn fails_create_poll_invalid_threshold() {
         voting_period: DEFAULT_VOTING_PERIOD,
         effective_delay: DEFAULT_EFFECTIVE_DELAY,
         expiration_period: DEFAULT_EXPIRATION_PERIOD,
-        proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+        proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
         voter_weight: DEFAULT_VOTER_WEIGHT,
         snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
     };
@@ -265,7 +269,7 @@ fn fails_create_poll_invalid_deposit() {
 
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
         sender: TEST_CREATOR.to_string(),
-        amount: Uint128(DEFAULT_PROPOSAL_DEPOSIT - 1),
+        amount: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT - 1),
         msg: to_binary(&Cw20HookMsg::CreatePoll {
             title: "TESTTEST".to_string(),
             description: "TESTTEST".to_string(),
@@ -293,7 +297,7 @@ fn create_poll_msg(
 ) -> ExecuteMsg {
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
         sender: TEST_CREATOR.to_string(),
-        amount: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+        amount: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
         msg: to_binary(&Cw20HookMsg::CreatePoll {
             title,
             description,
@@ -364,7 +368,7 @@ fn query_polls() {
                 title: "test".to_string(),
                 description: "test".to_string(),
                 link: Some("http://google.com".to_string()),
-                deposit_amount: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+                deposit_amount: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
                 execute_data: None,
                 yes_votes: Uint128::zero(),
                 no_votes: Uint128::zero(),
@@ -381,7 +385,7 @@ fn query_polls() {
                 title: "test2".to_string(),
                 description: "test2".to_string(),
                 link: None,
-                deposit_amount: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+                deposit_amount: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
                 execute_data: None,
                 yes_votes: Uint128::zero(),
                 no_votes: Uint128::zero(),
@@ -415,7 +419,7 @@ fn query_polls() {
             title: "test2".to_string(),
             description: "test2".to_string(),
             link: None,
-            deposit_amount: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+            deposit_amount: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
             execute_data: None,
             yes_votes: Uint128::zero(),
             no_votes: Uint128::zero(),
@@ -448,7 +452,7 @@ fn query_polls() {
             title: "test".to_string(),
             description: "test".to_string(),
             link: Some("http://google.com".to_string()),
-            deposit_amount: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+            deposit_amount: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
             execute_data: None,
             yes_votes: Uint128::zero(),
             no_votes: Uint128::zero(),
@@ -481,7 +485,7 @@ fn query_polls() {
             title: "test2".to_string(),
             description: "test2".to_string(),
             link: None,
-            deposit_amount: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+            deposit_amount: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
             execute_data: None,
             yes_votes: Uint128::zero(),
             no_votes: Uint128::zero(),
@@ -572,7 +576,7 @@ fn happy_days_end_poll() {
     let mut creator_info = mock_info(VOTING_TOKEN, &coins(2, VOTING_TOKEN));
 
     let exec_msg_bz = to_binary(&Cw20ExecuteMsg::Burn {
-        amount: Uint128(123),
+        amount: Uint128::new(123),
     })
     .unwrap();
     let msg = create_poll_msg(
@@ -595,7 +599,12 @@ fn happy_days_end_poll() {
 
     assert_create_poll_result(
         1,
-        creator_env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).nanos() / 1_000_000_000u64,
+        creator_env
+            .block
+            .time
+            .plus_seconds(DEFAULT_VOTING_PERIOD)
+            .nanos()
+            / 1_000_000_000u64,
         TEST_CREATOR,
         execute_res,
         deps.as_ref(),
@@ -605,7 +614,7 @@ fn happy_days_end_poll() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128((stake_amount + DEFAULT_PROPOSAL_DEPOSIT) as u128),
+            &Uint128::new((stake_amount + DEFAULT_PROPOSAL_DEPOSIT) as u128),
         )],
     )]);
 
@@ -639,7 +648,7 @@ fn happy_days_end_poll() {
         execute_res.attributes,
         vec![
             attr("action", "cast_vote"),
-            attr("poll_id", POLL_ID),
+            attr("poll_id", POLL_ID.to_string()),
             attr("amount", "1000"),
             attr("voter", TEST_VOTER),
             attr("vote_option", "yes"),
@@ -683,15 +692,15 @@ fn happy_days_end_poll() {
     );
     assert_eq!(
         execute_res.messages,
-        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: VOTING_TOKEN.to_string(),
             msg: to_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: TEST_CREATOR.to_string(),
-                amount: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+                amount: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
             })
             .unwrap(),
-            send: vec![],
-        })]
+            funds: vec![],
+        }))]
     );
 
     // End poll will withdraw deposit balance
@@ -699,7 +708,7 @@ fn happy_days_end_poll() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128(stake_amount as u128),
+            &Uint128::new(stake_amount as u128),
         )],
     )]);
 
@@ -722,11 +731,11 @@ fn happy_days_end_poll() {
     let execute_res = execute(deps.as_mut(), creator_env, creator_info, msg).unwrap();
     assert_eq!(
         execute_res.messages,
-        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: VOTING_TOKEN.to_string(),
             msg: exec_msg_bz,
-            send: vec![],
-        }),]
+            funds: vec![],
+        })),]
     );
     assert_eq!(
         execute_res.attributes,
@@ -789,8 +798,8 @@ fn happy_days_end_poll() {
     assert_eq!(
         response,
         StakerResponse {
-            balance: Uint128(stake_amount),
-            share: Uint128(stake_amount),
+            balance: Uint128::new(stake_amount),
+            share: Uint128::new(stake_amount),
             locked_balance: vec![],
             pending_voting_rewards: Uint128::zero(),
             withdrawable_polls: vec![],
@@ -810,7 +819,7 @@ fn expire_poll() {
     let creator_info = mock_info(VOTING_TOKEN, &coins(2, VOTING_TOKEN));
 
     let exec_msg_bz = to_binary(&Cw20ExecuteMsg::Burn {
-        amount: Uint128(123),
+        amount: Uint128::new(123),
     })
     .unwrap();
     let msg = create_poll_msg(
@@ -833,7 +842,12 @@ fn expire_poll() {
 
     assert_create_poll_result(
         1,
-        creator_env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).nanos() / 1_000_000_000u64,
+        creator_env
+            .block
+            .time
+            .plus_seconds(DEFAULT_VOTING_PERIOD)
+            .nanos()
+            / 1_000_000_000u64,
         TEST_CREATOR,
         execute_res,
         deps.as_ref(),
@@ -843,7 +857,7 @@ fn expire_poll() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128((stake_amount + DEFAULT_PROPOSAL_DEPOSIT) as u128),
+            &Uint128::new((stake_amount + DEFAULT_PROPOSAL_DEPOSIT) as u128),
         )],
     )]);
 
@@ -877,7 +891,7 @@ fn expire_poll() {
         execute_res.attributes,
         vec![
             attr("action", "cast_vote"),
-            attr("poll_id", POLL_ID),
+            attr("poll_id", POLL_ID.to_string()),
             attr("amount", "1000"),
             attr("voter", TEST_VOTER),
             attr("vote_option", "yes"),
@@ -918,15 +932,15 @@ fn expire_poll() {
     );
     assert_eq!(
         execute_res.messages,
-        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: VOTING_TOKEN.to_string(),
             msg: to_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: TEST_CREATOR.to_string(),
-                amount: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+                amount: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
             })
             .unwrap(),
-            send: vec![],
-        })]
+            funds: vec![],
+        }))]
     );
 
     // Expiration period has not been passed
@@ -944,7 +958,10 @@ fn expire_poll() {
         _ => panic!("DO NOT ENTER HERE"),
     }
 
-    creator_env.block.time = creator_env.block.time.plus_seconds(DEFAULT_EXPIRATION_PERIOD);
+    creator_env.block.time = creator_env
+        .block
+        .time
+        .plus_seconds(DEFAULT_EXPIRATION_PERIOD);
     let msg = ExecuteMsg::ExpirePoll { poll_id: 1 };
     let _execute_res = execute(
         deps.as_mut(),
@@ -987,7 +1004,7 @@ fn end_poll_zero_quorum() {
         Some(PollExecuteMsg {
             contract: VOTING_TOKEN.to_string(),
             msg: to_binary(&Cw20ExecuteMsg::Burn {
-                amount: Uint128(123),
+                amount: Uint128::new(123),
             })
             .unwrap(),
         }),
@@ -1002,7 +1019,12 @@ fn end_poll_zero_quorum() {
     .unwrap();
     assert_create_poll_result(
         1,
-        creator_env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).nanos() / 1_000_000_000u64,
+        creator_env
+            .block
+            .time
+            .plus_seconds(DEFAULT_VOTING_PERIOD)
+            .nanos()
+            / 1_000_000_000u64,
         TEST_CREATOR,
         execute_res,
         deps.as_ref(),
@@ -1012,7 +1034,7 @@ fn end_poll_zero_quorum() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128(100u128 + DEFAULT_PROPOSAL_DEPOSIT),
+            &Uint128::new(100u128 + DEFAULT_PROPOSAL_DEPOSIT),
         )],
     )]);
 
@@ -1129,7 +1151,7 @@ fn end_poll_quorum_rejected() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128(100u128 + DEFAULT_PROPOSAL_DEPOSIT),
+            &Uint128::new(100u128 + DEFAULT_PROPOSAL_DEPOSIT),
         )],
     )]);
 
@@ -1228,13 +1250,7 @@ fn end_poll_quorum_rejected_noting_staked() {
     creator_info.sender = Addr::unchecked(TEST_CREATOR);
     let env = mock_env_height(0, end_time);
 
-    let execute_res = execute(
-        deps.as_mut(),
-        env,
-        creator_info,
-        msg.clone(),
-    )
-    .unwrap();
+    let execute_res = execute(deps.as_mut(), env, creator_info, msg.clone()).unwrap();
     assert_eq!(
         execute_res.attributes,
         vec![
@@ -1284,7 +1300,7 @@ fn end_poll_nay_rejected() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128((voter1_stake + DEFAULT_PROPOSAL_DEPOSIT) as u128),
+            &Uint128::new((voter1_stake + DEFAULT_PROPOSAL_DEPOSIT) as u128),
         )],
     )]);
 
@@ -1309,7 +1325,7 @@ fn end_poll_nay_rejected() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128((voter1_stake + voter2_stake + DEFAULT_PROPOSAL_DEPOSIT) as u128),
+            &Uint128::new((voter1_stake + voter2_stake + DEFAULT_PROPOSAL_DEPOSIT) as u128),
         )],
     )]);
 
@@ -1383,7 +1399,7 @@ fn fails_cast_vote_not_enough_staked() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128(10u128 + DEFAULT_PROPOSAL_DEPOSIT),
+            &Uint128::new(10u128 + DEFAULT_PROPOSAL_DEPOSIT),
         )],
     )]);
 
@@ -1445,7 +1461,7 @@ fn happy_days_cast_vote() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128(11u128 + DEFAULT_PROPOSAL_DEPOSIT),
+            &Uint128::new(11u128 + DEFAULT_PROPOSAL_DEPOSIT),
         )],
     )]);
 
@@ -1483,7 +1499,7 @@ fn happy_days_cast_vote() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128(22u128 + DEFAULT_PROPOSAL_DEPOSIT),
+            &Uint128::new(22u128 + DEFAULT_PROPOSAL_DEPOSIT),
         )],
     )]);
 
@@ -1500,8 +1516,8 @@ fn happy_days_cast_vote() {
     assert_eq!(
         response,
         StakerResponse {
-            balance: Uint128(22u128),
-            share: Uint128(11u128),
+            balance: Uint128::new(22u128),
+            share: Uint128::new(11u128),
             locked_balance: vec![(
                 1u64,
                 VoterInfo {
@@ -1558,7 +1574,7 @@ fn happy_days_withdraw_voting_tokens() {
 
     deps.querier.with_token_balances(&[(
         &VOTING_TOKEN.to_string(),
-        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128(11u128))],
+        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::new(11u128))],
     )]);
 
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
@@ -1586,7 +1602,7 @@ fn happy_days_withdraw_voting_tokens() {
     // double the balance, only half will be withdrawn
     deps.querier.with_token_balances(&[(
         &VOTING_TOKEN.to_string(),
-        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128(22u128))],
+        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::new(22u128))],
     )]);
 
     let info = mock_info(TEST_VOTER, &[]);
@@ -1599,15 +1615,15 @@ fn happy_days_withdraw_voting_tokens() {
 
     assert_eq!(
         msg,
-        &CosmosMsg::Wasm(WasmMsg::Execute {
+        &SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: VOTING_TOKEN.to_string(),
             msg: to_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: TEST_VOTER.to_string(),
                 amount: Uint128::from(11u128),
             })
             .unwrap(),
-            send: vec![],
-        })
+            funds: vec![],
+        }))
     );
 
     let state: State = state_read(&mut deps.storage).load().unwrap();
@@ -1630,7 +1646,7 @@ fn happy_days_withdraw_voting_tokens_all() {
 
     deps.querier.with_token_balances(&[(
         &VOTING_TOKEN.to_string(),
-        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128(11u128))],
+        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::new(11u128))],
     )]);
 
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
@@ -1658,7 +1674,7 @@ fn happy_days_withdraw_voting_tokens_all() {
     // double the balance, all balance withdrawn
     deps.querier.with_token_balances(&[(
         &VOTING_TOKEN.to_string(),
-        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128(22u128))],
+        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::new(22u128))],
     )]);
 
     let info = mock_info(TEST_VOTER, &[]);
@@ -1669,15 +1685,15 @@ fn happy_days_withdraw_voting_tokens_all() {
 
     assert_eq!(
         msg,
-        &CosmosMsg::Wasm(WasmMsg::Execute {
+        &SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: VOTING_TOKEN.to_string(),
             msg: to_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: TEST_VOTER.to_string(),
                 amount: Uint128::from(22u128),
             })
             .unwrap(),
-            send: vec![],
-        })
+            funds: vec![],
+        }))
     );
 
     let state: State = state_read(&mut deps.storage).load().unwrap();
@@ -1700,7 +1716,7 @@ fn withdraw_voting_tokens() {
 
     deps.querier.with_token_balances(&[(
         &VOTING_TOKEN.to_string(),
-        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128(11u128))],
+        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::new(11u128))],
     )]);
 
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
@@ -1766,7 +1782,7 @@ fn withdraw_voting_tokens() {
             &voter_addr_raw.as_slice(),
             &VoterInfo {
                 vote: VoteOption::Yes,
-                balance: Uint128(5u128),
+                balance: Uint128::new(5u128),
             },
         )
         .unwrap();
@@ -1775,7 +1791,7 @@ fn withdraw_voting_tokens() {
             &voter_addr_raw.as_slice(),
             &VoterInfo {
                 vote: VoteOption::Yes,
-                balance: Uint128(5u128),
+                balance: Uint128::new(5u128),
             },
         )
         .unwrap();
@@ -1783,20 +1799,20 @@ fn withdraw_voting_tokens() {
         .save(
             &voter_addr_raw.as_slice(),
             &TokenManager {
-                share: Uint128(11u128),
+                share: Uint128::new(11u128),
                 locked_balance: vec![
                     (
                         1u64,
                         VoterInfo {
                             vote: VoteOption::Yes,
-                            balance: Uint128(5u128),
+                            balance: Uint128::new(5u128),
                         },
                     ),
                     (
                         2u64,
                         VoterInfo {
                             vote: VoteOption::Yes,
-                            balance: Uint128(5u128),
+                            balance: Uint128::new(5u128),
                         },
                     ),
                 ],
@@ -1818,7 +1834,7 @@ fn withdraw_voting_tokens() {
         voter,
         VoterInfo {
             vote: VoteOption::Yes,
-            balance: Uint128(5u128),
+            balance: Uint128::new(5u128),
         }
     );
 
@@ -1831,7 +1847,7 @@ fn withdraw_voting_tokens() {
             1u64,
             VoterInfo {
                 vote: VoteOption::Yes,
-                balance: Uint128(5u128),
+                balance: Uint128::new(5u128),
             }
         )]
     );
@@ -1863,7 +1879,7 @@ fn fails_withdraw_too_many_tokens() {
 
     deps.querier.with_token_balances(&[(
         &VOTING_TOKEN.to_string(),
-        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128(10u128))],
+        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::new(10u128))],
     )]);
 
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
@@ -1915,7 +1931,7 @@ fn fails_cast_vote_twice() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128(11u128 + DEFAULT_PROPOSAL_DEPOSIT),
+            &Uint128::new(11u128 + DEFAULT_PROPOSAL_DEPOSIT),
         )],
     )]);
 
@@ -1989,7 +2005,7 @@ fn happy_days_stake_voting_tokens() {
 
     deps.querier.with_token_balances(&[(
         &VOTING_TOKEN.to_string(),
-        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128(11u128))],
+        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::new(11u128))],
     )]);
 
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
@@ -2042,7 +2058,7 @@ fn fails_staking_wrong_token() {
 
     deps.querier.with_token_balances(&[(
         &VOTING_TOKEN.to_string(),
-        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128(11u128))],
+        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::new(11u128))],
     )]);
 
     // wrong token
@@ -2075,7 +2091,7 @@ fn share_calculation() {
     // create 100 share
     deps.querier.with_token_balances(&[(
         &VOTING_TOKEN.to_string(),
-        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128(100u128))],
+        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::new(100u128))],
     )]);
 
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
@@ -2090,7 +2106,10 @@ fn share_calculation() {
     // add more balance(100) to make share:balance = 1:2
     deps.querier.with_token_balances(&[(
         &VOTING_TOKEN.to_string(),
-        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128(200u128 + 100u128))],
+        &[(
+            &MOCK_CONTRACT_ADDR.to_string(),
+            &Uint128::new(200u128 + 100u128),
+        )],
     )]);
 
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
@@ -2112,7 +2131,7 @@ fn share_calculation() {
     );
 
     let msg = ExecuteMsg::WithdrawVotingTokens {
-        amount: Some(Uint128(100u128)),
+        amount: Some(Uint128::new(100u128)),
     };
     let info = mock_info(TEST_VOTER, &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -2128,7 +2147,7 @@ fn share_calculation() {
     // 100 tokens withdrawn
     deps.querier.with_token_balances(&[(
         &VOTING_TOKEN.to_string(),
-        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128(200u128))],
+        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::new(200u128))],
     )]);
 
     let res = query(
@@ -2140,8 +2159,8 @@ fn share_calculation() {
     )
     .unwrap();
     let stake_info: StakerResponse = from_binary(&res).unwrap();
-    assert_eq!(stake_info.share, Uint128(100));
-    assert_eq!(stake_info.balance, Uint128(200));
+    assert_eq!(stake_info.share, Uint128::new(100));
+    assert_eq!(stake_info.balance, Uint128::new(200));
     assert_eq!(stake_info.locked_balance, vec![]);
 }
 
@@ -2157,7 +2176,7 @@ fn share_calculation_with_voter_rewards() {
         voting_period: DEFAULT_VOTING_PERIOD,
         effective_delay: DEFAULT_EFFECTIVE_DELAY,
         expiration_period: DEFAULT_EXPIRATION_PERIOD,
-        proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+        proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
         voter_weight: Decimal::percent(50), // distribute 50% rewards to voters
         snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
     };
@@ -2183,7 +2202,7 @@ fn share_calculation_with_voter_rewards() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128(DEFAULT_PROPOSAL_DEPOSIT + 100u128),
+            &Uint128::new(DEFAULT_PROPOSAL_DEPOSIT + 100u128),
         )],
     )]);
 
@@ -2209,7 +2228,7 @@ fn share_calculation_with_voter_rewards() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128(DEFAULT_PROPOSAL_DEPOSIT + 400u128 + 100u128),
+            &Uint128::new(DEFAULT_PROPOSAL_DEPOSIT + 400u128 + 100u128),
         )],
     )]);
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
@@ -2224,7 +2243,7 @@ fn share_calculation_with_voter_rewards() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128(DEFAULT_PROPOSAL_DEPOSIT + 400u128 + 100u128),
+            &Uint128::new(DEFAULT_PROPOSAL_DEPOSIT + 400u128 + 100u128),
         )],
     )]);
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
@@ -2246,7 +2265,7 @@ fn share_calculation_with_voter_rewards() {
     );
 
     let msg = ExecuteMsg::WithdrawVotingTokens {
-        amount: Some(Uint128(100u128)),
+        amount: Some(Uint128::new(100u128)),
     };
     let info = mock_info(TEST_VOTER, &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -2264,7 +2283,7 @@ fn share_calculation_with_voter_rewards() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128(DEFAULT_PROPOSAL_DEPOSIT + 400u128),
+            &Uint128::new(DEFAULT_PROPOSAL_DEPOSIT + 400u128),
         )],
     )]);
 
@@ -2277,8 +2296,8 @@ fn share_calculation_with_voter_rewards() {
     )
     .unwrap();
     let stake_info: StakerResponse = from_binary(&res).unwrap();
-    assert_eq!(stake_info.share, Uint128(100));
-    assert_eq!(stake_info.balance, Uint128(200));
+    assert_eq!(stake_info.share, Uint128::new(100));
+    assert_eq!(stake_info.balance, Uint128::new(200));
     assert_eq!(stake_info.locked_balance, vec![]);
 }
 
@@ -2308,7 +2327,7 @@ fn assert_create_poll_result(
             contract_addr: deps.api.addr_canonicalize(MOCK_CONTRACT_ADDR).unwrap(),
             poll_count: 1,
             total_share: Uint128::zero(),
-            total_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+            total_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
             pending_voting_rewards: Uint128::zero(),
         }
     );
@@ -2333,8 +2352,8 @@ fn assert_stake_tokens_result(
         State {
             contract_addr: deps.api.addr_canonicalize(&MOCK_CONTRACT_ADDR).unwrap(),
             poll_count,
-            total_share: Uint128(total_share),
-            total_deposit: Uint128(total_deposit),
+            total_share: Uint128::new(total_share),
+            total_deposit: Uint128::new(total_deposit),
             pending_voting_rewards: Uint128::zero(),
         }
     );
@@ -2400,7 +2419,7 @@ fn update_config() {
         voting_period: Some(20000u64),
         effective_delay: Some(20000u64),
         expiration_period: Some(30000u64),
-        proposal_deposit: Some(Uint128(123u128)),
+        proposal_deposit: Some(Uint128::new(123u128)),
         voter_weight: Some(Decimal::percent(1)),
         snapshot_period: Some(60u64),
     };
@@ -2452,7 +2471,7 @@ fn distribute_voting_rewards() {
         voting_period: DEFAULT_VOTING_PERIOD,
         effective_delay: DEFAULT_EFFECTIVE_DELAY,
         expiration_period: DEFAULT_EXPIRATION_PERIOD,
-        proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+        proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
         voter_weight: Decimal::percent(50), // distribute 50% rewards to voters
         snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
     };
@@ -2463,12 +2482,8 @@ fn distribute_voting_rewards() {
 
     let env = mock_env_height(0, 10000);
     let info = mock_info(VOTING_TOKEN, &coins(2, VOTING_TOKEN));
-    let poll_end_time = env
-        .block
-        .time
-        .plus_seconds(DEFAULT_VOTING_PERIOD)
-        .nanos()
-        / 1_000_000_000u64;
+    let poll_end_time =
+        env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).nanos() / 1_000_000_000u64;
     let msg = create_poll_msg("test".to_string(), "test".to_string(), None, None);
     let execute_res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
 
@@ -2486,7 +2501,7 @@ fn distribute_voting_rewards() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128((stake_amount + DEFAULT_PROPOSAL_DEPOSIT) as u128),
+            &Uint128::new((stake_amount + DEFAULT_PROPOSAL_DEPOSIT) as u128),
         )],
     )]);
 
@@ -2512,7 +2527,7 @@ fn distribute_voting_rewards() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128((stake_amount + DEFAULT_PROPOSAL_DEPOSIT + 100u128) as u128),
+            &Uint128::new((stake_amount + DEFAULT_PROPOSAL_DEPOSIT + 100u128) as u128),
         )],
     )]);
 
@@ -2549,20 +2564,20 @@ fn distribute_voting_rewards() {
         vec![
             attr("action", "withdraw_voting_rewards"),
             attr("recipient", TEST_VOTER),
-            attr("amount", 50),
+            attr("amount", 50.to_string()),
         ]
     );
     assert_eq!(
         res.messages,
-        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: VOTING_TOKEN.to_string(),
             msg: to_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: TEST_VOTER.to_string(),
                 amount: Uint128::from(50u128),
             })
             .unwrap(),
-            send: vec![],
-        })]
+            funds: vec![],
+        }))]
     );
 
     // voting info has been deleted
@@ -2590,7 +2605,7 @@ fn stake_voting_rewards() {
         voting_period: DEFAULT_VOTING_PERIOD,
         effective_delay: DEFAULT_EFFECTIVE_DELAY,
         expiration_period: DEFAULT_EXPIRATION_PERIOD,
-        proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+        proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
         voter_weight: Decimal::percent(50), // distribute 50% rewards to voters
         snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
     };
@@ -2601,12 +2616,8 @@ fn stake_voting_rewards() {
 
     let env = mock_env_height(0, 10000);
     let info = mock_info(VOTING_TOKEN, &coins(2, VOTING_TOKEN));
-    let poll_end_time = env
-        .block
-        .time
-        .plus_seconds(DEFAULT_VOTING_PERIOD)
-        .nanos()
-        / 1_000_000_000u64;
+    let poll_end_time =
+        env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).nanos() / 1_000_000_000u64;
     let msg = create_poll_msg("test".to_string(), "test".to_string(), None, None);
     let execute_res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
 
@@ -2624,7 +2635,7 @@ fn stake_voting_rewards() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128((stake_amount + DEFAULT_PROPOSAL_DEPOSIT) as u128),
+            &Uint128::new((stake_amount + DEFAULT_PROPOSAL_DEPOSIT) as u128),
         )],
     )]);
 
@@ -2650,7 +2661,7 @@ fn stake_voting_rewards() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128((stake_amount + DEFAULT_PROPOSAL_DEPOSIT + 100u128) as u128),
+            &Uint128::new((stake_amount + DEFAULT_PROPOSAL_DEPOSIT + 100u128) as u128),
         )],
     )]);
 
@@ -2679,7 +2690,7 @@ fn stake_voting_rewards() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128((stake_amount + 100u128) as u128),
+            &Uint128::new((stake_amount + 100u128) as u128),
         )],
     )]);
 
@@ -2695,8 +2706,8 @@ fn stake_voting_rewards() {
         vec![
             attr("action", "stake_voting_rewards"),
             attr("staker", TEST_VOTER),
-            attr("share", 33),
-            attr("amount", 50),
+            attr("share", 33.to_string()),
+            attr("amount", 50.to_string()),
         ]
     );
     assert_eq!(res.messages, vec![]);
@@ -2733,10 +2744,10 @@ fn stake_voting_rewards() {
     assert_eq!(
         response,
         StakerResponse {
-            balance: Uint128(stake_amount + 100u128),
-            share: Uint128(stake_amount + 33u128),
+            balance: Uint128::new(stake_amount + 100u128),
+            share: Uint128::new(stake_amount + 33u128),
             locked_balance: vec![],
-            pending_voting_rewards: Uint128(0u128),
+            pending_voting_rewards: Uint128::new(0u128),
             withdrawable_polls: vec![],
         }
     );
@@ -2752,7 +2763,7 @@ fn distribute_voting_rewards_with_multiple_active_polls_and_voters() {
         voting_period: DEFAULT_VOTING_PERIOD,
         effective_delay: DEFAULT_EFFECTIVE_DELAY,
         expiration_period: DEFAULT_EXPIRATION_PERIOD,
-        proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+        proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
         voter_weight: Decimal::percent(50), // distribute 50% rewards to voters
         snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
     };
@@ -2763,12 +2774,8 @@ fn distribute_voting_rewards_with_multiple_active_polls_and_voters() {
     // create polls
     let env = mock_env_height(0, 10000);
     let info = mock_info(VOTING_TOKEN, &coins(2, VOTING_TOKEN));
-    let poll_end_time = env
-        .block
-        .time
-        .plus_seconds(DEFAULT_VOTING_PERIOD)
-        .nanos()
-        / 1_000_000_000u64;
+    let poll_end_time =
+        env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).nanos() / 1_000_000_000u64;
     // poll 1
     let msg = create_poll_msg("test".to_string(), "test".to_string(), None, None);
     let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
@@ -2787,7 +2794,7 @@ fn distribute_voting_rewards_with_multiple_active_polls_and_voters() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128((ALICE_STAKE + DEFAULT_PROPOSAL_DEPOSIT * 2) as u128),
+            &Uint128::new((ALICE_STAKE + DEFAULT_PROPOSAL_DEPOSIT * 2) as u128),
         )],
     )]);
     // Alice stakes 750 MIR
@@ -2802,7 +2809,7 @@ fn distribute_voting_rewards_with_multiple_active_polls_and_voters() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128((ALICE_STAKE + BOB_STAKE + DEFAULT_PROPOSAL_DEPOSIT * 2) as u128),
+            &Uint128::new((ALICE_STAKE + BOB_STAKE + DEFAULT_PROPOSAL_DEPOSIT * 2) as u128),
         )],
     )]);
     // Bob stakes 250 MIR
@@ -2816,7 +2823,7 @@ fn distribute_voting_rewards_with_multiple_active_polls_and_voters() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128(
+            &Uint128::new(
                 (ALICE_STAKE + BOB_STAKE + CINDY_STAKE + DEFAULT_PROPOSAL_DEPOSIT * 2) as u128,
             ),
         )],
@@ -2867,7 +2874,7 @@ fn distribute_voting_rewards_with_multiple_active_polls_and_voters() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128(
+            &Uint128::new(
                 (ALICE_STAKE
                     + BOB_STAKE
                     + CINDY_STAKE
@@ -2905,7 +2912,7 @@ fn distribute_voting_rewards_with_multiple_active_polls_and_voters() {
         vec![
             attr("action", "withdraw_voting_rewards"),
             attr("recipient", ALICE),
-            attr("amount", 375000000),
+            attr("amount", 375000000.to_string()),
         ]
     );
 
@@ -2919,7 +2926,7 @@ fn distribute_voting_rewards_with_multiple_active_polls_and_voters() {
         vec![
             attr("action", "withdraw_voting_rewards"),
             attr("recipient", BOB),
-            attr("amount", 375000000), // 125 from poll 1 + 250 from poll 2
+            attr("amount", 375000000.to_string()), // 125 from poll 1 + 250 from poll 2
         ]
     );
 
@@ -2932,7 +2939,7 @@ fn distribute_voting_rewards_with_multiple_active_polls_and_voters() {
         vec![
             attr("action", "withdraw_voting_rewards"),
             attr("recipient", CINDY),
-            attr("amount", 250000000),
+            attr("amount", 250000000.to_string()),
         ]
     );
 }
@@ -2947,7 +2954,7 @@ fn distribute_voting_rewards_only_to_polls_in_progress() {
         voting_period: DEFAULT_VOTING_PERIOD,
         effective_delay: DEFAULT_EFFECTIVE_DELAY,
         expiration_period: DEFAULT_EXPIRATION_PERIOD,
-        proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+        proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
         voter_weight: Decimal::percent(50), // distribute 50% rewards to voters
         snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
     };
@@ -3082,7 +3089,7 @@ fn test_staking_and_voting_rewards() {
         voting_period: DEFAULT_VOTING_PERIOD,
         effective_delay: DEFAULT_EFFECTIVE_DELAY,
         expiration_period: DEFAULT_EXPIRATION_PERIOD,
-        proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+        proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
         voter_weight: Decimal::percent(50), // distribute 50% rewards to voters
         snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
     };
@@ -3092,12 +3099,8 @@ fn test_staking_and_voting_rewards() {
 
     let env = mock_env_height(0, 10000);
     let info = mock_info(VOTING_TOKEN, &coins(2, VOTING_TOKEN));
-    let poll_end_time = env
-        .block
-        .time
-        .plus_seconds(DEFAULT_VOTING_PERIOD)
-        .nanos()
-        / 1_000_000_000u64;
+    let poll_end_time =
+        env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).nanos() / 1_000_000_000u64;
     // poll 1
     let msg = create_poll_msg("test".to_string(), "test".to_string(), None, None);
     let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
@@ -3111,7 +3114,7 @@ fn test_staking_and_voting_rewards() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128((ALICE_STAKE + DEFAULT_PROPOSAL_DEPOSIT) as u128),
+            &Uint128::new((ALICE_STAKE + DEFAULT_PROPOSAL_DEPOSIT) as u128),
         )],
     )]);
     // Alice stakes 750 MIR
@@ -3126,7 +3129,7 @@ fn test_staking_and_voting_rewards() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128((ALICE_STAKE + BOB_STAKE + DEFAULT_PROPOSAL_DEPOSIT) as u128),
+            &Uint128::new((ALICE_STAKE + BOB_STAKE + DEFAULT_PROPOSAL_DEPOSIT) as u128),
         )],
     )]);
     // Bob stakes 250 MIR
@@ -3160,7 +3163,7 @@ fn test_staking_and_voting_rewards() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128(
+            &Uint128::new(
                 (ALICE_STAKE + BOB_STAKE + DEFAULT_PROPOSAL_DEPOSIT + 2_000_000_000u128) as u128,
             ),
         )],
@@ -3187,15 +3190,18 @@ fn test_staking_and_voting_rewards() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128((ALICE_STAKE + BOB_STAKE + 2_000_000_000) as u128),
+            &Uint128::new((ALICE_STAKE + BOB_STAKE + 2_000_000_000) as u128),
         )],
     )]);
 
     let res = query(deps.as_ref(), mock_env(), QueryMsg::State {}).unwrap();
     let response: StateResponse = from_binary(&res).unwrap();
-    assert_eq!(response.total_share, Uint128(1_000_000_000u128));
+    assert_eq!(response.total_share, Uint128::new(1_000_000_000u128));
     assert_eq!(response.total_deposit, Uint128::zero());
-    assert_eq!(response.pending_voting_rewards, Uint128(1_000_000_000u128));
+    assert_eq!(
+        response.pending_voting_rewards,
+        Uint128::new(1_000_000_000u128)
+    );
 
     let res = query(
         deps.as_ref(),
@@ -3209,11 +3215,11 @@ fn test_staking_and_voting_rewards() {
     assert_eq!(
         response,
         StakerResponse {
-            balance: Uint128(ALICE_STAKE + 750_000_000u128),
-            share: Uint128(ALICE_STAKE),
+            balance: Uint128::new(ALICE_STAKE + 750_000_000u128),
+            share: Uint128::new(ALICE_STAKE),
             locked_balance: vec![],
-            pending_voting_rewards: Uint128(750_000_000u128),
-            withdrawable_polls: vec![(1u64, Uint128(750_000_000u128))],
+            pending_voting_rewards: Uint128::new(750_000_000u128),
+            withdrawable_polls: vec![(1u64, Uint128::new(750_000_000u128))],
         }
     );
     let res = query(
@@ -3228,11 +3234,11 @@ fn test_staking_and_voting_rewards() {
     assert_eq!(
         response,
         StakerResponse {
-            balance: Uint128(BOB_STAKE + 250_000_000u128),
-            share: Uint128(BOB_STAKE),
+            balance: Uint128::new(BOB_STAKE + 250_000_000u128),
+            share: Uint128::new(BOB_STAKE),
             locked_balance: vec![],
-            pending_voting_rewards: Uint128(250_000_000u128),
-            withdrawable_polls: vec![(1u64, Uint128(250_000_000u128))],
+            pending_voting_rewards: Uint128::new(250_000_000u128),
+            withdrawable_polls: vec![(1u64, Uint128::new(250_000_000u128))],
         }
     );
 
@@ -3246,7 +3252,7 @@ fn test_staking_and_voting_rewards() {
         vec![
             attr("action", "withdraw_voting_rewards"),
             attr("recipient", ALICE),
-            attr("amount", ALICE_STAKE),
+            attr("amount", ALICE_STAKE.to_string()),
         ]
     );
 
@@ -3259,7 +3265,7 @@ fn test_staking_and_voting_rewards() {
         vec![
             attr("action", "withdraw_voting_rewards"),
             attr("recipient", BOB),
-            attr("amount", BOB_STAKE),
+            attr("amount", BOB_STAKE.to_string()),
         ]
     );
 
@@ -3267,7 +3273,7 @@ fn test_staking_and_voting_rewards() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128((ALICE_STAKE + BOB_STAKE + 1_000_000_000) as u128),
+            &Uint128::new((ALICE_STAKE + BOB_STAKE + 1_000_000_000) as u128),
         )],
     )]);
 
@@ -3287,7 +3293,7 @@ fn test_staking_and_voting_rewards() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128((BOB_STAKE + 250_000_000) as u128),
+            &Uint128::new((BOB_STAKE + 250_000_000) as u128),
         )],
     )]);
     // withdraw remaining voting tokens
@@ -3314,7 +3320,7 @@ fn test_abstain_votes_theshold() {
         voting_period: DEFAULT_VOTING_PERIOD,
         effective_delay: DEFAULT_EFFECTIVE_DELAY,
         expiration_period: DEFAULT_EXPIRATION_PERIOD,
-        proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+        proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
         voter_weight: Decimal::percent(50), // distribute 50% rewards to voters
         snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
     };
@@ -3325,12 +3331,8 @@ fn test_abstain_votes_theshold() {
 
     let env = mock_env_height(0, 10000);
     let info = mock_info(VOTING_TOKEN, &coins(2, VOTING_TOKEN));
-    let poll_end_time = env
-        .block
-        .time
-        .plus_seconds(DEFAULT_VOTING_PERIOD)
-        .nanos()
-        / 1_000_000_000u64;
+    let poll_end_time =
+        env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).nanos() / 1_000_000_000u64;
     let msg = create_poll_msg("test".to_string(), "test".to_string(), None, None);
     let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
 
@@ -3345,7 +3347,7 @@ fn test_abstain_votes_theshold() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128((ALICE_STAKE + DEFAULT_PROPOSAL_DEPOSIT) as u128),
+            &Uint128::new((ALICE_STAKE + DEFAULT_PROPOSAL_DEPOSIT) as u128),
         )],
     )]);
     // Alice stakes 750 MIR
@@ -3360,7 +3362,7 @@ fn test_abstain_votes_theshold() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128((ALICE_STAKE + BOB_STAKE + DEFAULT_PROPOSAL_DEPOSIT) as u128),
+            &Uint128::new((ALICE_STAKE + BOB_STAKE + DEFAULT_PROPOSAL_DEPOSIT) as u128),
         )],
     )]);
     // Bob stakes 250 MIR
@@ -3374,7 +3376,9 @@ fn test_abstain_votes_theshold() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128((ALICE_STAKE + BOB_STAKE + CINDY_STAKE + DEFAULT_PROPOSAL_DEPOSIT) as u128),
+            &Uint128::new(
+                (ALICE_STAKE + BOB_STAKE + CINDY_STAKE + DEFAULT_PROPOSAL_DEPOSIT) as u128,
+            ),
         )],
     )]);
     // Cindy stakes 260 MIR
@@ -3440,7 +3444,7 @@ fn test_abstain_votes_quorum() {
         voting_period: DEFAULT_VOTING_PERIOD,
         effective_delay: DEFAULT_EFFECTIVE_DELAY,
         expiration_period: DEFAULT_EXPIRATION_PERIOD,
-        proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+        proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
         voter_weight: Decimal::percent(50), // distribute 50% rewards to voters
         snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
     };
@@ -3451,12 +3455,8 @@ fn test_abstain_votes_quorum() {
 
     let env = mock_env_height(0, 10000);
     let info = mock_info(VOTING_TOKEN, &coins(2, VOTING_TOKEN));
-    let poll_end_time = env
-        .block
-        .time
-        .plus_seconds(DEFAULT_VOTING_PERIOD)
-        .nanos()
-        / 1_000_000_000u64;
+    let poll_end_time =
+        env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).nanos() / 1_000_000_000u64;
     let msg = create_poll_msg("test".to_string(), "test".to_string(), None, None);
     let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
 
@@ -3471,7 +3471,7 @@ fn test_abstain_votes_quorum() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128((ALICE_STAKE + DEFAULT_PROPOSAL_DEPOSIT) as u128),
+            &Uint128::new((ALICE_STAKE + DEFAULT_PROPOSAL_DEPOSIT) as u128),
         )],
     )]);
     // Alice stakes 750 MIR
@@ -3486,7 +3486,7 @@ fn test_abstain_votes_quorum() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128((ALICE_STAKE + BOB_STAKE + DEFAULT_PROPOSAL_DEPOSIT) as u128),
+            &Uint128::new((ALICE_STAKE + BOB_STAKE + DEFAULT_PROPOSAL_DEPOSIT) as u128),
         )],
     )]);
     // Bob stakes 50 MIR
@@ -3500,7 +3500,9 @@ fn test_abstain_votes_quorum() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128((ALICE_STAKE + BOB_STAKE + CINDY_STAKE + DEFAULT_PROPOSAL_DEPOSIT) as u128),
+            &Uint128::new(
+                (ALICE_STAKE + BOB_STAKE + CINDY_STAKE + DEFAULT_PROPOSAL_DEPOSIT) as u128,
+            ),
         )],
     )]);
     // Cindy stakes 50 MIR
@@ -3557,12 +3559,8 @@ fn test_abstain_votes_quorum() {
 
     let env = mock_env_height(0, 10000);
     let info = mock_info(VOTING_TOKEN, &coins(2, VOTING_TOKEN));
-    let poll_end_time = env
-        .block
-        .time
-        .plus_seconds(DEFAULT_VOTING_PERIOD)
-        .nanos()
-        / 1_000_000_000u64;
+    let poll_end_time =
+        env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).nanos() / 1_000_000_000u64;
     let msg = create_poll_msg("test".to_string(), "test".to_string(), None, None);
     let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
 
@@ -3609,24 +3607,15 @@ fn test_query_shares() {
     let mut deps = mock_dependencies(&[]);
     mock_instantiate(deps.as_mut());
 
-    let voter_0_addr_raw = deps
-        .api
-        .addr_canonicalize("staker0000")
-        .unwrap();
-    let voter_1_addr_raw = deps
-        .api
-        .addr_canonicalize("staker0001")
-        .unwrap();
-    let voter_2_addr_raw = deps
-        .api
-        .addr_canonicalize("staker0002")
-        .unwrap();
+    let voter_0_addr_raw = deps.api.addr_canonicalize("staker0000").unwrap();
+    let voter_1_addr_raw = deps.api.addr_canonicalize("staker0001").unwrap();
+    let voter_2_addr_raw = deps.api.addr_canonicalize("staker0002").unwrap();
 
     bank_store(&mut deps.storage)
         .save(
             &voter_0_addr_raw.as_slice(),
             &TokenManager {
-                share: Uint128(11u128),
+                share: Uint128::new(11u128),
                 locked_balance: vec![],
                 participated_polls: vec![],
             },
@@ -3636,7 +3625,7 @@ fn test_query_shares() {
         .save(
             &voter_1_addr_raw.as_slice(),
             &TokenManager {
-                share: Uint128(22u128),
+                share: Uint128::new(22u128),
                 locked_balance: vec![],
                 participated_polls: vec![],
             },
@@ -3646,7 +3635,7 @@ fn test_query_shares() {
         .save(
             &voter_2_addr_raw.as_slice(),
             &TokenManager {
-                share: Uint128(33u128),
+                share: Uint128::new(33u128),
                 locked_balance: vec![],
                 participated_polls: vec![],
             },
@@ -3670,15 +3659,15 @@ fn test_query_shares() {
         vec![
             SharesResponseItem {
                 staker: "staker0000".to_string(),
-                share: Uint128(11u128),
+                share: Uint128::new(11u128),
             },
             SharesResponseItem {
                 staker: "staker0001".to_string(),
-                share: Uint128(22u128),
+                share: Uint128::new(22u128),
             },
             SharesResponseItem {
                 staker: "staker0002".to_string(),
-                share: Uint128(33u128),
+                share: Uint128::new(33u128),
             },
         ]
     );
@@ -3700,15 +3689,15 @@ fn test_query_shares() {
         vec![
             SharesResponseItem {
                 staker: "staker0002".to_string(),
-                share: Uint128(33u128),
+                share: Uint128::new(33u128),
             },
             SharesResponseItem {
                 staker: "staker0001".to_string(),
-                share: Uint128(22u128),
+                share: Uint128::new(22u128),
             },
             SharesResponseItem {
                 staker: "staker0000".to_string(),
-                share: Uint128(11u128),
+                share: Uint128::new(11u128),
             },
         ]
     );
@@ -3730,11 +3719,11 @@ fn test_query_shares() {
         vec![
             SharesResponseItem {
                 staker: "staker0000".to_string(),
-                share: Uint128(11u128),
+                share: Uint128::new(11u128),
             },
             SharesResponseItem {
                 staker: "staker0001".to_string(),
-                share: Uint128(22u128),
+                share: Uint128::new(22u128),
             },
         ]
     );
@@ -3755,7 +3744,7 @@ fn test_query_shares() {
         response.stakers,
         vec![SharesResponseItem {
             staker: "staker0002".to_string(),
-            share: Uint128(33u128),
+            share: Uint128::new(33u128),
         },]
     );
 }
@@ -3816,7 +3805,7 @@ fn snapshot_poll() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128((stake_amount + DEFAULT_PROPOSAL_DEPOSIT) as u128),
+            &Uint128::new((stake_amount + DEFAULT_PROPOSAL_DEPOSIT) as u128),
         )],
     )]);
 
@@ -3833,7 +3822,7 @@ fn snapshot_poll() {
         vec![
             attr("action", "snapshot_poll"),
             attr("poll_id", "1"),
-            attr("staked_amount", stake_amount),
+            attr("staked_amount", stake_amount.to_string()),
         ]
     );
 
@@ -3873,7 +3862,7 @@ fn happy_days_cast_vote_with_snapshot() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128(11u128 + DEFAULT_PROPOSAL_DEPOSIT),
+            &Uint128::new(11u128 + DEFAULT_PROPOSAL_DEPOSIT),
         )],
     )]);
 
@@ -3913,7 +3902,7 @@ fn happy_days_cast_vote_with_snapshot() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128(22u128 + DEFAULT_PROPOSAL_DEPOSIT),
+            &Uint128::new(22u128 + DEFAULT_PROPOSAL_DEPOSIT),
         )],
     )]);
 
@@ -3945,7 +3934,7 @@ fn happy_days_cast_vote_with_snapshot() {
 
     let res = query(deps.as_ref(), mock_env(), QueryMsg::Poll { poll_id: 1 }).unwrap();
     let value: PollResponse = from_binary(&res).unwrap();
-    assert_eq!(value.staked_amount, Some(Uint128(22)));
+    assert_eq!(value.staked_amount, Some(Uint128::new(22)));
 
     // snanpshot poll will not go through
     let snap_error = execute(
@@ -3965,7 +3954,7 @@ fn happy_days_cast_vote_with_snapshot() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128(33u128 + DEFAULT_PROPOSAL_DEPOSIT),
+            &Uint128::new(33u128 + DEFAULT_PROPOSAL_DEPOSIT),
         )],
     )]);
 
@@ -3990,7 +3979,7 @@ fn happy_days_cast_vote_with_snapshot() {
 
     let res = query(deps.as_ref(), mock_env(), QueryMsg::Poll { poll_id: 1 }).unwrap();
     let value: PollResponse = from_binary(&res).unwrap();
-    assert_eq!(value.staked_amount, Some(Uint128(22)));
+    assert_eq!(value.staked_amount, Some(Uint128::new(22)));
 }
 
 #[test]
@@ -4006,7 +3995,7 @@ fn fails_end_poll_quorum_inflation_without_snapshot_poll() {
     let mut creator_info = mock_info(VOTING_TOKEN, &coins(2, VOTING_TOKEN));
 
     let exec_msg_bz = to_binary(&Cw20ExecuteMsg::Burn {
-        amount: Uint128(123),
+        amount: Uint128::new(123),
     })
     .unwrap();
 
@@ -4045,7 +4034,7 @@ fn fails_end_poll_quorum_inflation_without_snapshot_poll() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128((stake_amount + DEFAULT_PROPOSAL_DEPOSIT) as u128),
+            &Uint128::new((stake_amount + DEFAULT_PROPOSAL_DEPOSIT) as u128),
         )],
     )]);
 
@@ -4079,7 +4068,7 @@ fn fails_end_poll_quorum_inflation_without_snapshot_poll() {
         execute_res.attributes,
         vec![
             attr("action", "cast_vote"),
-            attr("poll_id", POLL_ID),
+            attr("poll_id", POLL_ID.to_string()),
             attr("amount", "1000"),
             attr("voter", TEST_VOTER),
             attr("vote_option", "yes"),
@@ -4098,7 +4087,7 @@ fn fails_end_poll_quorum_inflation_without_snapshot_poll() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128(((10 * stake_amount) + DEFAULT_PROPOSAL_DEPOSIT) as u128),
+            &Uint128::new(((10 * stake_amount) + DEFAULT_PROPOSAL_DEPOSIT) as u128),
         )],
     )]);
 
@@ -4126,7 +4115,7 @@ fn fails_end_poll_quorum_inflation_without_snapshot_poll() {
         execute_res.attributes,
         vec![
             attr("action", "cast_vote"),
-            attr("poll_id", POLL_ID),
+            attr("poll_id", POLL_ID.to_string()),
             attr("amount", "1000"),
             attr("voter", TEST_VOTER_2),
             attr("vote_option", "yes"),
@@ -4177,7 +4166,7 @@ fn happy_days_end_poll_with_controlled_quorum() {
     let mut creator_info = mock_info(VOTING_TOKEN, &coins(2, VOTING_TOKEN));
 
     let exec_msg_bz = to_binary(&Cw20ExecuteMsg::Burn {
-        amount: Uint128(123),
+        amount: Uint128::new(123),
     })
     .unwrap();
 
@@ -4216,7 +4205,7 @@ fn happy_days_end_poll_with_controlled_quorum() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128((stake_amount + DEFAULT_PROPOSAL_DEPOSIT) as u128),
+            &Uint128::new((stake_amount + DEFAULT_PROPOSAL_DEPOSIT) as u128),
         )],
     )]);
 
@@ -4250,7 +4239,7 @@ fn happy_days_end_poll_with_controlled_quorum() {
         execute_res.attributes,
         vec![
             attr("action", "cast_vote"),
-            attr("poll_id", POLL_ID),
+            attr("poll_id", POLL_ID.to_string()),
             attr("amount", "1000"),
             attr("voter", TEST_VOTER),
             attr("vote_option", "yes"),
@@ -4276,7 +4265,7 @@ fn happy_days_end_poll_with_controlled_quorum() {
         vec![
             attr("action", "snapshot_poll"),
             attr("poll_id", "1"),
-            attr("staked_amount", stake_amount),
+            attr("staked_amount", stake_amount.to_string()),
         ]
     );
 
@@ -4285,7 +4274,7 @@ fn happy_days_end_poll_with_controlled_quorum() {
         &VOTING_TOKEN.to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128(((10 * stake_amount) + DEFAULT_PROPOSAL_DEPOSIT) as u128),
+            &Uint128::new(((10 * stake_amount) + DEFAULT_PROPOSAL_DEPOSIT) as u128),
         )],
     )]);
 
@@ -4312,7 +4301,7 @@ fn happy_days_end_poll_with_controlled_quorum() {
         execute_res.attributes,
         vec![
             attr("action", "cast_vote"),
-            attr("poll_id", POLL_ID),
+            attr("poll_id", POLL_ID.to_string()),
             attr("amount", "8000"),
             attr("voter", TEST_VOTER_2),
             attr("vote_option", "yes"),
@@ -4343,15 +4332,15 @@ fn happy_days_end_poll_with_controlled_quorum() {
     );
     assert_eq!(
         execute_res.messages,
-        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: VOTING_TOKEN.to_string(),
             msg: to_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: TEST_CREATOR.to_string(),
-                amount: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+                amount: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
             })
             .unwrap(),
-            send: vec![],
-        })]
+            funds: vec![],
+        }))]
     );
 
     let res = query(deps.as_ref(), mock_env(), QueryMsg::Poll { poll_id: 1 }).unwrap();
@@ -4373,7 +4362,7 @@ fn happy_days_end_poll_with_controlled_quorum() {
             .unwrap(),
     )
     .unwrap()
-    .checked_sub(Uint128(DEFAULT_PROPOSAL_DEPOSIT))
+    .checked_sub(Uint128::new(DEFAULT_PROPOSAL_DEPOSIT))
     .unwrap();
 
     assert_eq!(actual_staked_weight.u128(), (10 * stake_amount))
@@ -4389,7 +4378,7 @@ fn test_unstake_before_claiming_voting_rewards() {
         voting_period: DEFAULT_VOTING_PERIOD,
         effective_delay: DEFAULT_EFFECTIVE_DELAY,
         expiration_period: DEFAULT_EXPIRATION_PERIOD,
-        proposal_deposit: Uint128(DEFAULT_PROPOSAL_DEPOSIT),
+        proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
         voter_weight: Decimal::percent(50),
         snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
     };
@@ -4402,19 +4391,9 @@ fn test_unstake_before_claiming_voting_rewards() {
     let msg = create_poll_msg("test".to_string(), "test".to_string(), None, None);
     let info = mock_info(VOTING_TOKEN, &[]);
     let handle_res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
-    let poll_end_time = env
-        .block
-        .time
-        .plus_seconds(DEFAULT_VOTING_PERIOD)
-        .nanos()
-        / 1_000_000_000u64;
-    assert_create_poll_result(
-        1,
-        poll_end_time,
-        TEST_CREATOR,
-        handle_res,
-        deps.as_ref(),
-    );
+    let poll_end_time =
+        env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).nanos() / 1_000_000_000u64;
+    assert_create_poll_result(1, poll_end_time, TEST_CREATOR, handle_res, deps.as_ref());
 
     let stake_amount = 100u128;
 
@@ -4487,13 +4466,7 @@ fn test_unstake_before_claiming_voting_rewards() {
     );
 
     let token_manager = bank_read(&mut deps.storage)
-        .load(
-            &deps
-                .api
-                .addr_canonicalize(TEST_VOTER)
-                .unwrap()
-                .as_slice(),
-        )
+        .load(&deps.api.addr_canonicalize(TEST_VOTER).unwrap().as_slice())
         .unwrap();
     assert_eq!(
         token_manager.locked_balance,
@@ -4517,29 +4490,17 @@ fn test_unstake_before_claiming_voting_rewards() {
         vec![
             attr("action", "withdraw_voting_rewards"),
             attr("recipient", TEST_VOTER),
-            attr("amount", 50),
+            attr("amount", 50.to_string()),
         ]
     );
 
     // make sure now the state is clean
     let token_manager = bank_read(&mut deps.storage)
-        .load(
-            &deps
-                .api
-                .addr_canonicalize(TEST_VOTER)
-                .unwrap()
-                .as_slice(),
-        )
+        .load(&deps.api.addr_canonicalize(TEST_VOTER).unwrap().as_slice())
         .unwrap();
     assert_eq!(token_manager.locked_balance, vec![]);
     // expect err
     poll_voter_read(&mut deps.storage, 1u64)
-        .load(
-            &deps
-                .api
-                .addr_canonicalize(TEST_VOTER)
-                .unwrap()
-                .as_slice(),
-        )
+        .load(&deps.api.addr_canonicalize(TEST_VOTER).unwrap().as_slice())
         .unwrap_err();
 }

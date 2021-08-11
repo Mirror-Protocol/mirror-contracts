@@ -1,5 +1,9 @@
 use crate::querier::load_token_balance;
-use crate::state::{Config, Poll, State, TokenManager, bank_read, bank_store, config_read, config_store, poll_read, poll_store, poll_voter_read, poll_voter_store, read_bank_stakers, read_polls, state_read, state_store};
+use crate::state::{
+    bank_read, bank_store, config_read, config_store, poll_read, poll_store, poll_voter_read,
+    poll_voter_store, read_bank_stakers, read_polls, state_read, state_store, Config, Poll, State,
+    TokenManager,
+};
 
 use cosmwasm_std::{
     attr, to_binary, CanonicalAddr, CosmosMsg, Deps, DepsMut, MessageInfo, Response, StdError,
@@ -7,7 +11,9 @@ use cosmwasm_std::{
 };
 use cw20::Cw20ExecuteMsg;
 use mirror_protocol::common::OrderBy;
-use mirror_protocol::gov::{PollStatus, SharesResponse, SharesResponseItem, StakerResponse, VoterInfo};
+use mirror_protocol::gov::{
+    PollStatus, SharesResponse, SharesResponseItem, StakerResponse, VoterInfo,
+};
 
 pub fn stake_voting_tokens(deps: DepsMut, sender: String, amount: Uint128) -> StdResult<Response> {
     if amount.is_zero() {
@@ -43,17 +49,12 @@ pub fn stake_voting_tokens(deps: DepsMut, sender: String, amount: Uint128) -> St
     state_store(deps.storage).save(&state)?;
     bank_store(deps.storage).save(key, &token_manager)?;
 
-    Ok(Response {
-        messages: vec![],
-        submessages: vec![],
-        data: None,
-        attributes: vec![
-            attr("action", "staking"),
-            attr("sender", sender.as_str()),
-            attr("share", share.to_string()),
-            attr("amount", amount.to_string()),
-        ],
-    })
+    Ok(Response::new().add_attributes(vec![
+        attr("action", "staking"),
+        attr("sender", sender.as_str()),
+        attr("share", share.to_string()),
+        attr("amount", amount.to_string()),
+    ]))
 }
 
 // Withdraw amount if not staked. By default all funds will be withdrawn.
@@ -130,9 +131,7 @@ fn compute_locked_balance(
         .locked_balance
         .iter()
         .filter(|(poll_id, _)| {
-            let poll: Poll = poll_read(storage)
-                .load(&poll_id.to_be_bytes())
-                .unwrap();
+            let poll: Poll = poll_read(storage).load(&poll_id.to_be_bytes()).unwrap();
 
             // cleanup not needed information, voting info in polls with no rewards
             if poll.status != PollStatus::InProgress && poll.voters_reward.is_zero() {
@@ -167,20 +166,15 @@ pub fn deposit_reward(deps: DepsMut, amount: Uint128) -> StdResult<Response> {
     )?;
 
     if config.voter_weight.is_zero() || polls_in_progress.is_empty() {
-        return Ok(Response {
-            messages: vec![],
-            submessages: vec![],
-            attributes: vec![
-                attr("action", "deposit_reward"),
-                attr("amount", amount.to_string()),
-            ],
-            data: None,
-        });
+        return Ok(Response::new().add_attributes(vec![
+            attr("action", "deposit_reward"),
+            attr("amount", amount.to_string()),
+        ]));
     }
 
     let voter_rewards = amount * config.voter_weight;
     let rewards_per_poll =
-        voter_rewards.multiply_ratio(Uint128(1), polls_in_progress.len() as u128);
+        voter_rewards.multiply_ratio(Uint128::new(1), polls_in_progress.len() as u128);
     if rewards_per_poll.is_zero() {
         return Err(StdError::generic_err("Reward deposited is too small"));
     }
@@ -196,18 +190,17 @@ pub fn deposit_reward(deps: DepsMut, amount: Uint128) -> StdResult<Response> {
         Ok(state)
     })?;
 
-    Ok(Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: vec![
-            attr("action", "deposit_reward"),
-            attr("amount", amount.to_string()),
-        ],
-        data: None,
-    })
+    Ok(Response::new().add_attributes(vec![
+        attr("action", "deposit_reward"),
+        attr("amount", amount.to_string()),
+    ]))
 }
 
-pub fn withdraw_voting_rewards(deps: DepsMut, info: MessageInfo, poll_id: Option<u64>) -> StdResult<Response> {
+pub fn withdraw_voting_rewards(
+    deps: DepsMut,
+    info: MessageInfo,
+    poll_id: Option<u64>,
+) -> StdResult<Response> {
     let config: Config = config_store(deps.storage).load()?;
     let sender_address_raw = deps.api.addr_canonicalize(info.sender.as_str())?;
     let key = sender_address_raw.as_slice();
@@ -231,7 +224,7 @@ pub fn withdraw_voting_rewards(deps: DepsMut, info: MessageInfo, poll_id: Option
     state_store(deps.storage).update(|mut state| -> StdResult<_> {
         state.pending_voting_rewards = state
             .pending_voting_rewards
-            .checked_sub(Uint128(user_reward_amount))?;
+            .checked_sub(Uint128::new(user_reward_amount))?;
         Ok(state)
     })?;
 
@@ -244,7 +237,11 @@ pub fn withdraw_voting_rewards(deps: DepsMut, info: MessageInfo, poll_id: Option
     )
 }
 
-pub fn stake_voting_rewards(deps: DepsMut, info: MessageInfo, poll_id: Option<u64>) -> StdResult<Response> {
+pub fn stake_voting_rewards(
+    deps: DepsMut,
+    info: MessageInfo,
+    poll_id: Option<u64>,
+) -> StdResult<Response> {
     let config: Config = config_store(deps.storage).load()?;
     let mut state: State = state_store(deps.storage).load()?;
     let sender_address_raw = deps.api.addr_canonicalize(info.sender.as_str())?;
@@ -254,7 +251,8 @@ pub fn stake_voting_rewards(deps: DepsMut, info: MessageInfo, poll_id: Option<u6
         .load(key)
         .or(Err(StdError::generic_err("Nothing staked")))?;
 
-    let (user_reward_amount, w_polls) = withdraw_user_voting_rewards(deps.storage, &sender_address_raw, &token_manager, poll_id)?;
+    let (user_reward_amount, w_polls) =
+        withdraw_user_voting_rewards(deps.storage, &sender_address_raw, &token_manager, poll_id)?;
     if user_reward_amount.eq(&0u128) {
         return Err(StdError::generic_err("Nothing to withdraw"));
     }
@@ -270,12 +268,12 @@ pub fn stake_voting_rewards(deps: DepsMut, info: MessageInfo, poll_id: Option<u6
 
     state.pending_voting_rewards = state
         .pending_voting_rewards
-        .checked_sub(Uint128(user_reward_amount))?;
+        .checked_sub(Uint128::new(user_reward_amount))?;
 
     let share: Uint128 = if total_balance.is_zero() || state.total_share.is_zero() {
-        Uint128(user_reward_amount)
+        Uint128::new(user_reward_amount)
     } else {
-        Uint128(user_reward_amount).multiply_ratio(state.total_share, total_balance)
+        Uint128::new(user_reward_amount).multiply_ratio(state.total_share, total_balance)
     };
 
     token_manager.share += share;
@@ -289,17 +287,12 @@ pub fn stake_voting_rewards(deps: DepsMut, info: MessageInfo, poll_id: Option<u6
     state_store(deps.storage).save(&state)?;
     bank_store(deps.storage).save(key, &token_manager)?;
 
-    Ok(Response {
-        messages: vec![],
-        submessages: vec![],
-        data: None,
-        attributes: vec![
-            attr("action", "stake_voting_rewards"),
-            attr("staker", info.sender.as_str()),
-            attr("share", share.to_string()),
-            attr("amount", user_reward_amount.to_string()),
-        ],
-    })
+    Ok(Response::new().add_attributes(vec![
+        attr("action", "stake_voting_rewards"),
+        attr("staker", info.sender.as_str()),
+        attr("share", share.to_string()),
+        attr("amount", user_reward_amount.to_string()),
+    ]))
 }
 
 fn withdraw_user_voting_rewards(
@@ -382,19 +375,16 @@ fn send_tokens(
         attr("amount", &amount.to_string()),
     ];
 
-    let r = Response {
-        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
+    let r = Response::new()
+        .add_attributes(attributes)
+        .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: contract_human,
             msg: to_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: recipient_human,
                 amount: Uint128::from(amount),
             })?,
-            send: vec![],
-        })],
-        submessages: vec![],
-        attributes,
-        data: None,
-    };
+            funds: vec![],
+        }));
     Ok(r)
 }
 

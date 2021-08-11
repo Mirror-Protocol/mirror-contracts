@@ -1,3 +1,8 @@
+use crate::rewards::{adjust_premium, deposit_reward, query_reward_info, withdraw_reward};
+use crate::staking::{
+    auto_stake, auto_stake_hook, bond, decrease_short_token, increase_short_token, unbond,
+};
+use crate::state::{read_config, read_pool_info, store_config, store_pool_info, Config, PoolInfo};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
@@ -7,11 +12,6 @@ use cosmwasm_std::{
 use mirror_protocol::staking::{
     ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, PoolInfoResponse, QueryMsg,
 };
-use crate::rewards::{adjust_premium, deposit_reward, query_reward_info, withdraw_reward};
-use crate::staking::{
-    auto_stake, auto_stake_hook, bond, decrease_short_token, increase_short_token, unbond,
-};
-use crate::state::{read_config, read_pool_info, store_config, store_pool_info, Config, PoolInfo};
 
 use cw20::Cw20ReceiveMsg;
 
@@ -53,12 +53,19 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
             } else {
                 None
             };
-            let short_reward_contract_addr = if let Some(short_reward_contract) = short_reward_contract {
-                Some(deps.api.addr_validate(&short_reward_contract)?)
-            } else {
-                None
-            };
-            update_config(deps, info, owner_addr, premium_min_update_interval, short_reward_contract_addr)
+            let short_reward_contract_addr =
+                if let Some(short_reward_contract) = short_reward_contract {
+                    Some(deps.api.addr_validate(&short_reward_contract)?)
+                } else {
+                    None
+                };
+            update_config(
+                deps,
+                info,
+                owner_addr,
+                premium_min_update_interval,
+                short_reward_contract_addr,
+            )
         }
         ExecuteMsg::RegisterAsset {
             asset_token,
@@ -208,16 +215,12 @@ pub fn update_config(
     }
 
     if let Some(short_reward_contract) = short_reward_contract {
-        config.short_reward_contract = deps.api.addr_canonicalize(short_reward_contract.as_str())?;
+        config.short_reward_contract =
+            deps.api.addr_canonicalize(short_reward_contract.as_str())?;
     }
 
     store_config(deps.storage, &config)?;
-    Ok(Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: vec![attr("action", "update_config")],
-        data: None,
-    })
+    Ok(Response::new().add_attributes(vec![attr("action", "update_config")]))
 }
 
 fn register_asset(
@@ -254,15 +257,10 @@ fn register_asset(
         },
     )?;
 
-    Ok(Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: vec![
-            attr("action", "register_asset"),
-            attr("asset_token", asset_token.as_str()),
-        ],
-        data: None,
-    })
+    Ok(Response::new().add_attributes(vec![
+        attr("action", "register_asset"),
+        attr("asset_token", asset_token.as_str()),
+    ]))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -290,7 +288,10 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
             .to_string(),
         base_denom: state.base_denom,
         premium_min_update_interval: state.premium_min_update_interval,
-        short_reward_contract: deps.api.addr_humanize(&state.short_reward_contract)?.to_string(),
+        short_reward_contract: deps
+            .api
+            .addr_humanize(&state.short_reward_contract)?
+            .to_string(),
     };
 
     Ok(resp)
@@ -318,6 +319,6 @@ pub fn query_pool_info(deps: Deps, asset_token: String) -> StdResult<PoolInfoRes
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
+pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
     Ok(Response::default())
 }
