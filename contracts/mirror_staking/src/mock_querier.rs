@@ -24,7 +24,7 @@ pub fn mock_dependencies_with_querier(
     contract_balance: &[Coin],
 ) -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier> {
     let custom_querier: WasmMockQuerier =
-        WasmMockQuerier::new(MockQuerier::new(&[(&MOCK_CONTRACT_ADDR, contract_balance)]));
+        WasmMockQuerier::new(MockQuerier::new(&[(MOCK_CONTRACT_ADDR, contract_balance)]));
 
     OwnedDeps {
         api: MockApi::default(),
@@ -91,10 +91,10 @@ impl WasmMockQuerier {
             QueryRequest::Wasm(WasmQuery::Smart {
                 contract_addr: _,
                 msg,
-            }) => match from_binary(&msg).unwrap() {
+            }) => match from_binary(msg).unwrap() {
                 MockQueryMsg::Pair { asset_infos } => {
                     SystemResult::Ok(ContractResult::from(to_binary(&PairInfo {
-                        asset_infos: asset_infos.clone(),
+                        asset_infos,
                         contract_addr: self.pair_addr.to_string(),
                         liquidity_token: "lptoken".to_string(),
                     })))

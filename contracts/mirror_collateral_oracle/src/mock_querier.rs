@@ -1,16 +1,15 @@
+use crate::math::decimal_division;
+use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
     from_binary, from_slice, to_binary, Coin, ContractResult, Decimal, OwnedDeps, Querier,
     QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, WasmQuery,
 };
+use mirror_protocol::oracle::PriceResponse;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::str::FromStr;
-
-use crate::math::decimal_division;
-use cosmwasm_bignumber::{Decimal256, Uint256};
-use mirror_protocol::oracle::PriceResponse;
 use terra_cosmwasm::{
     ExchangeRateItem, ExchangeRatesResponse, TerraQuery, TerraQueryWrapper, TerraRoute,
 };
@@ -69,6 +68,7 @@ pub struct TerraswapPoolsQuerier {
 }
 
 impl TerraswapPoolsQuerier {
+    #[allow(clippy::type_complexity)]
     pub fn new(pools: &[(&String, (&String, &Uint128, &String, &Uint128))]) -> Self {
         TerraswapPoolsQuerier {
             pools: pools_to_map(pools),
@@ -76,11 +76,12 @@ impl TerraswapPoolsQuerier {
     }
 }
 
+#[allow(clippy::type_complexity)]
 pub(crate) fn pools_to_map(
     pools: &[(&String, (&String, &Uint128, &String, &Uint128))],
 ) -> HashMap<String, (String, Uint128, String, Uint128)> {
     let mut pools_map: HashMap<String, (String, Uint128, String, Uint128)> = HashMap::new();
-    for (key, pool) in pools.into_iter() {
+    for (key, pool) in pools.iter() {
         pools_map.insert(
             key.to_string(),
             (pool.0.clone(), *pool.1, pool.2.clone(), *pool.3),
@@ -163,7 +164,7 @@ impl WasmMockQuerier {
                     panic!("DO NOT ENTER HERE")
                 }
             }
-            QueryRequest::Wasm(WasmQuery::Smart { contract_addr, msg }) => match from_binary(&msg)
+            QueryRequest::Wasm(WasmQuery::Smart { contract_addr, msg }) => match from_binary(msg)
                 .unwrap()
             {
                 QueryMsg::Price {
@@ -244,6 +245,7 @@ impl WasmMockQuerier {
         self.oracle_price_querier = OraclePriceQuerier::new(oracle_price);
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn with_terraswap_pools(
         &mut self,
         pairs: &[(&String, (&String, &Uint128, &String, &Uint128))],

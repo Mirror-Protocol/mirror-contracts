@@ -20,7 +20,7 @@ pub fn mock_dependencies(
     contract_balance: &[Coin],
 ) -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier> {
     let custom_querier: WasmMockQuerier =
-        WasmMockQuerier::new(MockQuerier::new(&[(&MOCK_CONTRACT_ADDR, contract_balance)]));
+        WasmMockQuerier::new(MockQuerier::new(&[(MOCK_CONTRACT_ADDR, contract_balance)]));
 
     OwnedDeps {
         api: MockApi::default(),
@@ -161,7 +161,7 @@ impl WasmMockQuerier {
             QueryRequest::Wasm(WasmQuery::Smart {
                 contract_addr: _,
                 msg,
-            }) => match from_binary(&msg).unwrap() {
+            }) => match from_binary(msg).unwrap() {
                 QueryMsg::Pair { asset_infos } => {
                     let key = asset_infos[0].to_string() + asset_infos[1].to_string().as_str();
                     match self.terraswap_factory_querier.pairs.get(&key) {
@@ -240,7 +240,7 @@ impl WasmMockQuerier {
                         };
 
                         SystemResult::Ok(ContractResult::from(to_binary(
-                            &api.addr_canonicalize(&feeder).unwrap(),
+                            &api.addr_canonicalize(feeder).unwrap(),
                         )))
                     } else {
                         panic!("DO NOT ENTER HERE")

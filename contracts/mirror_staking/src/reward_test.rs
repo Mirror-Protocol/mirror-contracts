@@ -38,10 +38,10 @@ mod tests {
         };
 
         let info = mock_info("owner", &[]);
-        let _res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
+        let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // store 3% premium rate
-        let token_raw = deps.api.addr_canonicalize(&"asset").unwrap();
+        let token_raw = deps.api.addr_canonicalize("asset").unwrap();
         let pool_info = read_pool_info(&deps.storage, &token_raw).unwrap();
         store_pool_info(
             &mut deps.storage,
@@ -100,8 +100,9 @@ mod tests {
             .unwrap(),
         )
         .unwrap();
+        let res_cmp = res.clone();
         assert_eq!(
-            res.clone(),
+            res_cmp,
             PoolInfoResponse {
                 total_bond_amount: Uint128::new(100u128),
                 total_short_amount: Uint128::new(100u128),
@@ -112,7 +113,7 @@ mod tests {
         );
 
         // if premium_rate is over threshold, distribution weight should be 60:40
-        let asset_token_raw = deps.api.addr_canonicalize(&"asset").unwrap();
+        let asset_token_raw = deps.api.addr_canonicalize("asset").unwrap();
         let pool_info: PoolInfo = read_pool_info(&deps.storage, &asset_token_raw).unwrap();
         store_pool_info(
             &mut deps.storage,
@@ -127,7 +128,7 @@ mod tests {
         )
         .unwrap();
 
-        let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
+        let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let res: PoolInfoResponse = from_binary(
             &query(
@@ -140,8 +141,9 @@ mod tests {
             .unwrap(),
         )
         .unwrap();
+        let res_cmp = res.clone();
         assert_eq!(
-            res.clone(),
+            res_cmp,
             PoolInfoResponse {
                 total_bond_amount: Uint128::new(100u128),
                 total_short_amount: Uint128::new(100u128),
@@ -176,10 +178,10 @@ mod tests {
         };
 
         let info = mock_info("owner", &[]);
-        let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
+        let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // store 3% premium rate
-        let token_raw = deps.api.addr_canonicalize(&"asset").unwrap();
+        let token_raw = deps.api.addr_canonicalize("asset").unwrap();
         let pool_info = read_pool_info(&deps.storage, &token_raw).unwrap();
         store_pool_info(
             &mut deps.storage,
@@ -217,8 +219,9 @@ mod tests {
             .unwrap(),
         )
         .unwrap();
+        let res_cmp = res.clone();
         assert_eq!(
-            res.clone(),
+            res_cmp,
             PoolInfoResponse {
                 reward_index: Decimal::zero(),
                 short_reward_index: Decimal::zero(),
@@ -229,7 +232,7 @@ mod tests {
         );
 
         // if premium_rate is over threshold, distribution weight should be 60:40
-        let asset_token_raw = deps.api.addr_canonicalize(&"asset").unwrap();
+        let asset_token_raw = deps.api.addr_canonicalize("asset").unwrap();
         let pool_info: PoolInfo = read_pool_info(&deps.storage, &asset_token_raw).unwrap();
         store_pool_info(
             &mut deps.storage,
@@ -244,7 +247,7 @@ mod tests {
         )
         .unwrap();
 
-        let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
+        let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let res: PoolInfoResponse = from_binary(
             &query(
@@ -257,8 +260,9 @@ mod tests {
             .unwrap(),
         )
         .unwrap();
+        let res_cmp = res.clone();
         assert_eq!(
-            res.clone(),
+            res_cmp,
             PoolInfoResponse {
                 reward_index: Decimal::zero(),
                 short_reward_index: Decimal::zero(),
@@ -293,10 +297,10 @@ mod tests {
         };
 
         let info = mock_info("owner", &[]);
-        let _res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
+        let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // store 3% premium rate
-        let token_raw = deps.api.addr_canonicalize(&"asset").unwrap();
+        let token_raw = deps.api.addr_canonicalize("asset").unwrap();
         let pool_info = read_pool_info(&deps.storage, &token_raw).unwrap();
         store_pool_info(
             &mut deps.storage,
@@ -344,8 +348,8 @@ mod tests {
         let info = mock_info("reward", &[]);
         let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let asset_raw = deps.api.addr_canonicalize(&"asset").unwrap();
-        let addr_raw = deps.api.addr_canonicalize(&"addr").unwrap();
+        let asset_raw = deps.api.addr_canonicalize("asset").unwrap();
+        let addr_raw = deps.api.addr_canonicalize("addr").unwrap();
         let reward_bucket = rewards_read(&deps.storage, &addr_raw, false);
         let reward_info: RewardInfo = reward_bucket.load(asset_raw.as_slice()).unwrap();
         assert_eq!(
@@ -436,10 +440,10 @@ mod tests {
         };
 
         let info = mock_info("owner", &[]);
-        let _res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
+        let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // store 3% premium rate
-        let token_raw = deps.api.addr_canonicalize(&"asset").unwrap();
+        let token_raw = deps.api.addr_canonicalize("asset").unwrap();
         let pool_info = read_pool_info(&deps.storage, &token_raw).unwrap();
         store_pool_info(
             &mut deps.storage,
@@ -521,7 +525,7 @@ mod tests {
         };
 
         let info = mock_info("owner", &[]);
-        let _res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
+        let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let msg = ExecuteMsg::RegisterAsset {
             asset_token: "asset2".to_string(),
@@ -529,10 +533,10 @@ mod tests {
         };
 
         let info = mock_info("owner", &[]);
-        let _res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
+        let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // store 3% premium rate
-        let token_raw = deps.api.addr_canonicalize(&"asset").unwrap();
+        let token_raw = deps.api.addr_canonicalize("asset").unwrap();
         let pool_info = read_pool_info(&deps.storage, &token_raw).unwrap();
         store_pool_info(
             &mut deps.storage,
@@ -546,7 +550,7 @@ mod tests {
         .unwrap();
 
         // store 3% premium rate for asset2
-        let token_raw = deps.api.addr_canonicalize(&"asset2").unwrap();
+        let token_raw = deps.api.addr_canonicalize("asset2").unwrap();
         let pool_info = read_pool_info(&deps.storage, &token_raw).unwrap();
         store_pool_info(
             &mut deps.storage,
@@ -745,7 +749,7 @@ mod tests {
         };
 
         let info = mock_info("owner", &[]);
-        let _res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
+        let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let msg = ExecuteMsg::AdjustPremium {
             asset_tokens: vec!["asset".to_string()],
@@ -838,7 +842,7 @@ mod tests {
         ]);
 
         env.block.time = env.block.time.plus_seconds(3600);
-        let _ = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
+        let _ = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
 
         // Check pool state
         let res: PoolInfoResponse = from_binary(

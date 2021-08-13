@@ -1,11 +1,10 @@
-use std::env::current_dir;
-use std::fs::create_dir_all;
-
 use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 use mirror_protocol::collateral_oracle::{
     CollateralInfoResponse, CollateralInfosResponse, CollateralPriceResponse, ConfigResponse,
     ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
+use std::env::current_dir;
+use std::fs::create_dir_all;
 
 fn main() {
     let mut out_dir = current_dir().unwrap();

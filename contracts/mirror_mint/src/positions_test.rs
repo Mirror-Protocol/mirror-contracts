@@ -19,14 +19,14 @@ mod tests {
     fn mock_env_with_block_time(time: u64) -> Env {
         let env = mock_env();
         // register time
-        return Env {
+        Env {
             block: BlockInfo {
                 height: 1,
                 time: Timestamp::from_seconds(time),
                 chain_id: "columbus".to_string(),
             },
             ..env
-        };
+        }
     }
 
     #[test]
@@ -54,7 +54,7 @@ mod tests {
             staking: "staking0000".to_string(),
             terraswap_factory: "terraswap_factory".to_string(),
             lock: "lock0000".to_string(),
-            base_denom: base_denom.clone(),
+            base_denom,
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
         };
@@ -445,7 +445,7 @@ mod tests {
             staking: "staking0000".to_string(),
             terraswap_factory: "terraswap_factory".to_string(),
             lock: "lock0000".to_string(),
-            base_denom: base_denom.clone(),
+            base_denom,
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
         };
@@ -495,7 +495,7 @@ mod tests {
                 amount: Uint128::from(1000000u128),
             }],
         );
-        let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+        let _res = execute(deps.as_mut(), env, info, msg).unwrap();
 
         // open asset0001-asset0000 position
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
@@ -654,7 +654,7 @@ mod tests {
             staking: "staking0000".to_string(),
             terraswap_factory: "terraswap_factory".to_string(),
             lock: "lock0000".to_string(),
-            base_denom: base_denom.clone(),
+            base_denom,
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
         };
@@ -704,7 +704,7 @@ mod tests {
                 amount: Uint128::from(1000000u128),
             }],
         );
-        let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+        let _res = execute(deps.as_mut(), env, info, msg).unwrap();
 
         // open asset0001-asset0000 position
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
@@ -901,7 +901,7 @@ mod tests {
             staking: "staking0000".to_string(),
             terraswap_factory: "terraswap_factory".to_string(),
             lock: "lock0000".to_string(),
-            base_denom: base_denom.clone(),
+            base_denom,
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
         };
@@ -951,7 +951,7 @@ mod tests {
                 amount: Uint128::from(1000000u128),
             }],
         );
-        let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+        let _res = execute(deps.as_mut(), env, info, msg).unwrap();
 
         // open asset0001-asset0000 position
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
@@ -1186,7 +1186,7 @@ mod tests {
             staking: "staking0000".to_string(),
             terraswap_factory: "terraswap_factory".to_string(),
             lock: "lock0000".to_string(),
-            base_denom: base_denom.clone(),
+            base_denom,
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
         };
@@ -1236,7 +1236,7 @@ mod tests {
                 amount: Uint128::from(1000000u128),
             }],
         );
-        let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+        let _res = execute(deps.as_mut(), env, info, msg).unwrap();
 
         // open asset0001-asset0000 position
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
@@ -1387,7 +1387,7 @@ mod tests {
             staking: "staking0000".to_string(),
             terraswap_factory: "terraswap_factory".to_string(),
             lock: "lock0000".to_string(),
-            base_denom: base_denom.clone(),
+            base_denom,
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
         };
@@ -1437,7 +1437,7 @@ mod tests {
                 amount: Uint128::from(1000000u128),
             }],
         );
-        let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+        let _res = execute(deps.as_mut(), env, info, msg).unwrap();
 
         // open asset0001-asset0000 position
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {

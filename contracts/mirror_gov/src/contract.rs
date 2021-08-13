@@ -58,7 +58,7 @@ pub fn instantiate(
     };
 
     let state = State {
-        contract_addr: deps.api.addr_canonicalize(&env.contract.address.as_str())?,
+        contract_addr: deps.api.addr_canonicalize(env.contract.address.as_str())?,
         poll_count: 0,
         total_share: Uint128::zero(),
         total_deposit: Uint128::zero(),
@@ -571,7 +571,7 @@ pub fn cast_vote(
 
     // Check the voter already has a vote on the poll
     if poll_voter_read(deps.storage, poll_id)
-        .load(&sender_address_raw.as_slice())
+        .load(sender_address_raw.as_slice())
         .is_ok()
     {
         return Err(StdError::generic_err("User has already voted."));
@@ -618,7 +618,7 @@ pub fn cast_vote(
     bank_store(deps.storage).save(key, &token_manager)?;
 
     // store poll voter && and update poll data
-    poll_voter_store(deps.storage, poll_id).save(&sender_address_raw.as_slice(), &vote_info)?;
+    poll_voter_store(deps.storage, poll_id).save(sender_address_raw.as_slice(), &vote_info)?;
 
     // processing snapshot
     let current_seconds = env.block.time.nanos() / 1_000_000_000u64;
@@ -816,7 +816,7 @@ fn query_polls(
 
 fn query_voter(deps: Deps, poll_id: u64, address: String) -> StdResult<VotersResponseItem> {
     let voter: VoterInfo = poll_voter_read(deps.storage, poll_id)
-        .load(&deps.api.addr_canonicalize(&address)?.as_slice())?;
+        .load(deps.api.addr_canonicalize(&address)?.as_slice())?;
     Ok(VotersResponseItem {
         voter: address,
         vote: voter.vote,

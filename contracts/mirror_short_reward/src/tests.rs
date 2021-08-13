@@ -10,13 +10,13 @@ fn short_reward_weight_test() {
         query_short_reward_weight(Decimal::zero())
             .unwrap()
             .short_reward_weight,
-        Decimal::from_ratio(002618u128, e6)
+        Decimal::from_ratio(2618u128, e6)
     );
     assert_eq!(
         query_short_reward_weight(Decimal::percent(1))
             .unwrap()
             .short_reward_weight,
-        Decimal::from_ratio(0634168u128, e7),
+        Decimal::from_ratio(634168u128, e7),
     );
     assert_eq!(
         query_short_reward_weight(Decimal::percent(2))
@@ -54,7 +54,7 @@ fn erf_plus_one_test() {
     );
     assert_eq!(
         erf_plus_one(Sign::Negative, Decimal::from_ratio(14142135623u128, e10)).unwrap(),
-        Decimal::from_ratio(013090u128, e6)
+        Decimal::from_ratio(13090u128, e6)
     );
     assert_eq!(
         erf_plus_one(Sign::Positive, Decimal::zero()).unwrap(),

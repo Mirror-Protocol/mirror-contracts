@@ -1,10 +1,8 @@
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
-
 use cosmwasm_std::{CanonicalAddr, Decimal, Order, StdResult, Storage};
 use cosmwasm_storage::{singleton, singleton_read, Bucket, ReadonlyBucket};
-
 use mirror_protocol::collateral_oracle::{CollateralInfoResponse, SourceType};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 static PREFIX_COLLATERAL_ASSET_INFO: &[u8] = b"collateral_asset_info";
 static KEY_CONFIG: &[u8] = b"config";
@@ -44,6 +42,7 @@ pub fn store_collateral_info(
     collaterals_bucket.save(collateral.asset.as_bytes(), collateral)
 }
 
+#[allow(clippy::ptr_arg)]
 pub fn read_collateral_info(storage: &dyn Storage, id: &String) -> StdResult<CollateralAssetInfo> {
     let price_bucket: ReadonlyBucket<CollateralAssetInfo> =
         ReadonlyBucket::new(storage, PREFIX_COLLATERAL_ASSET_INFO);

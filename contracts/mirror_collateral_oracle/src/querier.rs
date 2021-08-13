@@ -52,6 +52,7 @@ pub struct AnchorMarketResponse {
     pub exchange_rate: Decimal256,
 }
 
+#[allow(clippy::ptr_arg)]
 pub fn query_price(
     deps: Deps,
     config: &Config,
@@ -74,7 +75,7 @@ pub fn query_price(
 
             Ok((rate, res.last_updated_base))
         }
-        SourceType::FixedPrice { price } => return Ok((*price, u64::MAX)),
+        SourceType::FixedPrice { price } => Ok((*price, u64::MAX)),
         SourceType::MirrorOracle {} => {
             let res: TerraOracleResponse =
                 deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {

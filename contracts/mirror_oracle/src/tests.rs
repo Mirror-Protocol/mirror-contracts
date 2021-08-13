@@ -160,7 +160,7 @@ fn feed_price() {
         ],
     };
     let info = mock_info("addr0000", &[]);
-    let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     let env = mock_env();
     let res = query(

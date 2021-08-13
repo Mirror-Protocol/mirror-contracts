@@ -82,7 +82,7 @@ pub fn withdraw_voting_tokens(
         .u128();
 
         let user_locked_balance =
-            compute_locked_balance(deps.storage, &mut token_manager, &&sender_address_raw)?;
+            compute_locked_balance(deps.storage, &mut token_manager, &sender_address_raw)?;
         let user_locked_share = user_locked_balance * total_share / total_balance;
         let user_share = token_manager.share.u128();
 
@@ -135,7 +135,7 @@ fn compute_locked_balance(
 
             // cleanup not needed information, voting info in polls with no rewards
             if poll.status != PollStatus::InProgress && poll.voters_reward.is_zero() {
-                poll_voter_store(storage, *poll_id).remove(&voter.as_slice());
+                poll_voter_store(storage, *poll_id).remove(voter.as_slice());
                 lock_entries_to_remove.push(*poll_id);
             }
 
@@ -181,7 +181,7 @@ pub fn deposit_reward(deps: DepsMut, amount: Uint128) -> StdResult<Response> {
     for poll in polls_in_progress.iter_mut() {
         poll.voters_reward += rewards_per_poll;
         poll_store(deps.storage)
-            .save(&poll.id.to_be_bytes(), &poll)
+            .save(&poll.id.to_be_bytes(), poll)
             .unwrap()
     }
 
@@ -207,7 +207,7 @@ pub fn withdraw_voting_rewards(
 
     let mut token_manager = bank_read(deps.storage)
         .load(key)
-        .or(Err(StdError::generic_err("Nothing staked")))?;
+        .map_err(|_| StdError::generic_err("Nothing staked"))?;
 
     let (user_reward_amount, w_polls) =
         withdraw_user_voting_rewards(deps.storage, &sender_address_raw, &token_manager, poll_id)?;
@@ -249,7 +249,7 @@ pub fn stake_voting_rewards(
 
     let mut token_manager = bank_read(deps.storage)
         .load(key)
-        .or(Err(StdError::generic_err("Nothing staked")))?;
+        .map_err(|_| StdError::generic_err("Nothing staked"))?;
 
     let (user_reward_amount, w_polls) =
         withdraw_user_voting_rewards(deps.storage, &sender_address_raw, &token_manager, poll_id)?;
@@ -304,7 +304,7 @@ fn withdraw_user_voting_rewards(
     let w_polls: Vec<(Poll, VoterInfo)> = match poll_id {
         Some(poll_id) => {
             let poll: Poll = poll_read(storage).load(&poll_id.to_be_bytes())?;
-            let voter_info = poll_voter_read(storage, poll_id).load(&user_address.as_slice())?;
+            let voter_info = poll_voter_read(storage, poll_id).load(user_address.as_slice())?;
             if poll.status == PollStatus::InProgress {
                 return Err(StdError::generic_err("This poll is still in progress"));
             }
@@ -347,7 +347,7 @@ fn get_withdrawable_polls(
         .map(|(poll_id, _)| {
             let poll: Poll = poll_read(storage).load(&poll_id.to_be_bytes()).unwrap();
             let voter_info_res: StdResult<VoterInfo> =
-                poll_voter_read(storage, *poll_id).load(&user_address.as_slice());
+                poll_voter_read(storage, *poll_id).load(user_address.as_slice());
             (poll, voter_info_res)
         })
         .filter(|(poll, voter_info_res)| {
@@ -469,7 +469,7 @@ pub fn query_shares(
         .map(|item| {
             let (k, v) = item;
             SharesResponseItem {
-                staker: deps.api.addr_humanize(&k).unwrap().to_string(),
+                staker: deps.api.addr_humanize(k).unwrap().to_string(),
                 share: v.share,
             }
         })

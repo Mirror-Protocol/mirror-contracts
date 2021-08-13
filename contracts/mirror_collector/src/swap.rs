@@ -46,7 +46,7 @@ fn direct_swap(
     asset_token: Addr,
 ) -> Result<Response<TerraMsgWrapper>, ContractError> {
     let terraswap_factory_addr = deps.api.addr_humanize(&config.terraswap_factory)?;
-    let asset_token_raw = deps.api.addr_canonicalize(&asset_token.as_str())?;
+    let asset_token_raw = deps.api.addr_canonicalize(asset_token.as_str())?;
 
     let pair_info: PairInfo = query_pair_info(
         &deps.querier,
@@ -79,7 +79,7 @@ fn direct_swap(
         // deduct tax first
         let amount = (swap_asset.deduct_tax(&deps.querier)?).amount;
         messages = vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: pair_info.contract_addr.to_string(),
+            contract_addr: pair_info.contract_addr,
             msg: to_binary(&TerraswapExecuteMsg::Swap {
                 offer_asset: Asset {
                     amount,
@@ -101,7 +101,7 @@ fn direct_swap(
         messages = vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: asset_token.to_string(),
             msg: to_binary(&Cw20ExecuteMsg::Send {
-                contract: pair_info.contract_addr.to_string(),
+                contract: pair_info.contract_addr,
                 amount,
                 msg: to_binary(&TerraswapCw20HookMsg::Swap {
                     max_spread: None,
@@ -179,7 +179,7 @@ fn bluna_swap(
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: asset_token.to_string(),
                 msg: to_binary(&Cw20ExecuteMsg::Send {
-                    contract: pair_info.contract_addr.to_string(),
+                    contract: pair_info.contract_addr,
                     amount,
                     msg: to_binary(&TerraswapCw20HookMsg::Swap {
                         max_spread: None,
@@ -215,7 +215,7 @@ pub fn luna_swap_hook(
 
     let amount = query_balance(
         &deps.querier,
-        env.contract.address.clone(),
+        env.contract.address,
         config.bluna_swap_denom.clone(),
     )?;
     let offer_coin = Coin {

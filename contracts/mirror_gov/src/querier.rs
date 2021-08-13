@@ -12,7 +12,7 @@ pub fn load_token_balance(
     // load balance form the token contract
     let res: Uint128 = querier
         .query(&QueryRequest::Wasm(WasmQuery::Raw {
-            contract_addr: contract_addr,
+            contract_addr,
             key: Binary::from(concat(
                 &to_length_prefixed(b"balance").to_vec(),
                 account_addr.as_slice(),

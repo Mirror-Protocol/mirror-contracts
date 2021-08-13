@@ -29,12 +29,12 @@ mod tests {
         };
         let info = mock_info("addr0000", &[]);
         // we can just call .unwrap() to assert this was a success
-        let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+        let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         // it worked, let's query the state
         let res = query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap();
         let config: ConfigResponse = from_binary(&res).unwrap();
         assert_eq!("owner0000", config.owner.as_str());
-        assert_eq!("uusd", config.base_denom.to_string());
+        assert_eq!("uusd", config.base_denom);
         assert_eq!("oracle0000", config.oracle.as_str());
         assert_eq!("staking0000", config.staking.as_str());
         assert_eq!("collector0000", config.collector.as_str());
@@ -59,7 +59,7 @@ mod tests {
             protocol_fee_rate: Decimal::percent(1),
         };
         let info = mock_info("addr0000", &[]);
-        let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+        let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         // update owner
         let info = mock_info("owner0000", &[]);
         let msg = ExecuteMsg::UpdateConfig {
@@ -109,7 +109,7 @@ mod tests {
             staking: "staking0000".to_string(),
             terraswap_factory: "terraswap_factory".to_string(),
             lock: "lock0000".to_string(),
-            base_denom: base_denom.clone(),
+            base_denom,
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
         };
@@ -227,7 +227,7 @@ mod tests {
             staking: "staking0000".to_string(),
             terraswap_factory: "terraswap_factory".to_string(),
             lock: "lock0000".to_string(),
-            base_denom: base_denom.clone(),
+            base_denom,
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
         };

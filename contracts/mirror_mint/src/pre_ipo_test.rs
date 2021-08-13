@@ -18,14 +18,14 @@ mod tests {
     fn mock_env_with_block_time(time: u64) -> Env {
         let env = mock_env();
         // register time
-        return Env {
+        Env {
             block: BlockInfo {
                 height: 1,
                 time: Timestamp::from_seconds(time),
                 chain_id: "columbus".to_string(),
             },
             ..env
-        };
+        }
     }
 
     #[test]
@@ -51,22 +51,16 @@ mod tests {
             collateral_oracle: "collateraloracle0000".to_string(),
             terraswap_factory: "terraswap_factory".to_string(),
             lock: "lock0000".to_string(),
-            base_denom: base_denom.clone(),
+            base_denom,
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
         };
         let creator_env = mock_env();
         let creator_info = mock_info("addr0000", &[]);
-        let _res = instantiate(
-            deps.as_mut(),
-            creator_env.clone(),
-            creator_info.clone(),
-            msg,
-        )
-        .unwrap();
+        let _res = instantiate(deps.as_mut(), creator_env.clone(), creator_info, msg).unwrap();
 
         // register preIPO asset with mint_end parameter (10 blocks)
-        let mint_end = creator_env.clone().block.time.plus_seconds(10u64).nanos() / 1_000_000_000;
+        let mint_end = creator_env.block.time.plus_seconds(10u64).nanos() / 1_000_000_000;
         let msg = ExecuteMsg::RegisterAsset {
             asset_token: "preIPOAsset0000".to_string(),
             auction_discount: Decimal::percent(20),
@@ -134,7 +128,7 @@ mod tests {
             },
             short_params: None,
         };
-        let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+        let _res = execute(deps.as_mut(), env, info, msg).unwrap();
 
         // burn successfully at creation_time + 1
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
@@ -199,7 +193,7 @@ mod tests {
             },
             short_params: None,
         };
-        let res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap_err();
+        let res = execute(deps.as_mut(), env, info, msg).unwrap_err();
         assert_eq!(
             res,
             StdError::generic_err(format!(
@@ -315,7 +309,7 @@ mod tests {
                 amount: Uint128::from(9000u128),
             }],
         );
-        let res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+        let res = execute(deps.as_mut(), env, info, msg).unwrap();
         assert_eq!(
             res.attributes,
             vec![

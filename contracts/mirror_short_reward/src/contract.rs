@@ -65,7 +65,8 @@ pub fn query_short_reward_weight(premium_rate: Decimal) -> StdResult<ShortReward
 
     let short_reward_weight: Decimal =
         decimal_division(erf_plus_one(sign_x, x)?, Decimal::from_ratio(5u128, 1u128));
-    return Ok(ShortRewardWeightResponse {
+
+    Ok(ShortRewardWeightResponse {
         short_reward_weight,
-    });
+    })
 }

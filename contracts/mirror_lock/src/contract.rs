@@ -138,7 +138,7 @@ pub fn lock_position_funds_hook(
                 idx: position_idx,
                 receiver: receiver_raw,
                 locked_amount: position_locked_amount,
-                unlock_time: unlock_time,
+                unlock_time,
             }
         };
 

@@ -228,7 +228,7 @@ pub fn auto_stake(
                 msg: to_binary(&PairExecuteMsg::ProvideLiquidity {
                     assets: [
                         Asset {
-                            amount: native_asset.amount.clone().checked_sub(tax_amount)?,
+                            amount: native_asset.amount.checked_sub(tax_amount)?,
                             info: native_asset.info.clone(),
                         },
                         Asset {
@@ -250,7 +250,7 @@ pub fn auto_stake(
                 contract_addr: env.contract.address.to_string(),
                 msg: to_binary(&ExecuteMsg::AutoStakeHook {
                     asset_token: token_addr.to_string(),
-                    staking_token: terraswap_pair.liquidity_token.to_string(),
+                    staking_token: terraswap_pair.liquidity_token,
                     staker_addr: info.sender.to_string(),
                     prev_staking_token_amount,
                 })?,
@@ -293,8 +293,8 @@ fn _increase_bond_amount(
     amount: Uint128,
     is_short: bool,
 ) -> StdResult<()> {
-    let mut pool_info: PoolInfo = read_pool_info(storage, &asset_token)?;
-    let mut reward_info: RewardInfo = rewards_read(storage, &staker_addr, is_short)
+    let mut pool_info: PoolInfo = read_pool_info(storage, asset_token)?;
+    let mut reward_info: RewardInfo = rewards_read(storage, staker_addr, is_short)
         .load(asset_token.as_slice())
         .unwrap_or_else(|_| RewardInfo {
             index: Decimal::zero(),
@@ -313,8 +313,8 @@ fn _increase_bond_amount(
     }
 
     reward_info.bond_amount += amount;
-    rewards_store(storage, &staker_addr, is_short).save(&asset_token.as_slice(), &reward_info)?;
-    store_pool_info(storage, &asset_token, &pool_info)?;
+    rewards_store(storage, staker_addr, is_short).save(asset_token.as_slice(), &reward_info)?;
+    store_pool_info(storage, asset_token, &pool_info)?;
 
     Ok(())
 }
@@ -326,9 +326,9 @@ fn _decrease_bond_amount(
     amount: Uint128,
     is_short: bool,
 ) -> StdResult<CanonicalAddr> {
-    let mut pool_info: PoolInfo = read_pool_info(storage, &asset_token)?;
+    let mut pool_info: PoolInfo = read_pool_info(storage, asset_token)?;
     let mut reward_info: RewardInfo =
-        rewards_read(storage, &staker_addr, is_short).load(asset_token.as_slice())?;
+        rewards_read(storage, staker_addr, is_short).load(asset_token.as_slice())?;
 
     if reward_info.bond_amount < amount {
         return Err(StdError::generic_err("Cannot unbond more than bond amount"));
@@ -348,14 +348,13 @@ fn _decrease_bond_amount(
 
     // Update rewards info
     if reward_info.pending_reward.is_zero() && reward_info.bond_amount.is_zero() {
-        rewards_store(storage, &staker_addr, is_short).remove(asset_token.as_slice());
+        rewards_store(storage, staker_addr, is_short).remove(asset_token.as_slice());
     } else {
-        rewards_store(storage, &staker_addr, is_short)
-            .save(asset_token.as_slice(), &reward_info)?;
+        rewards_store(storage, staker_addr, is_short).save(asset_token.as_slice(), &reward_info)?;
     }
 
     // Update pool info
-    store_pool_info(storage, &asset_token, &pool_info)?;
+    store_pool_info(storage, asset_token, &pool_info)?;
 
     Ok(pool_info.staking_token)
 }

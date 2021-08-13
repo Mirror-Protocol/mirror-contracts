@@ -379,9 +379,9 @@ pub fn token_creation_hook(
                 attr("pre_ipo_price", pre_ipo_price.to_string()),
             ];
             Some(IPOParams {
-                mint_end: mint_end,
-                min_collateral_ratio_after_ipo,
+                mint_end,
                 pre_ipo_price,
+                min_collateral_ratio_after_ipo,
             })
         } else {
             attributes.push(attr("is_pre_ipo", "false"));
@@ -482,7 +482,7 @@ pub fn terraswap_creation_hook(deps: DepsMut, _env: Env, asset_token: Addr) -> S
             funds: vec![],
             msg: to_binary(&StakingExecuteMsg::RegisterAsset {
                 asset_token: asset_token.to_string(),
-                staking_token: pair_info.liquidity_token.to_string(),
+                staking_token: pair_info.liquidity_token,
             })?,
         })),
     )
@@ -545,16 +545,13 @@ pub fn distribute(deps: DepsMut, env: Env) -> StdResult<Response> {
     // store last distributed
     store_last_distributed(deps.storage, env.block.time.nanos() / 1_000_000_000)?;
 
-    const SPLIT_UNIT: usize = 10;
-    let rewards_vec: Vec<Vec<(String, Uint128)>> =
-        rewards.chunks(SPLIT_UNIT).map(|v| v.to_vec()).collect();
-
-    println!("{:?}", rewards);
-
     // mint token to self and try send minted tokens to staking contract
+    const SPLIT_UNIT: usize = 10;
     Ok(Response::new()
         .add_messages(
-            rewards_vec
+            rewards
+                .chunks(SPLIT_UNIT)
+                .map(|v| v.to_vec())
                 .into_iter()
                 .map(|rewards| {
                     Ok(CosmosMsg::Wasm(WasmMsg::Execute {
@@ -610,7 +607,7 @@ pub fn revoke_asset(
         .add_attributes(vec![
             attr("action", "revoke_asset"),
             attr("end_price", end_price.to_string()),
-            attr("asset_token", asset_token.to_string()),
+            attr("asset_token", asset_token),
         ]))
 }
 
@@ -674,8 +671,8 @@ pub fn migrate_asset(
                 funds: vec![],
                 label: "".to_string(),
                 msg: to_binary(&TokenInstantiateMsg {
-                    name: name.clone(),
-                    symbol: symbol.to_string(),
+                    name,
+                    symbol,
                     decimals: 6u8,
                     initial_balances: vec![],
                     mint: Some(MinterResponse {
@@ -692,7 +689,7 @@ pub fn migrate_asset(
         .add_attributes(vec![
             attr("action", "migration"),
             attr("end_price", end_price.to_string()),
-            attr("asset_token", asset_token.to_string()),
+            attr("asset_token", asset_token),
         ]))
 }
 

@@ -80,11 +80,9 @@ pub fn load_mint_asset_config(
         }
     };
 
-    let pre_ipo_price: Option<Decimal> = if let Some(ipo_params) = asset_config.ipo_params {
-        Some(ipo_params.pre_ipo_price)
-    } else {
-        None
-    };
+    let pre_ipo_price: Option<Decimal> = asset_config
+        .ipo_params
+        .map(|ipo_params| ipo_params.pre_ipo_price);
 
     Ok((
         asset_config.auction_discount,

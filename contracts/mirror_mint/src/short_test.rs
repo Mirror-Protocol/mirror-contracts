@@ -22,14 +22,14 @@ mod test {
     fn mock_env_with_block_time(time: u64) -> Env {
         let env = mock_env();
         // register time
-        return Env {
+        Env {
             block: BlockInfo {
                 height: 1,
                 time: Timestamp::from_seconds(time),
                 chain_id: "columbus".to_string(),
             },
             ..env
-        };
+        }
     }
 
     #[test]
@@ -51,7 +51,7 @@ mod test {
             staking: "staking0000".to_string(),
             terraswap_factory: "terraswap_factory".to_string(),
             lock: "lock0000".to_string(),
-            base_denom: base_denom.clone(),
+            base_denom,
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
         };
@@ -114,7 +114,7 @@ mod test {
                 amount: Uint128::from(1000000u128),
             }],
         );
-        let res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+        let res = execute(deps.as_mut(), env, info, msg).unwrap();
 
         assert_eq!(
             res.attributes,
@@ -226,7 +226,7 @@ mod test {
             staking: "staking0000".to_string(),
             terraswap_factory: "terraswap_factory".to_string(),
             lock: "lock0000".to_string(),
-            base_denom: base_denom.clone(),
+            base_denom,
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
         };
@@ -287,7 +287,7 @@ mod test {
                 amount: Uint128::from(1000000u128),
             }],
         );
-        let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+        let _res = execute(deps.as_mut(), env, info, msg).unwrap();
 
         // mint more tokens from the short position
         let msg = ExecuteMsg::Mint {
@@ -302,7 +302,7 @@ mod test {
         };
         let env = mock_env_with_block_time(1000);
         let info = mock_info("addr0000", &[]);
-        let res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+        let res = execute(deps.as_mut(), env, info, msg).unwrap();
         assert_eq!(
             res.attributes,
             vec![
@@ -381,7 +381,7 @@ mod test {
             staking: "staking0000".to_string(),
             terraswap_factory: "terraswap_factory".to_string(),
             lock: "lock0000".to_string(),
-            base_denom: base_denom.clone(),
+            base_denom,
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
         };
@@ -441,7 +441,7 @@ mod test {
                 amount: Uint128::from(1000000u128),
             }],
         );
-        let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+        let _res = execute(deps.as_mut(), env, info, msg).unwrap();
 
         // burn asset tokens from the short position
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
@@ -454,7 +454,7 @@ mod test {
         });
         let env = mock_env_with_block_time(1000);
         let info = mock_info("asset0000", &[]);
-        let res = execute(deps.as_mut(), env, info.clone(), msg).unwrap();
+        let res = execute(deps.as_mut(), env, info, msg).unwrap();
 
         assert_eq!(
             res.attributes,
@@ -517,7 +517,7 @@ mod test {
             collateral_oracle: "collateraloracle0000".to_string(),
             terraswap_factory: "terraswap_factory".to_string(),
             lock: "lock0000".to_string(),
-            base_denom: base_denom.clone(),
+            base_denom,
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
         };
@@ -577,7 +577,7 @@ mod test {
                 amount: Uint128::from(1000000u128),
             }],
         );
-        let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+        let _res = execute(deps.as_mut(), env, info, msg).unwrap();
 
         // asset price increased
         deps.querier.with_oracle_price(&[
@@ -667,7 +667,7 @@ mod test {
             staking: "staking0000".to_string(),
             terraswap_factory: "terraswap_factory".to_string(),
             lock: "lock0000".to_string(),
-            base_denom: base_denom.clone(),
+            base_denom,
             token_code_id: TOKEN_CODE_ID,
             protocol_fee_rate: Decimal::percent(1),
         };
@@ -717,7 +717,7 @@ mod test {
                 amount: Uint128::from(200u128),
             }],
         );
-        let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+        let _res = execute(deps.as_mut(), env, info, msg).unwrap();
 
         // burn all asset tokens from the short position
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
@@ -744,21 +744,19 @@ mod test {
         };
         let env = mock_env_with_block_time(1000);
         let info = mock_info("addr0000", &[]);
-        let res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+        let res = execute(deps.as_mut(), env, info, msg).unwrap();
 
         dbg!(&res.messages);
         // refunds collateral and releases locked funds from lock contract
-        assert_eq!(
-            res.messages
-                .contains(&SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: "lock0000".to_string(),
-                    funds: vec![],
-                    msg: to_binary(&LockExecuteMsg::ReleasePositionFunds {
-                        position_idx: Uint128::from(1u128),
-                    })
-                    .unwrap(),
-                }))),
-            true
-        );
+        assert!(res
+            .messages
+            .contains(&SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "lock0000".to_string(),
+                funds: vec![],
+                msg: to_binary(&LockExecuteMsg::ReleasePositionFunds {
+                    position_idx: Uint128::from(1u128),
+                })
+                .unwrap(),
+            }))))
     }
 }

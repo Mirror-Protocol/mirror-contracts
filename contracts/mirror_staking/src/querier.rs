@@ -18,7 +18,7 @@ pub fn compute_premium_rate(
 ) -> StdResult<(Decimal, bool)> {
     let pair_info: PairInfo = query_pair_info(
         &deps.querier,
-        factory_contract.clone(),
+        factory_contract,
         &[
             AssetInfo::NativeToken {
                 denom: base_denom.to_string(),
@@ -30,7 +30,7 @@ pub fn compute_premium_rate(
     )?;
 
     let pool: PoolResponse = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-        contract_addr: pair_info.contract_addr.to_string(),
+        contract_addr: pair_info.contract_addr,
         msg: to_binary(&PairQueryMsg::Pool {})?,
     }))?;
 
@@ -40,13 +40,12 @@ pub fn compute_premium_rate(
         } else {
             Decimal::from_ratio(pool.assets[0].amount, pool.assets[1].amount)
         }
+    } else if pool.assets[0].amount.is_zero() {
+        Decimal::from_ratio(pool.assets[1].amount, Uint128::from(1u128))
     } else {
-        if pool.assets[0].amount.is_zero() {
-            Decimal::from_ratio(pool.assets[1].amount, Uint128::from(1u128))
-        } else {
-            Decimal::from_ratio(pool.assets[1].amount, pool.assets[0].amount)
-        }
+        Decimal::from_ratio(pool.assets[1].amount, pool.assets[0].amount)
     };
+
     let oracle_price: Decimal =
         query_price(deps, oracle_contract, asset_token.to_string(), base_denom)?;
 

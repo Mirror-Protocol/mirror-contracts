@@ -46,7 +46,7 @@ pub fn store_position_lock_info(
     lock_info: &PositionLockInfo,
 ) -> StdResult<()> {
     let mut lock_infos_bucket: Bucket<PositionLockInfo> = Bucket::new(storage, PREFIX_LOCK_INFOS);
-    lock_infos_bucket.save(&lock_info.idx.u128().to_be_bytes(), &lock_info)
+    lock_infos_bucket.save(&lock_info.idx.u128().to_be_bytes(), lock_info)
 }
 
 pub fn read_position_lock_info(storage: &dyn Storage, idx: Uint128) -> StdResult<PositionLockInfo> {

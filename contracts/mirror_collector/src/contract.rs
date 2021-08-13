@@ -80,6 +80,7 @@ pub fn execute(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn update_config(
     deps: DepsMut,
     info: MessageInfo,

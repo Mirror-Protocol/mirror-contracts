@@ -156,7 +156,7 @@ pub fn open_position(
                 contract_addr: asset_token.clone(),
                 funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Send {
-                    contract: pair_info.contract_addr.to_string(),
+                    contract: pair_info.contract_addr,
                     amount: mint_amount,
                     msg: to_binary(&PairCw20HookMsg::Swap {
                         belief_price: short_params.belief_price,
@@ -474,7 +474,7 @@ pub fn mint(
                 contract_addr: asset_token.to_string(),
                 funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Send {
-                    contract: pair_info.contract_addr.to_string(),
+                    contract: pair_info.contract_addr,
                     amount: mint_amount,
                     msg: to_binary(
                         &(if let Some(short_params) = short_params {
@@ -660,7 +660,7 @@ pub fn burn(
 
         // Subtract the protocol fee from the position's collateral
         let protocol_fee = Asset {
-            info: collateral_info.clone(),
+            info: collateral_info,
             amount: burn_amount * collateral_price_in_asset * config.protocol_fee_rate,
         };
 

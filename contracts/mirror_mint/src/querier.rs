@@ -37,7 +37,7 @@ pub fn load_asset_price(
     let config: Config = read_config(deps.storage)?;
 
     // check if the asset has a stored end_price or pre_ipo_price
-    let stored_price = read_fixed_price(deps.storage, &asset);
+    let stored_price = read_fixed_price(deps.storage, asset);
 
     let price: Decimal = if let Some(stored_price) = stored_price {
         stored_price
@@ -71,7 +71,7 @@ pub fn load_collateral_info(
 
     // check if the collateral is a revoked mAsset, will ignore pre_ipo_price since all preIPO
     // assets are not whitelisted in collateral oracle
-    let end_price = read_fixed_price(deps.storage, &collateral);
+    let end_price = read_fixed_price(deps.storage, collateral);
 
     if let Some(end_price) = end_price {
         // load collateral_multiplier from collateral oracle

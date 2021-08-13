@@ -120,7 +120,7 @@ fn test_update_config() {
         oracle_contract: "oracle0000".to_string(),
         terraswap_factory: "terraswapfactory".to_string(),
     };
-    let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // upate owner
     let msg = ExecuteMsg::UpdateConfig {
@@ -217,12 +217,12 @@ fn test_update_weight() {
         oracle_contract: "oracle0000".to_string(),
         terraswap_factory: "terraswapfactory".to_string(),
     };
-    let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     store_total_weight(&mut deps.storage, 100).unwrap();
     store_weight(
         &mut deps.storage,
-        &deps.api.addr_canonicalize(&"asset0000").unwrap(),
+        &deps.api.addr_canonicalize("asset0000").unwrap(),
         10,
     )
     .unwrap();
@@ -257,12 +257,12 @@ fn test_update_weight() {
     assert_eq!(
         read_weight(
             &deps.storage,
-            &deps.api.addr_canonicalize(&"asset0000").unwrap()
+            &deps.api.addr_canonicalize("asset0000").unwrap()
         )
         .unwrap(),
         20u32
     );
-    assert_eq!(read_total_weight(&deps.storage).unwrap(), 110u32);
+    assert_eq!(read_total_weight(&deps.storage).unwrap(), 110u32)
 }
 
 #[test]
@@ -289,7 +289,7 @@ fn test_whitelist() {
         oracle_contract: "oracle0000".to_string(),
         terraswap_factory: "terraswapfactory".to_string(),
     };
-    let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     let msg = ExecuteMsg::Whitelist {
         name: "apple derivative".to_string(),
@@ -357,7 +357,7 @@ fn test_whitelist() {
         }
     );
 
-    let res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap_err();
+    let res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
     match res {
         StdError::GenericErr { msg, .. } => assert_eq!(msg, "A whitelist process is in progress"),
         _ => panic!("DO NOT ENTER HERE"),
@@ -399,7 +399,7 @@ fn test_token_creation_hook() {
         oracle_contract: "oracle0000".to_string(),
         terraswap_factory: "terraswapfactory".to_string(),
     };
-    let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     let msg = ExecuteMsg::Whitelist {
         name: "apple derivative".to_string(),
@@ -415,7 +415,7 @@ fn test_token_creation_hook() {
         },
     };
     let info = mock_info("owner0000", &[]);
-    let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     //ensure temp oracle was stored
     let tmp_oracle = read_tmp_oracle(&deps.storage).unwrap();
@@ -531,7 +531,7 @@ fn test_token_creation_hook_without_weight() {
         oracle_contract: "oracle0000".to_string(),
         terraswap_factory: "terraswapfactory".to_string(),
     };
-    let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     let msg = ExecuteMsg::Whitelist {
         name: "apple derivative".to_string(),
@@ -547,7 +547,7 @@ fn test_token_creation_hook_without_weight() {
         },
     };
     let info = mock_info("owner0000", &[]);
-    let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     //ensure temp oracle was stored
     let tmp_oracle = read_tmp_oracle(&deps.storage).unwrap();
@@ -881,8 +881,8 @@ fn test_distribute() {
                 amount: Uint128::from(7200u128),
                 msg: to_binary(&StakingCw20HookMsg::DepositReward {
                     rewards: vec![
-                        ("asset0000".to_string(), Uint128::from(7200u128 * 1 / 5)),
-                        ("asset0001".to_string(), Uint128::from(7200u128 * 1 / 5)),
+                        ("asset0000".to_string(), Uint128::from(7200u128 / 5)),
+                        ("asset0001".to_string(), Uint128::from(7200u128 / 5)),
                         ("mirror0000".to_string(), Uint128::from(7200u128 * 3 / 5)),
                     ],
                 })
@@ -1076,58 +1076,19 @@ fn test_distribute_split() {
         .to_string();
 
     deps.querier.with_terraswap_pairs(&[
-        (
-            &format!("uusd{}", asset0).to_string(),
-            &"LP0000".to_string(),
-        ),
-        (
-            &format!("uusd{}", asset1).to_string(),
-            &"LP0001".to_string(),
-        ),
-        (
-            &format!("uusd{}", asset2).to_string(),
-            &"LP0002".to_string(),
-        ),
-        (
-            &format!("uusd{}", asset3).to_string(),
-            &"LP0003".to_string(),
-        ),
-        (
-            &format!("uusd{}", asset4).to_string(),
-            &"LP0004".to_string(),
-        ),
-        (
-            &format!("uusd{}", asset5).to_string(),
-            &"LP0005".to_string(),
-        ),
-        (
-            &format!("uusd{}", asset6).to_string(),
-            &"LP0006".to_string(),
-        ),
-        (
-            &format!("uusd{}", asset7).to_string(),
-            &"LP0007".to_string(),
-        ),
-        (
-            &format!("uusd{}", asset8).to_string(),
-            &"LP0008".to_string(),
-        ),
-        (
-            &format!("uusd{}", asset9).to_string(),
-            &"LP0009".to_string(),
-        ),
-        (
-            &format!("uusd{}", asset10).to_string(),
-            &"LP0010".to_string(),
-        ),
-        (
-            &format!("uusd{}", asset11).to_string(),
-            &"LP0011".to_string(),
-        ),
-        (
-            &format!("uusd{}", mirror_addr).to_string(),
-            &"MIRLP000".to_string(),
-        ),
+        (&format!("uusd{}", asset0), &"LP0000".to_string()),
+        (&format!("uusd{}", asset1), &"LP0001".to_string()),
+        (&format!("uusd{}", asset2), &"LP0002".to_string()),
+        (&format!("uusd{}", asset3), &"LP0003".to_string()),
+        (&format!("uusd{}", asset4), &"LP0004".to_string()),
+        (&format!("uusd{}", asset5), &"LP0005".to_string()),
+        (&format!("uusd{}", asset6), &"LP0006".to_string()),
+        (&format!("uusd{}", asset7), &"LP0007".to_string()),
+        (&format!("uusd{}", asset8), &"LP0008".to_string()),
+        (&format!("uusd{}", asset9), &"LP0009".to_string()),
+        (&format!("uusd{}", asset10), &"LP0010".to_string()),
+        (&format!("uusd{}", asset11), &"LP0011".to_string()),
+        (&format!("uusd{}", mirror_addr), &"MIRLP000".to_string()),
     ]);
 
     let msg = InstantiateMsg {
@@ -1194,16 +1155,16 @@ fn test_distribute_split() {
                 amount: Uint128::from(7200u128 * 10 / 15),
                 msg: to_binary(&StakingCw20HookMsg::DepositReward {
                     rewards: vec![
-                        (asset0, Uint128::from(7200u128 * 1 / 15)),
-                        (asset1, Uint128::from(7200u128 * 1 / 15)),
-                        (asset2, Uint128::from(7200u128 * 1 / 15)),
-                        (asset3, Uint128::from(7200u128 * 1 / 15)),
-                        (asset4, Uint128::from(7200u128 * 1 / 15)),
-                        (asset5, Uint128::from(7200u128 * 1 / 15)),
-                        (asset6, Uint128::from(7200u128 * 1 / 15)),
-                        (asset7, Uint128::from(7200u128 * 1 / 15)),
-                        (asset8, Uint128::from(7200u128 * 1 / 15)),
-                        (asset9, Uint128::from(7200u128 * 1 / 15)),
+                        (asset0, Uint128::from(7200u128 / 15)),
+                        (asset1, Uint128::from(7200u128 / 15)),
+                        (asset2, Uint128::from(7200u128 / 15)),
+                        (asset3, Uint128::from(7200u128 / 15)),
+                        (asset4, Uint128::from(7200u128 / 15)),
+                        (asset5, Uint128::from(7200u128 / 15)),
+                        (asset6, Uint128::from(7200u128 / 15)),
+                        (asset7, Uint128::from(7200u128 / 15)),
+                        (asset8, Uint128::from(7200u128 / 15)),
+                        (asset9, Uint128::from(7200u128 / 15)),
                     ],
                 })
                 .unwrap(),
@@ -1222,9 +1183,9 @@ fn test_distribute_split() {
                 amount: Uint128::from(7200u128 * 5 / 15),
                 msg: to_binary(&StakingCw20HookMsg::DepositReward {
                     rewards: vec![
-                        (asset10.to_string(), Uint128::from(7200u128 * 1 / 15)),
-                        (asset11.to_string(), Uint128::from(7200u128 * 1 / 15)),
-                        (mirror_addr.to_string(), Uint128::from(7200u128 * 3 / 15)),
+                        (asset10, Uint128::from(7200u128 / 15)),
+                        (asset11, Uint128::from(7200u128 / 15)),
+                        (mirror_addr, Uint128::from(7200u128 * 3 / 15)),
                     ],
                 })
                 .unwrap()
@@ -1456,7 +1417,7 @@ fn test_whitelist_pre_ipo_asset() {
         oracle_contract: "oracle0000".to_string(),
         terraswap_factory: "terraswapfactory".to_string(),
     };
-    let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     let msg = ExecuteMsg::Whitelist {
         name: "pre-IPO asset".to_string(),
@@ -1472,7 +1433,7 @@ fn test_whitelist_pre_ipo_asset() {
         },
     };
     let info = mock_info("owner0000", &[]);
-    let res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // token creation submsg should be returned
     assert_eq!(
