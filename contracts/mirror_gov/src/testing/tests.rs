@@ -1,5 +1,5 @@
 use crate::contract::{execute, instantiate, query};
-use crate::mock_querier::mock_dependencies;
+use crate::testing::mock_querier::mock_dependencies;
 use crate::querier::load_token_balance;
 use crate::state::{
     bank_read, bank_store, config_read, poll_indexer_store, poll_store, poll_voter_read,
@@ -3575,9 +3575,21 @@ fn test_query_shares() {
     let mut deps = mock_dependencies(&[]);
     mock_instantiate(deps.as_mut());
 
-    let voter_0_addr_raw = deps.api.addr_canonicalize("staker0000").unwrap();
-    let voter_1_addr_raw = deps.api.addr_canonicalize("staker0001").unwrap();
-    let voter_2_addr_raw = deps.api.addr_canonicalize("staker0002").unwrap();
+    let voter_0_addr_raw = CanonicalAddr::from(vec![
+        1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    ]);
+    let voter_1_addr_raw = CanonicalAddr::from(vec![
+        1, 1, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    ]);
+    let voter_2_addr_raw = CanonicalAddr::from(vec![
+        1, 1, 1, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    ]);
+    let voter_0 = deps.api.addr_humanize(&voter_0_addr_raw).unwrap().to_string();
+    let voter_1 = deps.api.addr_humanize(&voter_1_addr_raw).unwrap().to_string();
+    let voter_2 = deps.api.addr_humanize(&voter_2_addr_raw).unwrap().to_string();
 
     bank_store(&mut deps.storage)
         .save(
@@ -3626,15 +3638,15 @@ fn test_query_shares() {
         response.stakers,
         vec![
             SharesResponseItem {
-                staker: "staker0000".to_string(),
+                staker: voter_0.clone(),
                 share: Uint128::new(11u128),
             },
             SharesResponseItem {
-                staker: "staker0001".to_string(),
+                staker: voter_1.clone(),
                 share: Uint128::new(22u128),
             },
             SharesResponseItem {
-                staker: "staker0002".to_string(),
+                staker: voter_2.clone(),
                 share: Uint128::new(33u128),
             },
         ]
@@ -3656,15 +3668,15 @@ fn test_query_shares() {
         response.stakers,
         vec![
             SharesResponseItem {
-                staker: "staker0002".to_string(),
+                staker: voter_2.clone(),
                 share: Uint128::new(33u128),
             },
             SharesResponseItem {
-                staker: "staker0001".to_string(),
+                staker: voter_1.clone(),
                 share: Uint128::new(22u128),
             },
             SharesResponseItem {
-                staker: "staker0000".to_string(),
+                staker: voter_0.clone(),
                 share: Uint128::new(11u128),
             },
         ]
@@ -3686,11 +3698,11 @@ fn test_query_shares() {
         response.stakers,
         vec![
             SharesResponseItem {
-                staker: "staker0000".to_string(),
+                staker: voter_0,
                 share: Uint128::new(11u128),
             },
             SharesResponseItem {
-                staker: "staker0001".to_string(),
+                staker: voter_1.clone(),
                 share: Uint128::new(22u128),
             },
         ]
@@ -3701,7 +3713,7 @@ fn test_query_shares() {
         deps.as_ref(),
         mock_env(),
         QueryMsg::Shares {
-            start_after: Some("staker0001".to_string()),
+            start_after: Some(voter_1),
             limit: Some(1u32),
             order_by: Some(OrderBy::Asc),
         },
@@ -3711,7 +3723,7 @@ fn test_query_shares() {
     assert_eq!(
         response.stakers,
         vec![SharesResponseItem {
-            staker: "staker0002".to_string(),
+            staker: voter_2,
             share: Uint128::new(33u128),
         },]
     );

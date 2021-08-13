@@ -1,5 +1,5 @@
 use crate::contract::{execute, instantiate, query, reply};
-use crate::mock_querier::{mock_dependencies, WasmMockQuerier};
+use crate::testing::mock_querier::{mock_dependencies, WasmMockQuerier};
 use crate::response::MsgInstantiateContractResponse;
 
 use crate::state::{

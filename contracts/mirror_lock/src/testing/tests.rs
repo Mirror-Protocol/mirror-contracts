@@ -1,5 +1,5 @@
 use crate::contract::{execute, instantiate, query};
-use crate::mock_querier::mock_dependencies;
+use crate::testing::mock_querier::mock_dependencies;
 use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
     attr, from_binary, BankMsg, BlockInfo, Coin, CosmosMsg, Decimal, Env, StdError, SubMsg,

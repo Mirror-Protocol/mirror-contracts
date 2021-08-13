@@ -1,5 +1,5 @@
 use crate::contract::{execute, instantiate, query_config};
-use crate::mock_querier::mock_dependencies;
+use crate::testing::mock_querier::mock_dependencies;
 use crate::swap::MoneyMarketCw20HookMsg;
 use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{to_binary, Coin, CosmosMsg, Decimal, SubMsg, Uint128, WasmMsg};
