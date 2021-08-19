@@ -8,13 +8,13 @@ use crate::staking::{
 };
 use crate::state::{
     bank_read, bank_store, config_read, config_store, poll_indexer_store, poll_read, poll_store,
-    poll_voter_read, poll_voter_store, read_poll_voters, read_polls, state_read, state_store,
-    Config, ExecuteData, Poll, State,
+    poll_voter_read, poll_voter_store, read_poll_voters, read_polls, read_tmp_poll_id, state_read,
+    state_store, store_tmp_poll_id, Config, ExecuteData, Poll, State,
 };
 
 use cosmwasm_std::{
     attr, from_binary, to_binary, Binary, CosmosMsg, Decimal, Deps, DepsMut, Env, MessageInfo,
-    Response, StdError, StdResult, Uint128, WasmMsg,
+    Reply, ReplyOn, Response, StdError, StdResult, SubMsg, Uint128, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 
@@ -32,6 +32,8 @@ const MAX_DESC_LENGTH: usize = 256;
 const MIN_LINK_LENGTH: usize = 12;
 const MAX_LINK_LENGTH: usize = 128;
 const MAX_POLLS_IN_PROGRESS: usize = 50;
+
+const POLL_EXECUTE_REPLY_ID: u64 = 1;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -51,7 +53,7 @@ pub fn instantiate(
         threshold: msg.threshold,
         voting_period: msg.voting_period,
         effective_delay: msg.effective_delay,
-        expiration_period: msg.expiration_period,
+        expiration_period: 0u64, // depcrecated
         proposal_deposit: msg.proposal_deposit,
         voter_weight: msg.voter_weight,
         snapshot_period: msg.snapshot_period,
@@ -81,7 +83,6 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
             threshold,
             voting_period,
             effective_delay,
-            expiration_period,
             proposal_deposit,
             voter_weight,
             snapshot_period,
@@ -93,7 +94,6 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
             threshold,
             voting_period,
             effective_delay,
-            expiration_period,
             proposal_deposit,
             voter_weight,
             snapshot_period,
@@ -110,7 +110,6 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
         } => cast_vote(deps, env, info, poll_id, vote, amount),
         ExecuteMsg::EndPoll { poll_id } => end_poll(deps, env, poll_id),
         ExecuteMsg::ExecutePoll { poll_id } => execute_poll(deps, env, poll_id),
-        ExecuteMsg::ExpirePoll { poll_id } => expire_poll(deps, env, poll_id),
         ExecuteMsg::SnapshotPoll { poll_id } => snapshot_poll(deps, env, poll_id),
     }
 }
@@ -157,6 +156,17 @@ pub fn receive_cw20(
     }
 }
 
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
+    match msg.id {
+        POLL_EXECUTE_REPLY_ID => {
+            let poll_id: u64 = read_tmp_poll_id(deps.storage)?;
+            failed_poll(deps, poll_id)
+        }
+        _ => Err(StdError::generic_err("reply id is invalid")),
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn update_config(
     deps: DepsMut,
@@ -166,7 +176,6 @@ pub fn update_config(
     threshold: Option<Decimal>,
     voting_period: Option<u64>,
     effective_delay: Option<u64>,
-    expiration_period: Option<u64>,
     proposal_deposit: Option<Uint128>,
     voter_weight: Option<Decimal>,
     snapshot_period: Option<u64>,
@@ -197,10 +206,6 @@ pub fn update_config(
 
         if let Some(effective_delay) = effective_delay {
             config.effective_delay = effective_delay;
-        }
-
-        if let Some(expiration_period) = expiration_period {
-            config.expiration_period = expiration_period;
         }
 
         if let Some(proposal_deposit) = proposal_deposit {
@@ -286,8 +291,10 @@ pub fn validate_voter_weight(voter_weight: Decimal) -> StdResult<()> {
     }
 }
 
+/*
+ * Creates a new poll
+ */
 #[allow(clippy::too_many_arguments)]
-/// create a new poll
 pub fn create_poll(
     deps: DepsMut,
     env: Env,
@@ -497,57 +504,49 @@ pub fn execute_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Response
     a_poll.status = PollStatus::Executed;
     poll_store(deps.storage).save(&poll_id.to_be_bytes(), &a_poll)?;
 
-    let mut messages: Vec<CosmosMsg> = vec![];
+    let mut messages: Vec<SubMsg> = vec![];
     if let Some(execute_data) = a_poll.execute_data {
-        messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: deps.api.addr_humanize(&execute_data.contract)?.to_string(),
-            msg: execute_data.msg,
-            funds: vec![],
-        }))
+        messages.push(SubMsg {
+            msg: CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: deps.api.addr_humanize(&execute_data.contract)?.to_string(),
+                msg: execute_data.msg,
+                funds: vec![],
+            }),
+            gas_limit: None,
+            id: POLL_EXECUTE_REPLY_ID,
+            reply_on: ReplyOn::Error,
+        });
+        store_tmp_poll_id(deps.storage, a_poll.id)?;
     } else {
         return Err(StdError::generic_err("The poll does not have execute_data"));
     }
 
-    Ok(Response::new().add_messages(messages).add_attributes(vec![
-        attr("action", "execute_poll"),
-        attr("poll_id", poll_id.to_string()),
-    ]))
+    Ok(Response::new()
+        .add_submessages(messages)
+        .add_attributes(vec![
+            attr("action", "execute_poll"),
+            attr("poll_id", poll_id.to_string()),
+        ]))
 }
 
-/// ExpirePoll is used to make the poll as expired state for querying purpose
-pub fn expire_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Response> {
-    let config: Config = config_read(deps.storage).load()?;
+/*
+ * If the executed message of a passed poll fails, it is marked as failed
+ */
+pub fn failed_poll(deps: DepsMut, poll_id: u64) -> StdResult<Response> {
     let mut a_poll: Poll = poll_store(deps.storage).load(&poll_id.to_be_bytes())?;
 
-    if a_poll.status != PollStatus::Passed {
-        return Err(StdError::generic_err("Poll is not in passed status"));
-    }
+    poll_indexer_store(deps.storage, &PollStatus::Executed).remove(&poll_id.to_be_bytes());
+    poll_indexer_store(deps.storage, &PollStatus::Failed).save(&poll_id.to_be_bytes(), &true)?;
 
-    if a_poll.execute_data.is_none() {
-        return Err(StdError::generic_err(
-            "Cannot make a text proposal to expired state",
-        ));
-    }
-
-    let current_seconds = env.block.time.seconds();
-    if a_poll.end_time + config.expiration_period > current_seconds {
-        return Err(StdError::generic_err(
-            "Expiration time has not been reached",
-        ));
-    }
-
-    poll_indexer_store(deps.storage, &PollStatus::Passed).remove(&poll_id.to_be_bytes());
-    poll_indexer_store(deps.storage, &PollStatus::Expired).save(&poll_id.to_be_bytes(), &true)?;
-
-    a_poll.status = PollStatus::Expired;
+    a_poll.status = PollStatus::Failed;
     poll_store(deps.storage).save(&poll_id.to_be_bytes(), &a_poll)?;
 
-    Ok(Response::new().add_attributes(vec![
-        attr("action", "expire_poll"),
-        attr("poll_id", poll_id.to_string()),
-    ]))
+    Ok(Response::new().add_attribute("action", "failed_poll"))
 }
 
+/*
+ * User casts a vote on the provided poll id
+ */
 pub fn cast_vote(
     deps: DepsMut,
     env: Env,
@@ -638,11 +637,12 @@ pub fn cast_vote(
         attr("vote_option", vote_info.vote.to_string()),
     ];
 
-    let r = Response::new().add_attributes(attributes);
-    Ok(r)
+    Ok(Response::new().add_attributes(attributes))
 }
 
-/// SnapshotPoll is used to take a snapshot of the staked amount for quorum calculation
+/*
+ * SnapshotPoll is used to take a snapshot of the staked amount for quorum calculation
+ */
 pub fn snapshot_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Response> {
     let config: Config = config_read(deps.storage).load()?;
     let mut a_poll: Poll = poll_store(deps.storage).load(&poll_id.to_be_bytes())?;
@@ -721,7 +721,6 @@ fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
         threshold: config.threshold,
         voting_period: config.voting_period,
         effective_delay: config.effective_delay,
-        expiration_period: config.expiration_period,
         proposal_deposit: config.proposal_deposit,
         voter_weight: config.voter_weight,
         snapshot_period: config.snapshot_period,

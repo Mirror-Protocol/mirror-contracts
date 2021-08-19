@@ -13,7 +13,6 @@ pub struct InstantiateMsg {
     pub threshold: Decimal,
     pub voting_period: u64,
     pub effective_delay: u64,
-    pub expiration_period: u64,
     pub proposal_deposit: Uint128,
     pub voter_weight: Decimal,
     pub snapshot_period: u64,
@@ -29,7 +28,6 @@ pub enum ExecuteMsg {
         threshold: Option<Decimal>,
         voting_period: Option<u64>,
         effective_delay: Option<u64>,
-        expiration_period: Option<u64>,
         proposal_deposit: Option<Uint128>,
         voter_weight: Option<Decimal>,
         snapshot_period: Option<u64>,
@@ -52,9 +50,6 @@ pub enum ExecuteMsg {
         poll_id: u64,
     },
     ExecutePoll {
-        poll_id: u64,
-    },
-    ExpirePoll {
         poll_id: u64,
     },
     SnapshotPoll {
@@ -128,7 +123,6 @@ pub struct ConfigResponse {
     pub threshold: Decimal,
     pub voting_period: u64,
     pub effective_delay: u64,
-    pub expiration_period: u64,
     pub proposal_deposit: Uint128,
     pub voter_weight: Decimal,
     pub snapshot_period: u64,
@@ -220,6 +214,7 @@ pub enum PollStatus {
     Rejected,
     Executed,
     Expired,
+    Failed,
 }
 
 impl fmt::Display for PollStatus {
