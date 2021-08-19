@@ -196,7 +196,7 @@ fn query_native_rate(
 ) -> StdResult<Decimal> {
     let terra_querier = TerraQuerier::new(querier);
     let res: ExchangeRatesResponse =
-        terra_querier.query_exchange_rates(quote_denom, vec![base_denom])?;
+        terra_querier.query_exchange_rates(base_denom, vec![quote_denom])?;
 
     Ok(res.exchange_rates[0].exchange_rate)
 }
