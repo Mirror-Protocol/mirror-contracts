@@ -61,7 +61,7 @@ fn direct_swap(
         ],
     )?;
 
-    let messages: Vec<CosmosMsg<TerraMsgWrapper>>;
+    let mut messages: Vec<CosmosMsg<TerraMsgWrapper>> = vec![];
     if config.mirror_token == asset_token_raw {
         // collateral token => MIR token
         let amount = query_balance(
@@ -69,48 +69,53 @@ fn direct_swap(
             env.contract.address,
             config.base_denom.clone(),
         )?;
-        let swap_asset = Asset {
-            info: AssetInfo::NativeToken {
-                denom: config.base_denom.clone(),
-            },
-            amount,
-        };
 
-        // deduct tax first
-        let amount = (swap_asset.deduct_tax(&deps.querier)?).amount;
-        messages = vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: pair_info.contract_addr,
-            msg: to_binary(&TerraswapExecuteMsg::Swap {
-                offer_asset: Asset {
-                    amount,
-                    ..swap_asset
+        if !amount.is_zero() {
+            let swap_asset = Asset {
+                info: AssetInfo::NativeToken {
+                    denom: config.base_denom.clone(),
                 },
-                max_spread: None,
-                belief_price: None,
-                to: None,
-            })?,
-            funds: vec![Coin {
-                denom: config.base_denom.clone(),
                 amount,
-            }],
-        })];
-    } else {
-        // asset token => collateral token
-        let amount = query_token_balance(&deps.querier, asset_token.clone(), env.contract.address)?;
+            };
 
-        messages = vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: asset_token.to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::Send {
-                contract: pair_info.contract_addr,
-                amount,
-                msg: to_binary(&TerraswapCw20HookMsg::Swap {
+            // deduct tax first
+            let amount = (swap_asset.deduct_tax(&deps.querier)?).amount;
+            messages = vec![CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: pair_info.contract_addr,
+                msg: to_binary(&TerraswapExecuteMsg::Swap {
+                    offer_asset: Asset {
+                        amount,
+                        ..swap_asset
+                    },
                     max_spread: None,
                     belief_price: None,
                     to: None,
                 })?,
-            })?,
-            funds: vec![],
-        })];
+                funds: vec![Coin {
+                    denom: config.base_denom.clone(),
+                    amount,
+                }],
+            })];
+        }
+    } else {
+        // asset token => collateral token
+        let amount = query_token_balance(&deps.querier, asset_token.clone(), env.contract.address)?;
+
+        if !amount.is_zero() {
+            messages = vec![CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: asset_token.to_string(),
+                msg: to_binary(&Cw20ExecuteMsg::Send {
+                    contract: pair_info.contract_addr,
+                    amount,
+                    msg: to_binary(&TerraswapCw20HookMsg::Swap {
+                        max_spread: None,
+                        belief_price: None,
+                        to: None,
+                    })?,
+                })?,
+                funds: vec![],
+            })];
+        }
     }
 
     Ok(Response::new()
@@ -174,32 +179,33 @@ fn bluna_swap(
         env.contract.address.clone(),
     )?;
 
-    Ok(Response::new()
-        .add_messages(vec![
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: asset_token.to_string(),
-                msg: to_binary(&Cw20ExecuteMsg::Send {
-                    contract: pair_info.contract_addr,
-                    amount,
-                    msg: to_binary(&TerraswapCw20HookMsg::Swap {
-                        max_spread: None,
-                        belief_price: None,
-                        to: None,
-                    })?,
+    let mut messages: Vec<CosmosMsg<TerraMsgWrapper>> = vec![];
+    if !amount.is_zero() {
+        messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: asset_token.to_string(),
+            msg: to_binary(&Cw20ExecuteMsg::Send {
+                contract: pair_info.contract_addr,
+                amount,
+                msg: to_binary(&TerraswapCw20HookMsg::Swap {
+                    max_spread: None,
+                    belief_price: None,
+                    to: None,
                 })?,
-                funds: vec![],
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: env.contract.address.to_string(),
-                msg: to_binary(&ExecuteMsg::LunaSwapHook {})?,
-                funds: vec![],
-            }),
-        ])
-        .add_attributes(vec![
-            attr("action", "convert"),
-            attr("swap_type", "bluna_swap"),
-            attr("asset_token", asset_token.as_str()),
-        ]))
+            })?,
+            funds: vec![],
+        }));
+        messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: env.contract.address.to_string(),
+            msg: to_binary(&ExecuteMsg::LunaSwapHook {})?,
+            funds: vec![],
+        }));
+    }
+
+    Ok(Response::new().add_messages(messages).add_attributes(vec![
+        attr("action", "convert"),
+        attr("swap_type", "bluna_swap"),
+        attr("asset_token", asset_token.as_str()),
+    ]))
 }
 
 pub fn luna_swap_hook(
@@ -218,12 +224,17 @@ pub fn luna_swap_hook(
         env.contract.address,
         config.bluna_swap_denom.clone(),
     )?;
-    let offer_coin = Coin {
-        amount,
-        denom: config.bluna_swap_denom,
-    };
+
+    let mut messages: Vec<CosmosMsg<TerraMsgWrapper>> = vec![];
+    if !amount.is_zero() {
+        let offer_coin = Coin {
+            amount,
+            denom: config.bluna_swap_denom,
+        };
+        messages.push(create_swap_msg(offer_coin, config.base_denom));
+    }
 
     Ok(Response::new()
         .add_attributes(vec![attr("action", "luna_swap_hook")])
-        .add_message(create_swap_msg(offer_coin, config.base_denom)))
+        .add_messages(messages))
 }
