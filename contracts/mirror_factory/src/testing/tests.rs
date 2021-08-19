@@ -1,6 +1,6 @@
 use crate::contract::{execute, instantiate, query, reply};
-use crate::testing::mock_querier::{mock_dependencies, WasmMockQuerier};
 use crate::response::MsgInstantiateContractResponse;
+use crate::testing::mock_querier::{mock_dependencies, WasmMockQuerier};
 
 use crate::state::{
     read_params, read_tmp_asset, read_tmp_oracle, read_total_weight, read_weight,
@@ -1557,7 +1557,7 @@ fn test_whitelist_pre_ipo_asset() {
             attr("is_pre_ipo", "true"),
             attr(
                 "mint_end",
-                (mock_env().block.time.plus_seconds(10000u64).nanos() / 1_000_000_000).to_string()
+                (mock_env().block.time.plus_seconds(10000u64).seconds()).to_string()
             ),
             attr("min_collateral_ratio_after_ipo", "1.5"),
             attr("pre_ipo_price", "0.01"),

@@ -340,7 +340,7 @@ pub fn create_poll(
     };
 
     let sender_address_raw = deps.api.addr_canonicalize(&proposer)?;
-    let current_seconds = env.block.time.nanos() / 1_000_000_000u64;
+    let current_seconds = env.block.time.seconds();
     let new_poll = Poll {
         id: poll_id,
         creator: sender_address_raw,
@@ -387,7 +387,7 @@ pub fn end_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Response> {
         return Err(StdError::generic_err("Poll is not in progress"));
     }
 
-    let current_seconds = env.block.time.nanos() / 1_000_000_000u64;
+    let current_seconds = env.block.time.seconds();
     if a_poll.end_time > current_seconds {
         return Err(StdError::generic_err("Voting period has not expired"));
     }
@@ -486,7 +486,7 @@ pub fn execute_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Response
         return Err(StdError::generic_err("Poll is not in passed status"));
     }
 
-    let current_seconds = env.block.time.nanos() / 1_000_000_000u64;
+    let current_seconds = env.block.time.seconds();
     if a_poll.end_time + config.effective_delay > current_seconds {
         return Err(StdError::generic_err("Effective delay has not expired"));
     }
@@ -529,7 +529,7 @@ pub fn expire_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Response>
         ));
     }
 
-    let current_seconds = env.block.time.nanos() / 1_000_000_000u64;
+    let current_seconds = env.block.time.seconds();
     if a_poll.end_time + config.expiration_period > current_seconds {
         return Err(StdError::generic_err(
             "Expiration time has not been reached",
@@ -564,7 +564,7 @@ pub fn cast_vote(
     }
 
     let mut a_poll: Poll = poll_store(deps.storage).load(&poll_id.to_be_bytes())?;
-    let current_seconds = env.block.time.nanos() / 1_000_000_000u64;
+    let current_seconds = env.block.time.seconds();
     if a_poll.status != PollStatus::InProgress || env.block.height > current_seconds {
         return Err(StdError::generic_err("Poll is not in progress"));
     }
@@ -621,7 +621,7 @@ pub fn cast_vote(
     poll_voter_store(deps.storage, poll_id).save(sender_address_raw.as_slice(), &vote_info)?;
 
     // processing snapshot
-    let current_seconds = env.block.time.nanos() / 1_000_000_000u64;
+    let current_seconds = env.block.time.seconds();
     let time_to_end = a_poll.end_time - current_seconds;
 
     if time_to_end < config.snapshot_period && a_poll.staked_amount.is_none() {
@@ -651,7 +651,7 @@ pub fn snapshot_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Respons
         return Err(StdError::generic_err("Poll is not in progress"));
     }
 
-    let current_seconds = env.block.time.nanos() / 1_000_000_000u64;
+    let current_seconds = env.block.time.seconds();
     let time_to_end = a_poll.end_time - current_seconds;
 
     if time_to_end > config.snapshot_period {

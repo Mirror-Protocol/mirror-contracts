@@ -20,7 +20,7 @@ pub fn adjust_premium(deps: DepsMut, env: Env, asset_tokens: Vec<String>) -> Std
     for asset_token in asset_tokens.iter() {
         let asset_token_raw = deps.api.addr_canonicalize(asset_token)?;
         let pool_info: PoolInfo = read_pool_info(deps.storage, &asset_token_raw)?;
-        if env.block.time.nanos() / 1_000_000_000
+        if env.block.time.seconds()
             < pool_info.premium_updated_time + config.premium_min_update_interval
         {
             return Err(StdError::generic_err(
@@ -51,7 +51,7 @@ pub fn adjust_premium(deps: DepsMut, env: Env, asset_tokens: Vec<String>) -> Std
             &PoolInfo {
                 premium_rate,
                 short_reward_weight,
-                premium_updated_time: env.block.time.nanos() / 1_000_000_000,
+                premium_updated_time: env.block.time.seconds(),
                 ..pool_info
             },
         )?;

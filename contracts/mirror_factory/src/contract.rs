@@ -55,13 +55,13 @@ pub fn instantiate(
             commission_collector: CanonicalAddr::from(vec![]),
             token_code_id: msg.token_code_id,
             base_denom: msg.base_denom,
-            genesis_time: env.block.time.nanos() / 1_000_000_000,
+            genesis_time: env.block.time.seconds(),
             distribution_schedule: msg.distribution_schedule,
         },
     )?;
 
     store_total_weight(deps.storage, 0u32)?;
-    store_last_distributed(deps.storage, env.block.time.nanos() / 1_000_000_000)?;
+    store_last_distributed(deps.storage, env.block.time.seconds())?;
 
     Ok(Response::default())
 }
@@ -368,7 +368,7 @@ pub fn token_creation_hook(
             params.min_collateral_ratio_after_ipo,
             params.pre_ipo_price,
         ) {
-            let mint_end: u64 = env.block.time.plus_seconds(mint_period).nanos() / 1_000_000_000;
+            let mint_end: u64 = env.block.time.plus_seconds(mint_period).seconds();
             attributes = vec![
                 attr("is_pre_ipo", "true"),
                 attr("mint_end", mint_end.to_string()),
@@ -493,14 +493,14 @@ pub fn terraswap_creation_hook(deps: DepsMut, _env: Env, asset_token: Addr) -> S
 /// mirror inflation rewards on the staking pool
 pub fn distribute(deps: DepsMut, env: Env) -> StdResult<Response> {
     let last_distributed = read_last_distributed(deps.storage)?;
-    if last_distributed + DISTRIBUTION_INTERVAL > env.block.time.nanos() / 1_000_000_000 {
+    if last_distributed + DISTRIBUTION_INTERVAL > env.block.time.seconds() {
         return Err(StdError::generic_err(
             "Cannot distribute mirror token before interval",
         ));
     }
 
     let config: Config = read_config(deps.storage)?;
-    let time_elapsed = env.block.time.nanos() / 1_000_000_000 - config.genesis_time;
+    let time_elapsed = env.block.time.seconds() - config.genesis_time;
     let last_time_elapsed = last_distributed - config.genesis_time;
     let mut target_distribution_amount: Uint128 = Uint128::zero();
     for s in config.distribution_schedule.iter() {
@@ -543,7 +543,7 @@ pub fn distribute(deps: DepsMut, env: Env) -> StdResult<Response> {
         .collect::<StdResult<Vec<(String, Uint128)>>>()?;
 
     // store last distributed
-    store_last_distributed(deps.storage, env.block.time.nanos() / 1_000_000_000)?;
+    store_last_distributed(deps.storage, env.block.time.seconds())?;
 
     // mint token to self and try send minted tokens to staking contract
     const SPLIT_UNIT: usize = 10;

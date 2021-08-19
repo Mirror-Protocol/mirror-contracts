@@ -118,7 +118,7 @@ pub fn lock_position_funds_hook(
         return Err(StdError::generic_err("Nothing to lock"));
     }
 
-    let unlock_time: u64 = env.block.time.nanos() / 1_000_000_000 + config.lockup_period;
+    let unlock_time: u64 = env.block.time.seconds() + config.lockup_period;
     let receiver_raw: CanonicalAddr = deps.api.addr_canonicalize(&receiver)?;
     let lock_info: PositionLockInfo =
         if let Ok(mut lock_info) = read_position_lock_info(deps.storage, position_idx) {
@@ -174,7 +174,7 @@ pub fn unlock_positions_funds(
         .filter_map(|position_idx| read_position_lock_info(deps.storage, *position_idx).ok())
         .filter(|lock_info| {
             lock_info.receiver == sender_addr_raw
-                && env.block.time.nanos() / 1_000_000_000 >= lock_info.unlock_time
+                && env.block.time.seconds() >= lock_info.unlock_time
         })
         .collect();
 

@@ -1,10 +1,10 @@
 use crate::contract::{execute, instantiate, query};
-use crate::testing::mock_querier::mock_dependencies;
 use crate::querier::load_token_balance;
 use crate::state::{
     bank_read, bank_store, config_read, poll_indexer_store, poll_store, poll_voter_read,
     poll_voter_store, state_read, Config, Poll, State, TokenManager,
 };
+use crate::testing::mock_querier::mock_dependencies;
 
 use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
@@ -320,7 +320,7 @@ fn happy_days_create_poll() {
     let execute_res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
     assert_create_poll_result(
         1,
-        env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).nanos() / 1_000_000_000u64,
+        env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).seconds(),
         TEST_CREATOR,
         execute_res,
         deps.as_ref(),
@@ -1896,7 +1896,7 @@ fn fails_cast_vote_twice() {
 
     assert_create_poll_result(
         1,
-        env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).nanos() / 1_000_000_000u64,
+        env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).seconds(),
         TEST_CREATOR,
         execute_res,
         deps.as_ref(),
@@ -2166,7 +2166,7 @@ fn share_calculation_with_voter_rewards() {
     let execute_res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
     assert_create_poll_result(
         1,
-        env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).nanos() / 1_000_000_000u64,
+        env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).seconds(),
         TEST_CREATOR,
         execute_res,
         deps.as_ref(),
@@ -2457,14 +2457,13 @@ fn distribute_voting_rewards() {
 
     let env = mock_env_height(0, 10000);
     let info = mock_info(VOTING_TOKEN, &coins(2, VOTING_TOKEN));
-    let poll_end_time =
-        env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).nanos() / 1_000_000_000u64;
+    let poll_end_time = env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).seconds();
     let msg = create_poll_msg("test".to_string(), "test".to_string(), None, None);
     let execute_res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
 
     assert_create_poll_result(
         1,
-        env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).nanos() / 1_000_000_000u64,
+        env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).seconds(),
         TEST_CREATOR,
         execute_res,
         deps.as_ref(),
@@ -2587,14 +2586,13 @@ fn stake_voting_rewards() {
 
     let env = mock_env_height(0, 10000);
     let info = mock_info(VOTING_TOKEN, &coins(2, VOTING_TOKEN));
-    let poll_end_time =
-        env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).nanos() / 1_000_000_000u64;
+    let poll_end_time = env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).seconds();
     let msg = create_poll_msg("test".to_string(), "test".to_string(), None, None);
     let execute_res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
 
     assert_create_poll_result(
         1,
-        env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).nanos() / 1_000_000_000u64,
+        env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).seconds(),
         TEST_CREATOR,
         execute_res,
         deps.as_ref(),
@@ -2742,8 +2740,7 @@ fn distribute_voting_rewards_with_multiple_active_polls_and_voters() {
     // create polls
     let env = mock_env_height(0, 10000);
     let info = mock_info(VOTING_TOKEN, &coins(2, VOTING_TOKEN));
-    let poll_end_time =
-        env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).nanos() / 1_000_000_000u64;
+    let poll_end_time = env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).seconds();
     // poll 1
     let msg = create_poll_msg("test".to_string(), "test".to_string(), None, None);
     let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
@@ -3067,8 +3064,7 @@ fn test_staking_and_voting_rewards() {
 
     let env = mock_env_height(0, 10000);
     let info = mock_info(VOTING_TOKEN, &coins(2, VOTING_TOKEN));
-    let poll_end_time =
-        env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).nanos() / 1_000_000_000u64;
+    let poll_end_time = env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).seconds();
     // poll 1
     let msg = create_poll_msg("test".to_string(), "test".to_string(), None, None);
     let _res = execute(deps.as_mut(), env, info, msg).unwrap();
@@ -3299,8 +3295,7 @@ fn test_abstain_votes_theshold() {
 
     let env = mock_env_height(0, 10000);
     let info = mock_info(VOTING_TOKEN, &coins(2, VOTING_TOKEN));
-    let poll_end_time =
-        env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).nanos() / 1_000_000_000u64;
+    let poll_end_time = env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).seconds();
     let msg = create_poll_msg("test".to_string(), "test".to_string(), None, None);
     let _res = execute(deps.as_mut(), env, info, msg).unwrap();
 
@@ -3423,8 +3418,7 @@ fn test_abstain_votes_quorum() {
 
     let env = mock_env_height(0, 10000);
     let info = mock_info(VOTING_TOKEN, &coins(2, VOTING_TOKEN));
-    let poll_end_time =
-        env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).nanos() / 1_000_000_000u64;
+    let poll_end_time = env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).seconds();
     let msg = create_poll_msg("test".to_string(), "test".to_string(), None, None);
     let _res = execute(deps.as_mut(), env, info, msg).unwrap();
 
@@ -3527,8 +3521,7 @@ fn test_abstain_votes_quorum() {
 
     let env = mock_env_height(0, 10000);
     let info = mock_info(VOTING_TOKEN, &coins(2, VOTING_TOKEN));
-    let poll_end_time =
-        env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).nanos() / 1_000_000_000u64;
+    let poll_end_time = env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).seconds();
     let msg = create_poll_msg("test".to_string(), "test".to_string(), None, None);
     let _res = execute(deps.as_mut(), env, info, msg).unwrap();
 
@@ -3587,9 +3580,21 @@ fn test_query_shares() {
         1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     ]);
-    let voter_0 = deps.api.addr_humanize(&voter_0_addr_raw).unwrap().to_string();
-    let voter_1 = deps.api.addr_humanize(&voter_1_addr_raw).unwrap().to_string();
-    let voter_2 = deps.api.addr_humanize(&voter_2_addr_raw).unwrap().to_string();
+    let voter_0 = deps
+        .api
+        .addr_humanize(&voter_0_addr_raw)
+        .unwrap()
+        .to_string();
+    let voter_1 = deps
+        .api
+        .addr_humanize(&voter_1_addr_raw)
+        .unwrap()
+        .to_string();
+    let voter_2 = deps
+        .api
+        .addr_humanize(&voter_2_addr_raw)
+        .unwrap()
+        .to_string();
 
     bank_store(&mut deps.storage)
         .save(
@@ -4359,8 +4364,7 @@ fn test_unstake_before_claiming_voting_rewards() {
     let msg = create_poll_msg("test".to_string(), "test".to_string(), None, None);
     let info = mock_info(VOTING_TOKEN, &[]);
     let handle_res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
-    let poll_end_time =
-        env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).nanos() / 1_000_000_000u64;
+    let poll_end_time = env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).seconds();
     assert_create_poll_result(1, poll_end_time, TEST_CREATOR, handle_res, deps.as_ref());
 
     let stake_amount = 100u128;

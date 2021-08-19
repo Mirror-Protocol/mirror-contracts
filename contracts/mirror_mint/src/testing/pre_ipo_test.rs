@@ -58,7 +58,7 @@ fn pre_ipo_assets() {
     let _res = instantiate(deps.as_mut(), creator_env.clone(), creator_info, msg).unwrap();
 
     // register preIPO asset with mint_end parameter (10 blocks)
-    let mint_end = creator_env.block.time.plus_seconds(10u64).nanos() / 1_000_000_000;
+    let mint_end = creator_env.block.time.plus_seconds(10u64).seconds();
     let msg = ExecuteMsg::RegisterAsset {
         asset_token: "preIPOAsset0000".to_string(),
         auction_discount: Decimal::percent(20),
@@ -77,7 +77,7 @@ fn pre_ipo_assets() {
     ///////////////////
     // Minting phase
     ///////////////////
-    let mut current_time = creator_env.block.time.plus_seconds(1).nanos() / 1_000_000_000;
+    let mut current_time = creator_env.block.time.plus_seconds(1).seconds();
 
     // open position successfully at creation_height + 1
     let msg = ExecuteMsg::OpenPosition {
@@ -145,7 +145,7 @@ fn pre_ipo_assets() {
     ///////////////////
     // Trading phase
     ///////////////////
-    current_time = creator_env.block.time.plus_seconds(11).nanos() / 1_000_000_000; // > mint_end
+    current_time = creator_env.block.time.plus_seconds(11).seconds(); // > mint_end
 
     // open position disabled
     let msg = ExecuteMsg::OpenPosition {
@@ -224,7 +224,7 @@ fn pre_ipo_assets() {
     ///////////////////
     // IPO/Migration
     ///////////////////
-    current_time = creator_env.block.time.plus_seconds(20).nanos() / 1_000_000_000;
+    current_time = creator_env.block.time.plus_seconds(20).seconds();
 
     // register migration initiated by the feeder
     let msg = ExecuteMsg::TriggerIPO {
@@ -319,4 +319,3 @@ fn pre_ipo_assets() {
         ]
     );
 }
-

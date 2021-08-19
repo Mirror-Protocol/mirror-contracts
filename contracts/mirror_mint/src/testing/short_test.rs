@@ -757,4 +757,3 @@ fn close_short_position() {
             .unwrap(),
         }))))
 }
-

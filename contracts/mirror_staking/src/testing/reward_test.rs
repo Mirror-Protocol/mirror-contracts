@@ -771,7 +771,7 @@ fn test_adjust_premium() {
     assert_eq!(res.premium_rate, Decimal::zero());
     assert_eq!(
         res.premium_updated_time,
-        env.block.time.nanos() / 1_000_000_000
+        env.block.time.seconds()
     );
 
     // terraswap price = 90
@@ -819,7 +819,7 @@ fn test_adjust_premium() {
     assert_eq!(res.premium_rate, Decimal::zero());
     assert_eq!(
         res.premium_updated_time,
-        env.block.time.nanos() / 1_000_000_000
+        env.block.time.seconds()
     );
 
     // terraswap price = 105
@@ -857,7 +857,7 @@ fn test_adjust_premium() {
     assert_eq!(res.premium_rate, Decimal::percent(5));
     assert_eq!(
         res.premium_updated_time,
-        env.block.time.nanos() / 1_000_000_000
+        env.block.time.seconds()
     );
 }
 

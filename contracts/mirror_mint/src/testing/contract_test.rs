@@ -315,4 +315,3 @@ fn update_asset() {
         _ => panic!("Must return unauthorized error"),
     }
 }
-
