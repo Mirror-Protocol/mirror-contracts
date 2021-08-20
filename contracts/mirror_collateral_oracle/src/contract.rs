@@ -3,45 +3,49 @@ use crate::state::{
     read_collateral_info, read_collateral_infos, read_config, store_collateral_info, store_config,
     CollateralAssetInfo, Config,
 };
+#[cfg(not(feature = "library"))]
+use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Api, Binary, CanonicalAddr, Decimal, Env, Extern, HandleResponse, HandleResult,
-    HumanAddr, InitResponse, MigrateResponse, MigrateResult, Querier, StdError, StdResult, Storage,
+    to_binary, Binary, CanonicalAddr, Decimal, Deps, DepsMut, Env, MessageInfo, Response, StdError,
+    StdResult,
 };
-
 use mirror_protocol::collateral_oracle::{
     CollateralInfoResponse, CollateralInfosResponse, CollateralPriceResponse, ConfigResponse,
-    HandleMsg, InitMsg, MigrateMsg, QueryMsg, SourceType,
+    ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, SourceType,
 };
-
 use terraswap::asset::AssetInfo;
 
-pub fn init<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn instantiate(
+    deps: DepsMut,
     _env: Env,
-    msg: InitMsg,
-) -> StdResult<InitResponse> {
+    _info: MessageInfo,
+    msg: InstantiateMsg,
+) -> StdResult<Response> {
     store_config(
-        &mut deps.storage,
+        deps.storage,
         &Config {
-            owner: deps.api.canonical_address(&msg.owner)?,
-            mint_contract: deps.api.canonical_address(&msg.mint_contract)?,
+            owner: deps.api.addr_canonicalize(&msg.owner)?,
+            mint_contract: deps.api.addr_canonicalize(&msg.mint_contract)?,
             base_denom: msg.base_denom,
-            mirror_oracle: deps.api.canonical_address(&msg.mirror_oracle)?,
-            anchor_oracle: deps.api.canonical_address(&msg.anchor_oracle)?,
-            band_oracle: deps.api.canonical_address(&msg.band_oracle)?,
+            mirror_oracle: deps.api.addr_canonicalize(&msg.mirror_oracle)?,
+            anchor_oracle: deps.api.addr_canonicalize(&msg.anchor_oracle)?,
+            band_oracle: deps.api.addr_canonicalize(&msg.band_oracle)?,
         },
     )?;
 
-    Ok(InitResponse::default())
+    Ok(Response::default())
 }
 
-pub fn handle<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    msg: HandleMsg,
-) -> HandleResult {
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn execute(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    msg: ExecuteMsg,
+) -> StdResult<Response> {
     match msg {
-        HandleMsg::UpdateConfig {
+        ExecuteMsg::UpdateConfig {
             owner,
             mint_contract,
             base_denom,
@@ -50,7 +54,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             band_oracle,
         } => update_config(
             deps,
-            env,
+            info,
             owner,
             mint_contract,
             base_denom,
@@ -58,43 +62,44 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             anchor_oracle,
             band_oracle,
         ),
-        HandleMsg::RegisterCollateralAsset {
+        ExecuteMsg::RegisterCollateralAsset {
             asset,
             price_source,
             multiplier,
-        } => register_collateral(deps, env, asset, price_source, multiplier),
-        HandleMsg::RevokeCollateralAsset { asset } => revoke_collateral(deps, env, asset),
-        HandleMsg::UpdateCollateralPriceSource {
+        } => register_collateral(deps, info, asset, price_source, multiplier),
+        ExecuteMsg::RevokeCollateralAsset { asset } => revoke_collateral(deps, info, asset),
+        ExecuteMsg::UpdateCollateralPriceSource {
             asset,
             price_source,
-        } => update_collateral_source(deps, env, asset, price_source),
-        HandleMsg::UpdateCollateralMultiplier { asset, multiplier } => {
-            update_collateral_multiplier(deps, env, asset, multiplier)
+        } => update_collateral_source(deps, info, asset, price_source),
+        ExecuteMsg::UpdateCollateralMultiplier { asset, multiplier } => {
+            update_collateral_multiplier(deps, info, asset, multiplier)
         }
     }
 }
 
-pub fn update_config<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    owner: Option<HumanAddr>,
-    mint_contract: Option<HumanAddr>,
+#[allow(clippy::too_many_arguments)]
+pub fn update_config(
+    deps: DepsMut,
+    info: MessageInfo,
+    owner: Option<String>,
+    mint_contract: Option<String>,
     base_denom: Option<String>,
-    mirror_oracle: Option<HumanAddr>,
-    anchor_oracle: Option<HumanAddr>,
-    band_oracle: Option<HumanAddr>,
-) -> HandleResult {
-    let mut config: Config = read_config(&deps.storage)?;
-    if deps.api.canonical_address(&env.message.sender)? != config.owner {
-        return Err(StdError::unauthorized());
+    mirror_oracle: Option<String>,
+    anchor_oracle: Option<String>,
+    band_oracle: Option<String>,
+) -> StdResult<Response> {
+    let mut config: Config = read_config(deps.storage)?;
+    if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner {
+        return Err(StdError::generic_err("unauthorized"));
     }
 
     if let Some(owner) = owner {
-        config.owner = deps.api.canonical_address(&owner)?;
+        config.owner = deps.api.addr_canonicalize(&owner)?;
     }
 
     if let Some(mint_contract) = mint_contract {
-        config.mint_contract = deps.api.canonical_address(&mint_contract)?;
+        config.mint_contract = deps.api.addr_canonicalize(&mint_contract)?;
     }
 
     if let Some(base_denom) = base_denom {
@@ -102,36 +107,36 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     }
 
     if let Some(mirror_oracle) = mirror_oracle {
-        config.mirror_oracle = deps.api.canonical_address(&mirror_oracle)?;
+        config.mirror_oracle = deps.api.addr_canonicalize(&mirror_oracle)?;
     }
 
     if let Some(anchor_oracle) = anchor_oracle {
-        config.anchor_oracle = deps.api.canonical_address(&anchor_oracle)?;
+        config.anchor_oracle = deps.api.addr_canonicalize(&anchor_oracle)?;
     }
 
     if let Some(band_oracle) = band_oracle {
-        config.band_oracle = deps.api.canonical_address(&band_oracle)?;
+        config.band_oracle = deps.api.addr_canonicalize(&band_oracle)?;
     }
 
-    store_config(&mut deps.storage, &config)?;
-    Ok(HandleResponse::default())
+    store_config(deps.storage, &config)?;
+    Ok(Response::default())
 }
 
-pub fn register_collateral<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
+pub fn register_collateral(
+    deps: DepsMut,
+    info: MessageInfo,
     asset: AssetInfo,
     price_source: SourceType,
     multiplier: Decimal,
-) -> HandleResult {
-    let config: Config = read_config(&deps.storage)?;
-    let sender_address_raw: CanonicalAddr = deps.api.canonical_address(&env.message.sender)?;
+) -> StdResult<Response> {
+    let config: Config = read_config(deps.storage)?;
+    let sender_address_raw: CanonicalAddr = deps.api.addr_canonicalize(info.sender.as_str())?;
     // only contract onwner and mint contract can register a new collateral
     if config.owner != sender_address_raw && config.mint_contract != sender_address_raw {
-        return Err(StdError::unauthorized());
+        return Err(StdError::generic_err("unauthorized"));
     }
 
-    if read_collateral_info(&deps.storage, &asset.to_string()).is_ok() {
+    if read_collateral_info(deps.storage, &asset.to_string()).is_ok() {
         return Err(StdError::generic_err("Collateral was already registered"));
     }
 
@@ -140,7 +145,7 @@ pub fn register_collateral<S: Storage, A: Api, Q: Querier>(
     }
 
     store_collateral_info(
-        &mut deps.storage,
+        deps.storage,
         &CollateralAssetInfo {
             asset: asset.to_string(),
             multiplier,
@@ -149,44 +154,50 @@ pub fn register_collateral<S: Storage, A: Api, Q: Querier>(
         },
     )?;
 
-    Ok(HandleResponse::default())
+    Ok(Response::default())
 }
 
-pub fn revoke_collateral<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
+pub fn revoke_collateral(
+    deps: DepsMut,
+    info: MessageInfo,
     asset: AssetInfo,
-) -> HandleResult {
-    let config: Config = read_config(&deps.storage)?;
-    let sender_address_raw: CanonicalAddr = deps.api.canonical_address(&env.message.sender)?;
+) -> StdResult<Response> {
+    let config: Config = read_config(deps.storage)?;
+    let sender_address_raw: CanonicalAddr = deps.api.addr_canonicalize(info.sender.as_str())?;
     // only owner and mint contract can revoke a collateral assets
     if config.owner != sender_address_raw && config.mint_contract != sender_address_raw {
-        return Err(StdError::unauthorized());
-    }
-
-    if let Ok(mut collateral_info) = read_collateral_info(&deps.storage, &asset.to_string()) {
-        collateral_info.is_revoked = true;
-        store_collateral_info(&mut deps.storage, &collateral_info)?;
-    }
-
-    Ok(HandleResponse::default())
-}
-
-pub fn update_collateral_source<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    asset: AssetInfo,
-    price_source: SourceType,
-) -> HandleResult {
-    let config: Config = read_config(&deps.storage)?;
-    let sender_address_raw: CanonicalAddr = deps.api.canonical_address(&env.message.sender)?;
-    // only contract onwner can update collateral query
-    if config.owner != sender_address_raw {
-        return Err(StdError::unauthorized());
+        return Err(StdError::generic_err("unauthorized"));
     }
 
     let mut collateral_info: CollateralAssetInfo =
-        if let Ok(collateral) = read_collateral_info(&deps.storage, &asset.to_string()) {
+        if let Ok(collateral) = read_collateral_info(deps.storage, &asset.to_string()) {
+            collateral
+        } else {
+            return Err(StdError::generic_err("Collateral not found"));
+        };
+
+    collateral_info.is_revoked = true;
+
+    store_collateral_info(deps.storage, &collateral_info)?;
+
+    Ok(Response::default())
+}
+
+pub fn update_collateral_source(
+    deps: DepsMut,
+    info: MessageInfo,
+    asset: AssetInfo,
+    price_source: SourceType,
+) -> StdResult<Response> {
+    let config: Config = read_config(deps.storage)?;
+    let sender_address_raw: CanonicalAddr = deps.api.addr_canonicalize(info.sender.as_str())?;
+    // only contract onwner can update collateral query
+    if config.owner != sender_address_raw {
+        return Err(StdError::generic_err("unauthorized"));
+    }
+
+    let mut collateral_info: CollateralAssetInfo =
+        if let Ok(collateral) = read_collateral_info(deps.storage, &asset.to_string()) {
             collateral
         } else {
             return Err(StdError::generic_err("Collateral not found"));
@@ -194,26 +205,26 @@ pub fn update_collateral_source<S: Storage, A: Api, Q: Querier>(
 
     collateral_info.price_source = price_source;
 
-    store_collateral_info(&mut deps.storage, &collateral_info)?;
+    store_collateral_info(deps.storage, &collateral_info)?;
 
-    Ok(HandleResponse::default())
+    Ok(Response::default())
 }
 
-pub fn update_collateral_multiplier<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
+pub fn update_collateral_multiplier(
+    deps: DepsMut,
+    info: MessageInfo,
     asset: AssetInfo,
     multiplier: Decimal,
-) -> HandleResult {
-    let config: Config = read_config(&deps.storage)?;
-    let sender_address_raw: CanonicalAddr = deps.api.canonical_address(&env.message.sender)?;
-    // only owner can update collateral premium
+) -> StdResult<Response> {
+    let config: Config = read_config(deps.storage)?;
+    let sender_address_raw: CanonicalAddr = deps.api.addr_canonicalize(info.sender.as_str())?;
+    // only factory contract can update collateral premium
     if config.owner != sender_address_raw {
-        return Err(StdError::unauthorized());
+        return Err(StdError::generic_err("unauthorized"));
     }
 
     let mut collateral_info: CollateralAssetInfo =
-        if let Ok(collateral) = read_collateral_info(&deps.storage, &asset.to_string()) {
+        if let Ok(collateral) = read_collateral_info(deps.storage, &asset.to_string()) {
             collateral
         } else {
             return Err(StdError::generic_err("Collateral not found"));
@@ -224,15 +235,13 @@ pub fn update_collateral_multiplier<S: Storage, A: Api, Q: Querier>(
     }
 
     collateral_info.multiplier = multiplier;
-    store_collateral_info(&mut deps.storage, &collateral_info)?;
+    store_collateral_info(deps.storage, &collateral_info)?;
 
-    Ok(HandleResponse::default())
+    Ok(Response::default())
 }
 
-pub fn query<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    msg: QueryMsg,
-) -> StdResult<Binary> {
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::CollateralPrice {
@@ -244,31 +253,29 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
     }
 }
 
-pub fn query_config<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-) -> StdResult<ConfigResponse> {
-    let config = read_config(&deps.storage)?;
+pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
+    let config = read_config(deps.storage)?;
     let resp = ConfigResponse {
-        owner: deps.api.human_address(&config.owner)?,
-        mint_contract: deps.api.human_address(&config.mint_contract)?,
+        owner: deps.api.addr_humanize(&config.owner)?.to_string(),
+        mint_contract: deps.api.addr_humanize(&config.mint_contract)?.to_string(),
         base_denom: config.base_denom,
-        mirror_oracle: deps.api.human_address(&config.mirror_oracle)?,
-        anchor_oracle: deps.api.human_address(&config.anchor_oracle)?,
-        band_oracle: deps.api.human_address(&config.band_oracle)?,
+        mirror_oracle: deps.api.addr_humanize(&config.mirror_oracle)?.to_string(),
+        anchor_oracle: deps.api.addr_humanize(&config.anchor_oracle)?.to_string(),
+        band_oracle: deps.api.addr_humanize(&config.band_oracle)?.to_string(),
     };
 
     Ok(resp)
 }
 
-pub fn query_collateral_price<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
+pub fn query_collateral_price(
+    deps: Deps,
     quote_asset: String,
     block_height: Option<u64>,
 ) -> StdResult<CollateralPriceResponse> {
-    let config: Config = read_config(&deps.storage)?;
+    let config: Config = read_config(deps.storage)?;
 
     let collateral: CollateralAssetInfo =
-        if let Ok(res) = read_collateral_info(&deps.storage, &quote_asset) {
+        if let Ok(res) = read_collateral_info(deps.storage, &quote_asset) {
             res
         } else {
             return Err(StdError::generic_err("Collateral asset not found"));
@@ -291,12 +298,9 @@ pub fn query_collateral_price<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-pub fn query_collateral_info<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    quote_asset: String,
-) -> StdResult<CollateralInfoResponse> {
+pub fn query_collateral_info(deps: Deps, quote_asset: String) -> StdResult<CollateralInfoResponse> {
     let collateral: CollateralAssetInfo =
-        if let Ok(res) = read_collateral_info(&deps.storage, &quote_asset) {
+        if let Ok(res) = read_collateral_info(deps.storage, &quote_asset) {
             res
         } else {
             return Err(StdError::generic_err("Collateral asset not found"));
@@ -310,18 +314,13 @@ pub fn query_collateral_info<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-pub fn query_collateral_infos<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-) -> StdResult<CollateralInfosResponse> {
-    let infos: Vec<CollateralInfoResponse> = read_collateral_infos(&deps.storage)?;
+pub fn query_collateral_infos(deps: Deps) -> StdResult<CollateralInfosResponse> {
+    let infos: Vec<CollateralInfoResponse> = read_collateral_infos(deps.storage)?;
 
     Ok(CollateralInfosResponse { collaterals: infos })
 }
 
-pub fn migrate<S: Storage, A: Api, Q: Querier>(
-    _deps: &mut Extern<S, A, Q>,
-    _env: Env,
-    _msg: MigrateMsg,
-) -> MigrateResult {
-    Ok(MigrateResponse::default())
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+    Ok(Response::default())
 }

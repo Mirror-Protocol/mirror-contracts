@@ -1,70 +1,75 @@
+#[cfg(not(feature = "library"))]
+use cosmwasm_std::entry_point;
+
 use cosmwasm_std::{
-    log, to_binary, Api, Binary, CanonicalAddr, CosmosMsg, Decimal, Env, Extern, HandleResponse,
-    HandleResult, HumanAddr, InitResponse, LogAttribute, MigrateResponse, MigrateResult, Querier,
-    StdError, StdResult, Storage, Uint128, WasmMsg,
+    attr, to_binary, Addr, Attribute, Binary, CanonicalAddr, CosmosMsg, Decimal, Deps, DepsMut,
+    Env, MessageInfo, Reply, ReplyOn, Response, StdError, StdResult, SubMsg, Uint128, WasmMsg,
 };
 
-use crate::querier::{load_mint_asset_config, load_oracle_feeder, query_last_price};
+use crate::querier::{load_mint_asset_config, load_oracle_feeder};
+use crate::response::MsgInstantiateContractResponse;
 use crate::state::{
     decrease_total_weight, increase_total_weight, read_all_weight, read_config,
-    read_last_distributed, read_params, read_total_weight, read_weight, remove_params,
-    remove_weight, store_config, store_last_distributed, store_params, store_total_weight,
-    store_weight, Config,
+    read_last_distributed, read_params, read_tmp_asset, read_tmp_oracle, read_total_weight,
+    read_weight, remove_params, remove_weight, store_config, store_last_distributed, store_params,
+    store_tmp_asset, store_tmp_oracle, store_total_weight, store_weight, Config,
 };
 
 use mirror_protocol::factory::{
-    ConfigResponse, DistributionInfoResponse, HandleMsg, InitMsg, MigrateMsg, Params, QueryMsg,
+    ConfigResponse, DistributionInfoResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, Params,
+    QueryMsg,
 };
-use mirror_protocol::mint::{HandleMsg as MintHandleMsg, IPOParams};
-use mirror_protocol::oracle::HandleMsg as OracleHandleMsg;
+use mirror_protocol::mint::{ExecuteMsg as MintExecuteMsg, IPOParams};
+use mirror_protocol::oracle::ExecuteMsg as OracleExecuteMsg;
 use mirror_protocol::staking::Cw20HookMsg as StakingCw20HookMsg;
-use mirror_protocol::staking::HandleMsg as StakingHandleMsg;
+use mirror_protocol::staking::ExecuteMsg as StakingExecuteMsg;
 
-use cw20::{Cw20HandleMsg, MinterResponse};
+use protobuf::Message;
+
+use cw20::{Cw20ExecuteMsg, MinterResponse};
 use terraswap::asset::{AssetInfo, PairInfo};
-use terraswap::factory::HandleMsg as TerraswapFactoryHandleMsg;
-use terraswap::hook::InitHook;
+use terraswap::factory::ExecuteMsg as TerraswapFactoryExecuteMsg;
 use terraswap::querier::query_pair_info;
-use terraswap::token::InitMsg as TokenInitMsg;
+use terraswap::token::InstantiateMsg as TokenInstantiateMsg;
 
 const MIRROR_TOKEN_WEIGHT: u32 = 300u32;
 const NORMAL_TOKEN_WEIGHT: u32 = 30u32;
 const DISTRIBUTION_INTERVAL: u64 = 60u64;
 
-pub fn init<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn instantiate(
+    deps: DepsMut,
     env: Env,
-    msg: InitMsg,
-) -> StdResult<InitResponse> {
+    _info: MessageInfo,
+    msg: InstantiateMsg,
+) -> StdResult<Response> {
     store_config(
-        &mut deps.storage,
+        deps.storage,
         &Config {
-            owner: CanonicalAddr::default(),
-            mirror_token: CanonicalAddr::default(),
-            mint_contract: CanonicalAddr::default(),
-            oracle_contract: CanonicalAddr::default(),
-            terraswap_factory: CanonicalAddr::default(),
-            staking_contract: CanonicalAddr::default(),
-            commission_collector: CanonicalAddr::default(),
+            owner: CanonicalAddr::from(vec![]),
+            mirror_token: CanonicalAddr::from(vec![]),
+            mint_contract: CanonicalAddr::from(vec![]),
+            oracle_contract: CanonicalAddr::from(vec![]),
+            terraswap_factory: CanonicalAddr::from(vec![]),
+            staking_contract: CanonicalAddr::from(vec![]),
+            commission_collector: CanonicalAddr::from(vec![]),
             token_code_id: msg.token_code_id,
             base_denom: msg.base_denom,
-            genesis_time: env.block.time,
+            genesis_time: env.block.time.seconds(),
             distribution_schedule: msg.distribution_schedule,
         },
     )?;
 
-    store_total_weight(&mut deps.storage, 0u32)?;
-    store_last_distributed(&mut deps.storage, env.block.time)?;
-    Ok(InitResponse::default())
+    store_total_weight(deps.storage, 0u32)?;
+    store_last_distributed(deps.storage, env.block.time.seconds())?;
+
+    Ok(Response::default())
 }
 
-pub fn handle<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    msg: HandleMsg,
-) -> StdResult<HandleResponse> {
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
     match msg {
-        HandleMsg::PostInitialize {
+        ExecuteMsg::PostInitialize {
             owner,
             mirror_token,
             mint_contract,
@@ -83,87 +88,88 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             staking_contract,
             commission_collector,
         ),
-        HandleMsg::UpdateConfig {
+        ExecuteMsg::UpdateConfig {
             owner,
             token_code_id,
             distribution_schedule,
-        } => update_config(deps, env, owner, token_code_id, distribution_schedule),
-        HandleMsg::UpdateWeight {
+        } => update_config(deps, info, owner, token_code_id, distribution_schedule),
+        ExecuteMsg::UpdateWeight {
             asset_token,
             weight,
-        } => update_weight(deps, env, asset_token, weight),
-        HandleMsg::Whitelist {
+        } => update_weight(deps, info, asset_token, weight),
+        ExecuteMsg::Whitelist {
             name,
             symbol,
             oracle_feeder,
             params,
-        } => whitelist(deps, env, name, symbol, oracle_feeder, params),
-        HandleMsg::TokenCreationHook { oracle_feeder } => {
-            token_creation_hook(deps, env, oracle_feeder)
+        } => whitelist(deps, info, name, symbol, oracle_feeder, params),
+        ExecuteMsg::Distribute {} => distribute(deps, env),
+        ExecuteMsg::PassCommand { contract_addr, msg } => {
+            pass_command(deps, info, contract_addr, msg)
         }
-        HandleMsg::TerraswapCreationHook { asset_token } => {
-            terraswap_creation_hook(deps, env, asset_token)
-        }
-        HandleMsg::Distribute {} => distribute(deps, env),
-        HandleMsg::PassCommand { contract_addr, msg } => {
-            pass_command(deps, env, contract_addr, msg)
-        }
-        HandleMsg::RevokeAsset {
+        ExecuteMsg::RevokeAsset {
             asset_token,
             end_price,
-        } => revoke_asset(deps, env, asset_token, end_price),
-        HandleMsg::MigrateAsset {
+        } => revoke_asset(deps, info, asset_token, end_price),
+        ExecuteMsg::MigrateAsset {
             name,
             symbol,
             from_token,
             end_price,
-        } => migrate_asset(deps, env, name, symbol, from_token, end_price),
+        } => migrate_asset(deps, info, name, symbol, from_token, end_price),
     }
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn post_initialize<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    _env: Env,
-    owner: HumanAddr,
-    mirror_token: HumanAddr,
-    mint_contract: HumanAddr,
-    oracle_contract: HumanAddr,
-    terraswap_factory: HumanAddr,
-    staking_contract: HumanAddr,
-    commission_collector: HumanAddr,
-) -> HandleResult {
-    let mut config: Config = read_config(&deps.storage)?;
-    if config.owner != CanonicalAddr::default() {
-        return Err(StdError::unauthorized());
+pub fn post_initialize(
+    deps: DepsMut,
+    env: Env,
+    owner: String,
+    mirror_token: String,
+    mint_contract: String,
+    oracle_contract: String,
+    terraswap_factory: String,
+    staking_contract: String,
+    commission_collector: String,
+) -> StdResult<Response> {
+    let mut config: Config = read_config(deps.storage)?;
+    if config.owner != CanonicalAddr::from(vec![]) {
+        return Err(StdError::generic_err("unauthorized"));
     }
 
-    config.owner = deps.api.canonical_address(&owner)?;
-    config.mirror_token = deps.api.canonical_address(&mirror_token)?;
-    config.mint_contract = deps.api.canonical_address(&mint_contract)?;
-    config.oracle_contract = deps.api.canonical_address(&oracle_contract)?;
-    config.terraswap_factory = deps.api.canonical_address(&terraswap_factory)?;
-    config.staking_contract = deps.api.canonical_address(&staking_contract)?;
-    config.commission_collector = deps.api.canonical_address(&commission_collector)?;
-    store_config(&mut deps.storage, &config)?;
+    config.owner = deps.api.addr_canonicalize(&owner)?;
+    config.mirror_token = deps.api.addr_canonicalize(&mirror_token)?;
+    config.mint_contract = deps.api.addr_canonicalize(&mint_contract)?;
+    config.oracle_contract = deps.api.addr_canonicalize(&oracle_contract)?;
+    config.terraswap_factory = deps.api.addr_canonicalize(&terraswap_factory)?;
+    config.staking_contract = deps.api.addr_canonicalize(&staking_contract)?;
+    config.commission_collector = deps.api.addr_canonicalize(&commission_collector)?;
+    store_config(deps.storage, &config)?;
 
-    Ok(HandleResponse::default())
+    // MIR Token and Pair are registered externally, update weights,
+    // and register to staking contract
+    store_weight(deps.storage, &config.mirror_token, MIRROR_TOKEN_WEIGHT)?;
+    increase_total_weight(deps.storage, MIRROR_TOKEN_WEIGHT)?;
+
+    let mir_addr = deps.api.addr_humanize(&config.mirror_token)?;
+
+    terraswap_creation_hook(deps, env, mir_addr)
 }
 
-pub fn update_config<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    owner: Option<HumanAddr>,
+pub fn update_config(
+    deps: DepsMut,
+    info: MessageInfo,
+    owner: Option<String>,
     token_code_id: Option<u64>,
     distribution_schedule: Option<Vec<(u64, u64, Uint128)>>,
-) -> HandleResult {
-    let mut config: Config = read_config(&deps.storage)?;
-    if config.owner != deps.api.canonical_address(&env.message.sender)? {
-        return Err(StdError::unauthorized());
+) -> StdResult<Response> {
+    let mut config: Config = read_config(deps.storage)?;
+    if config.owner != deps.api.addr_canonicalize(info.sender.as_str())? {
+        return Err(StdError::generic_err("unauthorized"));
     }
 
     if let Some(owner) = owner {
-        config.owner = deps.api.canonical_address(&owner)?;
+        config.owner = deps.api.addr_canonicalize(&owner)?;
     }
 
     if let Some(distribution_schedule) = distribution_schedule {
@@ -174,68 +180,56 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
         config.token_code_id = token_code_id;
     }
 
-    store_config(&mut deps.storage, &config)?;
+    store_config(deps.storage, &config)?;
 
-    Ok(HandleResponse {
-        messages: vec![],
-        log: vec![log("action", "update_config")],
-        data: None,
-    })
+    Ok(Response::new().add_attribute("action", "update_config"))
 }
 
-pub fn update_weight<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    asset_token: HumanAddr,
+pub fn update_weight(
+    deps: DepsMut,
+    info: MessageInfo,
+    asset_token: String,
     weight: u32,
-) -> HandleResult {
-    let config: Config = read_config(&deps.storage)?;
-    if config.owner != deps.api.canonical_address(&env.message.sender)? {
-        return Err(StdError::unauthorized());
+) -> StdResult<Response> {
+    let config: Config = read_config(deps.storage)?;
+    if config.owner != deps.api.addr_canonicalize(info.sender.as_str())? {
+        return Err(StdError::generic_err("unauthorized"));
     }
 
-    let asset_token_raw = deps.api.canonical_address(&asset_token)?;
-    let origin_weight = read_weight(&deps.storage, &asset_token_raw)?;
-    store_weight(&mut deps.storage, &asset_token_raw, weight)?;
+    let asset_token_raw = deps.api.addr_canonicalize(&asset_token)?;
+    let origin_weight = read_weight(deps.storage, &asset_token_raw)?;
+    store_weight(deps.storage, &asset_token_raw, weight)?;
 
-    let origin_total_weight = read_total_weight(&deps.storage)?;
-    store_total_weight(
-        &mut deps.storage,
-        origin_total_weight + weight - origin_weight,
-    )?;
+    let origin_total_weight = read_total_weight(deps.storage)?;
+    let updated_total_weight = origin_total_weight + weight - origin_weight;
+    store_total_weight(deps.storage, updated_total_weight)?;
 
-    Ok(HandleResponse {
-        messages: vec![],
-        log: vec![
-            log("action", "update_weight"),
-            log("asset_token", asset_token),
-            log("weight", weight),
-        ],
-        data: None,
-    })
+    Ok(Response::new().add_attributes(vec![
+        attr("action", "update_weight"),
+        attr("asset_token", asset_token),
+        attr("weight", weight.to_string()),
+    ]))
 }
 
 // just for by passing command to other contract like update config
-pub fn pass_command<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    contract_addr: HumanAddr,
+pub fn pass_command(
+    deps: DepsMut,
+    info: MessageInfo,
+    contract_addr: String,
     msg: Binary,
-) -> HandleResult {
-    let config: Config = read_config(&deps.storage)?;
-    if config.owner != deps.api.canonical_address(&env.message.sender)? {
-        return Err(StdError::unauthorized());
+) -> StdResult<Response> {
+    let config: Config = read_config(deps.storage)?;
+    if config.owner != deps.api.addr_canonicalize(info.sender.as_str())? {
+        return Err(StdError::generic_err("unauthorized"));
     }
 
-    Ok(HandleResponse {
-        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
+    Ok(
+        Response::new().add_message(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr,
             msg,
-            send: vec![],
-        })],
-        log: vec![],
-        data: None,
-    })
+            funds: vec![],
+        })),
+    )
 }
 
 /// Whitelisting process
@@ -247,52 +241,86 @@ pub fn pass_command<S: Storage, A: Api, Q: Querier>(
 ///    2-4. Create terraswap pair through terraswap factory
 /// 3. Call `TerraswapCreationHook`
 ///    3-1. Register asset to staking contract
-pub fn whitelist<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
+pub fn whitelist(
+    deps: DepsMut,
+    info: MessageInfo,
     name: String,
     symbol: String,
-    oracle_feeder: HumanAddr,
+    oracle_feeder: String,
     params: Params,
-) -> HandleResult {
-    let config: Config = read_config(&deps.storage)?;
-    if config.owner != deps.api.canonical_address(&env.message.sender)? {
-        return Err(StdError::unauthorized());
+) -> StdResult<Response> {
+    let config: Config = read_config(deps.storage)?;
+    if config.owner != deps.api.addr_canonicalize(info.sender.as_str())? {
+        return Err(StdError::generic_err("unauthorized"));
     }
 
-    if read_params(&deps.storage).is_ok() {
+    if read_params(deps.storage).is_ok() {
         return Err(StdError::generic_err("A whitelist process is in progress"));
     }
 
-    store_params(&mut deps.storage, &params)?;
+    store_params(deps.storage, &params)?;
 
-    Ok(HandleResponse {
-        messages: vec![CosmosMsg::Wasm(WasmMsg::Instantiate {
-            code_id: config.token_code_id,
-            send: vec![],
-            label: None,
-            msg: to_binary(&TokenInitMsg {
-                name: name.clone(),
-                symbol: symbol.to_string(),
-                decimals: 6u8,
-                initial_balances: vec![],
-                mint: Some(MinterResponse {
-                    minter: deps.api.human_address(&config.mint_contract)?,
-                    cap: None,
-                }),
-                init_hook: Some(InitHook {
-                    contract_addr: env.contract.address,
-                    msg: to_binary(&HandleMsg::TokenCreationHook { oracle_feeder })?,
-                }),
-            })?,
-        })],
-        log: vec![
-            log("action", "whitelist"),
-            log("symbol", symbol),
-            log("name", name),
-        ],
-        data: None,
-    })
+    // store oracle in temp storage to use in reply callback
+    let oracle = deps.api.addr_validate(&oracle_feeder)?;
+    store_tmp_oracle(deps.storage, &oracle)?;
+
+    Ok(Response::new()
+        .add_submessage(SubMsg {
+            // create asset token
+            msg: WasmMsg::Instantiate {
+                admin: None,
+                code_id: config.token_code_id,
+                funds: vec![],
+                label: "".to_string(),
+                msg: to_binary(&TokenInstantiateMsg {
+                    name: name.clone(),
+                    symbol: symbol.to_string(),
+                    decimals: 6u8,
+                    initial_balances: vec![],
+                    mint: Some(MinterResponse {
+                        minter: deps.api.addr_humanize(&config.mint_contract)?.to_string(),
+                        cap: None,
+                    }),
+                })?,
+            }
+            .into(),
+            gas_limit: None,
+            id: 1,
+            reply_on: ReplyOn::Success,
+        })
+        .add_attributes(vec![
+            attr("action", "whitelist"),
+            attr("symbol", symbol),
+            attr("name", name),
+        ]))
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response> {
+    match msg.id {
+        1 => {
+            // fetch saved oracle_feeder from temp state
+            let oracle_feeder = read_tmp_oracle(deps.storage)?;
+
+            // get new token's contract address
+            let res: MsgInstantiateContractResponse = Message::parse_from_bytes(
+                msg.result.unwrap().data.unwrap().as_slice(),
+            )
+            .map_err(|_| {
+                StdError::parse_err("MsgInstantiateContractResponse", "failed to parse data")
+            })?;
+            let asset_token = Addr::unchecked(res.get_contract_address());
+
+            token_creation_hook(deps, env, asset_token, oracle_feeder)
+        }
+        2 => {
+            // fetch saved asset_token from temp state
+            let asset_token = read_tmp_asset(deps.storage)?;
+
+            terraswap_creation_hook(deps, env, asset_token)
+        }
+        _ => Err(StdError::generic_err("reply id is invalid")),
+    }
 }
 
 /// TokenCreationHook
@@ -300,21 +328,22 @@ pub fn whitelist<S: Storage, A: Api, Q: Querier>(
 /// 2. Register asset to mint contract
 /// 3. Register asset and oracle feeder to oracle contract
 /// 4. Create terraswap pair through terraswap factory with `TerraswapCreationHook`
-pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn token_creation_hook(
+    deps: DepsMut,
     env: Env,
-    oracle_feeder: HumanAddr,
-) -> HandleResult {
-    let config: Config = read_config(&deps.storage)?;
+    asset_token: Addr,
+    oracle_feeder: Addr,
+) -> StdResult<Response> {
+    let config: Config = read_config(deps.storage)?;
 
     // If the param is not exists, it means there is no whitelist process in progress
-    let params: Params = match read_params(&deps.storage) {
+    let params: Params = match read_params(deps.storage) {
         Ok(v) => v,
         Err(_) => return Err(StdError::generic_err("No whitelist process in progress")),
     };
 
-    let asset_token = env.message.sender;
-    let asset_token_raw = deps.api.canonical_address(&asset_token)?;
+    // let asset_token = env.message.sender;
+    let asset_token_raw = deps.api.addr_canonicalize(asset_token.as_str())?;
 
     // If weight is given as params, we use that or just use default
     let weight = if let Some(weight) = params.weight {
@@ -324,13 +353,13 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
     };
 
     // Increase total weight
-    store_weight(&mut deps.storage, &asset_token_raw, weight)?;
-    increase_total_weight(&mut deps.storage, weight)?;
+    store_weight(deps.storage, &asset_token_raw, weight)?;
+    increase_total_weight(deps.storage, weight)?;
 
     // Remove params == clear flag
-    remove_params(&mut deps.storage);
+    remove_params(deps.storage);
 
-    let mut logs: Vec<LogAttribute> = vec![];
+    let mut attributes: Vec<Attribute> = vec![];
 
     // Check if all IPO params exist
     let ipo_params: Option<IPOParams> =
@@ -339,142 +368,139 @@ pub fn token_creation_hook<S: Storage, A: Api, Q: Querier>(
             params.min_collateral_ratio_after_ipo,
             params.pre_ipo_price,
         ) {
-            let mint_end: u64 = env.block.time + mint_period;
-            logs = vec![
-                log("is_pre_ipo", true),
-                log("mint_end", mint_end.to_string()),
-                log(
+            let mint_end: u64 = env.block.time.plus_seconds(mint_period).seconds();
+            attributes = vec![
+                attr("is_pre_ipo", "true"),
+                attr("mint_end", mint_end.to_string()),
+                attr(
                     "min_collateral_ratio_after_ipo",
                     min_collateral_ratio_after_ipo.to_string(),
                 ),
-                log("pre_ipo_price", pre_ipo_price.to_string()),
+                attr("pre_ipo_price", pre_ipo_price.to_string()),
             ];
             Some(IPOParams {
-                mint_end: mint_end,
-                min_collateral_ratio_after_ipo,
+                mint_end,
                 pre_ipo_price,
+                min_collateral_ratio_after_ipo,
             })
         } else {
-            logs.push(log("is_pre_ipo", false));
+            attributes.push(attr("is_pre_ipo", "false"));
             None
         };
+
+    // store asset_token in temp storage to use in reply callback
+    store_tmp_asset(deps.storage, &asset_token)?;
 
     // Register asset to mint contract
     // Register asset to oracle contract
     // Create terraswap pair
-    Ok(HandleResponse {
-        messages: vec![
+    Ok(Response::new()
+        .add_messages(vec![
+            //ASSUMPTION: These don't need to be done before pair / lp token is made
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: deps.api.human_address(&config.mint_contract)?,
-                send: vec![],
-                msg: to_binary(&MintHandleMsg::RegisterAsset {
-                    asset_token: asset_token.clone(),
+                contract_addr: deps.api.addr_humanize(&config.mint_contract)?.to_string(),
+                funds: vec![],
+                msg: to_binary(&MintExecuteMsg::RegisterAsset {
+                    asset_token: asset_token.to_string(),
                     auction_discount: params.auction_discount,
                     min_collateral_ratio: params.min_collateral_ratio,
                     ipo_params,
                 })?,
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: deps.api.human_address(&config.oracle_contract)?,
-                send: vec![],
-                msg: to_binary(&OracleHandleMsg::RegisterAsset {
-                    asset_token: asset_token.clone(),
-                    feeder: oracle_feeder,
+                contract_addr: deps.api.addr_humanize(&config.oracle_contract)?.to_string(),
+                funds: vec![],
+                msg: to_binary(&OracleExecuteMsg::RegisterAsset {
+                    asset_token: asset_token.to_string(),
+                    feeder: oracle_feeder.to_string(),
                 })?,
             }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: deps.api.human_address(&config.terraswap_factory)?,
-                send: vec![],
-                msg: to_binary(&TerraswapFactoryHandleMsg::CreatePair {
+        ])
+        .add_submessage(SubMsg {
+            // create terraswap pair
+            msg: WasmMsg::Execute {
+                contract_addr: deps
+                    .api
+                    .addr_humanize(&config.terraswap_factory)?
+                    .to_string(),
+                funds: vec![],
+                msg: to_binary(&TerraswapFactoryExecuteMsg::CreatePair {
                     asset_infos: [
                         AssetInfo::NativeToken {
                             denom: config.base_denom,
                         },
                         AssetInfo::Token {
-                            contract_addr: asset_token.clone(),
+                            contract_addr: asset_token.to_string(),
                         },
                     ],
-                    init_hook: Some(InitHook {
-                        msg: to_binary(&HandleMsg::TerraswapCreationHook {
-                            asset_token: asset_token.clone(),
-                        })?,
-                        contract_addr: env.contract.address,
-                    }),
                 })?,
-            }),
-        ],
-        log: vec![vec![log("asset_token_addr", asset_token.as_str())], logs].concat(),
-        data: None,
-    })
+            }
+            .into(),
+            gas_limit: None,
+            id: 2,
+            reply_on: ReplyOn::Success,
+        })
+        .add_attributes(
+            vec![
+                vec![attr("asset_token_addr", asset_token.as_str())],
+                attributes,
+            ]
+            .concat(),
+        ))
 }
 
 /// TerraswapCreationHook
 /// 1. Register asset and liquidity(LP) token to staking contract
-pub fn terraswap_creation_hook<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    asset_token: HumanAddr,
-) -> HandleResult {
+pub fn terraswap_creation_hook(deps: DepsMut, _env: Env, asset_token: Addr) -> StdResult<Response> {
     // Now terraswap contract is already created,
     // and liquidity token also created
-    let config: Config = read_config(&deps.storage)?;
-    let asset_token_raw = deps.api.canonical_address(&asset_token)?;
-    let sender_raw = deps.api.canonical_address(&env.message.sender)?;
-
-    if config.mirror_token == asset_token_raw {
-        store_weight(&mut deps.storage, &asset_token_raw, MIRROR_TOKEN_WEIGHT)?;
-        increase_total_weight(&mut deps.storage, MIRROR_TOKEN_WEIGHT)?;
-    } else if config.terraswap_factory != sender_raw {
-        return Err(StdError::unauthorized());
-    }
+    let config: Config = read_config(deps.storage)?;
 
     let asset_infos = [
         AssetInfo::NativeToken {
             denom: config.base_denom,
         },
         AssetInfo::Token {
-            contract_addr: asset_token.clone(),
+            contract_addr: asset_token.to_string(),
         },
     ];
 
     // Load terraswap pair info
     let pair_info: PairInfo = query_pair_info(
-        &deps,
-        &deps.api.human_address(&config.terraswap_factory)?,
+        &deps.querier,
+        deps.api.addr_humanize(&config.terraswap_factory)?,
         &asset_infos,
     )?;
 
     // Execute staking contract to register staking token of newly created asset
-    Ok(HandleResponse {
-        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: deps.api.human_address(&config.staking_contract)?,
-            send: vec![],
-            msg: to_binary(&StakingHandleMsg::RegisterAsset {
-                asset_token,
+    Ok(
+        Response::new().add_message(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: deps
+                .api
+                .addr_humanize(&config.staking_contract)?
+                .to_string(),
+            funds: vec![],
+            msg: to_binary(&StakingExecuteMsg::RegisterAsset {
+                asset_token: asset_token.to_string(),
                 staking_token: pair_info.liquidity_token,
             })?,
-        })],
-        log: vec![],
-        data: None,
-    })
+        })),
+    )
 }
 
 /// Distribute
 /// Anyone can execute distribute operation to distribute
 /// mirror inflation rewards on the staking pool
-pub fn distribute<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-) -> HandleResult {
-    let last_distributed = read_last_distributed(&deps.storage)?;
-    if last_distributed + DISTRIBUTION_INTERVAL > env.block.time {
+pub fn distribute(deps: DepsMut, env: Env) -> StdResult<Response> {
+    let last_distributed = read_last_distributed(deps.storage)?;
+    if last_distributed + DISTRIBUTION_INTERVAL > env.block.time.seconds() {
         return Err(StdError::generic_err(
             "Cannot distribute mirror token before interval",
         ));
     }
 
-    let config: Config = read_config(&deps.storage)?;
-    let time_elapsed = env.block.time - config.genesis_time;
+    let config: Config = read_config(deps.storage)?;
+    let time_elapsed = env.block.time.seconds() - config.genesis_time;
     let last_time_elapsed = last_distributed - config.genesis_time;
     let mut target_distribution_amount: Uint128 = Uint128::zero();
     for s in config.distribution_schedule.iter() {
@@ -488,16 +514,18 @@ pub fn distribute<S: Storage, A: Api, Q: Querier>(
 
         let time_slot = s.1 - s.0;
         let distribution_amount_per_sec: Decimal = Decimal::from_ratio(s.2, time_slot);
-        target_distribution_amount += distribution_amount_per_sec * Uint128(time_duration as u128);
+        target_distribution_amount +=
+            distribution_amount_per_sec * Uint128::from(time_duration as u128);
     }
 
-    let staking_contract = deps.api.human_address(&config.staking_contract)?;
-    let mirror_token = deps.api.human_address(&config.mirror_token)?;
+    let staking_contract = deps.api.addr_humanize(&config.staking_contract)?;
+    let mirror_token = deps.api.addr_humanize(&config.mirror_token)?;
 
-    let total_weight: u32 = read_total_weight(&deps.storage)?;
+    let total_weight: u32 = read_total_weight(deps.storage)?;
     let mut distribution_amount: Uint128 = Uint128::zero();
-    let weights: Vec<(CanonicalAddr, u32)> = read_all_weight(&deps.storage)?;
-    let rewards: Vec<(HumanAddr, Uint128)> = weights
+    let weights: Vec<(CanonicalAddr, u32)> = read_all_weight(deps.storage)?;
+
+    let rewards: Vec<(String, Uint128)> = weights
         .iter()
         .map(|w| {
             let amount = Uint128::from(
@@ -509,133 +537,110 @@ pub fn distribute<S: Storage, A: Api, Q: Querier>(
             }
 
             distribution_amount += amount;
-            Ok((deps.api.human_address(&w.0)?, amount))
+            Ok((deps.api.addr_humanize(&w.0)?.to_string(), amount))
         })
         .filter(|m| m.is_ok())
-        .collect::<StdResult<Vec<(HumanAddr, Uint128)>>>()?;
+        .collect::<StdResult<Vec<(String, Uint128)>>>()?;
 
     // store last distributed
-    store_last_distributed(&mut deps.storage, env.block.time)?;
-
-    const SPLIT_UNIT: usize = 10;
-    let rewards_vec: Vec<Vec<(HumanAddr, Uint128)>> =
-        rewards.chunks(SPLIT_UNIT).map(|v| v.to_vec()).collect();
+    store_last_distributed(deps.storage, env.block.time.seconds())?;
 
     // mint token to self and try send minted tokens to staking contract
-    Ok(HandleResponse {
-        messages: rewards_vec
-            .into_iter()
-            .map(|rewards| {
-                Ok(CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: mirror_token.clone(),
-                    msg: to_binary(&Cw20HandleMsg::Send {
-                        contract: staking_contract.clone(),
-                        amount: rewards.iter().map(|v| v.1.u128()).sum::<u128>().into(),
-                        msg: Some(to_binary(&StakingCw20HookMsg::DepositReward { rewards })?),
-                    })?,
-                    send: vec![],
-                }))
-            })
-            .collect::<StdResult<Vec<CosmosMsg>>>()?,
-        log: vec![
-            log("action", "distribute"),
-            log("distribution_amount", distribution_amount.to_string()),
-        ],
-        data: None,
-    })
+    const SPLIT_UNIT: usize = 10;
+    Ok(Response::new()
+        .add_messages(
+            rewards
+                .chunks(SPLIT_UNIT)
+                .map(|v| v.to_vec())
+                .into_iter()
+                .map(|rewards| {
+                    Ok(CosmosMsg::Wasm(WasmMsg::Execute {
+                        contract_addr: mirror_token.to_string(),
+                        msg: to_binary(&Cw20ExecuteMsg::Send {
+                            contract: staking_contract.to_string(),
+                            amount: rewards.iter().map(|v| v.1.u128()).sum::<u128>().into(),
+                            msg: to_binary(&StakingCw20HookMsg::DepositReward { rewards })?,
+                        })?,
+                        funds: vec![],
+                    }))
+                })
+                .collect::<StdResult<Vec<CosmosMsg>>>()?,
+        )
+        .add_attributes(vec![
+            attr("action", "distribute"),
+            attr("distribution_amount", distribution_amount.to_string()),
+        ]))
 }
 
-pub fn revoke_asset<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    asset_token: HumanAddr,
-    end_price: Option<Decimal>,
-) -> HandleResult {
-    let config: Config = read_config(&deps.storage)?;
-    let asset_token_raw: CanonicalAddr = deps.api.canonical_address(&asset_token)?;
-    let oracle: HumanAddr = deps.api.human_address(&config.oracle_contract)?;
-    let mint: HumanAddr = deps.api.human_address(&config.mint_contract)?;
-    let sender_raw = deps.api.canonical_address(&env.message.sender)?;
+pub fn revoke_asset(
+    deps: DepsMut,
+    info: MessageInfo,
+    asset_token: String,
+    end_price: Decimal,
+) -> StdResult<Response> {
+    let config: Config = read_config(deps.storage)?;
+    let asset_token_raw: CanonicalAddr = deps.api.addr_canonicalize(&asset_token)?;
+    let oracle_feeder: Addr = deps.api.addr_humanize(&load_oracle_feeder(
+        deps.as_ref(),
+        deps.api.addr_humanize(&config.oracle_contract)?,
+        &asset_token_raw,
+    )?)?;
+    let sender_raw = deps.api.addr_canonicalize(info.sender.as_str())?;
 
-    let end_price: Decimal = match end_price {
-        Some(value) => {
-            // only feeder can revoke_asset with end_price
-            let oracle_feeder: HumanAddr =
-                deps.api
-                    .human_address(&load_oracle_feeder(&deps, &oracle, &asset_token_raw)?)?;
-            if oracle_feeder != env.message.sender {
-                return Err(StdError::unauthorized());
-            }
+    // revoke asset can only be executed by the feeder or the owner (gov contract)
+    if oracle_feeder != info.sender && config.owner != sender_raw {
+        return Err(StdError::generic_err("unauthorized"));
+    }
 
-            value
-        }
-        None => {
-            // revoke asset without end_price can be called by owner
-            if config.owner != sender_raw {
-                return Err(StdError::unauthorized());
-            }
+    remove_weight(deps.storage, &asset_token_raw);
+    decrease_total_weight(deps.storage, NORMAL_TOKEN_WEIGHT)?;
 
-            // check if the asset has a preIPO price
-            let (_, _, pre_ipo_price) = load_mint_asset_config(&deps, &mint, &&asset_token_raw)?;
-            pre_ipo_price.unwrap_or(
-                // if there is no pre_ipo_price, fetch last reported price from oracle
-                query_last_price(&deps, &oracle, asset_token.to_string(), config.base_denom)?,
-            )
-        }
-    };
-
-    let weight = read_weight(&deps.storage, &asset_token_raw)?;
-    remove_weight(&mut deps.storage, &asset_token_raw);
-    decrease_total_weight(&mut deps.storage, weight)?;
-
-    Ok(HandleResponse {
-        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: deps.api.human_address(&config.mint_contract)?,
-            send: vec![],
-            msg: to_binary(&MintHandleMsg::RegisterMigration {
+    Ok(Response::new()
+        .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: deps.api.addr_humanize(&config.mint_contract)?.to_string(),
+            funds: vec![],
+            msg: to_binary(&MintExecuteMsg::RegisterMigration {
                 asset_token: asset_token.clone(),
                 end_price,
             })?,
-        })],
-        log: vec![
-            log("action", "revoke_asset"),
-            log("end_price", end_price.to_string()),
-            log("asset_token", asset_token.to_string()),
-        ],
-        data: None,
-    })
+        }))
+        .add_attributes(vec![
+            attr("action", "revoke_asset"),
+            attr("end_price", end_price.to_string()),
+            attr("asset_token", asset_token),
+        ]))
 }
 
-pub fn migrate_asset<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
+pub fn migrate_asset(
+    deps: DepsMut,
+    info: MessageInfo,
     name: String,
     symbol: String,
-    asset_token: HumanAddr,
+    asset_token: String,
     end_price: Decimal,
-) -> HandleResult {
-    let config: Config = read_config(&deps.storage)?;
-    let asset_token_raw: CanonicalAddr = deps.api.canonical_address(&asset_token)?;
-    let oracle_feeder: HumanAddr = deps.api.human_address(&load_oracle_feeder(
-        &deps,
-        &deps.api.human_address(&config.oracle_contract)?,
+) -> StdResult<Response> {
+    let config: Config = read_config(deps.storage)?;
+    let asset_token_raw: CanonicalAddr = deps.api.addr_canonicalize(&asset_token)?;
+    let oracle_feeder: Addr = deps.api.addr_humanize(&load_oracle_feeder(
+        deps.as_ref(),
+        deps.api.addr_humanize(&config.oracle_contract)?,
         &asset_token_raw,
     )?)?;
 
-    if oracle_feeder != env.message.sender {
-        return Err(StdError::unauthorized());
+    if oracle_feeder != info.sender {
+        return Err(StdError::generic_err("unauthorized"));
     }
 
-    let weight = read_weight(&deps.storage, &asset_token_raw)?;
-    remove_weight(&mut deps.storage, &asset_token_raw);
-    decrease_total_weight(&mut deps.storage, weight)?;
+    let weight = read_weight(deps.storage, &asset_token_raw)?;
+    remove_weight(deps.storage, &asset_token_raw);
+    decrease_total_weight(deps.storage, NORMAL_TOKEN_WEIGHT)?;
 
-    let mint_contract = deps.api.human_address(&config.mint_contract)?;
+    let mint_contract = deps.api.addr_humanize(&config.mint_contract)?;
     let mint_config: (Decimal, Decimal, _) =
-        load_mint_asset_config(&deps, &mint_contract, &asset_token_raw)?;
+        load_mint_asset_config(deps.as_ref(), mint_contract.clone(), &asset_token_raw)?;
 
     store_params(
-        &mut deps.storage,
+        deps.storage,
         &Params {
             auction_discount: mint_config.0,
             min_collateral_ratio: mint_config.1,
@@ -646,67 +651,72 @@ pub fn migrate_asset<S: Storage, A: Api, Q: Querier>(
         },
     )?;
 
-    Ok(HandleResponse {
-        messages: vec![
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: mint_contract,
-                send: vec![],
-                msg: to_binary(&MintHandleMsg::RegisterMigration {
-                    asset_token: asset_token.clone(),
-                    end_price,
-                })?,
-            }),
-            CosmosMsg::Wasm(WasmMsg::Instantiate {
+    // store oracle in temp storage to use in reply callback
+    store_tmp_oracle(deps.storage, &oracle_feeder)?;
+
+    Ok(Response::new()
+        .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: mint_contract.to_string(),
+            funds: vec![],
+            msg: to_binary(&MintExecuteMsg::RegisterMigration {
+                asset_token: asset_token.clone(),
+                end_price,
+            })?,
+        }))
+        .add_submessage(SubMsg {
+            // create asset token
+            msg: WasmMsg::Instantiate {
+                admin: None,
                 code_id: config.token_code_id,
-                send: vec![],
-                label: None,
-                msg: to_binary(&TokenInitMsg {
+                funds: vec![],
+                label: "".to_string(),
+                msg: to_binary(&TokenInstantiateMsg {
                     name,
                     symbol,
                     decimals: 6u8,
                     initial_balances: vec![],
                     mint: Some(MinterResponse {
-                        minter: deps.api.human_address(&config.mint_contract)?,
+                        minter: deps.api.addr_humanize(&config.mint_contract)?.to_string(),
                         cap: None,
                     }),
-                    init_hook: Some(InitHook {
-                        contract_addr: env.contract.address,
-                        msg: to_binary(&HandleMsg::TokenCreationHook { oracle_feeder })?,
-                    }),
                 })?,
-            }),
-        ],
-        log: vec![
-            log("action", "migration"),
-            log("end_price", end_price.to_string()),
-            log("asset_token", asset_token.to_string()),
-        ],
-        data: None,
-    })
+            }
+            .into(),
+            gas_limit: None,
+            id: 1,
+            reply_on: ReplyOn::Success,
+        })
+        .add_attributes(vec![
+            attr("action", "migration"),
+            attr("end_price", end_price.to_string()),
+            attr("asset_token", asset_token),
+        ]))
 }
 
-pub fn query<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    msg: QueryMsg,
-) -> StdResult<Binary> {
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::DistributionInfo {} => to_binary(&query_distribution_info(deps)?),
     }
 }
 
-pub fn query_config<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-) -> StdResult<ConfigResponse> {
-    let state = read_config(&deps.storage)?;
+pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
+    let state = read_config(deps.storage)?;
     let resp = ConfigResponse {
-        owner: deps.api.human_address(&state.owner)?,
-        mirror_token: deps.api.human_address(&state.mirror_token)?,
-        mint_contract: deps.api.human_address(&state.mint_contract)?,
-        oracle_contract: deps.api.human_address(&state.oracle_contract)?,
-        terraswap_factory: deps.api.human_address(&state.terraswap_factory)?,
-        staking_contract: deps.api.human_address(&state.staking_contract)?,
-        commission_collector: deps.api.human_address(&state.commission_collector)?,
+        owner: deps.api.addr_humanize(&state.owner)?.to_string(),
+        mirror_token: deps.api.addr_humanize(&state.mirror_token)?.to_string(),
+        mint_contract: deps.api.addr_humanize(&state.mint_contract)?.to_string(),
+        oracle_contract: deps.api.addr_humanize(&state.oracle_contract)?.to_string(),
+        terraswap_factory: deps
+            .api
+            .addr_humanize(&state.terraswap_factory)?
+            .to_string(),
+        staking_contract: deps.api.addr_humanize(&state.staking_contract)?.to_string(),
+        commission_collector: deps
+            .api
+            .addr_humanize(&state.commission_collector)?
+            .to_string(),
         token_code_id: state.token_code_id,
         base_denom: state.base_denom,
         genesis_time: state.genesis_time,
@@ -716,26 +726,21 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
     Ok(resp)
 }
 
-pub fn query_distribution_info<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-) -> StdResult<DistributionInfoResponse> {
-    let weights: Vec<(CanonicalAddr, u32)> = read_all_weight(&deps.storage)?;
-    let last_distributed = read_last_distributed(&deps.storage)?;
+pub fn query_distribution_info(deps: Deps) -> StdResult<DistributionInfoResponse> {
+    let weights: Vec<(CanonicalAddr, u32)> = read_all_weight(deps.storage)?;
+    let last_distributed = read_last_distributed(deps.storage)?;
     let resp = DistributionInfoResponse {
         last_distributed,
         weights: weights
             .iter()
-            .map(|w| Ok((deps.api.human_address(&w.0)?, w.1)))
-            .collect::<StdResult<Vec<(HumanAddr, u32)>>>()?,
+            .map(|w| Ok((deps.api.addr_humanize(&w.0)?.to_string(), w.1)))
+            .collect::<StdResult<Vec<(String, u32)>>>()?,
     };
 
     Ok(resp)
 }
 
-pub fn migrate<S: Storage, A: Api, Q: Querier>(
-    _deps: &mut Extern<S, A, Q>,
-    _env: Env,
-    _msg: MigrateMsg,
-) -> MigrateResult {
-    Ok(MigrateResponse::default())
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+    Ok(Response::default())
 }

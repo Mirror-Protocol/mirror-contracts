@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    log, to_binary, Api, CanonicalAddr, CosmosMsg, Decimal, Env, Extern, HandleResponse,
-    HandleResult, HumanAddr, Order, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
+    attr, to_binary, Addr, Api, CanonicalAddr, CosmosMsg, Decimal, Deps, DepsMut, Env, MessageInfo,
+    Order, Response, StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 
 use crate::querier::{compute_premium_rate, compute_short_reward_weight};
@@ -10,31 +10,31 @@ use crate::state::{
 };
 use mirror_protocol::staking::{RewardInfoResponse, RewardInfoResponseItem};
 
-use cw20::Cw20HandleMsg;
+use cw20::Cw20ExecuteMsg;
 
-pub fn adjust_premium<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    asset_tokens: Vec<HumanAddr>,
-) -> HandleResult {
-    let config: Config = read_config(&deps.storage)?;
-    let oracle_contract = deps.api.human_address(&config.oracle_contract)?;
-    let terraswap_factory = deps.api.human_address(&config.terraswap_factory)?;
-    let short_reward_contract = deps.api.human_address(&config.short_reward_contract)?;
+pub fn adjust_premium(deps: DepsMut, env: Env, asset_tokens: Vec<String>) -> StdResult<Response> {
+    let config: Config = read_config(deps.storage)?;
+    let oracle_contract = deps.api.addr_humanize(&config.oracle_contract)?;
+    let terraswap_factory = deps.api.addr_humanize(&config.terraswap_factory)?;
+    let short_reward_contract = deps.api.addr_humanize(&config.short_reward_contract)?;
     for asset_token in asset_tokens.iter() {
-        let asset_token_raw = deps.api.canonical_address(&asset_token)?;
-        let pool_info: PoolInfo = read_pool_info(&deps.storage, &asset_token_raw)?;
-        if env.block.time < pool_info.premium_updated_time + config.premium_min_update_interval {
+        let asset_token_raw = deps.api.addr_canonicalize(asset_token)?;
+        let pool_info: PoolInfo = read_pool_info(deps.storage, &asset_token_raw)?;
+        if env.block.time.seconds()
+            < pool_info.premium_updated_time + config.premium_min_update_interval
+        {
             return Err(StdError::generic_err(
                 "cannot adjust premium before premium_min_update_interval passed",
             ));
         }
 
+        let asset_token_addr = deps.api.addr_validate(asset_token)?;
+
         let (premium_rate, no_price_feed) = compute_premium_rate(
-            deps,
-            &oracle_contract,
-            &terraswap_factory,
-            asset_token,
+            deps.as_ref(),
+            oracle_contract.clone(),
+            terraswap_factory.clone(),
+            asset_token_addr,
             config.base_denom.to_string(),
         )?;
 
@@ -42,43 +42,40 @@ pub fn adjust_premium<S: Storage, A: Api, Q: Querier>(
         let short_reward_weight = if no_price_feed {
             Decimal::zero()
         } else {
-            compute_short_reward_weight(&deps.querier, &short_reward_contract, premium_rate)?
+            compute_short_reward_weight(&deps.querier, short_reward_contract.clone(), premium_rate)?
         };
 
         store_pool_info(
-            &mut deps.storage,
+            deps.storage,
             &asset_token_raw,
             &PoolInfo {
                 premium_rate,
                 short_reward_weight,
-                premium_updated_time: env.block.time,
+                premium_updated_time: env.block.time.seconds(),
                 ..pool_info
             },
         )?;
     }
 
-    Ok(HandleResponse {
-        log: vec![log("action", "premium_adjustment")],
-        ..HandleResponse::default()
-    })
+    Ok(Response::new().add_attributes(vec![attr("action", "premium_adjustment")]))
 }
 
 // deposit_reward must be from reward token contract
-pub fn deposit_reward<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    rewards: Vec<(HumanAddr, Uint128)>,
+pub fn deposit_reward(
+    deps: DepsMut,
+    rewards: Vec<(String, Uint128)>,
     rewards_amount: Uint128,
-) -> HandleResult {
+) -> StdResult<Response> {
     for (asset_token, amount) in rewards.iter() {
-        let asset_token_raw: CanonicalAddr = deps.api.canonical_address(&asset_token)?;
-        let mut pool_info: PoolInfo = read_pool_info(&deps.storage, &asset_token_raw)?;
+        let asset_token_raw: CanonicalAddr = deps.api.addr_canonicalize(asset_token)?;
+        let mut pool_info: PoolInfo = read_pool_info(deps.storage, &asset_token_raw)?;
 
         // Decimal::from_ratio(1, 5).mul()
         // erf(pool_info.premium_rate.0)
         // 3.0f64
         let total_reward = *amount;
         let mut short_reward = total_reward * pool_info.short_reward_weight;
-        let mut normal_reward = (total_reward - short_reward).unwrap();
+        let mut normal_reward = total_reward.checked_sub(short_reward).unwrap();
 
         if pool_info.total_bond_amount.is_zero() {
             pool_info.pending_reward += normal_reward;
@@ -100,53 +97,50 @@ pub fn deposit_reward<S: Storage, A: Api, Q: Querier>(
             pool_info.short_pending_reward = Uint128::zero();
         }
 
-        store_pool_info(&mut deps.storage, &asset_token_raw, &pool_info)?;
+        store_pool_info(deps.storage, &asset_token_raw, &pool_info)?;
     }
 
-    Ok(HandleResponse {
-        messages: vec![],
-        log: vec![
-            log("action", "deposit_reward"),
-            log("rewards_amount", rewards_amount.to_string()),
-        ],
-        data: None,
-    })
+    Ok(Response::new().add_attributes(vec![
+        attr("action", "deposit_reward"),
+        attr("rewards_amount", rewards_amount.to_string()),
+    ]))
 }
 
 // withdraw all rewards or single reward depending on asset_token
-pub fn withdraw_reward<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    asset_token: Option<HumanAddr>,
-) -> HandleResult {
-    let staker_addr = deps.api.canonical_address(&env.message.sender)?;
-    let asset_token = asset_token.map(|a| deps.api.canonical_address(&a).unwrap());
-    let normal_reward = _withdraw_reward(&mut deps.storage, &staker_addr, &asset_token, false)?;
-    let short_reward = _withdraw_reward(&mut deps.storage, &staker_addr, &asset_token, true)?;
+pub fn withdraw_reward(
+    deps: DepsMut,
+    info: MessageInfo,
+    asset_token: Option<Addr>,
+) -> StdResult<Response> {
+    let staker_addr = deps.api.addr_canonicalize(info.sender.as_str())?;
+    let asset_token = asset_token.map(|a| deps.api.addr_canonicalize(a.as_str()).unwrap());
+    let normal_reward = _withdraw_reward(deps.storage, &staker_addr, &asset_token, false)?;
+    let short_reward = _withdraw_reward(deps.storage, &staker_addr, &asset_token, true)?;
 
     let amount = normal_reward + short_reward;
-    let config: Config = read_config(&deps.storage)?;
-    Ok(HandleResponse {
-        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: deps.api.human_address(&config.mirror_token)?,
-            msg: to_binary(&Cw20HandleMsg::Transfer {
-                recipient: env.message.sender,
+    let config: Config = read_config(deps.storage)?;
+    Ok(Response::new()
+        .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: deps.api.addr_humanize(&config.mirror_token)?.to_string(),
+            msg: to_binary(&Cw20ExecuteMsg::Transfer {
+                recipient: info.sender.to_string(),
                 amount,
             })?,
-            send: vec![],
-        })],
-        log: vec![log("action", "withdraw"), log("amount", amount.to_string())],
-        data: None,
-    })
+            funds: vec![],
+        }))
+        .add_attributes(vec![
+            attr("action", "withdraw"),
+            attr("amount", amount.to_string()),
+        ]))
 }
 
-fn _withdraw_reward<S: Storage>(
-    storage: &mut S,
+fn _withdraw_reward(
+    storage: &mut dyn Storage,
     staker_addr: &CanonicalAddr,
     asset_token: &Option<CanonicalAddr>,
     is_short: bool,
 ) -> StdResult<Uint128> {
-    let rewards_bucket = rewards_read(storage, &staker_addr, is_short);
+    let rewards_bucket = rewards_read(storage, staker_addr, is_short);
 
     // single reward withdraw
     let reward_pairs: Vec<(CanonicalAddr, RewardInfo)>;
@@ -180,9 +174,9 @@ fn _withdraw_reward<S: Storage>(
 
         // Update rewards info
         if reward_info.bond_amount.is_zero() {
-            rewards_store(storage, &staker_addr, is_short).remove(asset_token_raw.as_slice());
+            rewards_store(storage, staker_addr, is_short).remove(asset_token_raw.as_slice());
         } else {
-            rewards_store(storage, &staker_addr, is_short)
+            rewards_store(storage, staker_addr, is_short)
                 .save(asset_token_raw.as_slice(), &reward_info)?;
         }
     }
@@ -202,36 +196,30 @@ pub fn before_share_change(
         pool_info.reward_index
     };
 
-    let pending_reward =
-        (reward_info.bond_amount * pool_index - reward_info.bond_amount * reward_info.index)?;
+    let pending_reward = (reward_info.bond_amount * pool_index)
+        .checked_sub(reward_info.bond_amount * reward_info.index)?;
 
     reward_info.index = pool_index;
     reward_info.pending_reward += pending_reward;
     Ok(())
 }
 
-pub fn query_reward_info<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    staker_addr: HumanAddr,
-    asset_token: Option<HumanAddr>,
+pub fn query_reward_info(
+    deps: Deps,
+    staker_addr: String,
+    asset_token: Option<String>,
 ) -> StdResult<RewardInfoResponse> {
-    let staker_addr_raw = deps.api.canonical_address(&staker_addr)?;
+    let staker_addr_raw = deps.api.addr_canonicalize(staker_addr.as_str())?;
 
     let reward_infos: Vec<RewardInfoResponseItem> = vec![
         _read_reward_infos(
-            &deps.api,
-            &deps.storage,
+            deps.api,
+            deps.storage,
             &staker_addr_raw,
             &asset_token,
             false,
         )?,
-        _read_reward_infos(
-            &deps.api,
-            &deps.storage,
-            &staker_addr_raw,
-            &asset_token,
-            true,
-        )?,
+        _read_reward_infos(deps.api, deps.storage, &staker_addr_raw, &asset_token, true)?,
     ]
     .concat();
 
@@ -241,17 +229,17 @@ pub fn query_reward_info<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-fn _read_reward_infos<S: Storage, A: Api>(
-    api: &A,
-    storage: &S,
+fn _read_reward_infos(
+    api: &dyn Api,
+    storage: &dyn Storage,
     staker_addr: &CanonicalAddr,
-    asset_token: &Option<HumanAddr>,
+    asset_token: &Option<String>,
     is_short: bool,
 ) -> StdResult<Vec<RewardInfoResponseItem>> {
-    let rewards_bucket = rewards_read(storage, &staker_addr, is_short);
+    let rewards_bucket = rewards_read(storage, staker_addr, is_short);
     let reward_infos: Vec<RewardInfoResponseItem>;
     if let Some(asset_token) = asset_token {
-        let asset_token_raw = api.canonical_address(&asset_token)?;
+        let asset_token_raw = api.addr_canonicalize(asset_token.as_str())?;
 
         reward_infos =
             if let Some(mut reward_info) = rewards_bucket.may_load(asset_token_raw.as_slice())? {
@@ -278,7 +266,7 @@ fn _read_reward_infos<S: Storage, A: Api>(
                 before_share_change(&pool_info, &mut reward_info, is_short)?;
 
                 Ok(RewardInfoResponseItem {
-                    asset_token: api.human_address(&asset_token_raw)?,
+                    asset_token: api.addr_humanize(&asset_token_raw)?.to_string(),
                     bond_amount: reward_info.bond_amount,
                     pending_reward: reward_info.pending_reward,
                     is_short,

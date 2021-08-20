@@ -21,10 +21,10 @@ pub struct Config {
     pub bluna_swap_denom: String,
 }
 
-pub fn store_config<S: Storage>(storage: &mut S, config: &Config) -> StdResult<()> {
+pub fn store_config(storage: &mut dyn Storage, config: &Config) -> StdResult<()> {
     singleton(storage, KEY_CONFIG).save(config)
 }
 
-pub fn read_config<S: Storage>(storage: &S) -> StdResult<Config> {
+pub fn read_config(storage: &dyn Storage) -> StdResult<Config> {
     singleton_read(storage, KEY_CONFIG).load()
 }

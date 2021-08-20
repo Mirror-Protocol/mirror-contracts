@@ -1,0 +1,119 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ExecuteMsg",
+  "anyOf": [
+    {
+      "type": "object",
+      "required": [
+        "update_config"
+      ],
+      "properties": {
+        "update_config": {
+          "type": "object",
+          "properties": {
+            "anchor_market": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "aust_token": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "base_denom": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "bluna_swap_denom": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "bluna_token": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "distribution_contract": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "mirror_token": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "owner": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "terraswap_factory": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "convert"
+      ],
+      "properties": {
+        "convert": {
+          "type": "object",
+          "required": [
+            "asset_token"
+          ],
+          "properties": {
+            "asset_token": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "distribute"
+      ],
+      "properties": {
+        "distribute": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "description": "Internal operation to swap Luna for UST",
+      "type": "object",
+      "required": [
+        "luna_swap_hook"
+      ],
+      "properties": {
+        "luna_swap_hook": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    }
+  ]
+}

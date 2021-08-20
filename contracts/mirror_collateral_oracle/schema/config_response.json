@@ -12,26 +12,21 @@
   ],
   "properties": {
     "anchor_oracle": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "band_oracle": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "base_denom": {
       "type": "string"
     },
     "mint_contract": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "mirror_oracle": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "owner": {
-      "$ref": "#/definitions/HumanAddr"
-    }
-  },
-  "definitions": {
-    "HumanAddr": {
       "type": "string"
     }
   }

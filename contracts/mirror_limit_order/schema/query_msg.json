@@ -21,7 +21,8 @@
             }
           }
         }
-      }
+      },
+      "additionalProperties": false
     },
     {
       "type": "object",
@@ -33,13 +34,9 @@
           "type": "object",
           "properties": {
             "bidder_addr": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/HumanAddr"
-                },
-                {
-                  "type": "null"
-                }
+              "type": [
+                "string",
+                "null"
               ]
             },
             "limit": {
@@ -70,7 +67,8 @@
             }
           }
         }
-      }
+      },
+      "additionalProperties": false
     },
     {
       "type": "object",
@@ -81,13 +79,11 @@
         "last_order_id": {
           "type": "object"
         }
-      }
+      },
+      "additionalProperties": false
     }
   ],
   "definitions": {
-    "HumanAddr": {
-      "type": "string"
-    },
     "OrderBy": {
       "type": "string",
       "enum": [

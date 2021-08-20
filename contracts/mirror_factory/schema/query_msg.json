@@ -11,7 +11,8 @@
         "config": {
           "type": "object"
         }
-      }
+      },
+      "additionalProperties": false
     },
     {
       "type": "object",
@@ -22,7 +23,8 @@
         "distribution_info": {
           "type": "object"
         }
-      }
+      },
+      "additionalProperties": false
     }
   ]
 }

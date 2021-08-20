@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{CanonicalAddr, Order, StdError, StdResult, Storage, Uint128};
+use cosmwasm_std::{Addr, CanonicalAddr, Order, StdError, StdResult, Storage, Uint128};
 use cosmwasm_storage::{singleton, singleton_read, Bucket, ReadonlyBucket, Singleton};
 
 use mirror_protocol::factory::Params;
@@ -10,6 +10,8 @@ static KEY_CONFIG: &[u8] = b"config";
 static KEY_PARAMS: &[u8] = b"params";
 static KEY_TOTAL_WEIGHT: &[u8] = b"total_weight";
 static KEY_LAST_DISTRIBUTED: &[u8] = b"last_distributed";
+static KEY_TMP_ORACLE: &[u8] = b"tmp_oracle_feeder";
+static KEY_TMP_ASSET: &[u8] = b"tmp_asset_token";
 
 static PREFIX_WEIGHT: &[u8] = b"weight";
 
@@ -28,78 +30,94 @@ pub struct Config {
     pub distribution_schedule: Vec<(u64, u64, Uint128)>, // [[start_time, end_time, distribution_amount], [], ...]
 }
 
-pub fn store_config<S: Storage>(storage: &mut S, config: &Config) -> StdResult<()> {
+pub fn store_tmp_oracle(storage: &mut dyn Storage, tmp_oracle: &Addr) -> StdResult<()> {
+    singleton(storage, KEY_TMP_ORACLE).save(tmp_oracle)
+}
+
+pub fn read_tmp_oracle(storage: &dyn Storage) -> StdResult<Addr> {
+    singleton_read(storage, KEY_TMP_ORACLE).load()
+}
+
+pub fn store_tmp_asset(storage: &mut dyn Storage, tmp_asset: &Addr) -> StdResult<()> {
+    singleton(storage, KEY_TMP_ASSET).save(tmp_asset)
+}
+
+pub fn read_tmp_asset(storage: &dyn Storage) -> StdResult<Addr> {
+    singleton_read(storage, KEY_TMP_ASSET).load()
+}
+
+pub fn store_config(storage: &mut dyn Storage, config: &Config) -> StdResult<()> {
     singleton(storage, KEY_CONFIG).save(config)
 }
 
-pub fn read_config<S: Storage>(storage: &S) -> StdResult<Config> {
+pub fn read_config(storage: &dyn Storage) -> StdResult<Config> {
     singleton_read(storage, KEY_CONFIG).load()
 }
 
-pub fn store_params<S: Storage>(storage: &mut S, init_data: &Params) -> StdResult<()> {
+pub fn store_params(storage: &mut dyn Storage, init_data: &Params) -> StdResult<()> {
     singleton(storage, KEY_PARAMS).save(init_data)
 }
 
-pub fn remove_params<S: Storage>(storage: &mut S) {
-    let mut store: Singleton<S, Params> = singleton(storage, KEY_PARAMS);
+pub fn remove_params(storage: &mut dyn Storage) {
+    let mut store: Singleton<Params> = singleton(storage, KEY_PARAMS);
     store.remove()
 }
 
-pub fn read_params<S: Storage>(storage: &S) -> StdResult<Params> {
+pub fn read_params(storage: &dyn Storage) -> StdResult<Params> {
     singleton_read(storage, KEY_PARAMS).load()
 }
 
-pub fn store_total_weight<S: Storage>(storage: &mut S, total_weight: u32) -> StdResult<()> {
+pub fn store_total_weight(storage: &mut dyn Storage, total_weight: u32) -> StdResult<()> {
     singleton(storage, KEY_TOTAL_WEIGHT).save(&total_weight)
 }
 
-pub fn increase_total_weight<S: Storage>(storage: &mut S, weight_increase: u32) -> StdResult<u32> {
-    let mut store: Singleton<S, u32> = singleton(storage, KEY_TOTAL_WEIGHT);
+pub fn increase_total_weight(storage: &mut dyn Storage, weight_increase: u32) -> StdResult<u32> {
+    let mut store: Singleton<u32> = singleton(storage, KEY_TOTAL_WEIGHT);
     store.update(|total_weight| Ok(total_weight + weight_increase))
 }
 
-pub fn decrease_total_weight<S: Storage>(storage: &mut S, weight_decrease: u32) -> StdResult<u32> {
-    let mut store: Singleton<S, u32> = singleton(storage, KEY_TOTAL_WEIGHT);
+pub fn decrease_total_weight(storage: &mut dyn Storage, weight_decrease: u32) -> StdResult<u32> {
+    let mut store: Singleton<u32> = singleton(storage, KEY_TOTAL_WEIGHT);
     store.update(|total_weight| Ok(total_weight - weight_decrease))
 }
 
-pub fn read_total_weight<S: Storage>(storage: &S) -> StdResult<u32> {
+pub fn read_total_weight(storage: &dyn Storage) -> StdResult<u32> {
     singleton_read(storage, KEY_TOTAL_WEIGHT).load()
 }
 
-pub fn store_last_distributed<S: Storage>(storage: &mut S, last_distributed: u64) -> StdResult<()> {
-    let mut store: Singleton<S, u64> = singleton(storage, KEY_LAST_DISTRIBUTED);
+pub fn store_last_distributed(storage: &mut dyn Storage, last_distributed: u64) -> StdResult<()> {
+    let mut store: Singleton<u64> = singleton(storage, KEY_LAST_DISTRIBUTED);
     store.save(&last_distributed)
 }
 
-pub fn read_last_distributed<S: Storage>(storage: &S) -> StdResult<u64> {
+pub fn read_last_distributed(storage: &dyn Storage) -> StdResult<u64> {
     singleton_read(storage, KEY_LAST_DISTRIBUTED).load()
 }
 
-pub fn store_weight<S: Storage>(
-    storage: &mut S,
+pub fn store_weight(
+    storage: &mut dyn Storage,
     asset_token: &CanonicalAddr,
     weight: u32,
 ) -> StdResult<()> {
-    let mut weight_bucket: Bucket<S, u32> = Bucket::new(PREFIX_WEIGHT, storage);
+    let mut weight_bucket: Bucket<u32> = Bucket::new(storage, PREFIX_WEIGHT);
     weight_bucket.save(asset_token.as_slice(), &weight)
 }
 
-pub fn read_weight<S: Storage>(storage: &S, asset_token: &CanonicalAddr) -> StdResult<u32> {
-    let weight_bucket: ReadonlyBucket<S, u32> = ReadonlyBucket::new(PREFIX_WEIGHT, storage);
+pub fn read_weight(storage: &dyn Storage, asset_token: &CanonicalAddr) -> StdResult<u32> {
+    let weight_bucket: ReadonlyBucket<u32> = ReadonlyBucket::new(storage, PREFIX_WEIGHT);
     match weight_bucket.load(asset_token.as_slice()) {
         Ok(v) => Ok(v),
         _ => Err(StdError::generic_err("No distribution info stored")),
     }
 }
 
-pub fn remove_weight<S: Storage>(storage: &mut S, asset_token: &CanonicalAddr) {
-    let mut weight_bucket: Bucket<S, u32> = Bucket::new(PREFIX_WEIGHT, storage);
+pub fn remove_weight(storage: &mut dyn Storage, asset_token: &CanonicalAddr) {
+    let mut weight_bucket: Bucket<u32> = Bucket::new(storage, PREFIX_WEIGHT);
     weight_bucket.remove(asset_token.as_slice());
 }
 
-pub fn read_all_weight<S: Storage>(storage: &S) -> StdResult<Vec<(CanonicalAddr, u32)>> {
-    let weight_bucket: ReadonlyBucket<S, u32> = ReadonlyBucket::new(PREFIX_WEIGHT, storage);
+pub fn read_all_weight(storage: &dyn Storage) -> StdResult<Vec<(CanonicalAddr, u32)>> {
+    let weight_bucket: ReadonlyBucket<u32> = ReadonlyBucket::new(storage, PREFIX_WEIGHT);
     weight_bucket
         .range(None, None, Order::Ascending)
         .map(|item| {

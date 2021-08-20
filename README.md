@@ -22,6 +22,7 @@ Mirror depends on [Terraswap](https://terraswap.io) and uses its [implementation
 | [`mirror_lock`](./contracts/mirror_lock)      | [doc](https://docs.mirror.finance/contracts/lock)   | Locks the UST obtained from selling mAssets on shorting positions |
 | [`mirror_collateral_oracle`](./contracts/mirror_collateral_oracle)      | [doc](https://docs.mirror.finance/contracts/collateral-oracle)   | Directory of whitelisted collateral assets, acts as a proxy to different price sources on the Terra ecosystem |
 | [`mirror_limit_order`](./contracts/mirror_limit_order)      | [doc](https://docs.mirror.finance/contracts/limit-order)   | Provides a limit order intrface for bidders and arbitrage opportunities for market makers |
+| [`mirror_short_reward`](./contracts/mirror_short_reward)      | [doc](https://docs.mirror.finance/contracts/short_reward)   | Implements the calculations to obtain the reward portion given to sLP stakers |
 
 ## Development
 
@@ -69,7 +70,7 @@ For production builds, run the following:
 docker run --rm -v "$(pwd)":/code \
   --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
   --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-  cosmwasm/workspace-optimizer:0.10.2
+  cosmwasm/workspace-optimizer:0.11.3
 ```
 
 This performs several optimizations which can significantly reduce the final size of the contract binaries, which will be available inside the `artifacts/` directory.

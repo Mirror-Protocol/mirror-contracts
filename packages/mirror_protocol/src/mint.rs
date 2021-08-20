@@ -1,21 +1,21 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Decimal, HumanAddr, Uint128};
+use cosmwasm_std::{Decimal, Uint128};
 use cw20::Cw20ReceiveMsg;
 use terraswap::asset::{Asset, AssetInfo};
 
 use crate::common::OrderBy;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct InitMsg {
-    pub owner: HumanAddr,
-    pub oracle: HumanAddr,
-    pub collector: HumanAddr,
-    pub collateral_oracle: HumanAddr,
-    pub staking: HumanAddr,
-    pub terraswap_factory: HumanAddr,
-    pub lock: HumanAddr,
+pub struct InstantiateMsg {
+    pub owner: String,
+    pub oracle: String,
+    pub collector: String,
+    pub collateral_oracle: String,
+    pub staking: String,
+    pub terraswap_factory: String,
+    pub lock: String,
     pub base_denom: String,
     pub token_code_id: u64,
     pub protocol_fee_rate: Decimal,
@@ -23,7 +23,7 @@ pub struct InitMsg {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum HandleMsg {
+pub enum ExecuteMsg {
     Receive(Cw20ReceiveMsg),
 
     //////////////////////
@@ -32,36 +32,37 @@ pub enum HandleMsg {
 
     /// Update config; only owner is allowed to execute it
     UpdateConfig {
-        owner: Option<HumanAddr>,
-        oracle: Option<HumanAddr>,
-        collector: Option<HumanAddr>,
-        collateral_oracle: Option<HumanAddr>,
-        terraswap_factory: Option<HumanAddr>,
-        lock: Option<HumanAddr>,
+        owner: Option<String>,
+        oracle: Option<String>,
+        collector: Option<String>,
+        collateral_oracle: Option<String>,
+        terraswap_factory: Option<String>,
+        lock: Option<String>,
         token_code_id: Option<u64>,
         protocol_fee_rate: Option<Decimal>,
+        staking: Option<String>,
     },
     /// Update asset related parameters
     UpdateAsset {
-        asset_token: HumanAddr,
+        asset_token: String,
         auction_discount: Option<Decimal>,
         min_collateral_ratio: Option<Decimal>,
         ipo_params: Option<IPOParams>,
     },
     /// Generate asset token initialize msg and register required infos except token address
     RegisterAsset {
-        asset_token: HumanAddr,
+        asset_token: String,
         auction_discount: Decimal,
         min_collateral_ratio: Decimal,
         ipo_params: Option<IPOParams>,
     },
     RegisterMigration {
-        asset_token: HumanAddr,
+        asset_token: String,
         end_price: Decimal,
     },
     /// Asset feeder is allowed to trigger IPO event on preIPO assets
     TriggerIPO {
-        asset_token: HumanAddr,
+        asset_token: String,
     },
 
     //////////////////////
@@ -127,14 +128,14 @@ pub enum Cw20HookMsg {
 pub enum QueryMsg {
     Config {},
     AssetConfig {
-        asset_token: HumanAddr,
+        asset_token: String,
     },
     Position {
         position_idx: Uint128,
     },
     Positions {
-        owner_addr: Option<HumanAddr>,
-        asset_token: Option<HumanAddr>,
+        owner_addr: Option<String>,
+        asset_token: Option<String>,
         start_after: Option<Uint128>,
         limit: Option<u32>,
         order_by: Option<OrderBy>,
@@ -145,13 +146,13 @@ pub enum QueryMsg {
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ConfigResponse {
-    pub owner: HumanAddr,
-    pub oracle: HumanAddr,
-    pub collector: HumanAddr,
-    pub collateral_oracle: HumanAddr,
-    pub staking: HumanAddr,
-    pub terraswap_factory: HumanAddr,
-    pub lock: HumanAddr,
+    pub owner: String,
+    pub oracle: String,
+    pub collector: String,
+    pub collateral_oracle: String,
+    pub staking: String,
+    pub terraswap_factory: String,
+    pub lock: String,
     pub base_denom: String,
     pub token_code_id: u64,
     pub protocol_fee_rate: Decimal,
@@ -160,7 +161,7 @@ pub struct ConfigResponse {
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct AssetConfigResponse {
-    pub token: HumanAddr,
+    pub token: String,
     pub auction_discount: Decimal,
     pub min_collateral_ratio: Decimal,
     pub end_price: Option<Decimal>,
@@ -170,7 +171,7 @@ pub struct AssetConfigResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct PositionResponse {
     pub idx: Uint128,
-    pub owner: HumanAddr,
+    pub owner: String,
     pub collateral: Asset,
     pub asset: Asset,
     pub is_short: bool,
@@ -187,4 +188,9 @@ pub struct NextPositionIdxResponse {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct MigrateMsg {}
+pub struct MigrateMsg {
+    pub collateral_oracle: String,
+    pub staking: String,
+    pub terraswap_factory: String,
+    pub lock: String,
+}

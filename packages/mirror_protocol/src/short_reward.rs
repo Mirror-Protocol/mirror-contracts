@@ -4,18 +4,16 @@ use serde::{Deserialize, Serialize};
 use cosmwasm_std::Decimal;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct InitMsg {}
+pub struct InstantiateMsg {}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum HandleMsg {}
+pub enum ExecuteMsg {}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
-    ShortRewardWeight { 
-        premium_rate: Decimal,
-    },
+    ShortRewardWeight { premium_rate: Decimal },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

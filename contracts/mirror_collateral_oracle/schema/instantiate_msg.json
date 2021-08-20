@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "InstantiateMsg",
+  "type": "object",
+  "required": [
+    "anchor_oracle",
+    "band_oracle",
+    "base_denom",
+    "mint_contract",
+    "mirror_oracle",
+    "owner"
+  ],
+  "properties": {
+    "anchor_oracle": {
+      "type": "string"
+    },
+    "band_oracle": {
+      "type": "string"
+    },
+    "base_denom": {
+      "type": "string"
+    },
+    "mint_contract": {
+      "type": "string"
+    },
+    "mirror_oracle": {
+      "type": "string"
+    },
+    "owner": {
+      "type": "string"
+    }
+  }
+}

@@ -3,63 +3,23 @@
   "title": "MigrateMsg",
   "type": "object",
   "required": [
-    "network"
+    "collateral_oracle",
+    "lock",
+    "staking",
+    "terraswap_factory"
   ],
   "properties": {
     "collateral_oracle": {
-      "anyOf": [
-        {
-          "$ref": "#/definitions/HumanAddr"
-        },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "lock": {
-      "anyOf": [
-        {
-          "$ref": "#/definitions/HumanAddr"
-        },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "network": {
-      "$ref": "#/definitions/Network"
-    },
-    "staking": {
-      "anyOf": [
-        {
-          "$ref": "#/definitions/HumanAddr"
-        },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "terraswap_factory": {
-      "anyOf": [
-        {
-          "$ref": "#/definitions/HumanAddr"
-        },
-        {
-          "type": "null"
-        }
-      ]
-    }
-  },
-  "definitions": {
-    "HumanAddr": {
       "type": "string"
     },
-    "Network": {
-      "type": "string",
-      "enum": [
-        "mainnet",
-        "testnet"
-      ]
+    "lock": {
+      "type": "string"
+    },
+    "staking": {
+      "type": "string"
+    },
+    "terraswap_factory": {
+      "type": "string"
     }
   }
 }

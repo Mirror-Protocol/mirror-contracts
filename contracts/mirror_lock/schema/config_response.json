@@ -18,14 +18,9 @@
       "minimum": 0.0
     },
     "mint_contract": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "owner": {
-      "$ref": "#/definitions/HumanAddr"
-    }
-  },
-  "definitions": {
-    "HumanAddr": {
       "type": "string"
     }
   }

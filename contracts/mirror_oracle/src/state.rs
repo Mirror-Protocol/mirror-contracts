@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Api, CanonicalAddr, Decimal, Extern, Querier, StdResult, Storage};
+use cosmwasm_std::{CanonicalAddr, Decimal, Deps, StdResult, Storage};
 use cosmwasm_storage::{singleton, singleton_read, Bucket, ReadonlyBucket};
 
 use mirror_protocol::common::OrderBy;
@@ -18,30 +18,26 @@ pub struct Config {
     pub base_asset: String,
 }
 
-pub fn store_config<S: Storage>(storage: &mut S, config: &Config) -> StdResult<()> {
+pub fn store_config(storage: &mut dyn Storage, config: &Config) -> StdResult<()> {
     singleton(storage, KEY_CONFIG).save(config)
 }
 
-pub fn read_config<S: Storage>(storage: &S) -> StdResult<Config> {
+pub fn read_config(storage: &dyn Storage) -> StdResult<Config> {
     singleton_read(storage, KEY_CONFIG).load()
 }
 
-pub fn store_feeder<S: Storage>(
-    storage: &mut S,
+pub fn store_feeder(
+    storage: &mut dyn Storage,
     asset_token: &CanonicalAddr,
     feeder: &CanonicalAddr,
 ) -> StdResult<()> {
-    let mut feeder_bucket: Bucket<S, CanonicalAddr> = Bucket::new(PREFIX_FEEDER, storage);
+    let mut feeder_bucket: Bucket<CanonicalAddr> = Bucket::new(storage, PREFIX_FEEDER);
 
     feeder_bucket.save(asset_token.as_slice(), feeder)
 }
 
-pub fn read_feeder<S: Storage>(
-    storage: &S,
-    asset_token: &CanonicalAddr,
-) -> StdResult<CanonicalAddr> {
-    let feeder_bucket: ReadonlyBucket<S, CanonicalAddr> =
-        ReadonlyBucket::new(PREFIX_FEEDER, storage);
+pub fn read_feeder(storage: &dyn Storage, asset_token: &CanonicalAddr) -> StdResult<CanonicalAddr> {
+    let feeder_bucket: ReadonlyBucket<CanonicalAddr> = ReadonlyBucket::new(storage, PREFIX_FEEDER);
     feeder_bucket.load(asset_token.as_slice())
 }
 
@@ -51,31 +47,30 @@ pub struct PriceInfo {
     pub last_updated_time: u64,
 }
 
-pub fn store_price<S: Storage>(
-    storage: &mut S,
+pub fn store_price(
+    storage: &mut dyn Storage,
     asset_token: &CanonicalAddr,
     price: &PriceInfo,
 ) -> StdResult<()> {
-    let mut price_bucket: Bucket<S, PriceInfo> = Bucket::new(PREFIX_PRICE, storage);
+    let mut price_bucket: Bucket<PriceInfo> = Bucket::new(storage, PREFIX_PRICE);
     price_bucket.save(asset_token.as_slice(), price)
 }
 
-pub fn read_price<S: Storage>(storage: &S, asset_token: &CanonicalAddr) -> StdResult<PriceInfo> {
-    let price_bucket: ReadonlyBucket<S, PriceInfo> = ReadonlyBucket::new(PREFIX_PRICE, storage);
+pub fn read_price(storage: &dyn Storage, asset_token: &CanonicalAddr) -> StdResult<PriceInfo> {
+    let price_bucket: ReadonlyBucket<PriceInfo> = ReadonlyBucket::new(storage, PREFIX_PRICE);
     price_bucket.load(asset_token.as_slice())
 }
 
 // settings for pagination
 const MAX_LIMIT: u32 = 30;
 const DEFAULT_LIMIT: u32 = 10;
-pub fn read_prices<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
+pub fn read_prices(
+    deps: Deps,
     start_after: Option<CanonicalAddr>,
     limit: Option<u32>,
     order_by: Option<OrderBy>,
 ) -> StdResult<Vec<PricesResponseElem>> {
-    let price_bucket: ReadonlyBucket<S, PriceInfo> =
-        ReadonlyBucket::new(PREFIX_PRICE, &deps.storage);
+    let price_bucket: ReadonlyBucket<PriceInfo> = ReadonlyBucket::new(deps.storage, PREFIX_PRICE);
 
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
     let (start, end, order_by) = match order_by {
@@ -89,7 +84,7 @@ pub fn read_prices<S: Storage, A: Api, Q: Querier>(
         .map(|item| {
             let (k, v) = item?;
 
-            let asset_token = deps.api.human_address(&CanonicalAddr::from(k))?;
+            let asset_token = deps.api.addr_humanize(&CanonicalAddr::from(k))?.to_string();
             Ok(PricesResponseElem {
                 asset_token,
                 price: v.price,
