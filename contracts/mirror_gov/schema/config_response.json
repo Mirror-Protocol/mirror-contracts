@@ -4,7 +4,6 @@
   "type": "object",
   "required": [
     "effective_delay",
-    "expiration_period",
     "mirror_token",
     "owner",
     "proposal_deposit",
@@ -16,11 +15,6 @@
   ],
   "properties": {
     "effective_delay": {
-      "type": "integer",
-      "format": "uint64",
-      "minimum": 0.0
-    },
-    "expiration_period": {
       "type": "integer",
       "format": "uint64",
       "minimum": 0.0

@@ -53,7 +53,7 @@ pub fn open_position(
             deps.as_ref(),
             collateral_oracle,
             &collateral_info_raw,
-            Some(env.block.time.nanos() / 1_000_000_000),
+            Some(env.block.time.seconds()),
             Some(env.block.height),
         )?)?;
 
@@ -84,7 +84,7 @@ pub fn open_position(
         deps.as_ref(),
         oracle,
         &asset_info_raw,
-        Some(env.block.time.nanos() / 1_000_000_000),
+        Some(env.block.time.seconds()),
     )?;
 
     let asset_price_in_collateral_asset = decimal_division(collateral_price, asset_price);
@@ -156,7 +156,7 @@ pub fn open_position(
                 contract_addr: asset_token.clone(),
                 funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Send {
-                    contract: pair_info.contract_addr.to_string(),
+                    contract: pair_info.contract_addr,
                     amount: mint_amount,
                     msg: to_binary(&PairCw20HookMsg::Swap {
                         belief_price: short_params.belief_price,
@@ -300,18 +300,24 @@ pub fn withdraw(
         deps.as_ref(),
         oracle,
         &position.asset.info,
-        Some(env.block.time.nanos() / 1_000_000_000),
+        Some(env.block.time.seconds()),
     )?;
 
     // Fetch collateral info from collateral oracle
     let collateral_oracle: Addr = deps.api.addr_humanize(&config.collateral_oracle)?;
-    let (collateral_price, collateral_multiplier, _collateral_is_revoked) = load_collateral_info(
-        deps.as_ref(),
-        collateral_oracle,
-        &position.collateral.info,
-        Some(env.block.time.nanos() / 1_000_000_000),
-        Some(env.block.height),
-    )?;
+    let (collateral_price, mut collateral_multiplier, _collateral_is_revoked) =
+        load_collateral_info(
+            deps.as_ref(),
+            collateral_oracle,
+            &position.collateral.info,
+            Some(env.block.time.seconds()),
+            Some(env.block.height),
+        )?;
+
+    // ignore multiplier for delisted assets
+    if asset_config.end_price.is_some() {
+        collateral_multiplier = Decimal::one();
+    }
 
     // Compute new collateral amount
     let collateral_amount: Uint128 = position.collateral.amount.checked_sub(collateral.amount)?;
@@ -403,7 +409,7 @@ pub fn mint(
             deps.as_ref(),
             collateral_oracle,
             &position.collateral.info,
-            Some(env.block.time.nanos() / 1_000_000_000),
+            Some(env.block.time.seconds()),
             Some(env.block.height),
         )?)?;
 
@@ -415,7 +421,7 @@ pub fn mint(
         deps.as_ref(),
         oracle,
         &position.asset.info,
-        Some(env.block.time.nanos() / 1_000_000_000),
+        Some(env.block.time.seconds()),
     )?;
 
     // Compute new asset amount
@@ -474,7 +480,7 @@ pub fn mint(
                 contract_addr: asset_token.to_string(),
                 funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Send {
-                    contract: pair_info.contract_addr.to_string(),
+                    contract: pair_info.contract_addr,
                     amount: mint_amount,
                     msg: to_binary(
                         &(if let Some(short_params) = short_params {
@@ -577,7 +583,7 @@ pub fn burn(
         deps.as_ref(),
         collateral_oracle,
         &position.collateral.info,
-        Some(env.block.time.nanos() / 1_000_000_000),
+        Some(env.block.time.seconds()),
         Some(env.block.height),
     )?;
 
@@ -649,18 +655,17 @@ pub fn burn(
             return Err(StdError::generic_err("unauthorized"));
         }
         let oracle = deps.api.addr_humanize(&config.oracle)?;
-        let current_seconds = env.block.time.nanos() / 1_000_000_000u64;
         let asset_price: Decimal = load_asset_price(
             deps.as_ref(),
             oracle,
             &asset.info.to_raw(deps.api)?,
-            Some(current_seconds),
+            Some(env.block.time.seconds()),
         )?;
         let collateral_price_in_asset: Decimal = decimal_division(asset_price, collateral_price);
 
         // Subtract the protocol fee from the position's collateral
         let protocol_fee = Asset {
-            info: collateral_info.clone(),
+            info: collateral_info,
             amount: burn_amount * collateral_price_in_asset * config.protocol_fee_rate,
         };
 
@@ -765,7 +770,7 @@ pub fn auction(
         deps.as_ref(),
         oracle,
         &position.asset.info,
-        Some(env.block.time.nanos() / 1_000_000_000),
+        Some(env.block.time.seconds()),
     )?;
 
     // fetch collateral info from collateral oracle
@@ -774,7 +779,7 @@ pub fn auction(
         deps.as_ref(),
         collateral_oracle,
         &position.collateral.info,
-        Some(env.block.time.nanos() / 1_000_000_000),
+        Some(env.block.time.seconds()),
         Some(env.block.height),
     )?;
 

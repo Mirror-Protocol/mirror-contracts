@@ -1,11 +1,3 @@
-#[cfg(not(feature = "library"))]
-use cosmwasm_std::entry_point;
-
-use cosmwasm_std::{
-    attr, from_binary, to_binary, Addr, Binary, CanonicalAddr, CosmosMsg, Decimal, Deps, DepsMut,
-    Env, MessageInfo, Response, StdError, StdResult, Uint128, WasmMsg,
-};
-
 use crate::{
     asserts::{assert_auction_discount, assert_min_collateral_ratio, assert_protocol_fee},
     positions::{
@@ -18,7 +10,12 @@ use crate::{
         AssetConfig, Config,
     },
 };
-
+#[cfg(not(feature = "library"))]
+use cosmwasm_std::entry_point;
+use cosmwasm_std::{
+    attr, from_binary, to_binary, Addr, Binary, CanonicalAddr, CosmosMsg, Decimal, Deps, DepsMut,
+    Env, MessageInfo, Response, StdError, StdResult, Uint128, WasmMsg,
+};
 use cw20::Cw20ReceiveMsg;
 use mirror_protocol::collateral_oracle::{ExecuteMsg as CollateralOracleExecuteMsg, SourceType};
 use mirror_protocol::mint::{
@@ -65,6 +62,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
             lock,
             token_code_id,
             protocol_fee_rate,
+            staking,
         } => update_config(
             deps,
             info,
@@ -76,6 +74,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
             lock,
             token_code_id,
             protocol_fee_rate,
+            staking,
         ),
         ExecuteMsg::UpdateAsset {
             asset_token,
@@ -136,7 +135,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
 
             open_position(
                 deps,
-                env.clone(),
+                env,
                 info.sender,
                 collateral,
                 asset_info,
@@ -216,6 +215,7 @@ pub fn receive_cw20(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn update_config(
     deps: DepsMut,
     info: MessageInfo,
@@ -227,6 +227,7 @@ pub fn update_config(
     lock: Option<String>,
     token_code_id: Option<u64>,
     protocol_fee_rate: Option<Decimal>,
+    staking: Option<String>,
 ) -> StdResult<Response> {
     let mut config: Config = read_config(deps.storage)?;
 
@@ -267,6 +268,10 @@ pub fn update_config(
         config.protocol_fee_rate = protocol_fee_rate;
     }
 
+    if let Some(staking) = staking {
+        config.staking = deps.api.addr_canonicalize(&staking)?;
+    }
+
     store_config(deps.storage, &config)?;
     Ok(Response::new().add_attribute("action", "update_config"))
 }
@@ -280,7 +285,7 @@ pub fn update_asset(
     ipo_params: Option<IPOParams>,
 ) -> StdResult<Response> {
     let config: Config = read_config(deps.storage)?;
-    let asset_token_raw = deps.api.addr_canonicalize(&asset_token.as_str())?;
+    let asset_token_raw = deps.api.addr_canonicalize(asset_token.as_str())?;
     let mut asset: AssetConfig = read_asset_config(deps.storage, &asset_token_raw)?;
 
     if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner {

@@ -1,21 +1,18 @@
-#[cfg(not(feature = "library"))]
-use cosmwasm_std::entry_point;
-
 use crate::querier::query_price;
 use crate::state::{
     read_collateral_info, read_collateral_infos, read_config, store_collateral_info, store_config,
     CollateralAssetInfo, Config,
 };
+#[cfg(not(feature = "library"))]
+use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     to_binary, Binary, CanonicalAddr, Decimal, Deps, DepsMut, Env, MessageInfo, Response, StdError,
     StdResult,
 };
-
 use mirror_protocol::collateral_oracle::{
     CollateralInfoResponse, CollateralInfosResponse, CollateralPriceResponse, ConfigResponse,
     ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, SourceType,
 };
-
 use terraswap::asset::AssetInfo;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -81,6 +78,7 @@ pub fn execute(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn update_config(
     deps: DepsMut,
     info: MessageInfo,

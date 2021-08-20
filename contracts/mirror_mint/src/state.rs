@@ -63,7 +63,7 @@ pub fn store_asset_config(
     asset: &AssetConfig,
 ) -> StdResult<()> {
     let mut asset_bucket: Bucket<AssetConfig> = Bucket::new(storage, PREFIX_ASSET_CONFIG);
-    asset_bucket.save(asset_token.as_slice(), &asset)
+    asset_bucket.save(asset_token.as_slice(), asset)
 }
 
 pub fn read_asset_config(
@@ -90,10 +90,8 @@ pub fn read_fixed_price(storage: &dyn Storage, asset_info: &AssetInfoRaw) -> Opt
                 Ok(data) => {
                     if data.end_price.is_some() {
                         data.end_price
-                    } else if let Some(ipo_params) = data.ipo_params {
-                        Some(ipo_params.pre_ipo_price)
                     } else {
-                        None
+                        data.ipo_params.map(|ipo_params| ipo_params.pre_ipo_price)
                     }
                 }
                 _ => None,
@@ -135,7 +133,7 @@ pub fn create_position(
     position: &Position,
 ) -> StdResult<()> {
     let mut position_bucket: Bucket<Position> = Bucket::new(storage, PREFIX_POSITION);
-    position_bucket.save(&idx.u128().to_be_bytes(), &position)?;
+    position_bucket.save(&idx.u128().to_be_bytes(), position)?;
 
     let mut position_indexer_by_user: Bucket<bool> =
         Bucket::multilevel(storage, &[PREFIX_INDEX_BY_USER, position.owner.as_slice()]);
@@ -157,7 +155,7 @@ pub fn store_position(
     position: &Position,
 ) -> StdResult<()> {
     let mut position_bucket: Bucket<Position> = Bucket::new(storage, PREFIX_POSITION);
-    position_bucket.save(&idx.u128().to_be_bytes(), &position)?;
+    position_bucket.save(&idx.u128().to_be_bytes(), position)?;
     Ok(())
 }
 

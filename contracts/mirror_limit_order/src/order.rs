@@ -1,16 +1,14 @@
-use cosmwasm_std::{
-    attr, Addr, CosmosMsg, Decimal, Deps, DepsMut, MessageInfo, Response, StdError, StdResult,
-    Uint128,
-};
-
-use terraswap::asset::Asset;
-
 use crate::state::{
     increase_last_order_id, read_last_order_id, read_order, read_orders,
     read_orders_with_bidder_indexer, remove_order, store_order, Order,
 };
+use cosmwasm_std::{
+    attr, Addr, CosmosMsg, Decimal, Deps, DepsMut, MessageInfo, Response, StdError, StdResult,
+    Uint128,
+};
 use mirror_protocol::common::OrderBy;
 use mirror_protocol::limit_order::{LastOrderIdResponse, OrderResponse, OrdersResponse};
+use terraswap::asset::Asset;
 
 pub fn submit_order(
     deps: DepsMut,
@@ -26,7 +24,7 @@ pub fn submit_order(
         deps.storage,
         &Order {
             order_id,
-            bidder_addr: deps.api.addr_canonicalize(&sender.as_str())?,
+            bidder_addr: deps.api.addr_canonicalize(sender.as_str())?,
             offer_asset: offer_asset_raw,
             ask_asset: ask_asset_raw,
             filled_offer_amount: Uint128::zero(),
@@ -123,8 +121,8 @@ pub fn execute_order(
     if left_ask_amount == bidder_receive.amount {
         remove_order(deps.storage, &order);
     } else {
-        order.filled_ask_amount = order.filled_ask_amount + bidder_receive.amount;
-        order.filled_offer_amount = order.filled_offer_amount + executor_receive.amount;
+        order.filled_ask_amount += bidder_receive.amount;
+        order.filled_offer_amount += executor_receive.amount;
         store_order(deps.storage, &order)?;
     }
 

@@ -11,6 +11,7 @@ use mirror_protocol::gov::{PollStatus, VoterInfo};
 
 static KEY_CONFIG: &[u8] = b"config";
 static KEY_STATE: &[u8] = b"state";
+static KEY_TMP_POLL_ID: &[u8] = b"tmp_poll_id";
 
 static PREFIX_POLL_INDEXER: &[u8] = b"poll_indexer";
 static PREFIX_POLL_VOTER: &[u8] = b"poll_voter";
@@ -28,7 +29,7 @@ pub struct Config {
     pub threshold: Decimal,
     pub voting_period: u64,
     pub effective_delay: u64,
-    pub expiration_period: u64,
+    pub expiration_period: u64, // deprecated, to remove on next state migration
     pub proposal_deposit: Uint128,
     pub voter_weight: Decimal,
     pub snapshot_period: u64,
@@ -74,6 +75,14 @@ pub struct Poll {
 pub struct ExecuteData {
     pub contract: CanonicalAddr,
     pub msg: Binary,
+}
+
+pub fn store_tmp_poll_id(storage: &mut dyn Storage, tmp_poll_id: u64) -> StdResult<()> {
+    singleton(storage, KEY_TMP_POLL_ID).save(&tmp_poll_id)
+}
+
+pub fn read_tmp_poll_id(storage: &dyn Storage) -> StdResult<u64> {
+    singleton_read(storage, KEY_TMP_POLL_ID).load()
 }
 
 pub fn config_store(storage: &mut dyn Storage) -> Singleton<Config> {

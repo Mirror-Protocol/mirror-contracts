@@ -40,6 +40,7 @@ pub enum ExecuteMsg {
         lock: Option<String>,
         token_code_id: Option<u64>,
         protocol_fee_rate: Option<Decimal>,
+        staking: Option<String>,
     },
     /// Update asset related parameters
     UpdateAsset {

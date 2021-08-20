@@ -244,7 +244,8 @@
         "passed",
         "rejected",
         "executed",
-        "expired"
+        "expired",
+        "failed"
       ]
     }
   }

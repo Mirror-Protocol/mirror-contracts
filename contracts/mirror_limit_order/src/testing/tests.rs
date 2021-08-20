@@ -105,7 +105,7 @@ fn submit_order() {
             amount: Uint128::from(1000000u128),
         }],
     );
-    let res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
         res.attributes,
         vec![
@@ -140,7 +140,7 @@ fn submit_order() {
     });
 
     let info = mock_info("mAAPL", &[]);
-    let res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
         res.attributes,
         vec![
@@ -229,8 +229,8 @@ fn cancel_order_native_token() {
     );
 
     // failed no order exists
-    let res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone());
-    assert_eq!(true, res.is_err());
+    let res = execute(deps.as_mut(), mock_env(), info, msg);
+    assert!(res.is_err())
 }
 
 #[test]
@@ -298,8 +298,8 @@ fn cancel_order_token() {
     );
 
     // failed no order exists
-    let res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone());
-    assert_eq!(true, res.is_err());
+    let res = execute(deps.as_mut(), mock_env(), info, msg);
+    assert!(res.is_err())
 }
 
 #[test]
@@ -370,7 +370,7 @@ fn execute_order_native_token() {
             amount: Uint128::from(500000u128),
         }],
     );
-    let res = execute(deps.as_mut(), mock_env(), info.clone(), msg);
+    let res = execute(deps.as_mut(), mock_env(), info, msg);
     match res {
         Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "invalid asset given"),
         _ => panic!("DO NOT ENTER HERE"),
@@ -460,10 +460,7 @@ fn execute_order_native_token() {
         ]
     );
 
-    assert_eq!(
-        true,
-        query(deps.as_ref(), mock_env(), QueryMsg::Order { order_id: 1 }).is_err()
-    );
+    assert!(query(deps.as_ref(), mock_env(), QueryMsg::Order { order_id: 1 }).is_err())
 }
 
 #[test]
@@ -498,7 +495,7 @@ fn execute_order_token() {
     });
 
     let info = mock_info("token0000", &[]);
-    let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // cannot execute order with other asset
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
@@ -591,10 +588,7 @@ fn execute_order_token() {
         ]
     );
 
-    assert_eq!(
-        true,
-        query(deps.as_ref(), mock_env(), QueryMsg::Order { order_id: 1 }).is_err()
-    );
+    assert!(query(deps.as_ref(), mock_env(), QueryMsg::Order { order_id: 1 }).is_err())
 }
 
 #[test]
@@ -636,7 +630,7 @@ fn orders_querier() {
             amount: Uint128::from(1000000u128),
         }],
     );
-    let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
         sender: "addr0000".to_string(),
@@ -653,7 +647,7 @@ fn orders_querier() {
     });
 
     let info = mock_info("token0000", &[]);
-    let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     let order_1 = OrderResponse {
         order_id: 1u64,
@@ -776,7 +770,7 @@ fn orders_querier() {
     // start after DESC
     assert_eq!(
         OrdersResponse {
-            orders: vec![order_1.clone()],
+            orders: vec![order_1],
         },
         from_binary::<OrdersResponse>(
             &query(
@@ -797,7 +791,7 @@ fn orders_querier() {
     // start after ASC
     assert_eq!(
         OrdersResponse {
-            orders: vec![order_2.clone()],
+            orders: vec![order_2],
         },
         from_binary::<OrdersResponse>(
             &query(

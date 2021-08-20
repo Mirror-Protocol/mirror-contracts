@@ -1,6 +1,6 @@
 # Mirror Limit Order <!-- omit in toc -->
 
-<!-- **NOTE**: Reference documentation for this contract is available [here](https://docs.mirror.finance/contracts/staker). -->
+**NOTE**: Reference documentation for this contract is available [here](https://docs.mirror.finance/contracts/limit-order).
 
 The Limit Order Contract is to provide limit order interface to a bidder and also provide arbitrage opportunity to a market maker.
 

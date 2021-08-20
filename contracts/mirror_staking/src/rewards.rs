@@ -18,9 +18,9 @@ pub fn adjust_premium(deps: DepsMut, env: Env, asset_tokens: Vec<String>) -> Std
     let terraswap_factory = deps.api.addr_humanize(&config.terraswap_factory)?;
     let short_reward_contract = deps.api.addr_humanize(&config.short_reward_contract)?;
     for asset_token in asset_tokens.iter() {
-        let asset_token_raw = deps.api.addr_canonicalize(&asset_token)?;
+        let asset_token_raw = deps.api.addr_canonicalize(asset_token)?;
         let pool_info: PoolInfo = read_pool_info(deps.storage, &asset_token_raw)?;
-        if env.block.time.nanos() / 1_000_000_000
+        if env.block.time.seconds()
             < pool_info.premium_updated_time + config.premium_min_update_interval
         {
             return Err(StdError::generic_err(
@@ -51,7 +51,7 @@ pub fn adjust_premium(deps: DepsMut, env: Env, asset_tokens: Vec<String>) -> Std
             &PoolInfo {
                 premium_rate,
                 short_reward_weight,
-                premium_updated_time: env.block.time.nanos() / 1_000_000_000,
+                premium_updated_time: env.block.time.seconds(),
                 ..pool_info
             },
         )?;
@@ -67,7 +67,7 @@ pub fn deposit_reward(
     rewards_amount: Uint128,
 ) -> StdResult<Response> {
     for (asset_token, amount) in rewards.iter() {
-        let asset_token_raw: CanonicalAddr = deps.api.addr_canonicalize(&asset_token)?;
+        let asset_token_raw: CanonicalAddr = deps.api.addr_canonicalize(asset_token)?;
         let mut pool_info: PoolInfo = read_pool_info(deps.storage, &asset_token_raw)?;
 
         // Decimal::from_ratio(1, 5).mul()
@@ -140,7 +140,7 @@ fn _withdraw_reward(
     asset_token: &Option<CanonicalAddr>,
     is_short: bool,
 ) -> StdResult<Uint128> {
-    let rewards_bucket = rewards_read(storage, &staker_addr, is_short);
+    let rewards_bucket = rewards_read(storage, staker_addr, is_short);
 
     // single reward withdraw
     let reward_pairs: Vec<(CanonicalAddr, RewardInfo)>;
@@ -174,9 +174,9 @@ fn _withdraw_reward(
 
         // Update rewards info
         if reward_info.bond_amount.is_zero() {
-            rewards_store(storage, &staker_addr, is_short).remove(asset_token_raw.as_slice());
+            rewards_store(storage, staker_addr, is_short).remove(asset_token_raw.as_slice());
         } else {
-            rewards_store(storage, &staker_addr, is_short)
+            rewards_store(storage, staker_addr, is_short)
                 .save(asset_token_raw.as_slice(), &reward_info)?;
         }
     }
@@ -236,7 +236,7 @@ fn _read_reward_infos(
     asset_token: &Option<String>,
     is_short: bool,
 ) -> StdResult<Vec<RewardInfoResponseItem>> {
-    let rewards_bucket = rewards_read(storage, &staker_addr, is_short);
+    let rewards_bucket = rewards_read(storage, staker_addr, is_short);
     let reward_infos: Vec<RewardInfoResponseItem>;
     if let Some(asset_token) = asset_token {
         let asset_token_raw = api.addr_canonicalize(asset_token.as_str())?;

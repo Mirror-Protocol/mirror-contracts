@@ -121,7 +121,7 @@ pub fn try_feed_price(
         }
 
         let mut state: PriceInfo = read_price(deps.storage, &asset_token_raw)?;
-        state.last_updated_time = env.block.time.nanos() / 1_000_000_000;
+        state.last_updated_time = env.block.time.seconds();
         state.price = price.1;
 
         store_price(deps.storage, &asset_token_raw, &state)?;

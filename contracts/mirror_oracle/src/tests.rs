@@ -69,6 +69,82 @@ fn update_config() {
 }
 
 #[test]
+fn update_price() {
+    let mut deps = mock_dependencies(&[]);
+    let msg = InstantiateMsg {
+        owner: "owner0000".to_string(),
+        base_asset: "base0000".to_string(),
+    };
+
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    // register asset
+    let msg = ExecuteMsg::RegisterAsset {
+        asset_token: "mAAPL".to_string(),
+        feeder: "addr0000".to_string(),
+    };
+
+    let info = mock_info("addr0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
+    match res {
+        StdError::GenericErr { msg, .. } => assert_eq!(msg, "unauthorized"),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    let msg = ExecuteMsg::RegisterAsset {
+        asset_token: "mAAPL".to_string(),
+        feeder: "addr0001".to_string(),
+    };
+
+    let info = mock_info("owner0000", &[]);
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    // try update an asset already exists
+    let msg = ExecuteMsg::RegisterAsset {
+        asset_token: "mAAPL".to_string(),
+        feeder: "addr0000".to_string(),
+    };
+
+    let info = mock_info("owner0000", &[]);
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    // update price
+    let msg = ExecuteMsg::FeedPrice {
+        prices: vec![("mAAPL".to_string(), Decimal::from_ratio(12u128, 10u128))],
+    };
+
+    let info = mock_info("addr0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+    assert_eq!(0, res.messages.len());
+
+    // it worked, let's query the state
+    let query_result = query(
+        deps.as_ref(),
+        mock_env(),
+        QueryMsg::Price {
+            base_asset: "mAAPL".to_string(),
+            quote_asset: "base0000".to_string(),
+        },
+    )
+    .unwrap();
+    let value: PriceResponse = from_binary(&query_result).unwrap();
+    assert_eq!("1.2", format!("{}", value.rate));
+
+    // Unauthorzied err
+    let info = mock_info("addr0001", &[]);
+    let msg = ExecuteMsg::FeedPrice {
+        prices: vec![("mAAPL".to_string(), Decimal::from_ratio(12u128, 10u128))],
+    };
+
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
+    match res {
+        StdError::GenericErr { msg, .. } => assert_eq!(msg, "unauthorized"),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+}
+
+#[test]
 fn feed_price() {
     let mut deps = mock_dependencies(&[]);
 
@@ -160,7 +236,7 @@ fn feed_price() {
         ],
     };
     let info = mock_info("addr0000", &[]);
-    let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     let env = mock_env();
     let res = query(
@@ -178,7 +254,7 @@ fn feed_price() {
         price_res,
         PriceResponse {
             rate: Decimal::from_ratio(12u128, 10u128),
-            last_updated_base: env.block.time.nanos() / 1_000_000_000,
+            last_updated_base: env.block.time.seconds(),
             last_updated_quote: u64::MAX,
         }
     );
@@ -203,12 +279,12 @@ fn feed_price() {
                 PricesResponseElem {
                     asset_token: "mAAPL".to_string(),
                     price: Decimal::from_ratio(12u128, 10u128),
-                    last_updated_time: env.block.time.nanos() / 1_000_000_000,
+                    last_updated_time: env.block.time.seconds(),
                 },
                 PricesResponseElem {
                     asset_token: "mGOGL".to_string(),
                     price: Decimal::from_ratio(22u128, 10u128),
-                    last_updated_time: env.block.time.nanos() / 1_000_000_000,
+                    last_updated_time: env.block.time.seconds(),
                 }
             ],
         }

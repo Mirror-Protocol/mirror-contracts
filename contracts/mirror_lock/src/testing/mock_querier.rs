@@ -10,7 +10,7 @@ pub fn mock_dependencies(
     contract_balance: &[Coin],
 ) -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier> {
     let custom_querier: WasmMockQuerier = WasmMockQuerier::new(
-        MockQuerier::new(&[(&MOCK_CONTRACT_ADDR, contract_balance)]),
+        MockQuerier::new(&[(MOCK_CONTRACT_ADDR, contract_balance)]),
         MockApi::default(),
     );
 
@@ -107,6 +107,7 @@ impl WasmMockQuerier {
         }
     }
 
+    #[allow(clippy::ptr_arg)]
     pub fn with_bank_balance(&mut self, addr: &String, balance: Vec<Coin>) {
         self.base.update_balance(addr, balance);
     }
