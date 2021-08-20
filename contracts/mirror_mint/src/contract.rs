@@ -62,6 +62,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
             lock,
             token_code_id,
             protocol_fee_rate,
+            staking,
         } => update_config(
             deps,
             info,
@@ -73,6 +74,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
             lock,
             token_code_id,
             protocol_fee_rate,
+            staking,
         ),
         ExecuteMsg::UpdateAsset {
             asset_token,
@@ -225,6 +227,7 @@ pub fn update_config(
     lock: Option<String>,
     token_code_id: Option<u64>,
     protocol_fee_rate: Option<Decimal>,
+    staking: Option<String>,
 ) -> StdResult<Response> {
     let mut config: Config = read_config(deps.storage)?;
 
@@ -263,6 +266,10 @@ pub fn update_config(
     if let Some(protocol_fee_rate) = protocol_fee_rate {
         assert_protocol_fee(protocol_fee_rate)?;
         config.protocol_fee_rate = protocol_fee_rate;
+    }
+
+    if let Some(staking) = staking {
+        config.staking = deps.api.addr_canonicalize(&staking)?;
     }
 
     store_config(deps.storage, &config)?;

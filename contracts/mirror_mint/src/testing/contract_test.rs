@@ -69,6 +69,7 @@ fn update_config() {
         token_code_id: Some(100u64),
         protocol_fee_rate: None,
         collateral_oracle: None,
+        staking: None,
     };
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(0, res.messages.len());
@@ -88,6 +89,7 @@ fn update_config() {
         token_code_id: None,
         protocol_fee_rate: None,
         collateral_oracle: None,
+        staking: None,
     };
     let res = execute(deps.as_mut(), mock_env(), info, msg);
     match res {
