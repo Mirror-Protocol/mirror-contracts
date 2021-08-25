@@ -711,7 +711,7 @@ fn merge_response(dest: Response, src: Response) -> Response {
 pub fn check_polls(mut deps: DepsMut, env: Env) -> StdResult<Response> {
     let res_snapshot = check_snapshot_polls(deps.branch(), env.clone())?;
     let res_end = check_end_polls(deps.branch(), env.clone())?;
-    let res_execute = check_execute_polls(deps.branch(), env.clone())?;
+    let res_execute = check_execute_polls(deps.branch(), env())?;
     let mut res = merge_response(res_snapshot, res_end);
     res = merge_response(res, res_execute);
     Ok(res)
