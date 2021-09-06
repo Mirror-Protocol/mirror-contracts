@@ -1,8 +1,6 @@
 use crate::errors::ContractError;
 use crate::state::{read_config, Config};
-use cosmwasm_std::{
-    attr, to_binary, Addr, Coin, CosmosMsg, DepsMut, Env, MessageInfo, Response, WasmMsg,
-};
+use cosmwasm_std::{attr, to_binary, Addr, Coin, CosmosMsg, DepsMut, Env, Response, WasmMsg};
 use cw20::Cw20ExecuteMsg;
 use mirror_protocol::collector::ExecuteMsg;
 use schemars::JsonSchema;
@@ -135,8 +133,9 @@ fn anchor_redeem(
 ) -> Result<Response<TerraMsgWrapper>, ContractError> {
     let amount = query_token_balance(&deps.querier, asset_token.clone(), env.contract.address)?;
 
-    Ok(Response::new()
-        .add_messages(vec![CosmosMsg::Wasm(WasmMsg::Execute {
+    let mut messages: Vec<CosmosMsg<TerraMsgWrapper>> = vec![];
+    if !amount.is_zero() {
+        messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: asset_token.to_string(),
             msg: to_binary(&Cw20ExecuteMsg::Send {
                 contract: deps.api.addr_humanize(&config.anchor_market)?.to_string(),
@@ -144,12 +143,14 @@ fn anchor_redeem(
                 msg: to_binary(&MoneyMarketCw20HookMsg::RedeemStable {})?,
             })?,
             funds: vec![],
-        })])
-        .add_attributes(vec![
-            attr("action", "convert"),
-            attr("swap_type", "anchor_redeem"),
-            attr("asset_token", asset_token.as_str()),
-        ]))
+        }));
+    }
+
+    Ok(Response::new().add_messages(messages).add_attributes(vec![
+        attr("action", "convert"),
+        attr("swap_type", "anchor_redeem"),
+        attr("asset_token", asset_token.as_str()),
+    ]))
 }
 
 fn bluna_swap(
@@ -208,16 +209,8 @@ fn bluna_swap(
     ]))
 }
 
-pub fn luna_swap_hook(
-    deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-) -> Result<Response<TerraMsgWrapper>, ContractError> {
+pub fn luna_swap_hook(deps: DepsMut, env: Env) -> Result<Response<TerraMsgWrapper>, ContractError> {
     let config: Config = read_config(deps.storage)?;
-
-    if info.sender != deps.api.addr_humanize(&config.owner)? {
-        return Err(ContractError::Unauthorized {});
-    }
 
     let amount = query_balance(
         &deps.querier,

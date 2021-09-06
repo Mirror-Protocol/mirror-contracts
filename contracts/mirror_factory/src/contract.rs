@@ -6,7 +6,7 @@ use cosmwasm_std::{
     Env, MessageInfo, Reply, ReplyOn, Response, StdError, StdResult, SubMsg, Uint128, WasmMsg,
 };
 
-use crate::querier::{load_mint_asset_config, load_oracle_feeder};
+use crate::querier::{load_mint_asset_config, load_oracle_feeder, query_last_price};
 use crate::response::MsgInstantiateContractResponse;
 use crate::state::{
     decrease_total_weight, increase_total_weight, read_all_weight, read_config,
@@ -342,7 +342,6 @@ pub fn token_creation_hook(
         Err(_) => return Err(StdError::generic_err("No whitelist process in progress")),
     };
 
-    // let asset_token = env.message.sender;
     let asset_token_raw = deps.api.addr_canonicalize(asset_token.as_str())?;
 
     // If weight is given as params, we use that or just use default
@@ -396,7 +395,6 @@ pub fn token_creation_hook(
     // Create terraswap pair
     Ok(Response::new()
         .add_messages(vec![
-            //ASSUMPTION: These don't need to be done before pair / lp token is made
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: deps.api.addr_humanize(&config.mint_contract)?.to_string(),
                 funds: vec![],
@@ -576,24 +574,52 @@ pub fn revoke_asset(
     deps: DepsMut,
     info: MessageInfo,
     asset_token: String,
-    end_price: Decimal,
+    end_price: Option<Decimal>,
 ) -> StdResult<Response> {
     let config: Config = read_config(deps.storage)?;
     let asset_token_raw: CanonicalAddr = deps.api.addr_canonicalize(&asset_token)?;
-    let oracle_feeder: Addr = deps.api.addr_humanize(&load_oracle_feeder(
-        deps.as_ref(),
-        deps.api.addr_humanize(&config.oracle_contract)?,
-        &asset_token_raw,
-    )?)?;
-    let sender_raw = deps.api.addr_canonicalize(info.sender.as_str())?;
+    let sender_raw: CanonicalAddr = deps.api.addr_canonicalize(info.sender.as_str())?;
+    let mint: Addr = deps.api.addr_humanize(&config.mint_contract)?;
+    let oracle: Addr = deps.api.addr_humanize(&config.oracle_contract)?;
 
-    // revoke asset can only be executed by the feeder or the owner (gov contract)
-    if oracle_feeder != info.sender && config.owner != sender_raw {
-        return Err(StdError::generic_err("unauthorized"));
-    }
+    let end_price: Decimal = match end_price {
+        Some(value) => {
+            // only feeder can revoke_asset with end_price
+            let oracle_feeder: Addr = deps.api.addr_humanize(&load_oracle_feeder(
+                &deps.querier,
+                deps.api.addr_humanize(&config.oracle_contract)?,
+                &asset_token_raw,
+            )?)?;
+            if oracle_feeder != info.sender {
+                return Err(StdError::generic_err("unauthorized"));
+            }
 
+            value
+        }
+        None => {
+            // revoke asset without end_price can be called by owner
+            if config.owner != sender_raw {
+                return Err(StdError::generic_err("unauthorized"));
+            }
+
+            // check if the asset has a preIPO price
+            let (_, _, pre_ipo_price) =
+                load_mint_asset_config(&deps.querier, mint, &asset_token_raw)?;
+            pre_ipo_price.unwrap_or(
+                // if there is no pre_ipo_price, fetch last reported price from oracle
+                query_last_price(
+                    &deps.querier,
+                    oracle,
+                    asset_token.to_string(),
+                    config.base_denom,
+                )?,
+            )
+        }
+    };
+
+    let weight = read_weight(deps.storage, &asset_token_raw)?;
     remove_weight(deps.storage, &asset_token_raw);
-    decrease_total_weight(deps.storage, NORMAL_TOKEN_WEIGHT)?;
+    decrease_total_weight(deps.storage, weight)?;
 
     Ok(Response::new()
         .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
@@ -622,7 +648,7 @@ pub fn migrate_asset(
     let config: Config = read_config(deps.storage)?;
     let asset_token_raw: CanonicalAddr = deps.api.addr_canonicalize(&asset_token)?;
     let oracle_feeder: Addr = deps.api.addr_humanize(&load_oracle_feeder(
-        deps.as_ref(),
+        &deps.querier,
         deps.api.addr_humanize(&config.oracle_contract)?,
         &asset_token_raw,
     )?)?;
@@ -633,11 +659,11 @@ pub fn migrate_asset(
 
     let weight = read_weight(deps.storage, &asset_token_raw)?;
     remove_weight(deps.storage, &asset_token_raw);
-    decrease_total_weight(deps.storage, NORMAL_TOKEN_WEIGHT)?;
+    decrease_total_weight(deps.storage, weight)?;
 
     let mint_contract = deps.api.addr_humanize(&config.mint_contract)?;
     let mint_config: (Decimal, Decimal, _) =
-        load_mint_asset_config(deps.as_ref(), mint_contract.clone(), &asset_token_raw)?;
+        load_mint_asset_config(&deps.querier, mint_contract.clone(), &asset_token_raw)?;
 
     store_params(
         deps.storage,

@@ -211,7 +211,7 @@ pub fn receive_cw20(
             let cw20_sender = deps.api.addr_validate(cw20_msg.sender.as_str())?;
             auction(deps, env, cw20_sender, position_idx, passed_asset)
         }
-        Err(_) => Err(StdError::generic_err("data should be given")),
+        Err(_) => Err(StdError::generic_err("invalid cw20 hook message")),
     }
 }
 

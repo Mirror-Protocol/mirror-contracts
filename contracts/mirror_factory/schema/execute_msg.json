@@ -201,15 +201,21 @@
         "revoke_asset": {
           "type": "object",
           "required": [
-            "asset_token",
-            "end_price"
+            "asset_token"
           ],
           "properties": {
             "asset_token": {
               "type": "string"
             },
             "end_price": {
-              "$ref": "#/definitions/Decimal"
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Decimal"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             }
           }
         }

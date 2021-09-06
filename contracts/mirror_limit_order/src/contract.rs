@@ -81,7 +81,7 @@ pub fn receive_cw20(
         Ok(Cw20HookMsg::ExecuteOrder { order_id }) => {
             execute_order(deps, sender, provided_asset, order_id)
         }
-        Err(_) => Err(StdError::generic_err("data should be given")),
+        Err(_) => Err(StdError::generic_err("invalid cw20 hook message")),
     }
 }
 
