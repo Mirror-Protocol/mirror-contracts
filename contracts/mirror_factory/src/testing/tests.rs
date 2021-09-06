@@ -1245,7 +1245,7 @@ fn test_revocation() {
     // unauthorized revoke attempt
     let msg = ExecuteMsg::RevokeAsset {
         asset_token: "asset0000".to_string(),
-        end_price: Decimal::from_ratio(2u128, 1u128),
+        end_price: Some(Decimal::from_ratio(2u128, 3u128)),
     };
     let info = mock_info("address0000", &[]);
     let err = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
@@ -1272,7 +1272,7 @@ fn test_revocation() {
             funds: vec![],
             msg: to_binary(&MintExecuteMsg::RegisterMigration {
                 asset_token: "asset0000".to_string(),
-                end_price: Decimal::from_ratio(2u128, 1u128),
+                end_price: Decimal::from_ratio(2u128, 3u128),
             })
             .unwrap(),
         }))]
@@ -1280,7 +1280,7 @@ fn test_revocation() {
 
     let msg = ExecuteMsg::RevokeAsset {
         asset_token: "asset0001".to_string(),
-        end_price: Decimal::from_ratio(2u128, 1u128),
+        end_price: None, // owner can revoke without price feed
     };
     // SUCCESS - the owner revokes item 2
     let info = mock_info("owner0000", &[]);
@@ -1292,7 +1292,7 @@ fn test_revocation() {
             funds: vec![],
             msg: to_binary(&MintExecuteMsg::RegisterMigration {
                 asset_token: "asset0001".to_string(),
-                end_price: Decimal::from_ratio(2u128, 1u128),
+                end_price: Decimal::percent(200), // last price feed
             })
             .unwrap(),
         }))]

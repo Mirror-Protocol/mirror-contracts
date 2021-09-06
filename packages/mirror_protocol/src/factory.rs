@@ -58,7 +58,7 @@ pub enum ExecuteMsg {
     /// Only feeder can set end_price
     RevokeAsset {
         asset_token: String,
-        end_price: Decimal,
+        end_price: Option<Decimal>,
     },
     /// Migrate asset to new asset by registering
     /// end_price to mint contract and add

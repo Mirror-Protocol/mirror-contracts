@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    to_binary, Addr, Binary, CanonicalAddr, Decimal, Deps, QueryRequest, StdError, StdResult,
-    WasmQuery,
+    to_binary, Addr, Binary, CanonicalAddr, Decimal, QuerierWrapper, QueryRequest, StdError,
+    StdResult, WasmQuery,
 };
 
 use cosmwasm_storage::to_length_prefixed;
@@ -9,11 +9,11 @@ use mirror_protocol::oracle::{PriceResponse, QueryMsg as OracleQueryMsg};
 use serde::{Deserialize, Serialize};
 
 pub fn load_oracle_feeder(
-    deps: Deps,
+    querier: &QuerierWrapper,
     contract_addr: Addr,
     asset_token: &CanonicalAddr,
 ) -> StdResult<CanonicalAddr> {
-    let res: StdResult<CanonicalAddr> = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
+    let res: StdResult<CanonicalAddr> = querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
         contract_addr: contract_addr.to_string(),
         key: Binary::from(concat(
             &to_length_prefixed(b"feeder"),
@@ -33,12 +33,12 @@ pub fn load_oracle_feeder(
 
 /// Query asset price igonoring price age
 pub fn query_last_price(
-    deps: Deps,
+    querier: &QuerierWrapper,
     oracle: Addr,
     base_asset: String,
     quote_asset: String,
 ) -> StdResult<Decimal> {
-    let res: PriceResponse = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+    let res: PriceResponse = querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
         contract_addr: oracle.to_string(),
         msg: to_binary(&OracleQueryMsg::Price {
             base_asset,
@@ -58,11 +58,11 @@ pub struct MintAssetConfig {
 }
 
 pub fn load_mint_asset_config(
-    deps: Deps,
+    querier: &QuerierWrapper,
     contract_addr: Addr,
     asset_token: &CanonicalAddr,
 ) -> StdResult<(Decimal, Decimal, Option<Decimal>)> {
-    let res: StdResult<MintAssetConfig> = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
+    let res: StdResult<MintAssetConfig> = querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
         contract_addr: contract_addr.to_string(),
         key: Binary::from(concat(
             &to_length_prefixed(b"asset_config"),
