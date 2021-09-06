@@ -76,7 +76,7 @@ pub fn execute(
             convert(deps, env, asset_addr)
         }
         ExecuteMsg::Distribute {} => distribute(deps, env),
-        ExecuteMsg::LunaSwapHook {} => luna_swap_hook(deps, env, info),
+        ExecuteMsg::LunaSwapHook {} => luna_swap_hook(deps, env),
     }
 }
 
