@@ -145,14 +145,8 @@ pub fn receive_cw20(
             link,
             execute_msg,
         ),
-        Ok(Cw20HookMsg::DepositReward {}) => {
-            // only reward token contract can execute this message
-            if config.mirror_token != deps.api.addr_canonicalize(info.sender.as_str())? {
-                return Err(StdError::generic_err("unauthorized"));
-            }
-            deposit_reward(deps, cw20_msg.amount)
-        }
-        Err(_) => Err(StdError::generic_err("data should be given")),
+        Ok(Cw20HookMsg::DepositReward {}) => deposit_reward(deps, cw20_msg.amount),
+        Err(_) => Err(StdError::generic_err("invalid cw20 hook message")),
     }
 }
 
@@ -564,7 +558,7 @@ pub fn cast_vote(
 
     let mut a_poll: Poll = poll_store(deps.storage).load(&poll_id.to_be_bytes())?;
     let current_seconds = env.block.time.seconds();
-    if a_poll.status != PollStatus::InProgress || env.block.height > current_seconds {
+    if a_poll.status != PollStatus::InProgress || current_seconds > a_poll.end_time {
         return Err(StdError::generic_err("Poll is not in progress"));
     }
 
@@ -620,24 +614,20 @@ pub fn cast_vote(
     poll_voter_store(deps.storage, poll_id).save(sender_address_raw.as_slice(), &vote_info)?;
 
     // processing snapshot
-    let current_seconds = env.block.time.seconds();
     let time_to_end = a_poll.end_time - current_seconds;
-
     if time_to_end < config.snapshot_period && a_poll.staked_amount.is_none() {
         a_poll.staked_amount = Some(total_balance);
     }
 
     poll_store(deps.storage).save(&poll_id.to_be_bytes(), &a_poll)?;
 
-    let attributes = vec![
+    Ok(Response::new().add_attributes(vec![
         attr("action", "cast_vote"),
         attr("poll_id", &poll_id.to_string()),
         attr("amount", &amount.to_string()),
         attr("voter", &info.sender.to_string()),
         attr("vote_option", vote_info.vote.to_string()),
-    ];
-
-    Ok(Response::new().add_attributes(attributes))
+    ]))
 }
 
 /*
@@ -739,10 +729,9 @@ fn query_state(deps: Deps) -> StdResult<StateResponse> {
 
 fn query_poll(deps: Deps, poll_id: u64) -> StdResult<PollResponse> {
     let poll = match poll_read(deps.storage).may_load(&poll_id.to_be_bytes())? {
-        Some(poll) => Some(poll),
+        Some(poll) => poll,
         None => return Err(StdError::generic_err("Poll does not exist")),
-    }
-    .unwrap();
+    };
 
     Ok(PollResponse {
         id: poll.id,

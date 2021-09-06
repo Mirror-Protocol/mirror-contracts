@@ -189,7 +189,7 @@ pub fn receive_cw20(
 
             deposit_reward(deps, rewards, rewards_amount)
         }
-        Err(_) => Err(StdError::generic_err("data should be given")),
+        Err(_) => Err(StdError::generic_err("invalid cw20 hook message")),
     }
 }
 
