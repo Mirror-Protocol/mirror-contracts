@@ -1,3 +1,7 @@
+# 2.1.1
+
+* Fixed issues found through code review and integration testing #75
+
 # 2.1.0
 
 Columbus-5 update 
