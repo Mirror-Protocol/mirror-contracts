@@ -127,7 +127,7 @@ pub fn try_feed_price(
         store_price(deps.storage, &asset_token_raw, &state)?;
     }
 
-    Ok(Response::default())
+    Ok(Response::new().add_attributes(attributes))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
