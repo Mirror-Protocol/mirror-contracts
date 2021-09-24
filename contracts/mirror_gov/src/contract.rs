@@ -35,6 +35,8 @@ const MAX_POLLS_IN_PROGRESS: usize = 50;
 
 const POLL_EXECUTE_REPLY_ID: u64 = 1;
 
+const MAX_CHECK_POLL_ITERATION: u32 = 3;
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
@@ -74,7 +76,12 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
+pub fn execute(
+    mut deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    msg: ExecuteMsg,
+) -> StdResult<Response> {
     match msg {
         ExecuteMsg::Receive(msg) => receive_cw20(deps, env, info, msg),
         ExecuteMsg::UpdateConfig {
@@ -98,11 +105,21 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
             voter_weight,
             snapshot_period,
         ),
-        ExecuteMsg::WithdrawVotingTokens { amount } => withdraw_voting_tokens(deps, info, amount),
-        ExecuteMsg::WithdrawVotingRewards { poll_id } => {
-            withdraw_voting_rewards(deps, info, poll_id)
+        ExecuteMsg::WithdrawVotingTokens { amount } => {
+            let res_poll = check_polls(deps.branch(), env)?;
+            let res_withdraw = withdraw_voting_tokens(deps, info, amount)?;
+            Ok(merge_response(res_withdraw, res_poll))
         }
-        ExecuteMsg::StakeVotingRewards { poll_id } => stake_voting_rewards(deps, info, poll_id),
+        ExecuteMsg::WithdrawVotingRewards { poll_id } => {
+            let res_poll = check_polls(deps.branch(), env)?;
+            let res_withdraw = withdraw_voting_rewards(deps, info, poll_id)?;
+            Ok(merge_response(res_withdraw, res_poll))
+        }
+        ExecuteMsg::StakeVotingRewards { poll_id } => {
+            let res_poll = check_polls(deps.branch(), env)?;
+            let res_stake = stake_voting_rewards(deps, info, poll_id)?;
+            Ok(merge_response(res_stake, res_poll))
+        }
         ExecuteMsg::CastVote {
             poll_id,
             vote,
@@ -642,9 +659,9 @@ pub fn snapshot_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Respons
     }
 
     let current_seconds = env.block.time.seconds();
-    let time_to_end = a_poll.end_time - current_seconds;
+    let time_to_end = a_poll.end_time/* - current_seconds*/;
 
-    if time_to_end > config.snapshot_period {
+    if time_to_end > config.snapshot_period + current_seconds {
         return Err(StdError::generic_err("Cannot snapshot at this height"));
     }
 
@@ -672,6 +689,109 @@ pub fn snapshot_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Respons
         attr("poll_id", poll_id.to_string()),
         attr("staked_amount", staked_amount),
     ]))
+}
+
+// merge_response merges messages, attributes and events except data
+fn merge_response(dest: Response, src: Response) -> Response {
+    dest.add_submessages(src.messages)
+        .add_attributes(src.attributes)
+        .add_events(src.events)
+}
+
+pub fn check_polls(mut deps: DepsMut, env: Env) -> StdResult<Response> {
+    let res_snapshot = check_snapshot_polls(deps.branch(), env.clone())?;
+    let res_end = check_end_polls(deps.branch(), env.clone())?;
+    let res_execute = check_execute_polls(deps.branch(), env)?;
+    let mut res = merge_response(res_snapshot, res_end);
+    res = merge_response(res, res_execute);
+    Ok(res)
+}
+
+pub fn check_execute_polls(mut deps: DepsMut, env: Env) -> StdResult<Response> {
+    let config: Config = config_read(deps.storage).load()?;
+    let polls: Vec<Poll> = read_polls(
+        deps.storage,
+        Some(PollStatus::Passed),
+        None,
+        Some(MAX_CHECK_POLL_ITERATION),
+        None,
+        None,
+    )
+    .unwrap();
+
+    let mut res = Response::default();
+    polls
+        .iter()
+        .filter(|poll| {
+            (poll.end_time + config.effective_delay <= env.block.time.seconds())
+                && (poll.execute_data != None)
+        })
+        .all(|poll| {
+            res = merge_response(
+                res.clone(),
+                execute_poll(deps.branch(), env.clone(), poll.id).unwrap(),
+            );
+            true
+        });
+
+    Ok(res)
+}
+pub fn check_snapshot_polls(mut deps: DepsMut, env: Env) -> StdResult<Response> {
+    let config: Config = config_read(deps.storage).load()?;
+    let polls: Vec<Poll> = read_polls(
+        deps.storage,
+        Some(PollStatus::InProgress),
+        None,
+        Some(MAX_CHECK_POLL_ITERATION),
+        None,
+        None,
+    )
+    .unwrap();
+
+    let mut res = Response::default();
+    polls
+        .iter()
+        .filter(|poll| {
+            //time_to_end > config.snapshot_period
+            (poll.end_time <= config.snapshot_period + env.block.time.seconds())
+                && poll.staked_amount.is_none()
+        })
+        .all(|poll| {
+            res = merge_response(
+                res.clone(),
+                snapshot_poll(deps.branch(), env.clone(), poll.id).unwrap(),
+            );
+            true
+        });
+
+    Ok(res)
+}
+
+pub fn check_end_polls(mut deps: DepsMut, env: Env) -> StdResult<Response> {
+    let config: Config = config_read(deps.storage).load()?;
+    let polls: Vec<Poll> = read_polls(
+        deps.storage,
+        Some(PollStatus::InProgress),
+        None,
+        Some(MAX_CHECK_POLL_ITERATION),
+        None,
+        None,
+    )
+    .unwrap();
+
+    let mut res = Response::default();
+    polls
+        .iter()
+        .filter(|poll| poll.end_time + config.effective_delay < env.block.time.seconds())
+        .all(|poll| {
+            res = merge_response(
+                res.clone(),
+                end_poll(deps.branch(), env.clone(), poll.id).unwrap(),
+            );
+            true
+        });
+
+    Ok(res)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

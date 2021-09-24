@@ -2243,6 +2243,13 @@ fn share_calculation_with_voter_rewards() {
             attr("action", "withdraw"),
             attr("recipient", TEST_VOTER),
             attr("amount", "100"),
+            attr("action", "snapshot_poll"),
+            attr("poll_id", "1"),
+            attr("staked_amount", "300"),
+            attr("action", "end_poll"),
+            attr("poll_id", "1"),
+            attr("rejected_reason", "Quorum not reached"),
+            attr("passed", "false"),
         ]
     );
 
@@ -2264,8 +2271,8 @@ fn share_calculation_with_voter_rewards() {
     )
     .unwrap();
     let stake_info: StakerResponse = from_binary(&res).unwrap();
-    assert_eq!(stake_info.share, Uint128::new(100));
-    assert_eq!(stake_info.balance, Uint128::new(200));
+    assert_eq!(stake_info.share, Uint128::new(149));
+    assert_eq!(stake_info.balance, Uint128::new(10000000200));
     assert_eq!(stake_info.locked_balance, vec![]);
 }
 
@@ -4456,4 +4463,94 @@ fn test_unstake_before_claiming_voting_rewards() {
     poll_voter_read(&deps.storage, 1u64)
         .load(deps.api.addr_canonicalize(TEST_VOTER).unwrap().as_slice())
         .unwrap_err();
+}
+
+#[test]
+fn test_end_poll_by_other_tx() {
+    let mut deps = mock_dependencies(&[]);
+    let msg = InstantiateMsg {
+        mirror_token: VOTING_TOKEN.to_string(),
+        quorum: Decimal::percent(DEFAULT_QUORUM),
+        threshold: Decimal::percent(DEFAULT_THRESHOLD),
+        voting_period: DEFAULT_VOTING_PERIOD,
+        effective_delay: DEFAULT_EFFECTIVE_DELAY,
+        proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
+        voter_weight: Decimal::percent(50), // distribute 50% rewards to voters
+        snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
+    };
+
+    let info = mock_info(TEST_CREATOR, &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg)
+        .expect("contract successfully handles InstantiateMsg");
+
+    let env = mock_env_height(0, 10001);
+    let info = mock_info(VOTING_TOKEN, &coins(2, VOTING_TOKEN));
+    let msg = create_poll_msg("test".to_string(), "test".to_string(), None, None);
+    let execute_res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+    assert_create_poll_result(
+        1,
+        env.block.time.plus_seconds(DEFAULT_VOTING_PERIOD).seconds(),
+        TEST_CREATOR,
+        execute_res,
+        deps.as_ref(),
+    );
+
+    let stake_amount = 10000000000u128;
+
+    deps.querier.with_token_balances(&[(
+        &VOTING_TOKEN.to_string(),
+        &[(
+            &MOCK_CONTRACT_ADDR.to_string(),
+            &Uint128::new((stake_amount + DEFAULT_PROPOSAL_DEPOSIT) as u128),
+        )],
+    )]);
+
+    let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
+        sender: TEST_VOTER.to_string(),
+        amount: Uint128::from(stake_amount),
+        msg: to_binary(&Cw20HookMsg::StakeVotingTokens {}).unwrap(),
+    });
+
+    let info = mock_info(VOTING_TOKEN, &[]);
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    let msg = ExecuteMsg::CastVote {
+        poll_id: 1,
+        vote: VoteOption::Yes,
+        amount: Uint128::from(stake_amount),
+    };
+    let env = mock_env_height(0, 10000);
+    let info = mock_info(TEST_VOTER, &[]);
+    let _res = execute(deps.as_mut(), env, info, msg).unwrap();
+
+    deps.querier.with_token_balances(&[(
+        &VOTING_TOKEN.to_string(),
+        &[(
+            &MOCK_CONTRACT_ADDR.to_string(),
+            &Uint128::new((stake_amount + DEFAULT_PROPOSAL_DEPOSIT + 100u128) as u128),
+        )],
+    )]);
+
+    let info = mock_info(TEST_VOTER, &[]);
+    let msg = ExecuteMsg::WithdrawVotingTokens {
+        amount: Some(Uint128::from(5u128)),
+    };
+
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+    assert_eq!(
+        res.attributes,
+        vec![
+            attr("action", "withdraw"),
+            attr("recipient", TEST_VOTER),
+            attr("amount", "5"),
+            attr("action", "snapshot_poll"),
+            attr("poll_id", "1"),
+            attr("staked_amount", "10000000100"),
+            attr("action", "end_poll"),
+            attr("poll_id", "1"),
+            attr("rejected_reason", ""),
+            attr("passed", "true"),
+        ]
+    );
 }
