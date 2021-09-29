@@ -3,10 +3,9 @@ use crate::response::MsgInstantiateContractResponse;
 use crate::testing::mock_querier::{mock_dependencies, WasmMockQuerier};
 
 use crate::state::{
-    read_params, read_tmp_asset, read_tmp_oracle, read_total_weight, read_weight,
-    store_total_weight, store_weight,
+    read_params, read_tmp_oracle, read_total_weight, read_weight, store_total_weight, store_weight,
 };
-use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage};
+use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
     attr, from_binary, to_binary, CanonicalAddr, ContractResult, CosmosMsg, Decimal, Env,
     OwnedDeps, Reply, ReplyOn, StdError, SubMsg, Timestamp, Uint128, WasmMsg,
@@ -305,7 +304,7 @@ fn test_whitelist() {
         },
     };
     let info = mock_info("owner0000", &[]);
-    let res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
+    let res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
 
     assert_eq!(
         res.attributes,
@@ -357,12 +356,6 @@ fn test_whitelist() {
         }
     );
 
-    let res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
-    match res {
-        StdError::GenericErr { msg, .. } => assert_eq!(msg, "A whitelist process is in progress"),
-        _ => panic!("DO NOT ENTER HERE"),
-    }
-
     let info = mock_info("addr0001", &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
     match res {
@@ -370,7 +363,7 @@ fn test_whitelist() {
         _ => panic!("DO NOT ENTER HERE"),
     }
 
-    //ensure temp oracle was stored
+    // ensure temp oracle was stored
     let tmp_oracle = read_tmp_oracle(&deps.storage).unwrap();
     assert_eq!(tmp_oracle.to_string(), "feeder0000");
 }
@@ -434,10 +427,6 @@ fn test_token_creation_hook() {
 
     let res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
 
-    //ensure asset token was stored
-    let tmp_asset = read_tmp_asset(&deps.storage).unwrap();
-    assert_eq!(tmp_asset.to_string(), "asset0000");
-
     assert_eq!(
         res.messages,
         vec![
@@ -461,27 +450,29 @@ fn test_token_creation_hook() {
                 })
                 .unwrap(),
             })),
-            SubMsg {
-                msg: WasmMsg::Execute {
-                    contract_addr: "terraswapfactory".to_string(),
-                    funds: vec![],
-                    msg: to_binary(&TerraswapFactoryExecuteMsg::CreatePair {
-                        asset_infos: [
-                            AssetInfo::NativeToken {
-                                denom: BASE_DENOM.to_string(),
-                            },
-                            AssetInfo::Token {
-                                contract_addr: "asset0000".to_string(),
-                            },
-                        ],
-                    })
-                    .unwrap(),
-                }
-                .into(),
-                gas_limit: None,
-                id: 2,
-                reply_on: ReplyOn::Success,
-            }
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "terraswapfactory".to_string(),
+                funds: vec![],
+                msg: to_binary(&TerraswapFactoryExecuteMsg::CreatePair {
+                    asset_infos: [
+                        AssetInfo::NativeToken {
+                            denom: BASE_DENOM.to_string(),
+                        },
+                        AssetInfo::Token {
+                            contract_addr: "asset0000".to_string(),
+                        },
+                    ],
+                })
+                .unwrap(),
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: MOCK_CONTRACT_ADDR.to_string(),
+                funds: vec![],
+                msg: to_binary(&ExecuteMsg::TerraswapCreationHook {
+                    asset_token: "asset0000".to_string(),
+                })
+                .unwrap(),
+            })),
         ]
     );
 
@@ -566,10 +557,6 @@ fn test_token_creation_hook_without_weight() {
 
     let res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
 
-    //ensure asset token was stored
-    let tmp_asset = read_tmp_asset(&deps.storage).unwrap();
-    assert_eq!(tmp_asset.to_string(), "asset0000");
-
     assert_eq!(
         res.messages,
         vec![
@@ -593,27 +580,29 @@ fn test_token_creation_hook_without_weight() {
                 })
                 .unwrap(),
             })),
-            SubMsg {
-                msg: WasmMsg::Execute {
-                    contract_addr: "terraswapfactory".to_string(),
-                    funds: vec![],
-                    msg: to_binary(&TerraswapFactoryExecuteMsg::CreatePair {
-                        asset_infos: [
-                            AssetInfo::NativeToken {
-                                denom: BASE_DENOM.to_string(),
-                            },
-                            AssetInfo::Token {
-                                contract_addr: "asset0000".to_string(),
-                            },
-                        ],
-                    })
-                    .unwrap(),
-                }
-                .into(),
-                gas_limit: None,
-                id: 2,
-                reply_on: ReplyOn::Success,
-            }
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "terraswapfactory".to_string(),
+                funds: vec![],
+                msg: to_binary(&TerraswapFactoryExecuteMsg::CreatePair {
+                    asset_infos: [
+                        AssetInfo::NativeToken {
+                            denom: BASE_DENOM.to_string(),
+                        },
+                        AssetInfo::Token {
+                            contract_addr: "asset0000".to_string(),
+                        },
+                    ],
+                })
+                .unwrap(),
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: MOCK_CONTRACT_ADDR.to_string(),
+                funds: vec![],
+                msg: to_binary(&ExecuteMsg::TerraswapCreationHook {
+                    asset_token: "asset0000".to_string(),
+                })
+                .unwrap(),
+            })),
         ]
     );
 
@@ -692,19 +681,11 @@ fn test_terraswap_creation_hook() {
 
     let _res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
 
-    //ensure asset token was stored
-    let tmp_asset = read_tmp_asset(&deps.storage).unwrap();
-    assert_eq!(tmp_asset.to_string(), "asset0000");
-
-    let reply_msg2 = Reply {
-        id: 2,
-        result: ContractResult::Ok(SubMsgExecutionResponse {
-            events: vec![],
-            data: None,
-        }),
+    let msg = ExecuteMsg::TerraswapCreationHook {
+        asset_token: "asset0000".to_string(),
     };
-
-    let res = reply(deps.as_mut(), mock_env(), reply_msg2).unwrap();
+    let info = mock_info(MOCK_CONTRACT_ADDR, &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     assert_eq!(
         res.messages,
@@ -786,19 +767,11 @@ fn test_distribute() {
 
     let _res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
 
-    //ensure asset token was stored
-    let tmp_asset = read_tmp_asset(&deps.storage).unwrap();
-    assert_eq!(tmp_asset.to_string(), "asset0000");
-
-    let reply_msg2 = Reply {
-        id: 2,
-        result: ContractResult::Ok(SubMsgExecutionResponse {
-            events: vec![],
-            data: None,
-        }),
+    let msg = ExecuteMsg::TerraswapCreationHook {
+        asset_token: "asset0000".to_string(),
     };
-
-    let _res = reply(deps.as_mut(), mock_env(), reply_msg2).unwrap();
+    let info = mock_info(MOCK_CONTRACT_ADDR, &[]);
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // Whitelist second item with weight 1
     let msg = ExecuteMsg::Whitelist {
@@ -831,18 +804,11 @@ fn test_distribute() {
     let _res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
 
     //ensure asset token was stored
-    let tmp_asset = read_tmp_asset(&deps.storage).unwrap();
-    assert_eq!(tmp_asset.to_string(), "asset0001");
-
-    let reply_msg2 = Reply {
-        id: 2,
-        result: ContractResult::Ok(SubMsgExecutionResponse {
-            events: vec![],
-            data: None,
-        }),
+    let msg = ExecuteMsg::TerraswapCreationHook {
+        asset_token: "asset0001".to_string(),
     };
-
-    let _res = reply(deps.as_mut(), mock_env(), reply_msg2).unwrap();
+    let info = mock_info(MOCK_CONTRACT_ADDR, &[]);
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // height is not increased so zero amount will be minted
     let msg = ExecuteMsg::Distribute {};
@@ -950,20 +916,11 @@ fn whitelist_token(
 
     let _res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
 
-    //ensure asset token was stored
-    let tmp_asset = read_tmp_asset(&deps.storage).unwrap();
-    assert_eq!(tmp_asset.to_string(), asset_token);
-
-    // callback 2
-    let reply_msg2 = Reply {
-        id: 2,
-        result: ContractResult::Ok(SubMsgExecutionResponse {
-            events: vec![],
-            data: None,
-        }),
+    let msg = ExecuteMsg::TerraswapCreationHook {
+        asset_token: asset_token.to_string(),
     };
-
-    let _res = reply(deps.as_mut(), mock_env(), reply_msg2).unwrap();
+    let info = mock_info(MOCK_CONTRACT_ADDR, &[]);
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 }
 
 #[test]
@@ -1340,7 +1297,7 @@ fn test_migration() {
     // unauthorized migrate attempt
     let msg = ExecuteMsg::MigrateAsset {
         name: "apple migration".to_string(),
-        symbol: "mAPPL2".to_string(),
+        symbol: "mAPPLSecond".to_string(),
         from_token: "asset0000".to_string(),
         end_price: Decimal::from_ratio(2u128, 1u128),
     };
@@ -1374,7 +1331,7 @@ fn test_migration() {
                     label: "".to_string(),
                     msg: to_binary(&TokenInstantiateMsg {
                         name: "apple migration".to_string(),
-                        symbol: "mAPPL2".to_string(),
+                        symbol: "mAPPLSecond".to_string(),
                         decimals: 6u8,
                         initial_balances: vec![],
                         mint: Some(MinterResponse {
@@ -1494,10 +1451,6 @@ fn test_whitelist_pre_ipo_asset() {
 
     let res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
 
-    //ensure asset token was stored
-    let tmp_asset = read_tmp_asset(&deps.storage).unwrap();
-    assert_eq!(tmp_asset.to_string(), "asset0000");
-
     assert_eq!(
         res.messages,
         vec![
@@ -1526,27 +1479,29 @@ fn test_whitelist_pre_ipo_asset() {
                 })
                 .unwrap(),
             })),
-            SubMsg {
-                msg: WasmMsg::Execute {
-                    contract_addr: "terraswapfactory".to_string(),
-                    funds: vec![],
-                    msg: to_binary(&TerraswapFactoryExecuteMsg::CreatePair {
-                        asset_infos: [
-                            AssetInfo::NativeToken {
-                                denom: BASE_DENOM.to_string(),
-                            },
-                            AssetInfo::Token {
-                                contract_addr: "asset0000".to_string(),
-                            },
-                        ],
-                    })
-                    .unwrap(),
-                }
-                .into(),
-                gas_limit: None,
-                id: 2,
-                reply_on: ReplyOn::Success,
-            }
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "terraswapfactory".to_string(),
+                funds: vec![],
+                msg: to_binary(&TerraswapFactoryExecuteMsg::CreatePair {
+                    asset_infos: [
+                        AssetInfo::NativeToken {
+                            denom: BASE_DENOM.to_string(),
+                        },
+                        AssetInfo::Token {
+                            contract_addr: "asset0000".to_string(),
+                        },
+                    ],
+                })
+                .unwrap(),
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: MOCK_CONTRACT_ADDR.to_string(),
+                funds: vec![],
+                msg: to_binary(&ExecuteMsg::TerraswapCreationHook {
+                    asset_token: "asset0000".to_string(),
+                })
+                .unwrap(),
+            })),
         ]
     );
 

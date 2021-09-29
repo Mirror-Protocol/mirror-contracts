@@ -6,13 +6,14 @@ use cosmwasm_std::{
     Env, MessageInfo, Reply, ReplyOn, Response, StdError, StdResult, SubMsg, Uint128, WasmMsg,
 };
 
+use crate::asserts::{assert_valid_token_name, assert_valid_token_symbol};
 use crate::querier::{load_mint_asset_config, load_oracle_feeder, query_last_price};
 use crate::response::MsgInstantiateContractResponse;
 use crate::state::{
     decrease_total_weight, increase_total_weight, read_all_weight, read_config,
-    read_last_distributed, read_params, read_tmp_asset, read_tmp_oracle, read_total_weight,
-    read_weight, remove_params, remove_weight, store_config, store_last_distributed, store_params,
-    store_tmp_asset, store_tmp_oracle, store_total_weight, store_weight, Config,
+    read_last_distributed, read_params, read_tmp_oracle, read_total_weight, read_weight,
+    remove_params, remove_tmp_oracle, remove_weight, store_config, store_last_distributed,
+    store_params, store_tmp_oracle, store_total_weight, store_weight, Config,
 };
 
 use mirror_protocol::factory::{
@@ -79,6 +80,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
             commission_collector,
         } => post_initialize(
             deps,
+            info,
             env,
             owner,
             mirror_token,
@@ -117,12 +119,16 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
             from_token,
             end_price,
         } => migrate_asset(deps, info, name, symbol, from_token, end_price),
+        ExecuteMsg::TerraswapCreationHook { asset_token } => {
+            terraswap_creation_hook(deps, info, env, asset_token, false)
+        }
     }
 }
 
 #[allow(clippy::too_many_arguments)]
 pub fn post_initialize(
     deps: DepsMut,
+    info: MessageInfo,
     env: Env,
     owner: String,
     mirror_token: String,
@@ -151,9 +157,7 @@ pub fn post_initialize(
     store_weight(deps.storage, &config.mirror_token, MIRROR_TOKEN_WEIGHT)?;
     increase_total_weight(deps.storage, MIRROR_TOKEN_WEIGHT)?;
 
-    let mir_addr = deps.api.addr_humanize(&config.mirror_token)?;
-
-    terraswap_creation_hook(deps, env, mir_addr)
+    terraswap_creation_hook(deps, info, env, mirror_token, true)
 }
 
 pub fn update_config(
@@ -254,16 +258,13 @@ pub fn whitelist(
         return Err(StdError::generic_err("unauthorized"));
     }
 
-    if read_params(deps.storage).is_ok() {
-        return Err(StdError::generic_err("A whitelist process is in progress"));
-    }
-
     store_params(deps.storage, &params)?;
 
     // store oracle in temp storage to use in reply callback
     let oracle = deps.api.addr_validate(&oracle_feeder)?;
     store_tmp_oracle(deps.storage, &oracle)?;
 
+    // if token instantiate msg fails, no need to revert state
     Ok(Response::new()
         .add_submessage(SubMsg {
             // create asset token
@@ -299,8 +300,9 @@ pub fn whitelist(
 pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response> {
     match msg.id {
         1 => {
-            // fetch saved oracle_feeder from temp state
+            // fetch saved oracle_feeder and params from temp state
             let oracle_feeder = read_tmp_oracle(deps.storage)?;
+            let params = read_params(deps.storage)?;
 
             // get new token's contract address
             let res: MsgInstantiateContractResponse = Message::parse_from_bytes(
@@ -311,13 +313,7 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response> {
             })?;
             let asset_token = Addr::unchecked(res.get_contract_address());
 
-            token_creation_hook(deps, env, asset_token, oracle_feeder)
-        }
-        2 => {
-            // fetch saved asset_token from temp state
-            let asset_token = read_tmp_asset(deps.storage)?;
-
-            terraswap_creation_hook(deps, env, asset_token)
+            token_creation_reply(deps, env, asset_token, oracle_feeder, params)
         }
         _ => Err(StdError::generic_err("reply id is invalid")),
     }
@@ -328,20 +324,14 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response> {
 /// 2. Register asset to mint contract
 /// 3. Register asset and oracle feeder to oracle contract
 /// 4. Create terraswap pair through terraswap factory with `TerraswapCreationHook`
-pub fn token_creation_hook(
+pub fn token_creation_reply(
     deps: DepsMut,
     env: Env,
     asset_token: Addr,
     oracle_feeder: Addr,
+    params: Params,
 ) -> StdResult<Response> {
     let config: Config = read_config(deps.storage)?;
-
-    // If the param is not exists, it means there is no whitelist process in progress
-    let params: Params = match read_params(deps.storage) {
-        Ok(v) => v,
-        Err(_) => return Err(StdError::generic_err("No whitelist process in progress")),
-    };
-
     let asset_token_raw = deps.api.addr_canonicalize(asset_token.as_str())?;
 
     // If weight is given as params, we use that or just use default
@@ -355,8 +345,9 @@ pub fn token_creation_hook(
     store_weight(deps.storage, &asset_token_raw, weight)?;
     increase_total_weight(deps.storage, weight)?;
 
-    // Remove params == clear flag
+    // Remove params and tmp oracle
     remove_params(deps.storage);
+    remove_tmp_oracle(deps.storage);
 
     let mut attributes: Vec<Attribute> = vec![];
 
@@ -387,9 +378,6 @@ pub fn token_creation_hook(
             None
         };
 
-    // store asset_token in temp storage to use in reply callback
-    store_tmp_asset(deps.storage, &asset_token)?;
-
     // Register asset to mint contract
     // Register asset to oracle contract
     // Create terraswap pair
@@ -413,10 +401,7 @@ pub fn token_creation_hook(
                     feeder: oracle_feeder.to_string(),
                 })?,
             }),
-        ])
-        .add_submessage(SubMsg {
-            // create terraswap pair
-            msg: WasmMsg::Execute {
+            CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: deps
                     .api
                     .addr_humanize(&config.terraswap_factory)?
@@ -432,12 +417,15 @@ pub fn token_creation_hook(
                         },
                     ],
                 })?,
-            }
-            .into(),
-            gas_limit: None,
-            id: 2,
-            reply_on: ReplyOn::Success,
-        })
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: env.contract.address.to_string(),
+                funds: vec![],
+                msg: to_binary(&ExecuteMsg::TerraswapCreationHook {
+                    asset_token: asset_token.to_string(),
+                })?,
+            }),
+        ])
         .add_attributes(
             vec![
                 vec![attr("asset_token_addr", asset_token.as_str())],
@@ -449,10 +437,22 @@ pub fn token_creation_hook(
 
 /// TerraswapCreationHook
 /// 1. Register asset and liquidity(LP) token to staking contract
-pub fn terraswap_creation_hook(deps: DepsMut, _env: Env, asset_token: Addr) -> StdResult<Response> {
+pub fn terraswap_creation_hook(
+    deps: DepsMut,
+    info: MessageInfo,
+    env: Env,
+    asset_token: String,
+    is_initializing: bool,
+) -> StdResult<Response> {
     // Now terraswap contract is already created,
     // and liquidity token also created
     let config: Config = read_config(deps.storage)?;
+
+    // Only can be called by own contract, after instantiation
+    // On instantiation, the operation can be executed by the PostInitialize sender, so ignore the auth check
+    if !is_initializing && info.sender != env.contract.address {
+        return Err(StdError::generic_err("unauthorized"));
+    }
 
     let asset_infos = [
         AssetInfo::NativeToken {
@@ -479,7 +479,7 @@ pub fn terraswap_creation_hook(deps: DepsMut, _env: Env, asset_token: Addr) -> S
                 .to_string(),
             funds: vec![],
             msg: to_binary(&StakingExecuteMsg::RegisterAsset {
-                asset_token: asset_token.to_string(),
+                asset_token,
                 staking_token: pair_info.liquidity_token,
             })?,
         })),
@@ -656,6 +656,10 @@ pub fn migrate_asset(
     if oracle_feeder != info.sender {
         return Err(StdError::generic_err("unauthorized"));
     }
+
+    // check token name and symbol validity to prevent instantiation of new token from failing in case they are invalid
+    assert_valid_token_name(name.as_str())?;
+    assert_valid_token_symbol(symbol.as_str())?;
 
     let weight = read_weight(deps.storage, &asset_token_raw)?;
     remove_weight(deps.storage, &asset_token_raw);

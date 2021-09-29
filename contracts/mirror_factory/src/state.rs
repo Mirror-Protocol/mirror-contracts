@@ -11,7 +11,6 @@ static KEY_PARAMS: &[u8] = b"params";
 static KEY_TOTAL_WEIGHT: &[u8] = b"total_weight";
 static KEY_LAST_DISTRIBUTED: &[u8] = b"last_distributed";
 static KEY_TMP_ORACLE: &[u8] = b"tmp_oracle_feeder";
-static KEY_TMP_ASSET: &[u8] = b"tmp_asset_token";
 
 static PREFIX_WEIGHT: &[u8] = b"weight";
 
@@ -38,12 +37,9 @@ pub fn read_tmp_oracle(storage: &dyn Storage) -> StdResult<Addr> {
     singleton_read(storage, KEY_TMP_ORACLE).load()
 }
 
-pub fn store_tmp_asset(storage: &mut dyn Storage, tmp_asset: &Addr) -> StdResult<()> {
-    singleton(storage, KEY_TMP_ASSET).save(tmp_asset)
-}
-
-pub fn read_tmp_asset(storage: &dyn Storage) -> StdResult<Addr> {
-    singleton_read(storage, KEY_TMP_ASSET).load()
+pub fn remove_tmp_oracle(storage: &mut dyn Storage) {
+    let mut store: Singleton<Addr> = singleton(storage, KEY_TMP_ORACLE);
+    store.remove()
 }
 
 pub fn store_config(storage: &mut dyn Storage, config: &Config) -> StdResult<()> {

@@ -1,3 +1,4 @@
+mod asserts;
 pub mod contract;
 pub mod math;
 pub mod querier;

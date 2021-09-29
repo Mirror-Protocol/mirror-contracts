@@ -48,6 +48,9 @@ pub enum ExecuteMsg {
         contract_addr: String,
         msg: Binary,
     },
+    TerraswapCreationHook {
+        asset_token: String,
+    },
 
     //////////////////////
     /// Feeder Operations

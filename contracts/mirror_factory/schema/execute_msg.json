@@ -192,6 +192,26 @@
       "additionalProperties": false
     },
     {
+      "type": "object",
+      "required": [
+        "terraswap_creation_hook"
+      ],
+      "properties": {
+        "terraswap_creation_hook": {
+          "type": "object",
+          "required": [
+            "asset_token"
+          ],
+          "properties": {
+            "asset_token": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
       "description": "Feeder Operations ////////////////// Revoke asset from MIR rewards pool and register end_price to mint contract Only feeder can set end_price",
       "type": "object",
       "required": [
