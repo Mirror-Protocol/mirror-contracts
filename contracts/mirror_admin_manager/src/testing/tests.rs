@@ -79,43 +79,6 @@ fn update_owner() {
 }
 
 #[test]
-fn update_admin_claim_period() {
-    let mut deps = mock_dependencies(&[]);
-    let msg = InstantiateMsg {
-        owner: "owner0000".to_string(),
-        admin_claim_period: 100u64,
-    };
-    let info = mock_info("addr0000", &[]);
-    instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-    // update claim period, unauth attempt
-    let info = mock_info("addr0000", &[]);
-    let msg = ExecuteMsg::UpdateAdminClaimPeriod {
-        admin_claim_period: 200u64,
-    };
-    let err = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
-    assert_eq!(err, ContractError::Unauthorized {});
-
-    // successfull attempt
-    let info = mock_info("owner0000", &[]);
-    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-    assert_eq!(
-        res.attributes,
-        vec![attr("action", "update_admin_claim_period")]
-    );
-
-    let res = query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap();
-    let config: ConfigResponse = from_binary(&res).unwrap();
-    assert_eq!(
-        config,
-        ConfigResponse {
-            owner: "owner0000".to_string(),
-            admin_claim_period: 200u64,
-        }
-    )
-}
-
-#[test]
 fn execute_migrations() {
     let mut deps = mock_dependencies(&[]);
     let msg = InstantiateMsg {

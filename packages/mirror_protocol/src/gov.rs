@@ -9,13 +9,13 @@ use crate::common::OrderBy;
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InstantiateMsg {
     pub mirror_token: String,
-    pub quorum: Decimal,
-    pub threshold: Decimal,
-    pub voting_period: u64,
     pub effective_delay: u64,
-    pub proposal_deposit: Uint128,
+    pub default_poll_config: PollConfig,
+    pub migration_poll_config: PollConfig,
+    pub auth_admin_poll_config: PollConfig,
     pub voter_weight: Decimal,
     pub snapshot_period: u64,
+    pub admin_manager: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -24,13 +24,13 @@ pub enum ExecuteMsg {
     Receive(Cw20ReceiveMsg),
     UpdateConfig {
         owner: Option<String>,
-        quorum: Option<Decimal>,
-        threshold: Option<Decimal>,
-        voting_period: Option<u64>,
         effective_delay: Option<u64>,
-        proposal_deposit: Option<Uint128>,
+        default_poll_config: Option<PollConfig>,
+        migration_poll_config: Option<PollConfig>,
+        auth_admin_poll_config: Option<PollConfig>,
         voter_weight: Option<Decimal>,
         snapshot_period: Option<u64>,
+        admin_manager: Option<String>,
     },
     CastVote {
         poll_id: u64,
@@ -69,6 +69,7 @@ pub enum Cw20HookMsg {
         description: String,
         link: Option<String>,
         execute_msg: Option<PollExecuteMsg>,
+        admin_action: Option<PollAdminAction>,
     },
     /// Deposit rewards to be distributed among stakers and voters
     DepositReward {},
@@ -79,6 +80,29 @@ pub enum Cw20HookMsg {
 pub struct PollExecuteMsg {
     pub contract: String,
     pub msg: Binary,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct PollConfig {
+    pub proposal_deposit: Uint128,
+    pub voting_period: u64,
+    pub quorum: Decimal,
+    pub threshold: Decimal,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum PollAdminAction {
+    UpdateOwner {
+        owner: String,
+    },
+    ExecuteMigrations {
+        migrations: Vec<(String, u64, Binary)>,
+    },
+    AuthorizeClaim {
+        authorized_addr: String,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -119,13 +143,13 @@ pub enum QueryMsg {
 pub struct ConfigResponse {
     pub owner: String,
     pub mirror_token: String,
-    pub quorum: Decimal,
-    pub threshold: Decimal,
-    pub voting_period: u64,
     pub effective_delay: u64,
-    pub proposal_deposit: Uint128,
+    pub default_poll_config: PollConfig,
+    pub migration_poll_config: PollConfig,
+    pub auth_admin_poll_config: PollConfig,
     pub voter_weight: Decimal,
     pub snapshot_period: u64,
+    pub admin_manager: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
@@ -198,7 +222,11 @@ pub struct VotersResponse {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct MigrateMsg {}
+pub struct MigrateMsg {
+    pub migration_poll_config: PollConfig,
+    pub auth_admin_poll_config: PollConfig,
+    pub admin_manager: String,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct VoterInfo {

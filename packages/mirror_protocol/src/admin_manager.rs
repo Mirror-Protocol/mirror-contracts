@@ -12,9 +12,6 @@ pub struct InstantiateMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
-    UpdateAdminClaimPeriod {
-        admin_claim_period: u64,
-    },
     UpdateOwner {
         owner: String,
     },

@@ -33,25 +33,6 @@ pub fn update_owner(
     Ok(Response::new().add_attribute("action", "update_owner"))
 }
 
-/// Updates the admin_claim_period parameter
-pub fn update_admin_claim_period(
-    deps: DepsMut,
-    info: MessageInfo,
-    admin_claim_period: u64,
-) -> Result<Response, ContractError> {
-    let mut config: Config = CONFIG.load(deps.storage)?;
-    let sender_raw: CanonicalAddr = deps.api.addr_canonicalize(info.sender.as_str())?;
-
-    if sender_raw != config.owner {
-        return Err(ContractError::Unauthorized {});
-    }
-
-    config.admin_claim_period = admin_claim_period;
-    CONFIG.save(deps.storage, &config)?;
-
-    Ok(Response::new().add_attribute("action", "update_admin_claim_period"))
-}
-
 /// Owner can authorize an `authorized_address` to execute `claim_admin` for a limited time period
 pub fn authorize_claim(
     deps: DepsMut,

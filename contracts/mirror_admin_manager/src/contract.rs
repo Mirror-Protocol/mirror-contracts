@@ -6,7 +6,7 @@ use mirror_protocol::admin_manager::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::{
     error::ContractError,
     handle::{
-        authorize_claim, claim_admin, execute_migrations, update_admin_claim_period, update_owner,
+        authorize_claim, claim_admin, execute_migrations, update_owner,
     },
     query::{query_auth_records, query_config, query_migration_records},
     state::{Config, CONFIG},
@@ -38,9 +38,6 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::UpdateOwner { owner } => update_owner(deps, info, owner),
-        ExecuteMsg::UpdateAdminClaimPeriod { admin_claim_period } => {
-            update_admin_claim_period(deps, info, admin_claim_period)
-        }
         ExecuteMsg::AuthorizeClaim { authorized_addr } => {
             authorize_claim(deps, info, env, authorized_addr)
         }

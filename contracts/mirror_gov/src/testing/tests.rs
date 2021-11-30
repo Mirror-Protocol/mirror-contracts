@@ -15,9 +15,9 @@ use cosmwasm_std::{
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 use mirror_protocol::common::OrderBy;
 use mirror_protocol::gov::{
-    ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, PollExecuteMsg, PollResponse,
-    PollStatus, PollsResponse, QueryMsg, SharesResponse, SharesResponseItem, StakerResponse,
-    StateResponse, VoteOption, VoterInfo, VotersResponse, VotersResponseItem,
+    ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, PollConfig, PollExecuteMsg,
+    PollResponse, PollStatus, PollsResponse, QueryMsg, SharesResponse, SharesResponseItem,
+    StakerResponse, StateResponse, VoteOption, VoterInfo, VotersResponse, VotersResponseItem,
 };
 
 const VOTING_TOKEN: &str = "voting_token";
@@ -26,25 +26,25 @@ const TEST_VOTER: &str = "voter1";
 const TEST_VOTER_2: &str = "voter2";
 const TEST_VOTER_3: &str = "voter3";
 const TEST_COLLECTOR: &str = "collector";
+const TEST_ADMIN_MANAGER: &str = "admin_manager";
 const DEFAULT_QUORUM: u64 = 30u64;
 const DEFAULT_THRESHOLD: u64 = 50u64;
 const DEFAULT_VOTING_PERIOD: u64 = 10000u64;
+const DEFAULT_MIGRATION_QUORUM: u64 = 40u64;
+const DEFAULT_MIGRATION_THRESHOLD: u64 = 60u64;
+const DEFAULT_MIGRATION_VOTING_PERIOD: u64 = 20000u64;
+const DEFAULT_AUTH_ADMIN_QUORUM: u64 = 50u64;
+const DEFAULT_AUTH_ADMIN_THRESHOLD: u64 = 70u64;
+const DEFAULT_AUTH_ADMIN_VOTING_PERIOD: u64 = 30000u64;
 const DEFAULT_EFFECTIVE_DELAY: u64 = 10000u64;
 const DEFAULT_PROPOSAL_DEPOSIT: u128 = 10000000000u128;
+const DEFAULT_MIGRATION_PROPOSAL_DEPOSIT: u128 = 20000000000u128;
+const DEFAULT_AUTH_ADMIN_PROPOSAL_DEPOSIT: u128 = 30000000000u128;
 const DEFAULT_VOTER_WEIGHT: Decimal = Decimal::zero();
 const DEFAULT_SNAPSHOT_PERIOD: u64 = 10u64;
 
 fn mock_instantiate(deps: DepsMut) {
-    let msg = InstantiateMsg {
-        mirror_token: VOTING_TOKEN.to_string(),
-        quorum: Decimal::percent(DEFAULT_QUORUM),
-        threshold: Decimal::percent(DEFAULT_THRESHOLD),
-        voting_period: DEFAULT_VOTING_PERIOD,
-        effective_delay: DEFAULT_EFFECTIVE_DELAY,
-        proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
-        voter_weight: DEFAULT_VOTER_WEIGHT,
-        snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
-    };
+    let msg = init_msg();
 
     let info = mock_info(TEST_CREATOR, &[]);
     let _res = instantiate(deps, mock_env(), info, msg)
@@ -61,13 +61,28 @@ fn mock_env_height(height: u64, time: u64) -> Env {
 fn init_msg() -> InstantiateMsg {
     InstantiateMsg {
         mirror_token: VOTING_TOKEN.to_string(),
-        quorum: Decimal::percent(DEFAULT_QUORUM),
-        threshold: Decimal::percent(DEFAULT_THRESHOLD),
-        voting_period: DEFAULT_VOTING_PERIOD,
+        default_poll_config: PollConfig {
+            proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
+            voting_period: DEFAULT_VOTING_PERIOD,
+            quorum: Decimal::percent(DEFAULT_QUORUM),
+            threshold: Decimal::percent(DEFAULT_THRESHOLD),
+        },
+        migration_poll_config: PollConfig {
+            proposal_deposit: Uint128::new(DEFAULT_MIGRATION_PROPOSAL_DEPOSIT),
+            voting_period: DEFAULT_MIGRATION_VOTING_PERIOD,
+            quorum: Decimal::percent(DEFAULT_MIGRATION_QUORUM),
+            threshold: Decimal::percent(DEFAULT_MIGRATION_THRESHOLD),
+        },
+        auth_admin_poll_config: PollConfig {
+            proposal_deposit: Uint128::new(DEFAULT_AUTH_ADMIN_PROPOSAL_DEPOSIT),
+            voting_period: DEFAULT_AUTH_ADMIN_VOTING_PERIOD,
+            quorum: Decimal::percent(DEFAULT_AUTH_ADMIN_QUORUM),
+            threshold: Decimal::percent(DEFAULT_AUTH_ADMIN_THRESHOLD),
+        },
         effective_delay: DEFAULT_EFFECTIVE_DELAY,
-        proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
         voter_weight: DEFAULT_VOTER_WEIGHT,
         snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
+        admin_manager: TEST_ADMIN_MANAGER.to_string(),
     }
 }
 
@@ -86,14 +101,28 @@ fn proper_initialization() {
         Config {
             mirror_token: deps.api.addr_canonicalize(VOTING_TOKEN).unwrap(),
             owner: deps.api.addr_canonicalize(TEST_CREATOR).unwrap(),
-            quorum: Decimal::percent(DEFAULT_QUORUM),
-            threshold: Decimal::percent(DEFAULT_THRESHOLD),
-            voting_period: DEFAULT_VOTING_PERIOD,
+            default_poll_config: PollConfig {
+                proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
+                voting_period: DEFAULT_VOTING_PERIOD,
+                quorum: Decimal::percent(DEFAULT_QUORUM),
+                threshold: Decimal::percent(DEFAULT_THRESHOLD),
+            },
+            migration_poll_config: PollConfig {
+                proposal_deposit: Uint128::new(DEFAULT_MIGRATION_PROPOSAL_DEPOSIT),
+                voting_period: DEFAULT_MIGRATION_VOTING_PERIOD,
+                quorum: Decimal::percent(DEFAULT_MIGRATION_QUORUM),
+                threshold: Decimal::percent(DEFAULT_MIGRATION_THRESHOLD),
+            },
+            auth_admin_poll_config: PollConfig {
+                proposal_deposit: Uint128::new(DEFAULT_AUTH_ADMIN_PROPOSAL_DEPOSIT),
+                voting_period: DEFAULT_AUTH_ADMIN_VOTING_PERIOD,
+                quorum: Decimal::percent(DEFAULT_AUTH_ADMIN_QUORUM),
+                threshold: Decimal::percent(DEFAULT_AUTH_ADMIN_THRESHOLD),
+            },
             effective_delay: DEFAULT_EFFECTIVE_DELAY,
-            proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
             voter_weight: DEFAULT_VOTER_WEIGHT,
             snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
-            expiration_period: 0u64, // depcrecated
+            admin_manager: deps.api.addr_canonicalize(TEST_ADMIN_MANAGER).unwrap(),
         }
     );
 
@@ -129,14 +158,11 @@ fn fails_create_poll_invalid_quorum() {
     let mut deps = mock_dependencies(&[]);
     let info = mock_info("voter", &coins(11, VOTING_TOKEN));
     let msg = InstantiateMsg {
-        mirror_token: VOTING_TOKEN.to_string(),
-        quorum: Decimal::percent(101),
-        threshold: Decimal::percent(DEFAULT_THRESHOLD),
-        voting_period: DEFAULT_VOTING_PERIOD,
-        effective_delay: DEFAULT_EFFECTIVE_DELAY,
-        proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
-        voter_weight: DEFAULT_VOTER_WEIGHT,
-        snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
+        default_poll_config: PollConfig {
+            quorum: Decimal::percent(101),
+            ..init_msg().default_poll_config
+        },
+        ..init_msg()
     };
 
     let res = instantiate(deps.as_mut(), mock_env(), info, msg);
@@ -153,14 +179,11 @@ fn fails_create_poll_invalid_threshold() {
     let mut deps = mock_dependencies(&[]);
     let info = mock_info("voter", &coins(11, VOTING_TOKEN));
     let msg = InstantiateMsg {
-        mirror_token: VOTING_TOKEN.to_string(),
-        quorum: Decimal::percent(DEFAULT_QUORUM),
-        threshold: Decimal::percent(101),
-        voting_period: DEFAULT_VOTING_PERIOD,
-        effective_delay: DEFAULT_EFFECTIVE_DELAY,
-        proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
-        voter_weight: DEFAULT_VOTER_WEIGHT,
-        snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
+        default_poll_config: PollConfig {
+            threshold: Decimal::percent(101),
+            ..init_msg().default_poll_config
+        },
+        ..init_msg()
     };
 
     let res = instantiate(deps.as_mut(), mock_env(), info, msg);
@@ -271,6 +294,7 @@ fn fails_create_poll_invalid_deposit() {
             description: "TESTTEST".to_string(),
             link: None,
             execute_msg: None,
+            admin_action: None,
         })
         .unwrap(),
     });
@@ -299,6 +323,7 @@ fn create_poll_msg(
             description,
             link,
             execute_msg,
+            admin_action: None,
         })
         .unwrap(),
     })
@@ -2139,14 +2164,8 @@ fn share_calculation_with_voter_rewards() {
 
     // initialize the store
     let msg = InstantiateMsg {
-        mirror_token: VOTING_TOKEN.to_string(),
-        quorum: Decimal::percent(DEFAULT_QUORUM),
-        threshold: Decimal::percent(DEFAULT_THRESHOLD),
-        voting_period: DEFAULT_VOTING_PERIOD,
-        effective_delay: DEFAULT_EFFECTIVE_DELAY,
-        proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
         voter_weight: Decimal::percent(50), // distribute 50% rewards to voters
-        snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
+        ..init_msg()
     };
     let info = mock_info(TEST_VOTER, &coins(2, VOTING_TOKEN));
     let init_res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -2355,13 +2374,13 @@ fn update_config() {
     let info = mock_info(TEST_CREATOR, &[]);
     let msg = ExecuteMsg::UpdateConfig {
         owner: Some("addr0001".to_string()),
-        quorum: None,
-        threshold: None,
-        voting_period: None,
+        default_poll_config: None,
+        migration_poll_config: None,
+        auth_admin_poll_config: None,
         effective_delay: None,
-        proposal_deposit: None,
         voter_weight: None,
         snapshot_period: None,
+        admin_manager: None,
     };
 
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -2371,23 +2390,37 @@ fn update_config() {
     let res = query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap();
     let config: ConfigResponse = from_binary(&res).unwrap();
     assert_eq!("addr0001", config.owner.as_str());
-    assert_eq!(Decimal::percent(DEFAULT_QUORUM), config.quorum);
-    assert_eq!(Decimal::percent(DEFAULT_THRESHOLD), config.threshold);
-    assert_eq!(DEFAULT_VOTING_PERIOD, config.voting_period);
-    assert_eq!(DEFAULT_EFFECTIVE_DELAY, config.effective_delay);
-    assert_eq!(DEFAULT_PROPOSAL_DEPOSIT, config.proposal_deposit.u128());
 
-    // update left items
+    // update all items
+    let new_default_poll_config = PollConfig {
+        proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT + 1),
+        voting_period: DEFAULT_VOTING_PERIOD + 2,
+        quorum: Decimal::percent(DEFAULT_QUORUM + 3),
+        threshold: Decimal::percent(DEFAULT_THRESHOLD + 4),
+    };
+    let new_migration_poll_config = PollConfig {
+        proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT + 5),
+        voting_period: DEFAULT_VOTING_PERIOD + 6,
+        quorum: Decimal::percent(DEFAULT_QUORUM + 7),
+        threshold: Decimal::percent(DEFAULT_THRESHOLD + 8),
+    };
+    let new_auth_admin_poll_config = PollConfig {
+        proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT + 9),
+        voting_period: DEFAULT_VOTING_PERIOD + 10,
+        quorum: Decimal::percent(DEFAULT_QUORUM + 11),
+        threshold: Decimal::percent(DEFAULT_THRESHOLD + 12),
+    };
+
     let info = mock_info("addr0001", &[]);
     let msg = ExecuteMsg::UpdateConfig {
         owner: None,
-        quorum: Some(Decimal::percent(20)),
-        threshold: Some(Decimal::percent(75)),
-        voting_period: Some(20000u64),
+        default_poll_config: Some(new_default_poll_config.clone()),
+        migration_poll_config: Some(new_migration_poll_config.clone()),
+        auth_admin_poll_config: Some(new_auth_admin_poll_config.clone()),
         effective_delay: Some(20000u64),
-        proposal_deposit: Some(Uint128::new(123u128)),
         voter_weight: Some(Decimal::percent(1)),
         snapshot_period: Some(60u64),
+        admin_manager: Some("new_admin_mgr0000".to_string()),
     };
 
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -2397,25 +2430,25 @@ fn update_config() {
     let res = query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap();
     let config: ConfigResponse = from_binary(&res).unwrap();
     assert_eq!("addr0001", config.owner.as_str());
-    assert_eq!(Decimal::percent(20), config.quorum);
-    assert_eq!(Decimal::percent(75), config.threshold);
-    assert_eq!(20000u64, config.voting_period);
+    assert_eq!(new_default_poll_config, config.default_poll_config);
+    assert_eq!(new_migration_poll_config, config.migration_poll_config);
+    assert_eq!(new_auth_admin_poll_config, config.auth_admin_poll_config);
     assert_eq!(20000u64, config.effective_delay);
-    assert_eq!(123u128, config.proposal_deposit.u128());
     assert_eq!(Decimal::percent(1), config.voter_weight);
     assert_eq!(60u64, config.snapshot_period);
+    assert_eq!("new_admin_mgr0000", config.admin_manager.as_str());
 
     // Unauthorzied err
     let info = mock_info(TEST_CREATOR, &[]);
     let msg = ExecuteMsg::UpdateConfig {
         owner: None,
-        quorum: None,
-        threshold: None,
-        voting_period: None,
+        default_poll_config: None,
+        migration_poll_config: None,
+        auth_admin_poll_config: None,
         effective_delay: None,
-        proposal_deposit: None,
         voter_weight: None,
         snapshot_period: None,
+        admin_manager: None,
     };
 
     let res = execute(deps.as_mut(), mock_env(), info, msg);
@@ -2429,14 +2462,8 @@ fn update_config() {
 fn distribute_voting_rewards() {
     let mut deps = mock_dependencies(&[]);
     let msg = InstantiateMsg {
-        mirror_token: VOTING_TOKEN.to_string(),
-        quorum: Decimal::percent(DEFAULT_QUORUM),
-        threshold: Decimal::percent(DEFAULT_THRESHOLD),
-        voting_period: DEFAULT_VOTING_PERIOD,
-        effective_delay: DEFAULT_EFFECTIVE_DELAY,
-        proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
         voter_weight: Decimal::percent(50), // distribute 50% rewards to voters
-        snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
+        ..init_msg()
     };
 
     let info = mock_info(TEST_CREATOR, &[]);
@@ -2557,14 +2584,8 @@ fn distribute_voting_rewards() {
 fn stake_voting_rewards() {
     let mut deps = mock_dependencies(&[]);
     let msg = InstantiateMsg {
-        mirror_token: VOTING_TOKEN.to_string(),
-        quorum: Decimal::percent(DEFAULT_QUORUM),
-        threshold: Decimal::percent(DEFAULT_THRESHOLD),
-        voting_period: DEFAULT_VOTING_PERIOD,
-        effective_delay: DEFAULT_EFFECTIVE_DELAY,
-        proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
         voter_weight: Decimal::percent(50), // distribute 50% rewards to voters
-        snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
+        ..init_msg()
     };
 
     let info = mock_info(TEST_CREATOR, &[]);
@@ -2710,14 +2731,8 @@ fn stake_voting_rewards() {
 fn distribute_voting_rewards_with_multiple_active_polls_and_voters() {
     let mut deps = mock_dependencies(&[]);
     let msg = InstantiateMsg {
-        mirror_token: VOTING_TOKEN.to_string(),
-        quorum: Decimal::percent(DEFAULT_QUORUM),
-        threshold: Decimal::percent(DEFAULT_THRESHOLD),
-        voting_period: DEFAULT_VOTING_PERIOD,
-        effective_delay: DEFAULT_EFFECTIVE_DELAY,
-        proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
         voter_weight: Decimal::percent(50), // distribute 50% rewards to voters
-        snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
+        ..init_msg()
     };
     let info = mock_info(TEST_CREATOR, &[]);
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg)
@@ -2899,14 +2914,8 @@ fn distribute_voting_rewards_with_multiple_active_polls_and_voters() {
 fn distribute_voting_rewards_only_to_polls_in_progress() {
     let mut deps = mock_dependencies(&[]);
     let msg = InstantiateMsg {
-        mirror_token: VOTING_TOKEN.to_string(),
-        quorum: Decimal::percent(DEFAULT_QUORUM),
-        threshold: Decimal::percent(DEFAULT_THRESHOLD),
-        voting_period: DEFAULT_VOTING_PERIOD,
-        effective_delay: DEFAULT_EFFECTIVE_DELAY,
-        proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
         voter_weight: Decimal::percent(50), // distribute 50% rewards to voters
-        snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
+        ..init_msg()
     };
     let info = mock_info(TEST_CREATOR, &[]);
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg)
@@ -3033,14 +3042,8 @@ fn distribute_voting_rewards_only_to_polls_in_progress() {
 fn test_staking_and_voting_rewards() {
     let mut deps = mock_dependencies(&[]);
     let msg = InstantiateMsg {
-        mirror_token: VOTING_TOKEN.to_string(),
-        quorum: Decimal::percent(DEFAULT_QUORUM),
-        threshold: Decimal::percent(DEFAULT_THRESHOLD),
-        voting_period: DEFAULT_VOTING_PERIOD,
-        effective_delay: DEFAULT_EFFECTIVE_DELAY,
-        proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
         voter_weight: Decimal::percent(50), // distribute 50% rewards to voters
-        snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
+        ..init_msg()
     };
     let info = mock_info(TEST_CREATOR, &[]);
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg)
@@ -3261,16 +3264,7 @@ fn test_staking_and_voting_rewards() {
 #[test]
 fn test_abstain_votes_theshold() {
     let mut deps = mock_dependencies(&[]);
-    let msg = InstantiateMsg {
-        mirror_token: VOTING_TOKEN.to_string(),
-        quorum: Decimal::percent(DEFAULT_QUORUM),
-        threshold: Decimal::percent(DEFAULT_THRESHOLD),
-        voting_period: DEFAULT_VOTING_PERIOD,
-        effective_delay: DEFAULT_EFFECTIVE_DELAY,
-        proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
-        voter_weight: Decimal::percent(50), // distribute 50% rewards to voters
-        snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
-    };
+    let msg = init_msg();
 
     let info = mock_info(TEST_CREATOR, &[]);
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg)
@@ -3383,16 +3377,7 @@ fn test_abstain_votes_theshold() {
 #[test]
 fn test_abstain_votes_quorum() {
     let mut deps = mock_dependencies(&[]);
-    let msg = InstantiateMsg {
-        mirror_token: VOTING_TOKEN.to_string(),
-        quorum: Decimal::percent(DEFAULT_QUORUM),
-        threshold: Decimal::percent(DEFAULT_THRESHOLD),
-        voting_period: DEFAULT_VOTING_PERIOD,
-        effective_delay: DEFAULT_EFFECTIVE_DELAY,
-        proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
-        voter_weight: Decimal::percent(50), // distribute 50% rewards to voters
-        snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
-    };
+    let msg = init_msg();
 
     let info = mock_info(TEST_CREATOR, &[]);
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg)
@@ -4327,14 +4312,8 @@ fn happy_days_end_poll_with_controlled_quorum() {
 fn test_unstake_before_claiming_voting_rewards() {
     let mut deps = mock_dependencies(&[]);
     let msg = InstantiateMsg {
-        mirror_token: VOTING_TOKEN.to_string(),
-        quorum: Decimal::percent(DEFAULT_QUORUM),
-        threshold: Decimal::percent(DEFAULT_THRESHOLD),
-        voting_period: DEFAULT_VOTING_PERIOD,
-        effective_delay: DEFAULT_EFFECTIVE_DELAY,
-        proposal_deposit: Uint128::new(DEFAULT_PROPOSAL_DEPOSIT),
         voter_weight: Decimal::percent(50),
-        snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
+        ..init_msg()
     };
 
     let info = mock_info(TEST_CREATOR, &[]);
