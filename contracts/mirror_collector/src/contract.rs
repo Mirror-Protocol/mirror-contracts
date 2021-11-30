@@ -1,4 +1,5 @@
 use crate::errors::ContractError;
+use crate::migration::migrate_config;
 use crate::state::{read_config, store_config, Config};
 use crate::swap::{convert, luna_swap_hook};
 #[cfg(not(feature = "library"))]
@@ -216,6 +217,8 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+    migrate_config(deps.storage)?;
+
     Ok(Response::default())
 }
