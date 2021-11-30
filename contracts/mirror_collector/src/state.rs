@@ -19,6 +19,8 @@ pub struct Config {
     // bLuna params
     pub bluna_token: CanonicalAddr,
     pub bluna_swap_denom: String,
+    // when set, use this address instead of querying from terraswap
+    pub mir_ust_pair: Option<CanonicalAddr>,
 }
 
 pub fn store_config(storage: &mut dyn Storage, config: &Config) -> StdResult<()> {
