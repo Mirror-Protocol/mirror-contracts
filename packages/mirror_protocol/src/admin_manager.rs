@@ -30,14 +30,14 @@ pub enum ExecuteMsg {
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     Config {},
-    MigrationRecords { 
-        start_after:  Option<u64>, // timestamp (seconds)
+    MigrationRecords {
+        start_after: Option<u64>, // timestamp (seconds)
         limit: Option<u32>,
     },
     AuthRecords {
-        start_after:  Option<u64>, // timestamp (seconds)
+        start_after: Option<u64>, // timestamp (seconds)
         limit: Option<u32>,
-    }
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

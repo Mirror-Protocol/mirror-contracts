@@ -1,3 +1,4 @@
+pub mod admin_manager;
 pub mod collateral_oracle;
 pub mod collector;
 pub mod common;
@@ -10,4 +11,3 @@ pub mod mint;
 pub mod oracle;
 pub mod short_reward;
 pub mod staking;
-pub mod admin_manager;
