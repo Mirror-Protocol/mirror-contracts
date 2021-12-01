@@ -2,7 +2,7 @@ use crate::contract::{execute, instantiate, query};
 use crate::error::ContractError;
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
 use cosmwasm_std::{
-    attr, from_binary, to_binary, BlockInfo, CosmosMsg, Env, SubMsg, Timestamp, WasmMsg, Empty,
+    attr, from_binary, to_binary, BlockInfo, CosmosMsg, Empty, Env, SubMsg, Timestamp, WasmMsg,
 };
 use mirror_protocol::admin_manager::{
     AuthRecordResponse, AuthRecordsResponse, ConfigResponse, ExecuteMsg, InstantiateMsg,

@@ -3,22 +3,14 @@
   "title": "InstantiateMsg",
   "type": "object",
   "required": [
-    "base_denom",
-    "lockup_period",
-    "mint_contract",
+    "admin_claim_period",
     "owner"
   ],
   "properties": {
-    "base_denom": {
-      "type": "string"
-    },
-    "lockup_period": {
+    "admin_claim_period": {
       "type": "integer",
       "format": "uint64",
       "minimum": 0.0
-    },
-    "mint_contract": {
-      "type": "string"
     },
     "owner": {
       "type": "string"

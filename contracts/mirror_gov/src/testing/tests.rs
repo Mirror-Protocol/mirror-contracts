@@ -3743,7 +3743,7 @@ fn snapshot_poll() {
     )
     .unwrap_err();
     assert_eq!(
-        StdError::generic_err("Cannot snapshot at this height",),
+        StdError::generic_err("Cannot snapshot at this time",),
         snapshot_err
     );
 

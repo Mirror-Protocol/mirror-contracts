@@ -5,9 +5,7 @@ use mirror_protocol::admin_manager::{ExecuteMsg, InstantiateMsg, QueryMsg};
 
 use crate::{
     error::ContractError,
-    handle::{
-        authorize_claim, claim_admin, execute_migrations, update_owner,
-    },
+    handle::{authorize_claim, claim_admin, execute_migrations, update_owner},
     query::{query_auth_records, query_config, query_migration_records},
     state::{Config, CONFIG},
 };
