@@ -1,6 +1,6 @@
 use crate::contract::{execute, instantiate, query};
-use crate::testing::mock_querier::mock_dependencies_with_querier;
 use crate::state::{read_pool_info, rewards_read, store_pool_info, PoolInfo, RewardInfo};
+use crate::testing::mock_querier::mock_dependencies_with_querier;
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
 use cosmwasm_std::{
     from_binary, to_binary, Addr, Api, CosmosMsg, Decimal, StdError, SubMsg, Uint128, WasmMsg,
@@ -629,18 +629,21 @@ fn withdraw_multiple_rewards() {
                     bond_amount: Uint128::new(100u128),
                     pending_reward: Uint128::new(80u128),
                     is_short: false,
+                    should_migrate: None,
                 },
                 RewardInfoResponseItem {
                     asset_token: "asset2".to_string(),
                     bond_amount: Uint128::new(1000u128),
                     pending_reward: Uint128::new(160u128),
                     is_short: false,
+                    should_migrate: None,
                 },
                 RewardInfoResponseItem {
                     asset_token: "asset".to_string(),
                     bond_amount: Uint128::new(50u128),
                     pending_reward: Uint128::new(20u128),
                     is_short: true,
+                    should_migrate: None,
                 },
             ],
         }
@@ -684,18 +687,21 @@ fn withdraw_multiple_rewards() {
                     bond_amount: Uint128::new(100u128),
                     pending_reward: Uint128::zero(),
                     is_short: false,
+                    should_migrate: None,
                 },
                 RewardInfoResponseItem {
                     asset_token: "asset2".to_string(),
                     bond_amount: Uint128::new(1000u128),
                     pending_reward: Uint128::zero(),
                     is_short: false,
+                    should_migrate: None,
                 },
                 RewardInfoResponseItem {
                     asset_token: "asset".to_string(),
                     bond_amount: Uint128::new(50u128),
                     pending_reward: Uint128::zero(),
                     is_short: true,
+                    should_migrate: None,
                 },
             ],
         }
@@ -769,10 +775,7 @@ fn test_adjust_premium() {
     )
     .unwrap();
     assert_eq!(res.premium_rate, Decimal::zero());
-    assert_eq!(
-        res.premium_updated_time,
-        env.block.time.seconds()
-    );
+    assert_eq!(res.premium_updated_time, env.block.time.seconds());
 
     // terraswap price = 90
     // premium rate = 0
@@ -817,10 +820,7 @@ fn test_adjust_premium() {
     )
     .unwrap();
     assert_eq!(res.premium_rate, Decimal::zero());
-    assert_eq!(
-        res.premium_updated_time,
-        env.block.time.seconds()
-    );
+    assert_eq!(res.premium_updated_time, env.block.time.seconds());
 
     // terraswap price = 105
     // premium rate = 5%
@@ -855,9 +855,5 @@ fn test_adjust_premium() {
     )
     .unwrap();
     assert_eq!(res.premium_rate, Decimal::percent(5));
-    assert_eq!(
-        res.premium_updated_time,
-        env.block.time.seconds()
-    );
+    assert_eq!(res.premium_updated_time, env.block.time.seconds());
 }
-

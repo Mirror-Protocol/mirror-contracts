@@ -170,7 +170,8 @@ fn test_register() {
             premium_rate: Decimal::zero(),
             short_reward_weight: Decimal::zero(),
             premium_updated_time: 0,
+            migration_deprecated_staking_token: None,
+            migration_index_snapshot: None,
         }
     );
 }
-
