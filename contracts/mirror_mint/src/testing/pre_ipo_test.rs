@@ -36,8 +36,6 @@ fn pre_ipo_assets() {
             &Decimal::from_ratio(10u128, 1u128),
         ),
     ]);
-    deps.querier
-        .with_oracle_feeders(&[(&"preIPOAsset0000".to_string(), &"feeder0000".to_string())]);
 
     let base_denom = "uusd".to_string();
 
@@ -227,7 +225,7 @@ fn pre_ipo_assets() {
     ///////////////////
     current_time = creator_env.block.time.plus_seconds(20).seconds();
 
-    // register migration initiated by the feeder
+    // register migration initiated by the trigger address
     let msg = ExecuteMsg::TriggerIPO {
         asset_token: "preIPOAsset0000".to_string(),
     };
@@ -276,7 +274,7 @@ fn pre_ipo_assets() {
     )
     .unwrap();
     let asset_config_res: AssetConfigResponse = from_binary(&res).unwrap();
-    // traditional asset configuration, feeder feeds real price
+    // traditional asset configuration, price is obtained from the oracle
     assert_eq!(
         asset_config_res,
         AssetConfigResponse {

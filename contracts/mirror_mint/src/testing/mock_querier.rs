@@ -33,7 +33,6 @@ pub struct WasmMockQuerier {
     oracle_price_querier: OraclePriceQuerier,
     collateral_oracle_querier: CollateralOracleQuerier,
     terraswap_pair_querier: TerraswapPairQuerier,
-    oracle_querier: OracleQuerier,
 }
 
 #[derive(Clone, Default)]
@@ -138,27 +137,6 @@ pub(crate) fn paris_to_map(pairs: &[(&String, &String, &String)]) -> HashMap<Str
     }
 
     pairs_map
-}
-
-#[derive(Clone, Default)]
-pub struct OracleQuerier {
-    feeders: HashMap<String, String>,
-}
-
-impl OracleQuerier {
-    pub fn new(feeders: &[(&String, &String)]) -> Self {
-        OracleQuerier {
-            feeders: address_pair_to_map(feeders),
-        }
-    }
-}
-
-pub(crate) fn address_pair_to_map(address_pair: &[(&String, &String)]) -> HashMap<String, String> {
-    let mut address_pair_map: HashMap<String, String> = HashMap::new();
-    for (addr1, addr2) in address_pair.iter() {
-        address_pair_map.insert(addr1.to_string(), addr2.to_string());
-    }
-    address_pair_map
 }
 
 impl Querier for WasmMockQuerier {
@@ -289,7 +267,6 @@ impl WasmMockQuerier {
             oracle_price_querier: OraclePriceQuerier::default(),
             collateral_oracle_querier: CollateralOracleQuerier::default(),
             terraswap_pair_querier: TerraswapPairQuerier::default(),
-            oracle_querier: OracleQuerier::default(),
         }
     }
 
@@ -314,9 +291,5 @@ impl WasmMockQuerier {
     // configure the terraswap factory pair mock querier
     pub fn with_terraswap_pair(&mut self, pairs: &[(&String, &String, &String)]) {
         self.terraswap_pair_querier = TerraswapPairQuerier::new(pairs);
-    }
-
-    pub fn with_oracle_feeders(&mut self, feeders: &[(&String, &String)]) {
-        self.oracle_querier = OracleQuerier::new(feeders);
     }
 }

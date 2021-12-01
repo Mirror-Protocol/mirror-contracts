@@ -438,7 +438,7 @@ pub fn trigger_ipo(deps: DepsMut, info: MessageInfo, asset_token: Addr) -> StdRe
     };
     let trigger_addr = deps.api.addr_validate(&ipo_params.trigger_addr)?;
 
-    // only asset feeder can trigger ipo
+    // only trigger addr can trigger ipo
     if trigger_addr != info.sender {
         return Err(StdError::generic_err("unauthorized"));
     }
