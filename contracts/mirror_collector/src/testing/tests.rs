@@ -24,6 +24,7 @@ fn proper_initialization() {
         anchor_market: "anchormarket0000".to_string(),
         bluna_token: "bluna0000".to_string(),
         bluna_swap_denom: "uluna".to_string(),
+        mir_ust_pair: None,
     };
 
     let info = mock_info("addr0000", &[]);
@@ -68,6 +69,7 @@ fn test_convert() {
         anchor_market: "anchormarket0000".to_string(),
         bluna_token: "bluna0000".to_string(),
         bluna_swap_denom: "uluna".to_string(),
+        mir_ust_pair: None,
     };
 
     let info = mock_info("addr0000", &[]);
@@ -152,6 +154,7 @@ fn test_convert_aust() {
         anchor_market: "anchormarket0000".to_string(),
         bluna_token: "bluna0000".to_string(),
         bluna_swap_denom: "uluna".to_string(),
+        mir_ust_pair: None,
     };
 
     let info = mock_info("addr0000", &[]);
@@ -202,6 +205,7 @@ fn test_convert_bluna() {
         anchor_market: "anchormarket0000".to_string(),
         bluna_token: "bluna0000".to_string(),
         bluna_swap_denom: "uluna".to_string(),
+        mir_ust_pair: None,
     };
 
     let info = mock_info("addr0000", &[]);
@@ -276,6 +280,7 @@ fn test_send() {
         anchor_market: "anchormarket0000".to_string(),
         bluna_token: "bluna0000".to_string(),
         bluna_swap_denom: "uluna".to_string(),
+        mir_ust_pair: None,
     };
 
     let info = mock_info("addr0000", &[]);
@@ -298,4 +303,118 @@ fn test_send() {
             funds: vec![],
         }))]
     )
+}
+
+#[test]
+fn test_set_astroport_mir_pair() {
+    let mut deps = mock_dependencies(&[Coin {
+        denom: "uusd".to_string(),
+        amount: Uint128::from(100u128),
+    }]);
+
+    deps.querier.with_tax(
+        Decimal::percent(1),
+        &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
+    );
+
+    deps.querier
+        .with_terraswap_pairs(&[(&"uusdtokenMIRROR".to_string(), &"pairMIRROR".to_string())]);
+
+    let msg = InstantiateMsg {
+        owner: "owner0000".to_string(),
+        terraswap_factory: "terraswapfactory".to_string(),
+        distribution_contract: "gov0000".to_string(),
+        mirror_token: "tokenMIRROR".to_string(),
+        base_denom: "uusd".to_string(),
+        aust_token: "aust0000".to_string(),
+        anchor_market: "anchormarket0000".to_string(),
+        bluna_token: "bluna0000".to_string(),
+        bluna_swap_denom: "uluna".to_string(),
+        mir_ust_pair: None,
+    };
+
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    // first, try to swap when the pair is not set yet
+    let msg = ExecuteMsg::Convert {
+        asset_token: "tokenMIRROR".to_string(),
+    };
+
+    let info = mock_info("addr0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    // tax deduct 100 => 99
+    assert_eq!(
+        res.messages,
+        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: "pairMIRROR".to_string(), // terraswap pair
+            msg: to_binary(&TerraswapExecuteMsg::Swap {
+                offer_asset: Asset {
+                    info: AssetInfo::NativeToken {
+                        denom: "uusd".to_string()
+                    },
+                    amount: Uint128::from(99u128),
+                },
+                max_spread: None,
+                belief_price: None,
+                to: None,
+            })
+            .unwrap(),
+            funds: vec![Coin {
+                amount: Uint128::from(99u128),
+                denom: "uusd".to_string(),
+            }],
+        }))]
+    );
+
+    // trigger the change by updating the configuration
+    let msg = ExecuteMsg::UpdateConfig {
+        owner: None,
+        terraswap_factory: None,
+        distribution_contract: None,
+        mirror_token: None,
+        base_denom: None,
+        aust_token: None,
+        anchor_market: None,
+        bluna_token: None,
+        bluna_swap_denom: None,
+        mir_ust_pair: Some("astroportPAIR".to_string()),
+    };
+
+    let info = mock_info("owner0000", &[]);
+    execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    // try again
+    let msg = ExecuteMsg::Convert {
+        asset_token: "tokenMIRROR".to_string(),
+    };
+
+    let info = mock_info("addr0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    // tax deduct 100 => 99
+    assert_eq!(
+        res.messages,
+        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: "astroportPAIR".to_string(), // astroport pair
+            msg: to_binary(&TerraswapExecuteMsg::Swap {
+                // swap message format is same on astroport, will parse ok
+                offer_asset: Asset {
+                    info: AssetInfo::NativeToken {
+                        denom: "uusd".to_string()
+                    },
+                    amount: Uint128::from(99u128),
+                },
+                max_spread: None,
+                belief_price: None,
+                to: None,
+            })
+            .unwrap(),
+            funds: vec![Coin {
+                amount: Uint128::from(99u128),
+                denom: "uusd".to_string(),
+            }],
+        }))]
+    );
 }

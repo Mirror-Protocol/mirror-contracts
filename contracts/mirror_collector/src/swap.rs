@@ -46,18 +46,27 @@ fn direct_swap(
     let terraswap_factory_addr = deps.api.addr_humanize(&config.terraswap_factory)?;
     let asset_token_raw = deps.api.addr_canonicalize(asset_token.as_str())?;
 
-    let pair_info: PairInfo = query_pair_info(
-        &deps.querier,
-        terraswap_factory_addr,
-        &[
-            AssetInfo::NativeToken {
-                denom: config.base_denom.clone(),
-            },
-            AssetInfo::Token {
-                contract_addr: asset_token.to_string(),
-            },
-        ],
-    )?;
+    let pair_addr: String =
+        if asset_token_raw == config.mirror_token && config.mir_ust_pair.is_some() {
+            deps.api
+                .addr_humanize(config.mir_ust_pair.as_ref().unwrap())?
+                .to_string()
+        } else {
+            let pair_info: PairInfo = query_pair_info(
+                &deps.querier,
+                terraswap_factory_addr,
+                &[
+                    AssetInfo::NativeToken {
+                        denom: config.base_denom.clone(),
+                    },
+                    AssetInfo::Token {
+                        contract_addr: asset_token.to_string(),
+                    },
+                ],
+            )?;
+
+            pair_info.contract_addr
+        };
 
     let mut messages: Vec<CosmosMsg<TerraMsgWrapper>> = vec![];
     if config.mirror_token == asset_token_raw {
@@ -79,7 +88,7 @@ fn direct_swap(
             // deduct tax first
             let amount = (swap_asset.deduct_tax(&deps.querier)?).amount;
             messages = vec![CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: pair_info.contract_addr,
+                contract_addr: pair_addr,
                 msg: to_binary(&TerraswapExecuteMsg::Swap {
                     offer_asset: Asset {
                         amount,
@@ -103,7 +112,7 @@ fn direct_swap(
             messages = vec![CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: asset_token.to_string(),
                 msg: to_binary(&Cw20ExecuteMsg::Send {
-                    contract: pair_info.contract_addr,
+                    contract: pair_addr,
                     amount,
                     msg: to_binary(&TerraswapCw20HookMsg::Swap {
                         max_spread: None,

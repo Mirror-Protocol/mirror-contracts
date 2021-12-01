@@ -19,6 +19,22 @@
     "asset_token": {
       "type": "string"
     },
+    "migration_deprecated_staking_token": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "migration_index_snapshot": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Decimal"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "pending_reward": {
       "$ref": "#/definitions/Uint128"
     },

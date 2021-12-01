@@ -32,6 +32,12 @@
     "distribution_contract": {
       "type": "string"
     },
+    "mir_ust_pair": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "mirror_token": {
       "type": "string"
     },

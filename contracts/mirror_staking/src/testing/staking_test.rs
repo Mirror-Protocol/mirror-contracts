@@ -69,6 +69,7 @@ fn test_bond_tokens() {
                 pending_reward: Uint128::zero(),
                 bond_amount: Uint128::new(100u128),
                 is_short: false,
+                should_migrate: None,
             }],
         }
     );
@@ -97,6 +98,8 @@ fn test_bond_tokens() {
             premium_rate: Decimal::zero(),
             short_reward_weight: Decimal::zero(),
             premium_updated_time: 0,
+            migration_deprecated_staking_token: None,
+            migration_index_snapshot: None,
         }
     );
 
@@ -135,6 +138,8 @@ fn test_bond_tokens() {
             premium_rate: Decimal::zero(),
             short_reward_weight: Decimal::zero(),
             premium_updated_time: 0,
+            migration_deprecated_staking_token: None,
+            migration_index_snapshot: None,
         }
     );
 
@@ -254,6 +259,8 @@ fn test_unbond() {
             premium_rate: Decimal::zero(),
             short_reward_weight: Decimal::zero(),
             premium_updated_time: 0,
+            migration_deprecated_staking_token: None,
+            migration_index_snapshot: None,
         }
     );
 
@@ -351,6 +358,8 @@ fn test_increase_short_token() {
             premium_rate: Decimal::zero(),
             short_reward_weight: Decimal::zero(),
             premium_updated_time: 0,
+            migration_deprecated_staking_token: None,
+            migration_index_snapshot: None,
         }
     );
 
@@ -373,6 +382,7 @@ fn test_increase_short_token() {
                 pending_reward: Uint128::zero(),
                 bond_amount: Uint128::new(100u128),
                 is_short: true,
+                should_migrate: None,
             }],
         }
     );
@@ -453,6 +463,8 @@ fn test_decrease_short_token() {
             premium_rate: Decimal::zero(),
             short_reward_weight: Decimal::zero(),
             premium_updated_time: 0,
+            migration_deprecated_staking_token: None,
+            migration_index_snapshot: None,
         }
     );
 
@@ -726,7 +738,8 @@ fn test_auto_stake() {
             premium_rate: Decimal::zero(),
             short_reward_weight: Decimal::zero(),
             premium_updated_time: 0,
+            migration_deprecated_staking_token: None,
+            migration_index_snapshot: None,
         }
     );
 }
-
