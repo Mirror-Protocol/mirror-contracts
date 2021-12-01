@@ -133,7 +133,9 @@ fn register_asset() {
                     contract_addr: "asset0000".to_string(),
                 },
                 multiplier: Decimal::one(),
-                price_source: SourceType::MirrorOracle {},
+                price_source: SourceType::TeFiOracle {
+                    oracle_addr: "oracle0000".to_string(),
+                },
             })
             .unwrap(),
         }))]
@@ -249,6 +251,7 @@ fn update_asset() {
             min_collateral_ratio_after_ipo: Decimal::percent(150),
             mint_end: 10000u64,
             pre_ipo_price: Decimal::percent(1),
+            trigger_addr: "ipotrigger0000".to_string(),
         }),
     };
     let info = mock_info("owner0000", &[]);
@@ -272,7 +275,8 @@ fn update_asset() {
             ipo_params: Some(IPOParams {
                 min_collateral_ratio_after_ipo: Decimal::percent(150),
                 mint_end: 10000u64,
-                pre_ipo_price: Decimal::percent(1)
+                pre_ipo_price: Decimal::percent(1),
+                trigger_addr: "ipotrigger0000".to_string(),
             }),
         }
     );

@@ -1,40 +1,24 @@
 use cosmwasm_std::{
-    to_binary, Addr, Decimal, Deps, QuerierWrapper, QueryRequest, StdError, StdResult, WasmQuery,
+    to_binary, Addr, Decimal, Deps, QuerierWrapper, QueryRequest, StdResult, WasmQuery,
 };
 
-use crate::state::{read_config, read_fixed_price, Config};
-use mirror_protocol::collateral_oracle::{
-    CollateralPriceResponse, QueryMsg as CollateralOracleQueryMsg,
+use crate::{
+    math::decimal_division,
+    state::{read_config, read_fixed_price, Config},
 };
-use mirror_protocol::oracle::{FeederResponse, PriceResponse, QueryMsg as OracleQueryMsg};
+use mirror_protocol::collateral_oracle::{
+    CollateralInfoResponse, CollateralPriceResponse, QueryMsg as CollateralOracleQueryMsg,
+};
+use tefi_oracle::hub::{HubQueryMsg as OracleQueryMsg, PriceResponse};
 use terraswap::asset::AssetInfoRaw;
 
 const PRICE_EXPIRE_TIME: u64 = 60;
-
-pub fn load_oracle_feeder(deps: Deps, contract_addr: Addr, asset_token: Addr) -> StdResult<Addr> {
-    let res: StdResult<FeederResponse> =
-        deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-            contract_addr: contract_addr.to_string(),
-            msg: to_binary(&OracleQueryMsg::Feeder {
-                asset_token: asset_token.to_string(),
-            })?,
-        }));
-
-    let feeder: Addr = match res {
-        Ok(v) => deps.api.addr_validate(v.feeder.as_str())?,
-        Err(_) => {
-            return Err(StdError::generic_err("Failed to fetch the oracle feeder"));
-        }
-    };
-
-    Ok(feeder)
-}
 
 pub fn load_asset_price(
     deps: Deps,
     oracle: Addr,
     asset: &AssetInfoRaw,
-    block_time: Option<u64>,
+    check_expire: bool,
 ) -> StdResult<Decimal> {
     let config: Config = read_config(deps.storage)?;
 
@@ -49,13 +33,7 @@ pub fn load_asset_price(
             Decimal::one()
         } else {
             // fetch price from oracle
-            query_price(
-                &deps.querier,
-                oracle,
-                asset_denom,
-                config.base_denom,
-                block_time,
-            )?
+            query_price(&deps.querier, oracle, asset_denom, None, check_expire)?
         }
     };
 
@@ -66,8 +44,7 @@ pub fn load_collateral_info(
     deps: Deps,
     collateral_oracle: Addr,
     collateral: &AssetInfoRaw,
-    block_time: Option<u64>,
-    block_height: Option<u64>,
+    check_expire: bool,
 ) -> StdResult<(Decimal, Decimal, bool)> {
     let config: Config = read_config(deps.storage)?;
     let collateral_denom: String = (collateral.to_normal(deps.api)?).to_string();
@@ -84,13 +61,8 @@ pub fn load_collateral_info(
     if let Some(end_price) = end_price {
         // load collateral_multiplier from collateral oracle
         // if asset is revoked, no need to check for old price
-        let (_, collateral_multiplier, _) = query_collateral(
-            &deps.querier,
-            collateral_oracle,
-            collateral_denom,
-            None,
-            block_height,
-        )?;
+        let (collateral_multiplier, _) =
+            query_collateral_info(&deps.querier, collateral_oracle, collateral_denom)?;
 
         Ok((end_price, collateral_multiplier, true))
     } else {
@@ -99,8 +71,7 @@ pub fn load_collateral_info(
             &deps.querier,
             collateral_oracle,
             collateral_denom,
-            block_time,
-            block_height,
+            check_expire,
         )?;
 
         Ok((collateral_oracle_price, collateral_multiplier, is_revoked))
@@ -111,26 +82,37 @@ pub fn query_price(
     querier: &QuerierWrapper,
     oracle: Addr,
     base_asset: String,
-    quote_asset: String,
-    block_time: Option<u64>,
+    quote_asset: Option<String>,
+    check_expire: bool,
 ) -> StdResult<Decimal> {
-    let res: PriceResponse = querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+    let timeframe: Option<u64> = if check_expire {
+        Some(PRICE_EXPIRE_TIME)
+    } else {
+        None
+    };
+    let base_res: PriceResponse = querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
         contract_addr: oracle.to_string(),
         msg: to_binary(&OracleQueryMsg::Price {
-            base_asset,
-            quote_asset,
+            asset_token: base_asset,
+            timeframe,
         })?,
     }))?;
 
-    if let Some(block_time) = block_time {
-        if res.last_updated_base < (block_time - PRICE_EXPIRE_TIME)
-            || res.last_updated_quote < (block_time - PRICE_EXPIRE_TIME)
-        {
-            return Err(StdError::generic_err("Price is too old"));
-        }
-    }
+    let rate = if let Some(quote_asset) = quote_asset {
+        let quote_res: PriceResponse = querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+            contract_addr: oracle.to_string(),
+            msg: to_binary(&OracleQueryMsg::Price {
+                asset_token: quote_asset,
+                timeframe,
+            })?,
+        }))?;
 
-    Ok(res.rate)
+        decimal_division(base_res.rate, quote_res.rate)
+    } else {
+        base_res.rate
+    };
+
+    Ok(rate)
 }
 
 // queries the collateral oracle to get the asset rate and multiplier
@@ -138,22 +120,31 @@ pub fn query_collateral(
     querier: &QuerierWrapper,
     collateral_oracle: Addr,
     asset: String,
-    block_time: Option<u64>,
-    block_height: Option<u64>,
+    check_expire: bool,
 ) -> StdResult<(Decimal, Decimal, bool)> {
+    let timeframe: Option<u64> = if check_expire {
+        Some(PRICE_EXPIRE_TIME)
+    } else {
+        None
+    };
     let res: CollateralPriceResponse = querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
         contract_addr: collateral_oracle.to_string(),
-        msg: to_binary(&CollateralOracleQueryMsg::CollateralPrice {
-            asset,
-            block_height,
-        })?,
+        msg: to_binary(&CollateralOracleQueryMsg::CollateralPrice { asset, timeframe })?,
     }))?;
 
-    if let Some(block_time) = block_time {
-        if res.last_updated < (block_time - PRICE_EXPIRE_TIME) {
-            return Err(StdError::generic_err("Collateral price is too old"));
-        }
-    }
-
     Ok((res.rate, res.multiplier, res.is_revoked))
+}
+
+// queries only collateral information (multiplier and is_revoked), without price
+pub fn query_collateral_info(
+    querier: &QuerierWrapper,
+    collateral_oracle: Addr,
+    asset: String,
+) -> StdResult<(Decimal, bool)> {
+    let res: CollateralInfoResponse = querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+        contract_addr: collateral_oracle.to_string(),
+        msg: to_binary(&CollateralOracleQueryMsg::CollateralAssetInfo { asset })?,
+    }))?;
+
+    Ok((res.multiplier, res.is_revoked))
 }

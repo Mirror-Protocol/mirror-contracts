@@ -7,9 +7,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::math::decimal_division;
 use mirror_protocol::collateral_oracle::CollateralPriceResponse;
-use mirror_protocol::oracle::{FeederResponse, PriceResponse};
+use tefi_oracle::hub::PriceResponse;
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 use terraswap::{asset::AssetInfo, asset::PairInfo};
 
@@ -182,17 +181,14 @@ impl Querier for WasmMockQuerier {
 #[serde(rename_all = "snake_case")]
 pub enum MockQueryMsg {
     Price {
-        base_asset: String,
-        quote_asset: String,
+        asset_token: String,
+        timeframe: Option<u64>,
     },
     CollateralPrice {
         asset: String,
     },
     Pair {
         asset_infos: [AssetInfo; 2],
-    },
-    Feeder {
-        asset_token: String,
     },
 }
 
@@ -229,23 +225,14 @@ impl WasmMockQuerier {
                 msg,
             }) => match from_binary(msg).unwrap() {
                 MockQueryMsg::Price {
-                    base_asset,
-                    quote_asset,
-                } => match self.oracle_price_querier.oracle_price.get(&base_asset) {
+                    asset_token,
+                    timeframe: _,
+                } => match self.oracle_price_querier.oracle_price.get(&asset_token) {
                     Some(base_price) => {
-                        match self.oracle_price_querier.oracle_price.get(&quote_asset) {
-                            Some(quote_price) => {
-                                SystemResult::Ok(ContractResult::from(to_binary(&PriceResponse {
-                                    rate: decimal_division(*base_price, *quote_price),
-                                    last_updated_base: 1000u64,
-                                    last_updated_quote: 1000u64,
-                                })))
-                            }
-                            None => SystemResult::Err(SystemError::InvalidRequest {
-                                error: "No oracle price exists".to_string(),
-                                request: msg.as_slice().into(),
-                            }),
-                        }
+                        SystemResult::Ok(ContractResult::from(to_binary(&PriceResponse {
+                            rate: *base_price,
+                            last_updated: 1000u64,
+                        })))
                     }
                     None => SystemResult::Err(SystemError::InvalidRequest {
                         error: "No oracle price exists".to_string(),
@@ -286,22 +273,6 @@ impl WasmMockQuerier {
                             error: "No pair exists".to_string(),
                             request: msg.as_slice().into(),
                         }),
-                    }
-                }
-                MockQueryMsg::Feeder { asset_token } => {
-                    match self.oracle_querier.feeders.get(&asset_token) {
-                        Some(v) => {
-                            SystemResult::Ok(ContractResult::from(to_binary(&FeederResponse {
-                                asset_token,
-                                feeder: v.to_string(),
-                            })))
-                        }
-                        None => {
-                            return SystemResult::Err(SystemError::InvalidRequest {
-                                error: format!("Oracle Feeder is not found for {}", asset_token),
-                                request: msg.as_slice().into(),
-                            })
-                        }
                     }
                 }
             },

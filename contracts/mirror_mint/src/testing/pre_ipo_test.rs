@@ -67,6 +67,7 @@ fn pre_ipo_assets() {
             mint_end,
             min_collateral_ratio_after_ipo: Decimal::percent(150),
             pre_ipo_price: Decimal::percent(100),
+            trigger_addr: "ipotrigger0000".to_string(),
         }),
     };
 
@@ -238,7 +239,7 @@ fn pre_ipo_assets() {
 
     // succesfull attempt
     let env = mock_env_with_block_time(current_time);
-    let info = mock_info("feeder0000", &[]);
+    let info = mock_info("ipotrigger0000", &[]);
     let res = execute(deps.as_mut(), env, info, msg).unwrap();
 
     assert_eq!(
@@ -258,7 +259,9 @@ fn pre_ipo_assets() {
                     contract_addr: "preIPOAsset0000".to_string(),
                 },
                 multiplier: Decimal::one(),
-                price_source: SourceType::MirrorOracle {},
+                price_source: SourceType::TeFiOracle {
+                    oracle_addr: "oracle0000".to_string(),
+                },
             })
             .unwrap(),
         }))]

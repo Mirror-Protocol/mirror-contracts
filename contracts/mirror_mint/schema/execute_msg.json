@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "ExecuteMsg",
-  "anyOf": [
+  "oneOf": [
     {
       "type": "object",
       "required": [
@@ -373,7 +373,7 @@
     },
     "AssetInfo": {
       "description": "AssetInfo contract_addr is usually passed from the cw20 hook so we can trust the contract_addr is properly validated.",
-      "anyOf": [
+      "oneOf": [
         {
           "type": "object",
           "required": [
@@ -449,7 +449,8 @@
       "required": [
         "min_collateral_ratio_after_ipo",
         "mint_end",
-        "pre_ipo_price"
+        "pre_ipo_price",
+        "trigger_addr"
       ],
       "properties": {
         "min_collateral_ratio_after_ipo": {
@@ -462,6 +463,9 @@
         },
         "pre_ipo_price": {
           "$ref": "#/definitions/Decimal"
+        },
+        "trigger_addr": {
+          "type": "string"
         }
       }
     },
