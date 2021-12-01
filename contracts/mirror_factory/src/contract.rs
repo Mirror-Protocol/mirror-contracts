@@ -543,7 +543,7 @@ pub fn distribute(deps: DepsMut, env: Env) -> StdResult<Response> {
     // store last distributed
     store_last_distributed(deps.storage, env.block.time.seconds())?;
 
-    // mint token to self and try send minted tokens to staking contract
+    // send token rewards to staking contract
     const SPLIT_UNIT: usize = 10;
     Ok(Response::new()
         .add_messages(

@@ -2,13 +2,12 @@ use crate::contract::{execute, instantiate, query};
 use crate::error::ContractError;
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
 use cosmwasm_std::{
-    attr, from_binary, to_binary, BlockInfo, CosmosMsg, Env, SubMsg, Timestamp, WasmMsg,
+    attr, from_binary, to_binary, BlockInfo, CosmosMsg, Env, SubMsg, Timestamp, WasmMsg, Empty,
 };
 use mirror_protocol::admin_manager::{
     AuthRecordResponse, AuthRecordsResponse, ConfigResponse, ExecuteMsg, InstantiateMsg,
     MigrationItem, MigrationRecordResponse, MigrationRecordsResponse, QueryMsg,
 };
-use mirror_protocol::collateral_oracle::MigrateMsg;
 
 fn mock_env_with_block_time(time: u64) -> Env {
     let env = mock_env();
@@ -93,12 +92,12 @@ fn execute_migrations() {
             (
                 "contract0000".to_string(),
                 12u64,
-                to_binary(&MigrateMsg {}).unwrap(),
+                to_binary(&Empty {}).unwrap(),
             ),
             (
                 "contract0001".to_string(),
                 13u64,
-                to_binary(&MigrateMsg {}).unwrap(),
+                to_binary(&Empty {}).unwrap(),
             ),
         ],
     };
@@ -135,12 +134,12 @@ fn execute_migrations() {
                     MigrationItem {
                         contract: "contract0000".to_string(),
                         new_code_id: 12u64,
-                        msg: to_binary(&MigrateMsg {}).unwrap(),
+                        msg: to_binary(&Empty {}).unwrap(),
                     },
                     MigrationItem {
                         contract: "contract0001".to_string(),
                         new_code_id: 13u64,
-                        msg: to_binary(&MigrateMsg {}).unwrap(),
+                        msg: to_binary(&Empty {}).unwrap(),
                     }
                 ],
             }]
@@ -358,7 +357,7 @@ fn query_migration_records() {
         migrations: vec![(
             "contract0000".to_string(),
             12u64,
-            to_binary(&MigrateMsg {}).unwrap(),
+            to_binary(&Empty {}).unwrap(),
         )],
     };
     let info = mock_info("owner0000", &[]);
@@ -369,7 +368,7 @@ fn query_migration_records() {
         migrations: vec![(
             "contract0001".to_string(),
             13u64,
-            to_binary(&MigrateMsg {}).unwrap(),
+            to_binary(&Empty {}).unwrap(),
         )],
     };
     let env = mock_env_with_block_time(20u64);
@@ -379,7 +378,7 @@ fn query_migration_records() {
         migrations: vec![(
             "contract0002".to_string(),
             14u64,
-            to_binary(&MigrateMsg {}).unwrap(),
+            to_binary(&Empty {}).unwrap(),
         )],
     };
     let env = mock_env_with_block_time(30u64);
@@ -407,7 +406,7 @@ fn query_migration_records() {
                     migrations: vec![MigrationItem {
                         contract: "contract0002".to_string(),
                         new_code_id: 14u64,
-                        msg: to_binary(&MigrateMsg {}).unwrap(),
+                        msg: to_binary(&Empty {}).unwrap(),
                     },],
                 },
                 MigrationRecordResponse {
@@ -416,7 +415,7 @@ fn query_migration_records() {
                     migrations: vec![MigrationItem {
                         contract: "contract0001".to_string(),
                         new_code_id: 13u64,
-                        msg: to_binary(&MigrateMsg {}).unwrap(),
+                        msg: to_binary(&Empty {}).unwrap(),
                     },],
                 },
                 MigrationRecordResponse {
@@ -425,7 +424,7 @@ fn query_migration_records() {
                     migrations: vec![MigrationItem {
                         contract: "contract0000".to_string(),
                         new_code_id: 12u64,
-                        msg: to_binary(&MigrateMsg {}).unwrap(),
+                        msg: to_binary(&Empty {}).unwrap(),
                     },],
                 },
             ]
@@ -453,7 +452,7 @@ fn query_migration_records() {
                 migrations: vec![MigrationItem {
                     contract: "contract0001".to_string(),
                     new_code_id: 13u64,
-                    msg: to_binary(&MigrateMsg {}).unwrap(),
+                    msg: to_binary(&Empty {}).unwrap(),
                 },],
             },]
         }

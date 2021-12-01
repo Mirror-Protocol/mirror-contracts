@@ -751,7 +751,7 @@ pub fn snapshot_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Respons
     let time_to_end = a_poll.end_time - current_seconds;
 
     if time_to_end > config.snapshot_period {
-        return Err(StdError::generic_err("Cannot snapshot at this height"));
+        return Err(StdError::generic_err("Cannot snapshot at this time"));
     }
 
     if a_poll.staked_amount.is_some() {
