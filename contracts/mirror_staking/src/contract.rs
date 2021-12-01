@@ -1,3 +1,4 @@
+use crate::migration::migrate_pool_infos;
 use crate::rewards::{adjust_premium, deposit_reward, query_reward_info, withdraw_reward};
 use crate::staking::{
     auto_stake, auto_stake_hook, bond, decrease_short_token, increase_short_token, unbond,
@@ -386,6 +387,9 @@ pub fn query_pool_info(deps: Deps, asset_token: String) -> StdResult<PoolInfoRes
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+
+    migrate_pool_infos(deps.storage)?;
+
     Ok(Response::default())
 }
