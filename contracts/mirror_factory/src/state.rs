@@ -10,7 +10,7 @@ static KEY_CONFIG: &[u8] = b"config";
 static KEY_PARAMS: &[u8] = b"params";
 static KEY_TOTAL_WEIGHT: &[u8] = b"total_weight";
 static KEY_LAST_DISTRIBUTED: &[u8] = b"last_distributed";
-static KEY_TMP_ORACLE: &[u8] = b"tmp_oracle_feeder";
+static KEY_TMP_ORACLE: &[u8] = b"tmp_oracle_proxy";
 static KEY_TMP_ASSET: &[u8] = b"tmp_asset_token";
 
 static PREFIX_WEIGHT: &[u8] = b"weight";

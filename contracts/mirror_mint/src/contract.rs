@@ -1,10 +1,10 @@
 use crate::{
     asserts::{assert_auction_discount, assert_min_collateral_ratio, assert_protocol_fee},
+    migration::migrate_asset_configs,
     positions::{
         auction, burn, deposit, mint, open_position, query_next_position_idx, query_position,
         query_positions, withdraw,
     },
-    querier::load_oracle_feeder,
     state::{
         read_asset_config, read_config, store_asset_config, store_config, store_position_idx,
         AssetConfig, Config,
@@ -160,7 +160,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
         ExecuteMsg::Withdraw {
             position_idx,
             collateral,
-        } => withdraw(deps, env, info.sender, position_idx, collateral),
+        } => withdraw(deps, info.sender, position_idx, collateral),
         ExecuteMsg::Mint {
             position_idx,
             asset,
@@ -209,7 +209,7 @@ pub fn receive_cw20(
         }
         Ok(Cw20HookMsg::Auction { position_idx }) => {
             let cw20_sender = deps.api.addr_validate(cw20_msg.sender.as_str())?;
-            auction(deps, env, cw20_sender, position_idx, passed_asset)
+            auction(deps, cw20_sender, position_idx, passed_asset)
         }
         Err(_) => Err(StdError::generic_err("invalid cw20 hook message")),
     }
@@ -352,7 +352,9 @@ pub fn register_asset(
                     contract_addr: asset_token.to_string(),
                 },
                 multiplier: Decimal::one(), // default collateral multiplier for new mAssets
-                price_source: SourceType::MirrorOracle {},
+                price_source: SourceType::TeFiOracle {
+                    oracle_addr: deps.api.addr_humanize(&config.oracle)?.to_string(),
+                },
             })?,
         }));
     }
@@ -428,23 +430,18 @@ pub fn register_migration(
 pub fn trigger_ipo(deps: DepsMut, info: MessageInfo, asset_token: Addr) -> StdResult<Response> {
     let config = read_config(deps.storage)?;
     let asset_token_raw: CanonicalAddr = deps.api.addr_canonicalize(asset_token.as_str())?;
-    let oracle_feeder: Addr = load_oracle_feeder(
-        deps.as_ref(),
-        deps.api.addr_humanize(&config.oracle)?,
-        asset_token.clone(),
-    )?;
-
-    // only asset feeder can trigger ipo
-    if oracle_feeder != info.sender {
-        return Err(StdError::generic_err("unauthorized"));
-    }
-
     let mut asset_config: AssetConfig = read_asset_config(deps.storage, &asset_token_raw)?;
 
     let ipo_params: IPOParams = match asset_config.ipo_params {
         Some(v) => v,
         None => return Err(StdError::generic_err("Asset does not have IPO params")),
     };
+    let trigger_addr = deps.api.addr_validate(&ipo_params.trigger_addr)?;
+
+    // only trigger addr can trigger ipo
+    if trigger_addr != info.sender {
+        return Err(StdError::generic_err("unauthorized"));
+    }
 
     asset_config.min_collateral_ratio = ipo_params.min_collateral_ratio_after_ipo;
     asset_config.ipo_params = None;
@@ -464,7 +461,9 @@ pub fn trigger_ipo(deps: DepsMut, info: MessageInfo, asset_token: Addr) -> StdRe
                     contract_addr: asset_token.to_string(),
                 },
                 multiplier: Decimal::one(), // default collateral multiplier for new mAssets
-                price_source: SourceType::MirrorOracle {},
+                price_source: SourceType::TeFiOracle {
+                    oracle_addr: deps.api.addr_humanize(&config.oracle)?.to_string(),
+                },
             })?,
         })])
         .add_attributes(vec![
@@ -543,6 +542,8 @@ pub fn query_asset_config(deps: Deps, asset_token: String) -> StdResult<AssetCon
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+    migrate_asset_configs(deps.storage)?;
+
     Ok(Response::default())
 }

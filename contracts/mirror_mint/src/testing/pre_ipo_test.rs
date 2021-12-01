@@ -36,8 +36,6 @@ fn pre_ipo_assets() {
             &Decimal::from_ratio(10u128, 1u128),
         ),
     ]);
-    deps.querier
-        .with_oracle_feeders(&[(&"preIPOAsset0000".to_string(), &"feeder0000".to_string())]);
 
     let base_denom = "uusd".to_string();
 
@@ -67,6 +65,7 @@ fn pre_ipo_assets() {
             mint_end,
             min_collateral_ratio_after_ipo: Decimal::percent(150),
             pre_ipo_price: Decimal::percent(100),
+            trigger_addr: "ipotrigger0000".to_string(),
         }),
     };
 
@@ -226,7 +225,7 @@ fn pre_ipo_assets() {
     ///////////////////
     current_time = creator_env.block.time.plus_seconds(20).seconds();
 
-    // register migration initiated by the feeder
+    // register migration initiated by the trigger address
     let msg = ExecuteMsg::TriggerIPO {
         asset_token: "preIPOAsset0000".to_string(),
     };
@@ -238,7 +237,7 @@ fn pre_ipo_assets() {
 
     // succesfull attempt
     let env = mock_env_with_block_time(current_time);
-    let info = mock_info("feeder0000", &[]);
+    let info = mock_info("ipotrigger0000", &[]);
     let res = execute(deps.as_mut(), env, info, msg).unwrap();
 
     assert_eq!(
@@ -258,7 +257,9 @@ fn pre_ipo_assets() {
                     contract_addr: "preIPOAsset0000".to_string(),
                 },
                 multiplier: Decimal::one(),
-                price_source: SourceType::MirrorOracle {},
+                price_source: SourceType::TeFiOracle {
+                    oracle_addr: "oracle0000".to_string(),
+                },
             })
             .unwrap(),
         }))]
@@ -273,7 +274,7 @@ fn pre_ipo_assets() {
     )
     .unwrap();
     let asset_config_res: AssetConfigResponse = from_binary(&res).unwrap();
-    // traditional asset configuration, feeder feeds real price
+    // traditional asset configuration, price is obtained from the oracle
     assert_eq!(
         asset_config_res,
         AssetConfigResponse {
