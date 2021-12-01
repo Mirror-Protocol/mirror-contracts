@@ -4,17 +4,14 @@ use mirror_protocol::collateral_oracle::{CollateralInfoResponse, SourceType};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-static PREFIX_COLLATERAL_ASSET_INFO: &[u8] = b"collateral_asset_info";
-static KEY_CONFIG: &[u8] = b"config";
+pub static PREFIX_COLLATERAL_ASSET_INFO: &[u8] = b"collateral_asset_info";
+pub static KEY_CONFIG: &[u8] = b"config";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
     pub owner: CanonicalAddr,
     pub mint_contract: CanonicalAddr,
     pub base_denom: String,
-    pub mirror_oracle: CanonicalAddr,
-    pub anchor_oracle: CanonicalAddr,
-    pub band_oracle: CanonicalAddr,
 }
 
 pub fn store_config(storage: &mut dyn Storage, config: &Config) -> StdResult<()> {

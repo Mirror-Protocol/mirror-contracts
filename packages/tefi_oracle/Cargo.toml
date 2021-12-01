@@ -1,0 +1,15 @@
+[package]
+name = "tefi-oracle"
+version = "0.1.0"
+authors = ["Terraform Labs, PTE."]
+edition = "2018"
+description = "Common TeFi oracle types"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+cosmwasm-std = { version = "0.16.2" }
+schemars = "0.8.1"
+serde = { version = "1.0.103", default-features = false, features = ["derive"] }
+thiserror = { version = "1.0.23" }
+cosmwasm-bignumber = "2.2.0"
