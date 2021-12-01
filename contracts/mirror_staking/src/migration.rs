@@ -1,9 +1,9 @@
-use cosmwasm_std::{CanonicalAddr, StdResult, Storage, Uint128, Decimal, Order};
-use cosmwasm_storage::{Bucket};
+use cosmwasm_std::{CanonicalAddr, Decimal, Order, StdResult, Storage, Uint128};
+use cosmwasm_storage::Bucket;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::state::{PREFIX_POOL_INFO, PoolInfo};
+use crate::state::{PoolInfo, PREFIX_POOL_INFO};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct LegacyPoolInfo {
@@ -20,7 +20,8 @@ pub struct LegacyPoolInfo {
 }
 
 pub fn migrate_pool_infos(storage: &mut dyn Storage) -> StdResult<()> {
-    let mut legacy_pool_infos_bucket: Bucket<LegacyPoolInfo> = Bucket::new(storage, PREFIX_POOL_INFO);
+    let mut legacy_pool_infos_bucket: Bucket<LegacyPoolInfo> =
+        Bucket::new(storage, PREFIX_POOL_INFO);
 
     let mut pools: Vec<(CanonicalAddr, LegacyPoolInfo)> = vec![];
     for item in legacy_pool_infos_bucket.range(None, None, Order::Ascending) {
@@ -56,7 +57,7 @@ pub fn migrate_pool_infos(storage: &mut dyn Storage) -> StdResult<()> {
 
 #[cfg(test)]
 mod migrate_tests {
-    use crate::state::{read_pool_info};
+    use crate::state::read_pool_info;
 
     use super::*;
     use cosmwasm_std::{testing::mock_dependencies, Api};
@@ -96,7 +97,7 @@ mod migrate_tests {
             short_reward_weight: Decimal::percent(2),
             premium_updated_time: 2,
         };
-        
+
         legacy_store.save(asset_1.as_slice(), &pool_info_1).unwrap();
         legacy_store.save(asset_2.as_slice(), &pool_info_2).unwrap();
 

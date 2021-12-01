@@ -49,7 +49,7 @@ fn direct_swap(
     let pair_addr: String =
         if asset_token_raw == config.mirror_token && config.mir_ust_pair.is_some() {
             deps.api
-                .addr_humanize(&config.mir_ust_pair.as_ref().unwrap())?
+                .addr_humanize(config.mir_ust_pair.as_ref().unwrap())?
                 .to_string()
         } else {
             let pair_info: PairInfo = query_pair_info(

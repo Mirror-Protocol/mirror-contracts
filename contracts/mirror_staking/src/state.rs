@@ -113,10 +113,7 @@ pub fn read_is_migrated(
     asset_token: &CanonicalAddr,
     staker: &CanonicalAddr,
 ) -> bool {
-    match ReadonlyBucket::multilevel(storage, &[PREFIX_IS_MIGRATED, staker.as_slice()])
+    ReadonlyBucket::multilevel(storage, &[PREFIX_IS_MIGRATED, staker.as_slice()])
         .load(asset_token.as_slice())
-    {
-        Ok(v) => v,
-        Err(_) => false,
-    }
+        .unwrap_or(false)
 }

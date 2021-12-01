@@ -1,10 +1,10 @@
 pub mod contract;
 mod math;
+mod migration;
 mod querier;
 mod rewards;
 mod staking;
 mod state;
-mod migration;
 
 #[cfg(test)]
 mod testing;

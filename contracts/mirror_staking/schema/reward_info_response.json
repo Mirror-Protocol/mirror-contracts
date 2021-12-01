@@ -38,6 +38,12 @@
         },
         "pending_reward": {
           "$ref": "#/definitions/Uint128"
+        },
+        "should_migrate": {
+          "type": [
+            "boolean",
+            "null"
+          ]
         }
       }
     },

@@ -34,7 +34,7 @@
       "minimum": 0.0
     },
     "short_reward_contract": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "terraswap_factory": {
       "type": "string"

@@ -306,7 +306,7 @@ fn _increase_bond_amount(
 
     if !is_short
         && pool_info.migration_params.is_some()
-        && !read_is_migrated(storage, &asset_token, &staker_addr)
+        && !read_is_migrated(storage, asset_token, staker_addr)
     {
         return Err(StdError::generic_err("The LP token for this asset has been deprecated, withdraw all your deprecated tokens to migrate your position"));
     }
@@ -351,7 +351,7 @@ fn _decrease_bond_amount(
     }
 
     // if the lp token was migrated, and the user did not close their position yet, cap the reward at the snapshot
-    let should_migrate = !read_is_migrated(storage, &asset_token, &staker_addr)
+    let should_migrate = !read_is_migrated(storage, asset_token, staker_addr)
         && !is_short
         && pool_info.migration_params.is_some();
     let (pool_index, staking_token) = if is_short {
@@ -384,7 +384,7 @@ fn _decrease_bond_amount(
     reward_info.bond_amount = reward_info.bond_amount.checked_sub(amount)?;
 
     if reward_info.bond_amount.is_zero() && should_migrate {
-        store_is_migrated(storage, &asset_token, &staker_addr)?;
+        store_is_migrated(storage, asset_token, staker_addr)?;
     }
 
     if reward_info.pending_reward.is_zero() && reward_info.bond_amount.is_zero() {

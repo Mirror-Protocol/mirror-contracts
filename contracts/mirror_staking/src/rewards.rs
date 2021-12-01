@@ -171,7 +171,7 @@ fn _withdraw_reward(
         let pool_index = if is_short {
             pool_info.short_reward_index
         } else if pool_info.migration_params.is_some()
-            && !read_is_migrated(storage, &asset_token_raw, &staker_addr)
+            && !read_is_migrated(storage, &asset_token_raw, staker_addr)
         {
             pool_info.migration_params.unwrap().index_snapshot
         } else {
@@ -249,7 +249,7 @@ fn _read_reward_infos(
                 let (pool_index, should_migrate) = if is_short {
                     (pool_info.short_reward_index, None)
                 } else if pool_info.migration_params.is_some()
-                    && !read_is_migrated(storage, &asset_token_raw, &staker_addr)
+                    && !read_is_migrated(storage, &asset_token_raw, staker_addr)
                 {
                     (
                         pool_info.migration_params.unwrap().index_snapshot,
@@ -283,7 +283,7 @@ fn _read_reward_infos(
                 let (pool_index, should_migrate) = if is_short {
                     (pool_info.short_reward_index, None)
                 } else if pool_info.migration_params.is_some()
-                    && !read_is_migrated(storage, &asset_token_raw, &staker_addr)
+                    && !read_is_migrated(storage, &asset_token_raw, staker_addr)
                 {
                     (
                         pool_info.migration_params.unwrap().index_snapshot,
