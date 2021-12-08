@@ -42,7 +42,7 @@ pub fn query(_deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 pub fn query_short_reward_weight(premium_rate: Decimal) -> StdResult<ShortRewardWeightResponse> {
     if premium_rate > Decimal::percent(7) {
         return Ok(ShortRewardWeightResponse {
-            short_reward_weight: Decimal::percent(40),
+            short_reward_weight: Decimal::percent(80),
         });
     }
 
