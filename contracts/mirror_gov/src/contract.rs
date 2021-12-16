@@ -15,7 +15,7 @@ use crate::state::{
 };
 
 use cosmwasm_std::{
-    attr, from_binary, to_binary, Binary, CosmosMsg, Decimal, Deps, DepsMut, Env, MessageInfo,
+    attr, from_binary, to_binary, Api, Binary, CosmosMsg, Decimal, Deps, DepsMut, Env, MessageInfo,
     Reply, ReplyOn, Response, StdError, StdResult, SubMsg, Uint128, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
@@ -297,6 +297,13 @@ pub fn validate_voter_weight(voter_weight: Decimal) -> StdResult<()> {
     }
 }
 
+pub fn validate_migrations(api: &dyn Api, migrations: &[(String, u64, Binary)]) -> StdResult<()> {
+    for (addr, _, _) in migrations.iter() {
+        api.addr_validate(addr)?;
+    }
+    Ok(())
+}
+
 /*
  * Creates a new poll
  */
@@ -318,21 +325,26 @@ pub fn create_poll(
 
     let config: Config = config_store(deps.storage).load()?;
     let current_seconds = env.block.time.seconds();
-    let (proposal_deposit, end_time, max_polls_in_progress) = match poll_admin_action {
+    let (proposal_deposit, end_time, max_polls_in_progress) = match poll_admin_action.clone() {
         None => (
             config.default_poll_config.proposal_deposit,
             current_seconds + config.default_poll_config.voting_period,
             MAX_POLLS_IN_PROGRESS,
         ),
-        Some(PollAdminAction::ExecuteMigrations { .. }) => (
-            config.migration_poll_config.proposal_deposit,
-            current_seconds + config.default_poll_config.voting_period,
-            MAX_POLLS_IN_PROGRESS + 10usize,
-        ), // increase maximum to prevent mailcious users from authorizing migrations
+        Some(PollAdminAction::ExecuteMigrations { migrations }) => {
+            // check that contract addresses are valid
+            validate_migrations(deps.api, &migrations)?;
+
+            (
+                config.migration_poll_config.proposal_deposit,
+                current_seconds + config.migration_poll_config.voting_period,
+                MAX_POLLS_IN_PROGRESS + 10usize, // increase maximum to prevent mailcious users from authorizing migrations
+            )
+        }
         _ => (
             config.auth_admin_poll_config.proposal_deposit,
             current_seconds + config.auth_admin_poll_config.voting_period,
-            MAX_POLLS_IN_PROGRESS,
+            MAX_POLLS_IN_PROGRESS + 10usize,
         ),
     };
 
@@ -366,7 +378,7 @@ pub fn create_poll(
     let poll_execute_data = if let Some(poll_execute_msg) = poll_execute_msg {
         if poll_admin_action.is_some() {
             return Err(StdError::generic_err(
-                "Can not make a pool with normal action and admin action",
+                "Can not make a poll with normal action and admin action",
             ));
         }
         let target_contract = deps.api.addr_canonicalize(&poll_execute_msg.contract)?;
