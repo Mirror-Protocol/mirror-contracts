@@ -109,7 +109,7 @@ pub fn migrate_collateral_infos(
             asset: legacy_collateral_info.asset,
             multiplier: legacy_collateral_info.multiplier,
             price_source: new_price_source,
-            is_revoked: false,
+            is_revoked: legacy_collateral_info.is_revoked,
         };
         new_pool_infos_bucket.save(new_collateral_info.asset.as_bytes(), new_collateral_info)?;
     }
