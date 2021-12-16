@@ -1,4 +1,4 @@
-use crate::migration::migrate_collateral_infos;
+use crate::migration::{migrate_collateral_infos, migrate_config};
 use crate::querier::query_price;
 use crate::state::{
     read_collateral_info, read_collateral_infos, read_config, store_collateral_info, store_config,
@@ -291,6 +291,8 @@ pub fn query_collateral_infos(deps: Deps) -> StdResult<CollateralInfosResponse> 
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
+    migrate_config(deps.storage)?;
+
     migrate_collateral_infos(
         deps.storage,
         msg.mirror_tefi_oracle_addr,
