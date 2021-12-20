@@ -98,17 +98,13 @@ pub struct PollConfig {
 #[allow(clippy::large_enum_variant)]
 pub enum PollAdminAction {
     /// Updates migration manager owner
-    UpdateOwner {
-        owner: String,
-    },
+    UpdateOwner { owner: String },
     /// Executes a set of migrations. The poll can be executes as soon as it reaches the quorum and threshold
     ExecuteMigrations {
         migrations: Vec<(String, u64, Binary)>,
     },
     /// Transfer admin privileges over Mirror contracts to the authorized_addr
-    AuthorizeClaim {
-        authorized_addr: String,
-    },
+    AuthorizeClaim { authorized_addr: String },
     /// Updates Governace contract configuration
     UpdateConfig {
         owner: Option<String>,
