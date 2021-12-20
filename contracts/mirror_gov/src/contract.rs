@@ -382,9 +382,10 @@ pub fn create_poll(
             ));
         }
         let target_contract = deps.api.addr_canonicalize(&poll_execute_msg.contract)?;
-        if target_contract.eq(&config.admin_manager) {
+        let contract_raw = deps.api.addr_canonicalize(env.contract.address.as_str())?;
+        if target_contract.eq(&config.admin_manager) || target_contract.eq(&contract_raw) {
             return Err(StdError::generic_err(
-                "Can not make a normal pool targeting the admin_manager contract",
+                "Can not make a normal pool targeting the admin_manager or gov contract",
             ));
         }
         Some(ExecuteData {
@@ -614,11 +615,18 @@ pub fn execute_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Response
             funds: vec![],
         })
     } else if let Some(admin_msg) = admin_msg {
-        CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: deps.api.addr_humanize(&config.admin_manager)?.to_string(),
-            msg: admin_msg,
-            funds: vec![],
-        })
+        match from_binary(&admin_msg)? {
+            PollAdminAction::UpdateConfig { .. } => CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: env.contract.address.to_string(),
+                msg: admin_msg,
+                funds: vec![],
+            }),
+            _ => CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: deps.api.addr_humanize(&config.admin_manager)?.to_string(),
+                msg: admin_msg,
+                funds: vec![],
+            }),
+        }
     } else {
         return Err(StdError::generic_err("The poll does not have execute_data"));
     };

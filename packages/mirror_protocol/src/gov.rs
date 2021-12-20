@@ -60,6 +60,7 @@ pub enum ExecuteMsg {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
+#[allow(clippy::large_enum_variant)]
 pub enum Cw20HookMsg {
     /// StakeVotingTokens a user can stake their mirror token to receive rewards
     /// or do vote on polls
@@ -94,15 +95,30 @@ pub struct PollConfig {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
+#[allow(clippy::large_enum_variant)]
 pub enum PollAdminAction {
+    /// Updates migration manager owner
     UpdateOwner {
         owner: String,
     },
+    /// Executes a set of migrations. The poll can be executes as soon as it reaches the quorum and threshold
     ExecuteMigrations {
         migrations: Vec<(String, u64, Binary)>,
     },
+    /// Transfer admin privileges over Mirror contracts to the authorized_addr
     AuthorizeClaim {
         authorized_addr: String,
+    },
+    /// Updates Governace contract configuration
+    UpdateConfig {
+        owner: Option<String>,
+        effective_delay: Option<u64>,
+        default_poll_config: Option<PollConfig>,
+        migration_poll_config: Option<PollConfig>,
+        auth_admin_poll_config: Option<PollConfig>,
+        voter_weight: Option<Decimal>,
+        snapshot_period: Option<u64>,
+        admin_manager: Option<String>,
     },
 }
 
