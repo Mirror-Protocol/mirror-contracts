@@ -20,7 +20,7 @@ pub enum SourceQueryMsg {
     Pool {},
     // Query message for anchor market
     EpochState {
-        block_heigth: Option<u64>,
+        block_height: Option<u64>,
         distributed_interest: Option<Uint256>,
     },
 }
@@ -105,7 +105,7 @@ pub fn query_price(
                 deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
                     contract_addr: anchor_market_addr.to_string(),
                     msg: to_binary(&SourceQueryMsg::EpochState {
-                        block_heigth: Some(env.block.height),
+                        block_height: Some(env.block.height),
                         distributed_interest: None,
                     })
                     .unwrap(),

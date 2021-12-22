@@ -300,7 +300,7 @@ fn deprecate_staking_token(
         ));
     }
 
-    let depcrecated_token_addr: Addr = deps.api.addr_humanize(&pool_info.staking_token)?;
+    let deprecated_token_addr: Addr = deps.api.addr_humanize(&pool_info.staking_token)?;
 
     pool_info.total_bond_amount = Uint128::zero();
     pool_info.migration_params = Some(MigrationParams {
@@ -316,7 +316,7 @@ fn deprecate_staking_token(
         attr("asset_token", asset_token.to_string()),
         attr(
             "deprecated_staking_token",
-            depcrecated_token_addr.to_string(),
+            deprecated_token_addr.to_string(),
         ),
         attr("new_staking_token", new_staking_token.to_string()),
     ]))

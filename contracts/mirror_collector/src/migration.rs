@@ -19,8 +19,8 @@ pub struct LegacyConfig {
 }
 
 pub fn migrate_config(storage: &mut dyn Storage) -> StdResult<()> {
-    let legacty_store: ReadonlySingleton<LegacyConfig> = singleton_read(storage, KEY_CONFIG);
-    let legacy_config: LegacyConfig = legacty_store.load()?;
+    let legacy_store: ReadonlySingleton<LegacyConfig> = singleton_read(storage, KEY_CONFIG);
+    let legacy_config: LegacyConfig = legacy_store.load()?;
     let config = Config {
         owner: legacy_config.owner,
         distribution_contract: legacy_config.distribution_contract,
