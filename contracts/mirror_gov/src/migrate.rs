@@ -25,6 +25,7 @@ pub fn migrate_config(
     migration_poll_config: PollConfig,
     auth_admin_poll_config: PollConfig,
     admin_manager: String,
+    poll_gas_limit: u64,
 ) -> StdResult<()> {
     let legacty_store: ReadonlySingleton<LegacyConfig> = singleton_read(deps.storage, KEY_CONFIG);
     let legacy_config: LegacyConfig = legacty_store.load()?;
@@ -43,6 +44,7 @@ pub fn migrate_config(
         migration_poll_config,
         auth_admin_poll_config,
         admin_manager: deps.api.addr_canonicalize(&admin_manager)?,
+        poll_gas_limit,
     };
     let mut store: Singleton<Config> = singleton(deps.storage, KEY_CONFIG);
     store.save(&config)?;
@@ -96,6 +98,7 @@ mod migrate_tests {
             migration_poll_config.clone(),
             auth_admin_poll_config.clone(),
             "admin_manager".to_string(),
+            4_000_000u64,
         )
         .unwrap();
 
@@ -117,6 +120,7 @@ mod migrate_tests {
                 voter_weight: Decimal::percent(50u64),
                 snapshot_period: 20u64,
                 admin_manager: deps.api.addr_canonicalize("admin_manager").unwrap(),
+                poll_gas_limit: 4_000_000u64,
             }
         )
     }

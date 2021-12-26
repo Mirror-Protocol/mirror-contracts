@@ -16,6 +16,7 @@ pub struct InstantiateMsg {
     pub voter_weight: Decimal,
     pub snapshot_period: u64,
     pub admin_manager: String,
+    pub poll_gas_limit: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -32,6 +33,7 @@ pub enum ExecuteMsg {
         voter_weight: Option<Decimal>,
         snapshot_period: Option<u64>,
         admin_manager: Option<String>,
+        poll_gas_limit: Option<u64>,
     },
     CastVote {
         poll_id: u64,
@@ -163,6 +165,7 @@ pub struct ConfigResponse {
     pub voter_weight: Decimal,
     pub snapshot_period: u64,
     pub admin_manager: String,
+    pub poll_gas_limit: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
@@ -239,6 +242,7 @@ pub struct MigrateMsg {
     pub migration_poll_config: PollConfig,
     pub auth_admin_poll_config: PollConfig,
     pub admin_manager: String,
+    pub poll_gas_limit: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

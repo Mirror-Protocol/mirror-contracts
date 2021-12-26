@@ -42,6 +42,7 @@ const DEFAULT_MIGRATION_PROPOSAL_DEPOSIT: u128 = 20000000000u128;
 const DEFAULT_AUTH_ADMIN_PROPOSAL_DEPOSIT: u128 = 30000000000u128;
 const DEFAULT_VOTER_WEIGHT: Decimal = Decimal::zero();
 const DEFAULT_SNAPSHOT_PERIOD: u64 = 10u64;
+const DEFAULT_POLL_GAS_LIMIT: u64 = 4_000_000u64;
 
 fn mock_instantiate(deps: DepsMut) {
     let msg = init_msg();
@@ -83,6 +84,7 @@ fn init_msg() -> InstantiateMsg {
         voter_weight: DEFAULT_VOTER_WEIGHT,
         snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
         admin_manager: TEST_ADMIN_MANAGER.to_string(),
+        poll_gas_limit: DEFAULT_POLL_GAS_LIMIT,
     }
 }
 
@@ -123,6 +125,7 @@ fn proper_initialization() {
             voter_weight: DEFAULT_VOTER_WEIGHT,
             snapshot_period: DEFAULT_SNAPSHOT_PERIOD,
             admin_manager: deps.api.addr_canonicalize(TEST_ADMIN_MANAGER).unwrap(),
+            poll_gas_limit: DEFAULT_POLL_GAS_LIMIT,
         }
     );
 
@@ -757,7 +760,7 @@ fn happy_days_end_poll() {
                 msg: exec_msg_bz,
                 funds: vec![],
             }),
-            gas_limit: None,
+            gas_limit: Some(DEFAULT_POLL_GAS_LIMIT),
             id: 1u64,
             reply_on: ReplyOn::Error,
         }]
@@ -966,7 +969,7 @@ fn failed_execute_poll() {
                 msg: exec_msg_bz,
                 funds: vec![],
             }),
-            gas_limit: None,
+            gas_limit: Some(DEFAULT_POLL_GAS_LIMIT),
             id: 1u64,
             reply_on: ReplyOn::Error,
         }]
@@ -2381,6 +2384,7 @@ fn update_config() {
         voter_weight: None,
         snapshot_period: None,
         admin_manager: None,
+        poll_gas_limit: None,
     };
 
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -2421,6 +2425,7 @@ fn update_config() {
         voter_weight: Some(Decimal::percent(1)),
         snapshot_period: Some(60u64),
         admin_manager: Some("new_admin_mgr0000".to_string()),
+        poll_gas_limit: Some(1_000_000u64),
     };
 
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -2437,6 +2442,7 @@ fn update_config() {
     assert_eq!(Decimal::percent(1), config.voter_weight);
     assert_eq!(60u64, config.snapshot_period);
     assert_eq!("new_admin_mgr0000", config.admin_manager.as_str());
+    assert_eq!(1_000_000u64, config.poll_gas_limit);
 
     // Unauthorzied err
     let info = mock_info(TEST_CREATOR, &[]);
@@ -2449,6 +2455,7 @@ fn update_config() {
         voter_weight: None,
         snapshot_period: None,
         admin_manager: None,
+        poll_gas_limit: None,
     };
 
     let res = execute(deps.as_mut(), mock_env(), info, msg);

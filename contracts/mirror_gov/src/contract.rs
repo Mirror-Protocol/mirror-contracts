@@ -59,6 +59,7 @@ pub fn instantiate(
         voter_weight: msg.voter_weight,
         snapshot_period: msg.snapshot_period,
         admin_manager: deps.api.addr_canonicalize(&msg.admin_manager)?,
+        poll_gas_limit: msg.poll_gas_limit,
     };
 
     let state = State {
@@ -88,6 +89,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
             voter_weight,
             snapshot_period,
             admin_manager,
+            poll_gas_limit,
         } => update_config(
             deps,
             info,
@@ -99,6 +101,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
             voter_weight,
             snapshot_period,
             admin_manager,
+            poll_gas_limit,
         ),
         ExecuteMsg::WithdrawVotingTokens { amount } => withdraw_voting_tokens(deps, info, amount),
         ExecuteMsg::WithdrawVotingRewards { poll_id } => {
@@ -177,6 +180,7 @@ pub fn update_config(
     voter_weight: Option<Decimal>,
     snapshot_period: Option<u64>,
     admin_manager: Option<String>,
+    poll_gas_limit: Option<u64>,
 ) -> StdResult<Response> {
     let api = deps.api;
     config_store(deps.storage).update(|mut config| {
@@ -218,6 +222,10 @@ pub fn update_config(
 
         if let Some(admin_manager) = admin_manager {
             config.admin_manager = api.addr_canonicalize(&admin_manager)?;
+        }
+
+        if let Some(poll_gas_limit) = poll_gas_limit {
+            config.poll_gas_limit = poll_gas_limit;
         }
 
         Ok(config)
@@ -634,7 +642,7 @@ pub fn execute_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Response
     // the execution will reply in case of failure, to mark the poll as failed
     let execute_submsg = SubMsg {
         msg: execute_msg,
-        gas_limit: None,
+        gas_limit: Some(config.poll_gas_limit),
         id: POLL_EXECUTE_REPLY_ID,
         reply_on: ReplyOn::Error,
     };
@@ -840,6 +848,7 @@ fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
         voter_weight: config.voter_weight,
         snapshot_period: config.snapshot_period,
         admin_manager: deps.api.addr_humanize(&config.admin_manager)?.to_string(),
+        poll_gas_limit: config.poll_gas_limit,
     })
 }
 
@@ -980,6 +989,7 @@ pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response>
         msg.migration_poll_config,
         msg.auth_admin_poll_config,
         msg.admin_manager,
+        msg.poll_gas_limit,
     )?;
 
     Ok(Response::default())

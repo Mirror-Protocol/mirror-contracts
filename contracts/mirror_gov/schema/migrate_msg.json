@@ -5,7 +5,8 @@
   "required": [
     "admin_manager",
     "auth_admin_poll_config",
-    "migration_poll_config"
+    "migration_poll_config",
+    "poll_gas_limit"
   ],
   "properties": {
     "admin_manager": {
@@ -16,6 +17,11 @@
     },
     "migration_poll_config": {
       "$ref": "#/definitions/PollConfig"
+    },
+    "poll_gas_limit": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
     }
   },
   "definitions": {

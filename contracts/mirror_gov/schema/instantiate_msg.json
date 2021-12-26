@@ -9,6 +9,7 @@
     "effective_delay",
     "migration_poll_config",
     "mirror_token",
+    "poll_gas_limit",
     "snapshot_period",
     "voter_weight"
   ],
@@ -32,6 +33,11 @@
     },
     "mirror_token": {
       "type": "string"
+    },
+    "poll_gas_limit": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
     },
     "snapshot_period": {
       "type": "integer",

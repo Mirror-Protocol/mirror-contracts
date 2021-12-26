@@ -33,6 +33,7 @@ pub struct Config {
     pub voter_weight: Decimal,
     pub snapshot_period: u64,
     pub admin_manager: CanonicalAddr,
+    pub poll_gas_limit: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
