@@ -635,7 +635,8 @@ pub fn migrate_asset(
     }
 
     // check if the asset has a preIPO price
-    let (_, _, pre_ipo_price) = load_mint_asset_config(&deps.querier, mint, &asset_token_raw)?;
+    let (auction_discount, min_collateral_ratio, pre_ipo_price) =
+        load_mint_asset_config(&deps.querier, mint.clone(), &asset_token_raw)?;
 
     if pre_ipo_price.is_some() {
         return Err(StdError::generic_err("Can not migrate a preIPO asset"));
@@ -647,15 +648,11 @@ pub fn migrate_asset(
     remove_weight(deps.storage, &asset_token_raw);
     decrease_total_weight(deps.storage, weight)?;
 
-    let mint_contract = deps.api.addr_humanize(&config.mint_contract)?;
-    let mint_config: (Decimal, Decimal, _) =
-        load_mint_asset_config(&deps.querier, mint_contract.clone(), &asset_token_raw)?;
-
     store_params(
         deps.storage,
         &Params {
-            auction_discount: mint_config.0,
-            min_collateral_ratio: mint_config.1,
+            auction_discount,
+            min_collateral_ratio,
             weight: Some(weight),
             mint_period: None,
             min_collateral_ratio_after_ipo: None,
@@ -669,7 +666,7 @@ pub fn migrate_asset(
 
     Ok(Response::new()
         .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: mint_contract.to_string(),
+            contract_addr: mint.to_string(),
             funds: vec![],
             msg: to_binary(&MintExecuteMsg::RegisterMigration {
                 asset_token: asset_token.clone(),
@@ -689,7 +686,7 @@ pub fn migrate_asset(
                     decimals: 6u8,
                     initial_balances: vec![],
                     mint: Some(MinterResponse {
-                        minter: deps.api.addr_humanize(&config.mint_contract)?.to_string(),
+                        minter: mint.to_string(),
                         cap: None,
                     }),
                 })?,
