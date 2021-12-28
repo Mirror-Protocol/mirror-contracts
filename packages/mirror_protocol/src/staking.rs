@@ -96,11 +96,8 @@ pub enum Cw20HookMsg {
 /// We currently take no arguments for migrations
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct MigrateMsg {
-    pub mint_contract: String,
-    pub oracle_contract: String,
-    pub terraswap_factory: String,
-    pub base_denom: String,
-    pub premium_min_update_interval: u64,
+    pub asset_token_to_deprecate: String,
+    pub new_staking_token: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

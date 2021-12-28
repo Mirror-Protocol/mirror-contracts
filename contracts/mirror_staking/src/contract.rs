@@ -173,7 +173,20 @@ pub fn receive_cw20(
                 read_pool_info(deps.storage, &deps.api.addr_canonicalize(&asset_token)?)?;
 
             // only staking token contract can execute this message
-            if pool_info.staking_token != deps.api.addr_canonicalize(info.sender.as_str())? {
+            let token_raw = deps.api.addr_canonicalize(info.sender.as_str())?;
+            if pool_info.staking_token != token_raw {
+                // if user is trying to bond old token, return friendly error message
+                if let Some(params) = pool_info.migration_params {
+                    if params.deprecated_staking_token == token_raw {
+                        let staking_token_addr =
+                            deps.api.addr_humanize(&pool_info.staking_token)?;
+                        return Err(StdError::generic_err(format!(
+                            "The staking token for this asset has been migrated to {}",
+                            staking_token_addr.to_string()
+                        )));
+                    }
+                }
+
                 return Err(StdError::generic_err("unauthorized"));
             }
 
@@ -387,8 +400,23 @@ pub fn query_pool_info(deps: Deps, asset_token: String) -> StdResult<PoolInfoRes
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
     migrate_pool_infos(deps.storage)?;
+
+    // when the migration is executed, deprecate directly the MIR pool
+    let config = read_config(deps.storage)?;
+    let self_info = MessageInfo {
+        sender: deps.api.addr_humanize(&config.owner)?,
+        funds: vec![],
+    };
+    let asset_token_to_deprecate_addr = deps.api.addr_validate(&msg.asset_token_to_deprecate)?;
+    let new_staking_token_addr = deps.api.addr_validate(&msg.new_staking_token)?;
+    deprecate_staking_token(
+        deps,
+        self_info,
+        asset_token_to_deprecate_addr,
+        new_staking_token_addr,
+    )?;
 
     Ok(Response::default())
 }

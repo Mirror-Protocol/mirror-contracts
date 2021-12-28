@@ -1,5 +1,13 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "MigrateMsg",
-  "type": "object"
+  "type": "object",
+  "required": [
+    "mir_ust_pair"
+  ],
+  "properties": {
+    "mir_ust_pair": {
+      "type": "string"
+    }
+  }
 }

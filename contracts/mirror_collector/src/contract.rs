@@ -5,8 +5,8 @@ use crate::swap::{convert, luna_swap_hook};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    attr, to_binary, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
-    WasmMsg,
+    attr, to_binary, Binary, CanonicalAddr, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response,
+    StdResult, WasmMsg,
 };
 use cw20::Cw20ExecuteMsg;
 use mirror_protocol::collector::{
@@ -217,8 +217,15 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
     migrate_config(deps.storage)?;
+
+    let mut config = read_config(deps.storage)?;
+
+    let mir_ust_pair_raw: CanonicalAddr = deps.api.addr_canonicalize(&msg.mir_ust_pair)?;
+    config.mir_ust_pair = Some(mir_ust_pair_raw);
+
+    store_config(deps.storage, &config)?;
 
     Ok(Response::default())
 }

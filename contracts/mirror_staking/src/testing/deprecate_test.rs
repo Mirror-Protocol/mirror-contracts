@@ -234,7 +234,10 @@ fn test_deprecate() {
     });
     let info = mock_info("staking", &[]);
     let err = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
-    assert_eq!(err, StdError::generic_err("unauthorized"));
+    assert_eq!(
+        err,
+        StdError::generic_err("The staking token for this asset has been migrated to new_staking")
+    );
     let info = mock_info("new_staking", &[]);
     let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
     assert_eq!(

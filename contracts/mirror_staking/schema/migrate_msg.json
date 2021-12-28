@@ -4,28 +4,14 @@
   "description": "We currently take no arguments for migrations",
   "type": "object",
   "required": [
-    "base_denom",
-    "mint_contract",
-    "oracle_contract",
-    "premium_min_update_interval",
-    "terraswap_factory"
+    "asset_token_to_deprecate",
+    "new_staking_token"
   ],
   "properties": {
-    "base_denom": {
+    "asset_token_to_deprecate": {
       "type": "string"
     },
-    "mint_contract": {
-      "type": "string"
-    },
-    "oracle_contract": {
-      "type": "string"
-    },
-    "premium_min_update_interval": {
-      "type": "integer",
-      "format": "uint64",
-      "minimum": 0.0
-    },
-    "terraswap_factory": {
+    "new_staking_token": {
       "type": "string"
     }
   }
