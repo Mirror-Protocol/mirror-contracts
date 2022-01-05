@@ -357,4 +357,40 @@ fn test_deprecate() {
             ],
         }
     );
+
+    // completely new users can bond
+    let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
+        sender: "newaddr".to_string(),
+        amount: Uint128::new(100u128),
+        msg: to_binary(&Cw20HookMsg::Bond {
+            asset_token: "asset".to_string(),
+        })
+        .unwrap(),
+    });
+    let info = mock_info("new_staking", &[]);
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    let data = query(
+        deps.as_ref(),
+        mock_env(),
+        QueryMsg::RewardInfo {
+            asset_token: None,
+            staker_addr: "newaddr".to_string(),
+        },
+    )
+    .unwrap();
+    let res: RewardInfoResponse = from_binary(&data).unwrap();
+    assert_eq!(
+        res,
+        RewardInfoResponse {
+            staker_addr: "newaddr".to_string(),
+            reward_infos: vec![RewardInfoResponseItem {
+                asset_token: "asset".to_string(),
+                bond_amount: Uint128::new(100u128),
+                pending_reward: Uint128::zero(),
+                is_short: false,
+                should_migrate: None,
+            },],
+        }
+    );
 }

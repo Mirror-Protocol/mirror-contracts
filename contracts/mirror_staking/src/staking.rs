@@ -304,11 +304,16 @@ fn _increase_bond_amount(
             pending_reward: Uint128::zero(),
         });
 
-    if !is_short
-        && pool_info.migration_params.is_some()
-        && !read_is_migrated(storage, asset_token, staker_addr)
-    {
-        return Err(StdError::generic_err("The LP token for this asset has been deprecated, withdraw all your deprecated tokens to migrate your position"));
+    // check if the position should be migrated
+    let is_position_migrated = read_is_migrated(storage, asset_token, staker_addr);
+    if !is_short && pool_info.migration_params.is_some() {
+        // the pool has been migrated, if position is not migrated and has tokens bonded, return error
+        if !reward_info.bond_amount.is_zero() && !is_position_migrated {
+            return Err(StdError::generic_err("The LP token for this asset has been deprecated, withdraw all your deprecated tokens to migrate your position"));
+        } else if !is_position_migrated {
+            // if the position is not migrated, but bond amount is zero, it means it's a new position, so store it as migrated
+            store_is_migrated(storage, asset_token, staker_addr)?;
+        }
     }
 
     let pool_index = if is_short {
