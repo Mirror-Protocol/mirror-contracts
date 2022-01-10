@@ -10,6 +10,8 @@ pub static PREFIX_POOL_INFO: &[u8] = b"pool_info";
 static PREFIX_REWARD: &[u8] = b"reward";
 static PREFIX_SHORT_REWARD: &[u8] = b"short_reward";
 
+static PREFIX_IS_MIGRATED: &[u8] = b"is_migrated";
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
     pub owner: CanonicalAddr,
@@ -42,6 +44,13 @@ pub struct PoolInfo {
     pub premium_rate: Decimal,
     pub short_reward_weight: Decimal,
     pub premium_updated_time: u64,
+    pub migration_params: Option<MigrationParams>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct MigrationParams {
+    pub index_snapshot: Decimal,
+    pub deprecated_staking_token: CanonicalAddr,
 }
 
 pub fn store_pool_info(
@@ -88,4 +97,23 @@ pub fn rewards_read<'a>(
     } else {
         ReadonlyBucket::multilevel(storage, &[PREFIX_REWARD, owner.as_slice()])
     }
+}
+
+pub fn store_is_migrated(
+    storage: &mut dyn Storage,
+    asset_token: &CanonicalAddr,
+    staker: &CanonicalAddr,
+) -> StdResult<()> {
+    Bucket::multilevel(storage, &[PREFIX_IS_MIGRATED, staker.as_slice()])
+        .save(asset_token.as_slice(), &true)
+}
+
+pub fn read_is_migrated(
+    storage: &dyn Storage,
+    asset_token: &CanonicalAddr,
+    staker: &CanonicalAddr,
+) -> bool {
+    ReadonlyBucket::multilevel(storage, &[PREFIX_IS_MIGRATED, staker.as_slice()])
+        .load(asset_token.as_slice())
+        .unwrap_or(false)
 }

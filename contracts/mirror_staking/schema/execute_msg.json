@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "ExecuteMsg",
-  "anyOf": [
+  "oneOf": [
     {
       "type": "object",
       "required": [
@@ -39,13 +39,9 @@
               "minimum": 0.0
             },
             "short_reward_contract": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/HumanAddr"
-                },
-                {
-                  "type": "null"
-                }
+              "type": [
+                "string",
+                "null"
               ]
             }
           }
@@ -70,6 +66,30 @@
               "type": "string"
             },
             "staking_token": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "deprecate_staking_token"
+      ],
+      "properties": {
+        "deprecate_staking_token": {
+          "type": "object",
+          "required": [
+            "asset_token",
+            "new_staking_token"
+          ],
+          "properties": {
+            "asset_token": {
+              "type": "string"
+            },
+            "new_staking_token": {
               "type": "string"
             }
           }
@@ -275,10 +295,6 @@
     }
   ],
   "definitions": {
-    "Addr": {
-      "description": "A human readable address.\n\nIn Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.\n\nThis type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.\n\nThis type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.",
-      "type": "string"
-    },
     "Asset": {
       "type": "object",
       "required": [
@@ -296,7 +312,7 @@
     },
     "AssetInfo": {
       "description": "AssetInfo contract_addr is usually passed from the cw20 hook so we can trust the contract_addr is properly validated.",
-      "anyOf": [
+      "oneOf": [
         {
           "type": "object",
           "required": [
@@ -310,7 +326,7 @@
               ],
               "properties": {
                 "contract_addr": {
-                  "$ref": "#/definitions/Addr"
+                  "type": "string"
                 }
               }
             }

@@ -1,8 +1,11 @@
+use crate::migration::migrate_pool_infos;
 use crate::rewards::{adjust_premium, deposit_reward, query_reward_info, withdraw_reward};
 use crate::staking::{
     auto_stake, auto_stake_hook, bond, decrease_short_token, increase_short_token, unbond,
 };
-use crate::state::{read_config, read_pool_info, store_config, store_pool_info, Config, PoolInfo};
+use crate::state::{
+    read_config, read_pool_info, store_config, store_pool_info, Config, MigrationParams, PoolInfo,
+};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
@@ -77,6 +80,18 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
                 info,
                 api.addr_validate(&asset_token)?,
                 api.addr_validate(&staking_token)?,
+            )
+        }
+        ExecuteMsg::DeprecateStakingToken {
+            asset_token,
+            new_staking_token,
+        } => {
+            let api = deps.api;
+            deprecate_staking_token(
+                deps,
+                info,
+                api.addr_validate(&asset_token)?,
+                api.addr_validate(&new_staking_token)?,
             )
         }
         ExecuteMsg::Unbond {
@@ -158,7 +173,20 @@ pub fn receive_cw20(
                 read_pool_info(deps.storage, &deps.api.addr_canonicalize(&asset_token)?)?;
 
             // only staking token contract can execute this message
-            if pool_info.staking_token != deps.api.addr_canonicalize(info.sender.as_str())? {
+            let token_raw = deps.api.addr_canonicalize(info.sender.as_str())?;
+            if pool_info.staking_token != token_raw {
+                // if user is trying to bond old token, return friendly error message
+                if let Some(params) = pool_info.migration_params {
+                    if params.deprecated_staking_token == token_raw {
+                        let staking_token_addr =
+                            deps.api.addr_humanize(&pool_info.staking_token)?;
+                        return Err(StdError::generic_err(format!(
+                            "The staking token for this asset has been migrated to {}",
+                            staking_token_addr.to_string()
+                        )));
+                    }
+                }
+
                 return Err(StdError::generic_err("unauthorized"));
             }
 
@@ -254,12 +282,56 @@ fn register_asset(
             premium_rate: Decimal::zero(),
             short_reward_weight: Decimal::zero(),
             premium_updated_time: 0,
+            migration_params: None,
         },
     )?;
 
     Ok(Response::new().add_attributes(vec![
         attr("action", "register_asset"),
         attr("asset_token", asset_token.as_str()),
+    ]))
+}
+
+fn deprecate_staking_token(
+    deps: DepsMut,
+    info: MessageInfo,
+    asset_token: Addr,
+    new_staking_token: Addr,
+) -> StdResult<Response> {
+    let config: Config = read_config(deps.storage)?;
+    let asset_token_raw = deps.api.addr_canonicalize(asset_token.as_str())?;
+
+    if config.owner != deps.api.addr_canonicalize(info.sender.as_str())? {
+        return Err(StdError::generic_err("unauthorized"));
+    }
+
+    let mut pool_info: PoolInfo = read_pool_info(deps.storage, &asset_token_raw)?;
+
+    if pool_info.migration_params.is_some() {
+        return Err(StdError::generic_err(
+            "This asset LP token has already been migrated",
+        ));
+    }
+
+    let deprecated_token_addr: Addr = deps.api.addr_humanize(&pool_info.staking_token)?;
+
+    pool_info.total_bond_amount = Uint128::zero();
+    pool_info.migration_params = Some(MigrationParams {
+        index_snapshot: pool_info.reward_index,
+        deprecated_staking_token: pool_info.staking_token,
+    });
+    pool_info.staking_token = deps.api.addr_canonicalize(new_staking_token.as_str())?;
+
+    store_pool_info(deps.storage, &asset_token_raw, &pool_info)?;
+
+    Ok(Response::new().add_attributes(vec![
+        attr("action", "depcrecate_staking_token"),
+        attr("asset_token", asset_token.to_string()),
+        attr(
+            "deprecated_staking_token",
+            deprecated_token_addr.to_string(),
+        ),
+        attr("new_staking_token", new_staking_token.to_string()),
     ]))
 }
 
@@ -315,10 +387,36 @@ pub fn query_pool_info(deps: Deps, asset_token: String) -> StdResult<PoolInfoRes
         premium_rate: pool_info.premium_rate,
         short_reward_weight: pool_info.short_reward_weight,
         premium_updated_time: pool_info.premium_updated_time,
+        migration_deprecated_staking_token: pool_info.migration_params.clone().map(|params| {
+            deps.api
+                .addr_humanize(&params.deprecated_staking_token)
+                .unwrap()
+                .to_string()
+        }),
+        migration_index_snapshot: pool_info
+            .migration_params
+            .map(|params| params.index_snapshot),
     })
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
+    migrate_pool_infos(deps.storage)?;
+
+    // when the migration is executed, deprecate directly the MIR pool
+    let config = read_config(deps.storage)?;
+    let self_info = MessageInfo {
+        sender: deps.api.addr_humanize(&config.owner)?,
+        funds: vec![],
+    };
+    let asset_token_to_deprecate_addr = deps.api.addr_validate(&msg.asset_token_to_deprecate)?;
+    let new_staking_token_addr = deps.api.addr_validate(&msg.new_staking_token)?;
+    deprecate_staking_token(
+        deps,
+        self_info,
+        asset_token_to_deprecate_addr,
+        new_staking_token_addr,
+    )?;
+
     Ok(Response::default())
 }

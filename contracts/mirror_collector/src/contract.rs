@@ -1,11 +1,12 @@
 use crate::errors::ContractError;
+use crate::migration::migrate_config;
 use crate::state::{read_config, store_config, Config};
 use crate::swap::{convert, luna_swap_hook};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    attr, to_binary, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
-    WasmMsg,
+    attr, to_binary, Binary, CanonicalAddr, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response,
+    StdResult, WasmMsg,
 };
 use cw20::Cw20ExecuteMsg;
 use mirror_protocol::collector::{
@@ -22,6 +23,11 @@ pub fn instantiate(
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
+    let mir_ust_pair = if let Some(mir_ust_pair) = msg.mir_ust_pair {
+        Some(deps.api.addr_canonicalize(&mir_ust_pair)?)
+    } else {
+        None
+    };
     store_config(
         deps.storage,
         &Config {
@@ -34,6 +40,7 @@ pub fn instantiate(
             anchor_market: deps.api.addr_canonicalize(&msg.anchor_market)?,
             bluna_token: deps.api.addr_canonicalize(&msg.bluna_token)?,
             bluna_swap_denom: msg.bluna_swap_denom,
+            mir_ust_pair,
         },
     )?;
 
@@ -58,6 +65,7 @@ pub fn execute(
             anchor_market,
             bluna_token,
             bluna_swap_denom,
+            mir_ust_pair,
         } => update_config(
             deps,
             info,
@@ -70,6 +78,7 @@ pub fn execute(
             anchor_market,
             bluna_token,
             bluna_swap_denom,
+            mir_ust_pair,
         ),
         ExecuteMsg::Convert { asset_token } => {
             let asset_addr = deps.api.addr_validate(&asset_token)?;
@@ -93,6 +102,7 @@ pub fn update_config(
     anchor_market: Option<String>,
     bluna_token: Option<String>,
     bluna_swap_denom: Option<String>,
+    mir_ust_pair: Option<String>,
 ) -> Result<Response<TerraMsgWrapper>, ContractError> {
     let mut config: Config = read_config(deps.storage)?;
     if config.owner != deps.api.addr_canonicalize(info.sender.as_str())? {
@@ -134,6 +144,13 @@ pub fn update_config(
     if let Some(bluna_swap_denom) = bluna_swap_denom {
         config.bluna_swap_denom = bluna_swap_denom;
     }
+
+    // this triggers switching to use astroport for MIR swaps
+    if let Some(mir_ust_pair) = mir_ust_pair {
+        config.mir_ust_pair = Some(deps.api.addr_canonicalize(&mir_ust_pair)?);
+    }
+
+    store_config(deps.storage, &config)?;
 
     Ok(Response::new().add_attributes(vec![attr("action", "update_config")]))
 }
@@ -191,12 +208,24 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
         anchor_market: deps.api.addr_humanize(&state.anchor_market)?.to_string(),
         bluna_token: deps.api.addr_humanize(&state.bluna_token)?.to_string(),
         bluna_swap_denom: state.bluna_swap_denom,
+        mir_ust_pair: state
+            .mir_ust_pair
+            .map(|raw| deps.api.addr_humanize(&raw).unwrap().to_string()),
     };
 
     Ok(resp)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
+    migrate_config(deps.storage)?;
+
+    let mut config = read_config(deps.storage)?;
+
+    let mir_ust_pair_raw: CanonicalAddr = deps.api.addr_canonicalize(&msg.mir_ust_pair)?;
+    config.mir_ust_pair = Some(mir_ust_pair_raw);
+
+    store_config(deps.storage, &config)?;
+
     Ok(Response::default())
 }

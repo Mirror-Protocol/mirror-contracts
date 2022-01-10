@@ -1,28 +1,30 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 
+use crate::migrate::migrate_config;
 use crate::querier::load_token_balance;
 use crate::staking::{
     deposit_reward, query_shares, query_staker, stake_voting_rewards, stake_voting_tokens,
     withdraw_voting_rewards, withdraw_voting_tokens,
 };
 use crate::state::{
-    bank_read, bank_store, config_read, config_store, poll_indexer_store, poll_read, poll_store,
-    poll_voter_read, poll_voter_store, read_poll_voters, read_polls, read_tmp_poll_id, state_read,
-    state_store, store_tmp_poll_id, Config, ExecuteData, Poll, State,
+    bank_read, bank_store, config_read, config_store, poll_additional_params_read,
+    poll_additional_params_store, poll_indexer_store, poll_read, poll_store, poll_voter_read,
+    poll_voter_store, read_poll_voters, read_polls, read_tmp_poll_id, state_read, state_store,
+    store_tmp_poll_id, Config, ExecuteData, Poll, PollAdditionalParams, State,
 };
 
 use cosmwasm_std::{
-    attr, from_binary, to_binary, Binary, CosmosMsg, Decimal, Deps, DepsMut, Env, MessageInfo,
+    attr, from_binary, to_binary, Api, Binary, CosmosMsg, Decimal, Deps, DepsMut, Env, MessageInfo,
     Reply, ReplyOn, Response, StdError, StdResult, SubMsg, Uint128, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 
 use mirror_protocol::common::OrderBy;
 use mirror_protocol::gov::{
-    ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, PollExecuteMsg,
-    PollResponse, PollStatus, PollsResponse, QueryMsg, StateResponse, VoteOption, VoterInfo,
-    VotersResponse, VotersResponseItem,
+    ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, PollAdminAction,
+    PollConfig, PollExecuteMsg, PollResponse, PollStatus, PollsResponse, QueryMsg, StateResponse,
+    VoteOption, VoterInfo, VotersResponse, VotersResponseItem,
 };
 
 const MIN_TITLE_LENGTH: usize = 4;
@@ -42,21 +44,22 @@ pub fn instantiate(
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
-    validate_quorum(msg.quorum)?;
-    validate_threshold(msg.threshold)?;
+    validate_poll_config(&msg.default_poll_config)?;
+    validate_poll_config(&msg.migration_poll_config)?;
+    validate_poll_config(&msg.auth_admin_poll_config)?;
     validate_voter_weight(msg.voter_weight)?;
 
     let config = Config {
         mirror_token: deps.api.addr_canonicalize(&msg.mirror_token)?,
         owner: deps.api.addr_canonicalize(info.sender.as_str())?,
-        quorum: msg.quorum,
-        threshold: msg.threshold,
-        voting_period: msg.voting_period,
         effective_delay: msg.effective_delay,
-        expiration_period: 0u64, // depcrecated
-        proposal_deposit: msg.proposal_deposit,
+        default_poll_config: msg.default_poll_config,
+        migration_poll_config: msg.migration_poll_config,
+        auth_admin_poll_config: msg.auth_admin_poll_config,
         voter_weight: msg.voter_weight,
         snapshot_period: msg.snapshot_period,
+        admin_manager: deps.api.addr_canonicalize(&msg.admin_manager)?,
+        poll_gas_limit: msg.poll_gas_limit,
     };
 
     let state = State {
@@ -79,24 +82,26 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
         ExecuteMsg::Receive(msg) => receive_cw20(deps, env, info, msg),
         ExecuteMsg::UpdateConfig {
             owner,
-            quorum,
-            threshold,
-            voting_period,
             effective_delay,
-            proposal_deposit,
+            default_poll_config,
+            migration_poll_config,
+            auth_admin_poll_config,
             voter_weight,
             snapshot_period,
+            admin_manager,
+            poll_gas_limit,
         } => update_config(
             deps,
             info,
             owner,
-            quorum,
-            threshold,
-            voting_period,
             effective_delay,
-            proposal_deposit,
+            default_poll_config,
+            migration_poll_config,
+            auth_admin_poll_config,
             voter_weight,
             snapshot_period,
+            admin_manager,
+            poll_gas_limit,
         ),
         ExecuteMsg::WithdrawVotingTokens { amount } => withdraw_voting_tokens(deps, info, amount),
         ExecuteMsg::WithdrawVotingRewards { poll_id } => {
@@ -135,6 +140,7 @@ pub fn receive_cw20(
             description,
             link,
             execute_msg,
+            admin_action,
         }) => create_poll(
             deps,
             env,
@@ -144,6 +150,7 @@ pub fn receive_cw20(
             description,
             link,
             execute_msg,
+            admin_action,
         ),
         Ok(Cw20HookMsg::DepositReward {}) => deposit_reward(deps, cw20_msg.amount),
         Err(_) => Err(StdError::generic_err("invalid cw20 hook message")),
@@ -166,13 +173,14 @@ pub fn update_config(
     deps: DepsMut,
     info: MessageInfo,
     owner: Option<String>,
-    quorum: Option<Decimal>,
-    threshold: Option<Decimal>,
-    voting_period: Option<u64>,
     effective_delay: Option<u64>,
-    proposal_deposit: Option<Uint128>,
+    default_poll_config: Option<PollConfig>,
+    migration_poll_config: Option<PollConfig>,
+    auth_admin_poll_config: Option<PollConfig>,
     voter_weight: Option<Decimal>,
     snapshot_period: Option<u64>,
+    admin_manager: Option<String>,
+    poll_gas_limit: Option<u64>,
 ) -> StdResult<Response> {
     let api = deps.api;
     config_store(deps.storage).update(|mut config| {
@@ -184,26 +192,23 @@ pub fn update_config(
             config.owner = api.addr_canonicalize(&owner)?;
         }
 
-        if let Some(quorum) = quorum {
-            validate_quorum(quorum)?;
-            config.quorum = quorum;
+        if let Some(default_poll_config) = default_poll_config {
+            validate_poll_config(&default_poll_config)?;
+            config.default_poll_config = default_poll_config;
         }
 
-        if let Some(threshold) = threshold {
-            validate_threshold(threshold)?;
-            config.threshold = threshold;
+        if let Some(migration_poll_config) = migration_poll_config {
+            validate_poll_config(&migration_poll_config)?;
+            config.migration_poll_config = migration_poll_config;
         }
 
-        if let Some(voting_period) = voting_period {
-            config.voting_period = voting_period;
+        if let Some(auth_admin_poll_config) = auth_admin_poll_config {
+            validate_poll_config(&auth_admin_poll_config)?;
+            config.auth_admin_poll_config = auth_admin_poll_config;
         }
 
         if let Some(effective_delay) = effective_delay {
             config.effective_delay = effective_delay;
-        }
-
-        if let Some(proposal_deposit) = proposal_deposit {
-            config.proposal_deposit = proposal_deposit;
         }
 
         if let Some(voter_weight) = voter_weight {
@@ -213,6 +218,14 @@ pub fn update_config(
 
         if let Some(snapshot_period) = snapshot_period {
             config.snapshot_period = snapshot_period;
+        }
+
+        if let Some(admin_manager) = admin_manager {
+            config.admin_manager = api.addr_canonicalize(&admin_manager)?;
+        }
+
+        if let Some(poll_gas_limit) = poll_gas_limit {
+            config.poll_gas_limit = poll_gas_limit;
         }
 
         Ok(config)
@@ -257,6 +270,13 @@ fn validate_link(link: &Option<String>) -> StdResult<()> {
     }
 }
 
+fn validate_poll_config(poll_config: &PollConfig) -> StdResult<()> {
+    validate_quorum(poll_config.quorum)?;
+    validate_threshold(poll_config.threshold)?;
+
+    Ok(())
+}
+
 /// validate_quorum returns an error if the quorum is invalid
 /// (we require 0-1)
 fn validate_quorum(quorum: Decimal) -> StdResult<()> {
@@ -285,6 +305,13 @@ pub fn validate_voter_weight(voter_weight: Decimal) -> StdResult<()> {
     }
 }
 
+pub fn validate_migrations(api: &dyn Api, migrations: &[(String, u64, Binary)]) -> StdResult<()> {
+    for (addr, _, _) in migrations.iter() {
+        api.addr_validate(addr)?;
+    }
+    Ok(())
+}
+
 /*
  * Creates a new poll
  */
@@ -298,16 +325,41 @@ pub fn create_poll(
     description: String,
     link: Option<String>,
     poll_execute_msg: Option<PollExecuteMsg>,
+    poll_admin_action: Option<PollAdminAction>,
 ) -> StdResult<Response> {
     validate_title(&title)?;
     validate_description(&description)?;
     validate_link(&link)?;
 
     let config: Config = config_store(deps.storage).load()?;
-    if deposit_amount < config.proposal_deposit {
+    let current_seconds = env.block.time.seconds();
+    let (proposal_deposit, end_time, max_polls_in_progress) = match poll_admin_action.clone() {
+        None => (
+            config.default_poll_config.proposal_deposit,
+            current_seconds + config.default_poll_config.voting_period,
+            MAX_POLLS_IN_PROGRESS,
+        ),
+        Some(PollAdminAction::ExecuteMigrations { migrations }) => {
+            // check that contract addresses are valid
+            validate_migrations(deps.api, &migrations)?;
+
+            (
+                config.migration_poll_config.proposal_deposit,
+                current_seconds + config.migration_poll_config.voting_period,
+                MAX_POLLS_IN_PROGRESS + 10usize, // increase maximum to prevent mailcious users from authorizing migrations
+            )
+        }
+        _ => (
+            config.auth_admin_poll_config.proposal_deposit,
+            current_seconds + config.auth_admin_poll_config.voting_period,
+            MAX_POLLS_IN_PROGRESS + 10usize,
+        ),
+    };
+
+    if deposit_amount < proposal_deposit {
         return Err(StdError::generic_err(format!(
             "Must deposit more than {} token",
-            config.proposal_deposit
+            proposal_deposit
         )));
     }
 
@@ -320,7 +372,7 @@ pub fn create_poll(
         Some(true),
     )?
     .len();
-    if polls_in_progress.gt(&MAX_POLLS_IN_PROGRESS) {
+    if polls_in_progress.gt(&max_polls_in_progress) {
         return Err(StdError::generic_err("Too many polls in progress"));
     }
 
@@ -332,6 +384,18 @@ pub fn create_poll(
     state.total_deposit += deposit_amount;
 
     let poll_execute_data = if let Some(poll_execute_msg) = poll_execute_msg {
+        if poll_admin_action.is_some() {
+            return Err(StdError::generic_err(
+                "Can not make a poll with normal action and admin action",
+            ));
+        }
+        let target_contract = deps.api.addr_canonicalize(&poll_execute_msg.contract)?;
+        let contract_raw = deps.api.addr_canonicalize(env.contract.address.as_str())?;
+        if target_contract.eq(&config.admin_manager) || target_contract.eq(&contract_raw) {
+            return Err(StdError::generic_err(
+                "Can not make a normal pool targeting the admin_manager or gov contract",
+            ));
+        }
         Some(ExecuteData {
             contract: deps.api.addr_canonicalize(&poll_execute_msg.contract)?,
             msg: poll_execute_msg.msg,
@@ -341,7 +405,6 @@ pub fn create_poll(
     };
 
     let sender_address_raw = deps.api.addr_canonicalize(&proposer)?;
-    let current_seconds = env.block.time.seconds();
     let new_poll = Poll {
         id: poll_id,
         creator: sender_address_raw,
@@ -349,7 +412,7 @@ pub fn create_poll(
         yes_votes: Uint128::zero(),
         no_votes: Uint128::zero(),
         abstain_votes: Uint128::zero(),
-        end_time: current_seconds + config.voting_period,
+        end_time,
         title,
         description,
         link,
@@ -363,6 +426,15 @@ pub fn create_poll(
     poll_store(deps.storage).save(&poll_id.to_be_bytes(), &new_poll)?;
     poll_indexer_store(deps.storage, &PollStatus::InProgress)
         .save(&poll_id.to_be_bytes(), &true)?;
+
+    if poll_admin_action.is_some() {
+        poll_additional_params_store(deps.storage).save(
+            &poll_id.to_be_bytes(),
+            &PollAdditionalParams {
+                admin_action: poll_admin_action,
+            },
+        )?;
+    }
 
     state_store(deps.storage).save(&state)?;
 
@@ -382,14 +454,40 @@ pub fn create_poll(
  * Ends a poll.
  */
 pub fn end_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Response> {
+    let config: Config = config_store(deps.storage).load()?;
     let mut a_poll: Poll = poll_store(deps.storage).load(&poll_id.to_be_bytes())?;
+    let (target_quorum, target_threshold, is_fast_track) =
+        match poll_additional_params_read(deps.storage).load(&poll_id.to_be_bytes()) {
+            Ok(params) => match params.admin_action {
+                Some(PollAdminAction::ExecuteMigrations { .. }) => (
+                    config.migration_poll_config.quorum,
+                    config.migration_poll_config.threshold,
+                    true,
+                ),
+                None => (
+                    config.default_poll_config.quorum,
+                    config.default_poll_config.threshold,
+                    false,
+                ),
+                _ => (
+                    config.auth_admin_poll_config.quorum,
+                    config.auth_admin_poll_config.threshold,
+                    false,
+                ),
+            },
+            _ => (
+                config.default_poll_config.quorum,
+                config.default_poll_config.threshold,
+                false,
+            ),
+        };
 
     if a_poll.status != PollStatus::InProgress {
         return Err(StdError::generic_err("Poll is not in progress"));
     }
 
     let current_seconds = env.block.time.seconds();
-    if a_poll.end_time > current_seconds {
+    if a_poll.end_time > current_seconds && !is_fast_track {
         return Err(StdError::generic_err("Voting period has not expired"));
     }
 
@@ -404,7 +502,6 @@ pub fn end_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Response> {
     let mut passed = false;
 
     let mut messages: Vec<CosmosMsg> = vec![];
-    let config: Config = config_read(deps.storage).load()?;
     let mut state: State = state_read(deps.storage).load()?;
 
     let (quorum, staked_weight) = if state.total_share.u128() == 0 {
@@ -428,12 +525,12 @@ pub fn end_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Response> {
         )
     };
 
-    if tallied_weight == 0 || quorum < config.quorum {
+    if tallied_weight == 0 || quorum < target_quorum {
         // Quorum: More than quorum of the total staked tokens at the end of the voting
         // period need to have participated in the vote.
         rejected_reason = "Quorum not reached";
     } else {
-        if yes != 0u128 && Decimal::from_ratio(yes, yes + no) > config.threshold {
+        if yes != 0u128 && Decimal::from_ratio(yes, yes + no) > target_threshold {
             //Threshold: More than 50% of the tokens that participated in the vote
             // (after excluding “Abstain” votes) need to have voted in favor of the proposal (“Yes”).
             poll_status = PollStatus::Passed;
@@ -453,6 +550,14 @@ pub fn end_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Response> {
                 })?,
             }))
         }
+    }
+
+    // if the poll is fast track and is rejected, we return error instead of updating state
+    // the poll can still pass until the poll end_time
+    if poll_status.eq(&PollStatus::Rejected) && is_fast_track && a_poll.end_time > current_seconds {
+        return Err(StdError::generic_err(
+            "Fastrack poll has not reached the target quorum or threshold",
+        ));
     }
 
     // Decrease total deposit amount
@@ -483,12 +588,24 @@ pub fn execute_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Response
     let config: Config = config_read(deps.storage).load()?;
     let mut a_poll: Poll = poll_store(deps.storage).load(&poll_id.to_be_bytes())?;
 
+    let (is_fast_track, admin_msg) =
+        match poll_additional_params_read(deps.storage).load(&poll_id.to_be_bytes()) {
+            Ok(params) => match params.admin_action {
+                Some(action) => match action {
+                    PollAdminAction::ExecuteMigrations { .. } => (true, Some(to_binary(&action)?)),
+                    _ => (false, Some(to_binary(&action)?)),
+                },
+                _ => (false, None),
+            },
+            _ => (false, None),
+        };
+
     if a_poll.status != PollStatus::Passed {
         return Err(StdError::generic_err("Poll is not in passed status"));
     }
 
     let current_seconds = env.block.time.seconds();
-    if a_poll.end_time + config.effective_delay > current_seconds {
+    if !is_fast_track && a_poll.end_time + config.effective_delay > current_seconds {
         return Err(StdError::generic_err("Effective delay has not expired"));
     }
 
@@ -498,25 +615,42 @@ pub fn execute_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Response
     a_poll.status = PollStatus::Executed;
     poll_store(deps.storage).save(&poll_id.to_be_bytes(), &a_poll)?;
 
-    let mut messages: Vec<SubMsg> = vec![];
-    if let Some(execute_data) = a_poll.execute_data {
-        messages.push(SubMsg {
-            msg: CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: deps.api.addr_humanize(&execute_data.contract)?.to_string(),
-                msg: execute_data.msg,
+    // if is not possible to create a poll with both admin_msg and execute_data, only one per poll
+    let execute_msg: CosmosMsg = if let Some(execute_data) = a_poll.execute_data {
+        CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: deps.api.addr_humanize(&execute_data.contract)?.to_string(),
+            msg: execute_data.msg,
+            funds: vec![],
+        })
+    } else if let Some(admin_msg) = admin_msg {
+        match from_binary(&admin_msg)? {
+            PollAdminAction::UpdateConfig { .. } => CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: env.contract.address.to_string(),
+                msg: admin_msg,
                 funds: vec![],
             }),
-            gas_limit: None,
-            id: POLL_EXECUTE_REPLY_ID,
-            reply_on: ReplyOn::Error,
-        });
-        store_tmp_poll_id(deps.storage, a_poll.id)?;
+            _ => CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: deps.api.addr_humanize(&config.admin_manager)?.to_string(),
+                msg: admin_msg,
+                funds: vec![],
+            }),
+        }
     } else {
         return Err(StdError::generic_err("The poll does not have execute_data"));
-    }
+    };
+
+    // the execution will reply in case of failure, to mark the poll as failed
+    let execute_submsg = SubMsg {
+        msg: execute_msg,
+        gas_limit: Some(config.poll_gas_limit),
+        id: POLL_EXECUTE_REPLY_ID,
+        reply_on: ReplyOn::Error,
+    };
+
+    store_tmp_poll_id(deps.storage, a_poll.id)?;
 
     Ok(Response::new()
-        .add_submessages(messages)
+        .add_submessage(execute_submsg)
         .add_attributes(vec![
             attr("action", "execute_poll"),
             attr("poll_id", poll_id.to_string()),
@@ -645,7 +779,7 @@ pub fn snapshot_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Respons
     let time_to_end = a_poll.end_time - current_seconds;
 
     if time_to_end > config.snapshot_period {
-        return Err(StdError::generic_err("Cannot snapshot at this height"));
+        return Err(StdError::generic_err("Cannot snapshot at this time"));
     }
 
     if a_poll.staked_amount.is_some() {
@@ -707,13 +841,14 @@ fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     Ok(ConfigResponse {
         owner: deps.api.addr_humanize(&config.owner)?.to_string(),
         mirror_token: deps.api.addr_humanize(&config.mirror_token)?.to_string(),
-        quorum: config.quorum,
-        threshold: config.threshold,
-        voting_period: config.voting_period,
         effective_delay: config.effective_delay,
-        proposal_deposit: config.proposal_deposit,
+        default_poll_config: config.default_poll_config,
+        migration_poll_config: config.migration_poll_config,
+        auth_admin_poll_config: config.auth_admin_poll_config,
         voter_weight: config.voter_weight,
         snapshot_period: config.snapshot_period,
+        admin_manager: deps.api.addr_humanize(&config.admin_manager)?.to_string(),
+        poll_gas_limit: config.poll_gas_limit,
     })
 }
 
@@ -848,6 +983,14 @@ fn query_voters(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
+    migrate_config(
+        deps,
+        msg.migration_poll_config,
+        msg.auth_admin_poll_config,
+        msg.admin_manager,
+        msg.poll_gas_limit,
+    )?;
+
     Ok(Response::default())
 }

@@ -5,8 +5,8 @@ use cosmwasm_std::{
 
 use crate::rewards::before_share_change;
 use crate::state::{
-    read_config, read_pool_info, rewards_read, rewards_store, store_pool_info, Config, PoolInfo,
-    RewardInfo,
+    read_config, read_is_migrated, read_pool_info, rewards_read, rewards_store, store_is_migrated,
+    store_pool_info, Config, PoolInfo, RewardInfo,
 };
 
 use cw20::Cw20ExecuteMsg;
@@ -54,6 +54,7 @@ pub fn unbond(
         amount,
         false,
     )?;
+    let staking_token_addr: Addr = deps.api.addr_humanize(&staking_token)?;
 
     Ok(Response::new()
         .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
@@ -69,6 +70,7 @@ pub fn unbond(
             attr("staker_addr", staker_addr.as_str()),
             attr("asset_token", asset_token.as_str()),
             attr("amount", amount.to_string()),
+            attr("staking_token", staking_token_addr.as_str()),
         ]))
 }
 
@@ -302,8 +304,26 @@ fn _increase_bond_amount(
             pending_reward: Uint128::zero(),
         });
 
+    // check if the position should be migrated
+    let is_position_migrated = read_is_migrated(storage, asset_token, staker_addr);
+    if !is_short && pool_info.migration_params.is_some() {
+        // the pool has been migrated, if position is not migrated and has tokens bonded, return error
+        if !reward_info.bond_amount.is_zero() && !is_position_migrated {
+            return Err(StdError::generic_err("The LP token for this asset has been deprecated, withdraw all your deprecated tokens to migrate your position"));
+        } else if !is_position_migrated {
+            // if the position is not migrated, but bond amount is zero, it means it's a new position, so store it as migrated
+            store_is_migrated(storage, asset_token, staker_addr)?;
+        }
+    }
+
+    let pool_index = if is_short {
+        pool_info.short_reward_index
+    } else {
+        pool_info.reward_index
+    };
+
     // Withdraw reward to pending reward; before changing share
-    before_share_change(&pool_info, &mut reward_info, is_short)?;
+    before_share_change(pool_index, &mut reward_info)?;
 
     // Increase total short or bond amount
     if is_short {
@@ -313,6 +333,7 @@ fn _increase_bond_amount(
     }
 
     reward_info.bond_amount += amount;
+
     rewards_store(storage, staker_addr, is_short).save(asset_token.as_slice(), &reward_info)?;
     store_pool_info(storage, asset_token, &pool_info)?;
 
@@ -334,19 +355,43 @@ fn _decrease_bond_amount(
         return Err(StdError::generic_err("Cannot unbond more than bond amount"));
     }
 
+    // if the lp token was migrated, and the user did not close their position yet, cap the reward at the snapshot
+    let should_migrate = !read_is_migrated(storage, asset_token, staker_addr)
+        && !is_short
+        && pool_info.migration_params.is_some();
+    let (pool_index, staking_token) = if is_short {
+        (
+            pool_info.short_reward_index,
+            pool_info.staking_token.clone(),
+        ) // actually not used later
+    } else if should_migrate {
+        let migraton_params = pool_info.migration_params.clone().unwrap();
+        (
+            migraton_params.index_snapshot,
+            migraton_params.deprecated_staking_token,
+        )
+    } else {
+        (pool_info.reward_index, pool_info.staking_token.clone())
+    };
+
     // Distribute reward to pending reward; before changing share
-    before_share_change(&pool_info, &mut reward_info, is_short)?;
+    before_share_change(pool_index, &mut reward_info)?;
 
     // Decrease total short or bond amount
     if is_short {
         pool_info.total_short_amount = pool_info.total_short_amount.checked_sub(amount)?;
-    } else {
+    } else if !should_migrate {
+        // if it should migrate, we dont need to decrease from the current total bond amount
         pool_info.total_bond_amount = pool_info.total_bond_amount.checked_sub(amount)?;
     }
 
+    // Update rewards info
     reward_info.bond_amount = reward_info.bond_amount.checked_sub(amount)?;
 
-    // Update rewards info
+    if reward_info.bond_amount.is_zero() && should_migrate {
+        store_is_migrated(storage, asset_token, staker_addr)?;
+    }
+
     if reward_info.pending_reward.is_zero() && reward_info.bond_amount.is_zero() {
         rewards_store(storage, staker_addr, is_short).remove(asset_token.as_slice());
     } else {
@@ -356,5 +401,5 @@ fn _decrease_bond_amount(
     // Update pool info
     store_pool_info(storage, asset_token, &pool_info)?;
 
-    Ok(pool_info.staking_token)
+    Ok(staking_token)
 }

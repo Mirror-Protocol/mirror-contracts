@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use cosmwasm_std::{CanonicalAddr, StdResult, Storage};
 use cosmwasm_storage::{singleton, singleton_read};
 
-static KEY_CONFIG: &[u8] = b"config";
+pub static KEY_CONFIG: &[u8] = b"config";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
@@ -19,6 +19,8 @@ pub struct Config {
     // bLuna params
     pub bluna_token: CanonicalAddr,
     pub bluna_swap_denom: String,
+    // when set, use this address instead of querying from terraswap
+    pub mir_ust_pair: Option<CanonicalAddr>,
 }
 
 pub fn store_config(storage: &mut dyn Storage, config: &Config) -> StdResult<()> {

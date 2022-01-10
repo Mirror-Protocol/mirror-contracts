@@ -1,3 +1,4 @@
+pub mod admin_manager;
 pub mod collateral_oracle;
 pub mod collector;
 pub mod common;

@@ -14,10 +14,13 @@ pub struct InstantiateMsg {
     // bLuna params
     pub bluna_token: String,
     pub bluna_swap_denom: String,
+    // when set, use this address instead of querying from terraswap
+    pub mir_ust_pair: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
+#[allow(clippy::large_enum_variant)]
 pub enum ExecuteMsg {
     UpdateConfig {
         owner: Option<String>,
@@ -29,6 +32,7 @@ pub enum ExecuteMsg {
         anchor_market: Option<String>,
         bluna_token: Option<String>,
         bluna_swap_denom: Option<String>,
+        mir_ust_pair: Option<String>,
     },
     Convert {
         asset_token: String,
@@ -44,7 +48,6 @@ pub enum QueryMsg {
     Config {},
 }
 
-// TODO: Delete when moneymarket is upgraded to std 0.14
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum MoneyMarketCw20HookMsg {
@@ -65,7 +68,10 @@ pub struct ConfigResponse {
     pub anchor_market: String,
     pub bluna_token: String,
     pub bluna_swap_denom: String,
+    pub mir_ust_pair: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct MigrateMsg {}
+pub struct MigrateMsg {
+    pub mir_ust_pair: String,
+}

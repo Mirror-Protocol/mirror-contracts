@@ -34,6 +34,10 @@ pub enum ExecuteMsg {
         asset_token: String,
         staking_token: String,
     },
+    DeprecateStakingToken {
+        asset_token: String,
+        new_staking_token: String,
+    },
 
     ////////////////////////
     /// User operations ///
@@ -92,11 +96,8 @@ pub enum Cw20HookMsg {
 /// We currently take no arguments for migrations
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct MigrateMsg {
-    pub mint_contract: String,
-    pub oracle_contract: String,
-    pub terraswap_factory: String,
-    pub base_denom: String,
-    pub premium_min_update_interval: u64,
+    pub asset_token_to_deprecate: String,
+    pub new_staking_token: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -139,6 +140,8 @@ pub struct PoolInfoResponse {
     pub premium_rate: Decimal,
     pub short_reward_weight: Decimal,
     pub premium_updated_time: u64,
+    pub migration_index_snapshot: Option<Decimal>,
+    pub migration_deprecated_staking_token: Option<String>,
 }
 
 // We define a custom struct for each query response
@@ -154,4 +157,7 @@ pub struct RewardInfoResponseItem {
     pub bond_amount: Uint128,
     pub pending_reward: Uint128,
     pub is_short: bool,
+    // returns true if the position should be closed to keep receiving rewards
+    // with the new lp token
+    pub should_migrate: Option<bool>,
 }

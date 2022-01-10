@@ -7,9 +7,9 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use mirror_protocol::common::OrderBy;
-use mirror_protocol::gov::{PollStatus, VoterInfo};
+use mirror_protocol::gov::{PollAdminAction, PollConfig, PollStatus, VoterInfo};
 
-static KEY_CONFIG: &[u8] = b"config";
+pub static KEY_CONFIG: &[u8] = b"config";
 static KEY_STATE: &[u8] = b"state";
 static KEY_TMP_POLL_ID: &[u8] = b"tmp_poll_id";
 
@@ -17,6 +17,7 @@ static PREFIX_POLL_INDEXER: &[u8] = b"poll_indexer";
 static PREFIX_POLL_VOTER: &[u8] = b"poll_voter";
 static PREFIX_POLL: &[u8] = b"poll";
 static PREFIX_BANK: &[u8] = b"bank";
+static PREFIX_POLL_ADDITIONAL_PARAMS: &[u8] = b"poll_additional_params";
 
 const MAX_LIMIT: u32 = 30;
 const DEFAULT_LIMIT: u32 = 10;
@@ -25,14 +26,14 @@ const DEFAULT_LIMIT: u32 = 10;
 pub struct Config {
     pub owner: CanonicalAddr,
     pub mirror_token: CanonicalAddr,
-    pub quorum: Decimal,
-    pub threshold: Decimal,
-    pub voting_period: u64,
     pub effective_delay: u64,
-    pub expiration_period: u64, // deprecated, to remove on next state migration
-    pub proposal_deposit: Uint128,
+    pub default_poll_config: PollConfig,
+    pub migration_poll_config: PollConfig,
+    pub auth_admin_poll_config: PollConfig,
     pub voter_weight: Decimal,
     pub snapshot_period: u64,
+    pub admin_manager: CanonicalAddr,
+    pub poll_gas_limit: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -72,6 +73,11 @@ pub struct Poll {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct PollAdditionalParams {
+    pub admin_action: Option<PollAdminAction>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ExecuteData {
     pub contract: CanonicalAddr,
     pub msg: Binary,
@@ -107,6 +113,14 @@ pub fn poll_store(storage: &mut dyn Storage) -> Bucket<Poll> {
 
 pub fn poll_read(storage: &dyn Storage) -> ReadonlyBucket<Poll> {
     bucket_read(storage, PREFIX_POLL)
+}
+
+pub fn poll_additional_params_store(storage: &mut dyn Storage) -> Bucket<PollAdditionalParams> {
+    bucket(storage, PREFIX_POLL_ADDITIONAL_PARAMS)
+}
+
+pub fn poll_additional_params_read(storage: &dyn Storage) -> ReadonlyBucket<PollAdditionalParams> {
+    bucket_read(storage, PREFIX_POLL_ADDITIONAL_PARAMS)
 }
 
 pub fn poll_indexer_store<'a>(

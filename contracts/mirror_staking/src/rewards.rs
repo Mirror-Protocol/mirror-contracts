@@ -5,8 +5,8 @@ use cosmwasm_std::{
 
 use crate::querier::{compute_premium_rate, compute_short_reward_weight};
 use crate::state::{
-    read_config, read_pool_info, rewards_read, rewards_store, store_pool_info, Config, PoolInfo,
-    RewardInfo,
+    read_config, read_is_migrated, read_pool_info, rewards_read, rewards_store, store_pool_info,
+    Config, PoolInfo, RewardInfo,
 };
 use mirror_protocol::staking::{RewardInfoResponse, RewardInfoResponseItem};
 
@@ -167,7 +167,18 @@ fn _withdraw_reward(
         let pool_info: PoolInfo = read_pool_info(storage, &asset_token_raw)?;
 
         // Withdraw reward to pending reward
-        before_share_change(&pool_info, &mut reward_info, is_short)?;
+        // if the lp token was migrated, and the user did not close their position yet, cap the reward at the snapshot
+        let pool_index = if is_short {
+            pool_info.short_reward_index
+        } else if pool_info.migration_params.is_some()
+            && !read_is_migrated(storage, &asset_token_raw, staker_addr)
+        {
+            pool_info.migration_params.unwrap().index_snapshot
+        } else {
+            pool_info.reward_index
+        };
+
+        before_share_change(pool_index, &mut reward_info)?;
 
         amount += reward_info.pending_reward;
         reward_info.pending_reward = Uint128::zero();
@@ -185,17 +196,7 @@ fn _withdraw_reward(
 }
 
 // withdraw reward to pending reward
-pub fn before_share_change(
-    pool_info: &PoolInfo,
-    reward_info: &mut RewardInfo,
-    is_short: bool,
-) -> StdResult<()> {
-    let pool_index = if is_short {
-        pool_info.short_reward_index
-    } else {
-        pool_info.reward_index
-    };
-
+pub fn before_share_change(pool_index: Decimal, reward_info: &mut RewardInfo) -> StdResult<()> {
     let pending_reward = (reward_info.bond_amount * pool_index)
         .checked_sub(reward_info.bond_amount * reward_info.index)?;
 
@@ -244,13 +245,28 @@ fn _read_reward_infos(
         reward_infos =
             if let Some(mut reward_info) = rewards_bucket.may_load(asset_token_raw.as_slice())? {
                 let pool_info = read_pool_info(storage, &asset_token_raw)?;
-                before_share_change(&pool_info, &mut reward_info, is_short)?;
+
+                let (pool_index, should_migrate) = if is_short {
+                    (pool_info.short_reward_index, None)
+                } else if pool_info.migration_params.is_some()
+                    && !read_is_migrated(storage, &asset_token_raw, staker_addr)
+                {
+                    (
+                        pool_info.migration_params.unwrap().index_snapshot,
+                        Some(true),
+                    )
+                } else {
+                    (pool_info.reward_index, None)
+                };
+
+                before_share_change(pool_index, &mut reward_info)?;
 
                 vec![RewardInfoResponseItem {
                     asset_token: asset_token.clone(),
                     bond_amount: reward_info.bond_amount,
                     pending_reward: reward_info.pending_reward,
                     is_short,
+                    should_migrate,
                 }]
             } else {
                 vec![]
@@ -262,14 +278,29 @@ fn _read_reward_infos(
                 let (k, v) = item?;
                 let asset_token_raw = CanonicalAddr::from(k);
                 let mut reward_info = v;
+
                 let pool_info = read_pool_info(storage, &asset_token_raw)?;
-                before_share_change(&pool_info, &mut reward_info, is_short)?;
+                let (pool_index, should_migrate) = if is_short {
+                    (pool_info.short_reward_index, None)
+                } else if pool_info.migration_params.is_some()
+                    && !read_is_migrated(storage, &asset_token_raw, staker_addr)
+                {
+                    (
+                        pool_info.migration_params.unwrap().index_snapshot,
+                        Some(true),
+                    )
+                } else {
+                    (pool_info.reward_index, None)
+                };
+
+                before_share_change(pool_index, &mut reward_info)?;
 
                 Ok(RewardInfoResponseItem {
                     asset_token: api.addr_humanize(&asset_token_raw)?.to_string(),
                     bond_amount: reward_info.bond_amount,
                     pending_reward: reward_info.pending_reward,
                     is_short,
+                    should_migrate,
                 })
             })
             .collect::<StdResult<Vec<RewardInfoResponseItem>>>()?;
