@@ -32,6 +32,8 @@ pub fn convert(
         anchor_redeem(deps, env, &config, asset_token)
     } else if asset_token_raw == config.bluna_token {
         bluna_swap(deps, env, &config, asset_token)
+    } else if asset_token_raw == config.lunax_token {
+        lunax_swap(deps, env, &config, asset_token)
     } else {
         direct_swap(deps, env, &config, asset_token)
     }
@@ -158,6 +160,62 @@ fn anchor_redeem(
     Ok(Response::new().add_messages(messages).add_attributes(vec![
         attr("action", "convert"),
         attr("swap_type", "anchor_redeem"),
+        attr("asset_token", asset_token.as_str()),
+    ]))
+}
+
+fn lunax_swap(
+    deps: DepsMut,
+    env: Env,
+    config: &Config,
+    asset_token: Addr,
+) -> Result<Response<TerraMsgWrapper>, ContractError> {
+    let terraswap_factory_addr = deps.api.addr_humanize(&config.terraswap_factory)?;
+
+    let pair_info: PairInfo = query_pair_info(
+        &deps.querier,
+        terraswap_factory_addr,
+        &[
+            AssetInfo::NativeToken {
+                denom: config.lunax_swap_denom.clone(),
+            },
+            AssetInfo::Token {
+                contract_addr: asset_token.to_string(),
+            },
+        ],
+    )?;
+
+    let amount = query_token_balance(
+        &deps.querier,
+        asset_token.clone(),
+        env.contract.address.clone(),
+    )?;
+
+    let mut messages: Vec<CosmosMsg<TerraMsgWrapper>> = vec![];
+    if !amount.is_zero() {
+        messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: asset_token.to_string(),
+            msg: to_binary(&Cw20ExecuteMsg::Send {
+                contract: pair_info.contract_addr,
+                amount,
+                msg: to_binary(&TerraswapCw20HookMsg::Swap {
+                    max_spread: None,
+                    belief_price: None,
+                    to: None,
+                })?,
+            })?,
+            funds: vec![],
+        }));
+        messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: env.contract.address.to_string(),
+            msg: to_binary(&ExecuteMsg::LunaSwapHook {})?,
+            funds: vec![],
+        }));
+    }
+
+    Ok(Response::new().add_messages(messages).add_attributes(vec![
+        attr("action", "convert"),
+        attr("swap_type", "lunax_swap"),
         attr("asset_token", asset_token.as_str()),
     ]))
 }
