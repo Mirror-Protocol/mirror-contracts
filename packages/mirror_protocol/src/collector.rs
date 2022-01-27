@@ -14,6 +14,9 @@ pub struct InstantiateMsg {
     // bLuna params
     pub bluna_token: String,
     pub bluna_swap_denom: String,
+    // Lunax params
+    pub lunax_token: String,
+    pub lunax_swap_denom: String,
     // when set, use this address instead of querying from terraswap
     pub mir_ust_pair: Option<String>,
 }
@@ -73,5 +76,6 @@ pub struct ConfigResponse {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct MigrateMsg {
-    pub mir_ust_pair: String,
+    pub lunax_token: String,
+    pub lunax_swap_denom: String,
 }

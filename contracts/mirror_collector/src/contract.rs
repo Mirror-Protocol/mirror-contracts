@@ -5,8 +5,8 @@ use crate::swap::{convert, luna_swap_hook};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    attr, to_binary, Binary, CanonicalAddr, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response,
-    StdResult, WasmMsg,
+    attr, to_binary, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+    WasmMsg,
 };
 use cw20::Cw20ExecuteMsg;
 use mirror_protocol::collector::{
@@ -40,6 +40,8 @@ pub fn instantiate(
             anchor_market: deps.api.addr_canonicalize(&msg.anchor_market)?,
             bluna_token: deps.api.addr_canonicalize(&msg.bluna_token)?,
             bluna_swap_denom: msg.bluna_swap_denom,
+            lunax_token: deps.api.addr_canonicalize(&msg.lunax_token)?,
+            lunax_swap_denom: msg.lunax_swap_denom,
             mir_ust_pair,
         },
     )?;
@@ -218,14 +220,11 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
-    migrate_config(deps.storage)?;
-
-    let mut config = read_config(deps.storage)?;
-
-    let mir_ust_pair_raw: CanonicalAddr = deps.api.addr_canonicalize(&msg.mir_ust_pair)?;
-    config.mir_ust_pair = Some(mir_ust_pair_raw);
-
-    store_config(deps.storage, &config)?;
+    migrate_config(
+        deps.storage,
+        deps.api.addr_canonicalize(msg.lunax_token.as_str())?,
+        msg.lunax_swap_denom,
+    )?;
 
     Ok(Response::default())
 }
