@@ -38,7 +38,6 @@ cw20 = { version = "0.8.0" }
 cosmwasm-std = { version = "0.16.0", features = ["iterator"] }
 cosmwasm-storage = { version = "0.16.0", features = ["iterator"] }
 mirror-protocol = { version = "2.1.1", path = "../../packages/mirror_protocol" }
-tefi-oracle = { version = "0.1.0", path = "../../packages/tefi_oracle" }
 terraswap = "2.4.0"
 schemars = "0.8.1"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }

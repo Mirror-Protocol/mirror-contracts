@@ -48,8 +48,7 @@
       "required": [
         "min_collateral_ratio_after_ipo",
         "mint_end",
-        "pre_ipo_price",
-        "trigger_addr"
+        "pre_ipo_price"
       ],
       "properties": {
         "min_collateral_ratio_after_ipo": {
@@ -62,9 +61,6 @@
         },
         "pre_ipo_price": {
           "$ref": "#/definitions/Decimal"
-        },
-        "trigger_addr": {
-          "type": "string"
         }
       }
     }
