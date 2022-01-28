@@ -89,9 +89,12 @@ pub struct CollateralInfosResponse {
     pub collaterals: Vec<CollateralInfoResponse>,
 }
 
-/// We currently take no arguments for migrations
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct MigrateMsg {}
+pub struct MigrateMsg {
+    pub lunax_token_addr: String,
+    pub lunax_staking_contract: String,
+    pub multiplier: Decimal,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]

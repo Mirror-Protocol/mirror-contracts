@@ -1,3 +1,4 @@
+use crate::migration::migrate_collateral_infos;
 use crate::querier::query_price;
 use crate::state::{
     read_collateral_info, read_collateral_infos, read_config, store_collateral_info, store_config,
@@ -321,6 +322,30 @@ pub fn query_collateral_infos(deps: Deps) -> StdResult<CollateralInfosResponse> 
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
+    // migrate collateral infos to inclue new source type
+    migrate_collateral_infos(deps.storage)?;
+
+    // register lunax
+    let lunax_asset_info = AssetInfo::Token {
+        contract_addr: msg.lunax_token_addr,
+    };
+    let lunax_source = SourceType::Lunax {
+        staking_contract_addr: msg.lunax_staking_contract,
+    };
+
+    let config: Config = read_config(deps.storage)?;
+    let self_info = MessageInfo {
+        sender: deps.api.addr_humanize(&config.owner)?,
+        funds: vec![],
+    };
+    register_collateral(
+        deps,
+        self_info,
+        lunax_asset_info,
+        lunax_source,
+        msg.multiplier,
+    )?;
+
     Ok(Response::default())
 }
