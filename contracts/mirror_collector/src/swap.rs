@@ -10,6 +10,8 @@ use terraswap::asset::{Asset, AssetInfo, PairInfo};
 use terraswap::pair::{Cw20HookMsg as TerraswapCw20HookMsg, ExecuteMsg as TerraswapExecuteMsg};
 use terraswap::querier::{query_balance, query_pair_info, query_token_balance};
 
+const LUNA_DENOM: &str = "uluna";
+
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum MoneyMarketCw20HookMsg {
@@ -177,7 +179,7 @@ fn lunax_swap(
         terraswap_factory_addr,
         &[
             AssetInfo::NativeToken {
-                denom: config.lunax_swap_denom.clone(),
+                denom: LUNA_DENOM.to_string(),
             },
             AssetInfo::Token {
                 contract_addr: asset_token.to_string(),
@@ -233,7 +235,7 @@ fn bluna_swap(
         terraswap_factory_addr,
         &[
             AssetInfo::NativeToken {
-                denom: config.bluna_swap_denom.clone(),
+                denom: LUNA_DENOM.to_string(),
             },
             AssetInfo::Token {
                 contract_addr: asset_token.to_string(),
@@ -285,7 +287,7 @@ pub fn luna_swap_hook(deps: DepsMut, env: Env) -> Result<Response<TerraMsgWrappe
     if !amount.is_zero() {
         let offer_coin = Coin {
             amount,
-            denom: "uluna".to_string(),
+            denom: LUNA_DENOM.to_string(),
         };
         messages.push(create_swap_msg(offer_coin, config.base_denom));
     }

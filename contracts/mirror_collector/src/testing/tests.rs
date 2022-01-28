@@ -23,9 +23,7 @@ fn proper_initialization() {
         aust_token: "aust0000".to_string(),
         anchor_market: "anchormarket0000".to_string(),
         bluna_token: "bluna0000".to_string(),
-        bluna_swap_denom: "uluna".to_string(),
         lunax_token: "lunax0000".to_string(),
-        lunax_swap_denom: "uluna".to_string(),
         mir_ust_pair: None,
     };
 
@@ -70,9 +68,7 @@ fn test_convert() {
         aust_token: "aust0000".to_string(),
         anchor_market: "anchormarket0000".to_string(),
         bluna_token: "bluna0000".to_string(),
-        bluna_swap_denom: "uluna".to_string(),
         lunax_token: "lunax0000".to_string(),
-        lunax_swap_denom: "uluna".to_string(),
         mir_ust_pair: None,
     };
 
@@ -157,9 +153,7 @@ fn test_convert_aust() {
         aust_token: "aust0000".to_string(),
         anchor_market: "anchormarket0000".to_string(),
         bluna_token: "bluna0000".to_string(),
-        bluna_swap_denom: "uluna".to_string(),
         lunax_token: "lunax0000".to_string(),
-        lunax_swap_denom: "uluna".to_string(),
         mir_ust_pair: None,
     };
 
@@ -210,9 +204,7 @@ fn test_convert_lunax() {
         aust_token: "aust0000".to_string(),
         anchor_market: "anchormarket0000".to_string(),
         bluna_token: "bluna0000".to_string(),
-        bluna_swap_denom: "uluna".to_string(),
         lunax_token: "lunax0000".to_string(),
-        lunax_swap_denom: "uluna".to_string(),
         mir_ust_pair: None,
     };
 
@@ -293,9 +285,7 @@ fn test_convert_bluna() {
         aust_token: "aust0000".to_string(),
         anchor_market: "anchormarket0000".to_string(),
         bluna_token: "bluna0000".to_string(),
-        bluna_swap_denom: "uluna".to_string(),
         lunax_token: "lunax0000".to_string(),
-        lunax_swap_denom: "uluna".to_string(),
         mir_ust_pair: None,
     };
 
@@ -370,9 +360,7 @@ fn test_send() {
         aust_token: "aust0000".to_string(),
         anchor_market: "anchormarket0000".to_string(),
         bluna_token: "bluna0000".to_string(),
-        bluna_swap_denom: "uluna".to_string(),
         lunax_token: "lunax0000".to_string(),
-        lunax_swap_denom: "uluna".to_string(),
         mir_ust_pair: None,
     };
 
@@ -422,9 +410,7 @@ fn test_set_astroport_mir_pair() {
         aust_token: "aust0000".to_string(),
         anchor_market: "anchormarket0000".to_string(),
         bluna_token: "bluna0000".to_string(),
-        bluna_swap_denom: "uluna".to_string(),
         lunax_token: "lunax0000".to_string(),
-        lunax_swap_denom: "uluna".to_string(),
         mir_ust_pair: None,
     };
 
@@ -473,8 +459,8 @@ fn test_set_astroport_mir_pair() {
         aust_token: None,
         anchor_market: None,
         bluna_token: None,
-        bluna_swap_denom: None,
         mir_ust_pair: Some("astroportPAIR".to_string()),
+        lunax_token: None,
     };
 
     let info = mock_info("owner0000", &[]);

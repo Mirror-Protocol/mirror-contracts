@@ -13,10 +13,8 @@ pub struct InstantiateMsg {
     pub anchor_market: String,
     // bLuna params
     pub bluna_token: String,
-    pub bluna_swap_denom: String,
     // Lunax params
     pub lunax_token: String,
-    pub lunax_swap_denom: String,
     // when set, use this address instead of querying from terraswap
     pub mir_ust_pair: Option<String>,
 }
@@ -34,8 +32,8 @@ pub enum ExecuteMsg {
         aust_token: Option<String>,
         anchor_market: Option<String>,
         bluna_token: Option<String>,
-        bluna_swap_denom: Option<String>,
         mir_ust_pair: Option<String>,
+        lunax_token: Option<String>,
     },
     Convert {
         asset_token: String,
@@ -70,12 +68,11 @@ pub struct ConfigResponse {
     pub aust_token: String,
     pub anchor_market: String,
     pub bluna_token: String,
-    pub bluna_swap_denom: String,
+    pub lunax_token: String,
     pub mir_ust_pair: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct MigrateMsg {
     pub lunax_token: String,
-    pub lunax_swap_denom: String,
 }

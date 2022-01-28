@@ -16,13 +16,10 @@ pub struct LegacyConfig {
     pub anchor_market: CanonicalAddr,
     pub bluna_token: CanonicalAddr,
     pub bluna_swap_denom: String,
+    pub mir_ust_pair: Option<CanonicalAddr>,
 }
 
-pub fn migrate_config(
-    storage: &mut dyn Storage,
-    lunax_token: CanonicalAddr,
-    lunax_swap_denom: String,
-) -> StdResult<()> {
+pub fn migrate_config(storage: &mut dyn Storage, lunax_token: CanonicalAddr) -> StdResult<()> {
     let legacy_store: ReadonlySingleton<LegacyConfig> = singleton_read(storage, KEY_CONFIG);
     let legacy_config: LegacyConfig = legacy_store.load()?;
     let config = Config {
@@ -34,10 +31,8 @@ pub fn migrate_config(
         aust_token: legacy_config.aust_token,
         anchor_market: legacy_config.anchor_market,
         bluna_token: legacy_config.bluna_token,
-        bluna_swap_denom: legacy_config.bluna_swap_denom,
         lunax_token,
-        lunax_swap_denom,
-        mir_ust_pair: None,
+        mir_ust_pair: legacy_config.mir_ust_pair,
     };
     let mut store: Singleton<Config> = singleton(storage, KEY_CONFIG);
     store.save(&config)?;
@@ -70,13 +65,13 @@ mod migrate_tests {
                 anchor_market: deps.api.addr_canonicalize("anchormarket0000").unwrap(),
                 bluna_token: deps.api.addr_canonicalize("bluna0000").unwrap(),
                 bluna_swap_denom: "uluna".to_string(),
+                mir_ust_pair: Some(deps.api.addr_canonicalize("astromirustpair0000").unwrap()),
             })
             .unwrap();
 
         migrate_config(
             &mut deps.storage,
             CanonicalAddr::from("lunax_token".as_bytes()),
-            "uluna".to_string(),
         )
         .unwrap();
 
@@ -92,10 +87,8 @@ mod migrate_tests {
                 aust_token: deps.api.addr_canonicalize("aust0000").unwrap(),
                 anchor_market: deps.api.addr_canonicalize("anchormarket0000").unwrap(),
                 bluna_token: deps.api.addr_canonicalize("bluna0000").unwrap(),
-                bluna_swap_denom: "uluna".to_string(),
                 lunax_token: CanonicalAddr::from("lunax_token".as_bytes()),
-                lunax_swap_denom: "uluna".to_string(),
-                mir_ust_pair: None,
+                mir_ust_pair: Some(deps.api.addr_canonicalize("astromirustpair0000").unwrap()),
             }
         )
     }
