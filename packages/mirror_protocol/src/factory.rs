@@ -39,8 +39,8 @@ pub enum ExecuteMsg {
         name: String,
         /// asset symbol used to create token contract
         symbol: String,
-        /// oracle proxy that will provide prices for this asset
-        oracle_proxy: String,
+        /// authorized asset oracle feeder
+        oracle_feeder: String,
         /// used to create all necessary contract or register asset
         params: Params,
     },
@@ -48,10 +48,17 @@ pub enum ExecuteMsg {
         contract_addr: String,
         msg: Binary,
     },
+
+    //////////////////////
+    /// Feeder Operations
+    /// //////////////////
+
     /// Revoke asset from MIR rewards pool
     /// and register end_price to mint contract
+    /// Only feeder can set end_price
     RevokeAsset {
         asset_token: String,
+        end_price: Option<Decimal>,
     },
     /// Migrate asset to new asset by registering
     /// end_price to mint contract and add
@@ -59,8 +66,8 @@ pub enum ExecuteMsg {
     MigrateAsset {
         name: String,
         symbol: String,
-        oracle_proxy: String,
         from_token: String,
+        end_price: Decimal,
     },
 
     ///////////////////
@@ -118,6 +125,4 @@ pub struct Params {
     pub min_collateral_ratio_after_ipo: Option<Decimal>,
     /// For pre-IPO assets, fixed price during minting period
     pub pre_ipo_price: Option<Decimal>,
-    /// For pre-IPO assets, address authorized to trigger the ipo event
-    pub ipo_trigger_addr: Option<String>,
 }

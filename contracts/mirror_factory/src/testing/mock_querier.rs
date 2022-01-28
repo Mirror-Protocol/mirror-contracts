@@ -8,9 +8,10 @@ use cosmwasm_std::{
 };
 use cosmwasm_storage::to_length_prefixed;
 
+use crate::math::decimal_division;
 use crate::querier::MintAssetConfig;
+use mirror_protocol::oracle::PriceResponse;
 use std::collections::HashMap;
-use tefi_oracle::hub::PriceResponse;
 use terraswap::asset::{AssetInfo, PairInfo};
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
@@ -31,6 +32,7 @@ pub fn mock_dependencies(
 pub struct WasmMockQuerier {
     base: MockQuerier<Empty>,
     terraswap_factory_querier: TerraswapFactoryQuerier,
+    oracle_querier: OracleQuerier,
     oracle_price_querier: OraclePriceQuerier,
     mint_querier: MintQuerier,
 }
@@ -82,6 +84,27 @@ pub(crate) fn oracle_price_to_map(
 }
 
 #[derive(Clone, Default)]
+pub struct OracleQuerier {
+    feeders: HashMap<String, String>,
+}
+
+impl OracleQuerier {
+    pub fn new(feeders: &[(&String, &String)]) -> Self {
+        OracleQuerier {
+            feeders: address_pair_to_map(feeders),
+        }
+    }
+}
+
+pub(crate) fn address_pair_to_map(address_pair: &[(&String, &String)]) -> HashMap<String, String> {
+    let mut address_pair_map: HashMap<String, String> = HashMap::new();
+    for (addr1, addr2) in address_pair.iter() {
+        address_pair_map.insert(addr1.to_string(), addr2.to_string());
+    }
+    address_pair_map
+}
+
+#[derive(Clone, Default)]
 pub struct MintQuerier {
     configs: HashMap<String, (Decimal, Decimal)>,
 }
@@ -127,8 +150,8 @@ pub enum QueryMsg {
         asset_infos: [AssetInfo; 2],
     },
     Price {
-        asset_token: String,
-        timeframe: Option<u64>,
+        base_asset: String,
+        quote_asset: String,
     },
 }
 
@@ -161,14 +184,23 @@ impl WasmMockQuerier {
                     }
                 }
                 QueryMsg::Price {
-                    asset_token,
-                    timeframe: _,
-                } => match self.oracle_price_querier.oracle_price.get(&asset_token) {
+                    base_asset,
+                    quote_asset,
+                } => match self.oracle_price_querier.oracle_price.get(&base_asset) {
                     Some(base_price) => {
-                        SystemResult::Ok(ContractResult::from(to_binary(&PriceResponse {
-                            rate: *base_price,
-                            last_updated: 1000u64,
-                        })))
+                        match self.oracle_price_querier.oracle_price.get(&quote_asset) {
+                            Some(quote_price) => {
+                                SystemResult::Ok(ContractResult::from(to_binary(&PriceResponse {
+                                    rate: decimal_division(*base_price, *quote_price),
+                                    last_updated_base: 1000u64,
+                                    last_updated_quote: 1000u64,
+                                })))
+                            }
+                            None => SystemResult::Err(SystemError::InvalidRequest {
+                                error: "No oracle price exists".to_string(),
+                                request: msg.as_slice().into(),
+                            }),
+                        }
                     }
                     None => SystemResult::Err(SystemError::InvalidRequest {
                         error: "No oracle price exists".to_string(),
@@ -176,15 +208,44 @@ impl WasmMockQuerier {
                     }),
                 },
             },
-            QueryRequest::Wasm(WasmQuery::Raw {
-                contract_addr: _,
-                key,
-            }) => {
+            QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
                 let key: &[u8] = key.as_slice();
                 let prefix_asset_config = to_length_prefixed(b"asset_config").to_vec();
+                let prefix_feeder = to_length_prefixed(b"feeder").to_vec();
 
                 let api: MockApi = MockApi::default();
-                if key.len() > prefix_asset_config.len()
+                if key.len() > prefix_feeder.len()
+                    && key[..prefix_feeder.len()].to_vec() == prefix_feeder
+                {
+                    let api: MockApi = MockApi::default();
+                    let rest_key: &[u8] = &key[prefix_feeder.len()..];
+
+                    if contract_addr == "oracle0000" {
+                        let asset_token: String = api
+                            .addr_humanize(&(CanonicalAddr::from(rest_key.to_vec())))
+                            .unwrap()
+                            .to_string();
+
+                        let feeder = match self.oracle_querier.feeders.get(&asset_token) {
+                            Some(v) => v,
+                            None => {
+                                return SystemResult::Err(SystemError::InvalidRequest {
+                                    error: format!(
+                                        "Oracle Feeder is not found for {}",
+                                        asset_token
+                                    ),
+                                    request: key.into(),
+                                })
+                            }
+                        };
+
+                        SystemResult::Ok(ContractResult::from(to_binary(
+                            &api.addr_canonicalize(feeder).unwrap(),
+                        )))
+                    } else {
+                        panic!("DO NOT ENTER HERE")
+                    }
+                } else if key.len() > prefix_asset_config.len()
                     && key[..prefix_asset_config.len()].to_vec() == prefix_asset_config
                 {
                     let rest_key: &[u8] = &key[prefix_asset_config.len()..];
@@ -224,6 +285,7 @@ impl WasmMockQuerier {
             base,
             terraswap_factory_querier: TerraswapFactoryQuerier::default(),
             mint_querier: MintQuerier::default(),
+            oracle_querier: OracleQuerier::default(),
             oracle_price_querier: OraclePriceQuerier::default(),
         }
     }
@@ -231,6 +293,10 @@ impl WasmMockQuerier {
     // configure the terraswap pair
     pub fn with_terraswap_pairs(&mut self, pairs: &[(&String, &String)]) {
         self.terraswap_factory_querier = TerraswapFactoryQuerier::new(pairs);
+    }
+
+    pub fn with_oracle_feeders(&mut self, feeders: &[(&String, &String)]) {
+        self.oracle_querier = OracleQuerier::new(feeders);
     }
 
     pub fn with_mint_configs(&mut self, configs: &[(&String, &(Decimal, Decimal))]) {

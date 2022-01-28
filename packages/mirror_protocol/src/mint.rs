@@ -104,7 +104,6 @@ pub struct IPOParams {
     pub mint_end: u64,
     pub pre_ipo_price: Decimal,
     pub min_collateral_ratio_after_ipo: Decimal,
-    pub trigger_addr: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
