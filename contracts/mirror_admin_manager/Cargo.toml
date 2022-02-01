@@ -42,6 +42,7 @@ schemars = "0.8.1"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 cw-storage-plus = { version = "0.8.0", features = ["iterator"]}
 thiserror = { version = "1.0.20" }
+uint = { version = "=0.9.1" }
 
 [dev-dependencies]
 cosmwasm-schema = "0.16.0"

@@ -1,11 +1,11 @@
-use cosmwasm_storage::Bucket;
+use cosmwasm_storage::{singleton, singleton_read, Bucket, ReadonlySingleton, Singleton};
 use mirror_protocol::collateral_oracle::SourceType;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Decimal, Order, StdResult, Storage};
+use cosmwasm_std::{CanonicalAddr, Decimal, Order, StdResult, Storage};
 
-use crate::state::{CollateralAssetInfo, PREFIX_COLLATERAL_ASSET_INFO};
+use crate::state::{CollateralAssetInfo, Config, KEY_CONFIG, PREFIX_COLLATERAL_ASSET_INFO};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct LegacyCollateralAssetInfo {
@@ -13,6 +13,13 @@ pub struct LegacyCollateralAssetInfo {
     pub price_source: LegacySourceType,
     pub multiplier: Decimal,
     pub is_revoked: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct LegacyConfig {
+    pub owner: CanonicalAddr,
+    pub mint_contract: CanonicalAddr,
+    pub base_denom: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -34,6 +41,28 @@ pub enum LegacySourceType {
     Native {
         native_denom: String,
     },
+}
+
+pub fn migrate_config(
+    storage: &mut dyn Storage,
+    mirror_oracle: CanonicalAddr,
+    anchor_oracle: CanonicalAddr,
+    band_oracle: CanonicalAddr,
+) -> StdResult<()> {
+    let legacy_store: ReadonlySingleton<LegacyConfig> = singleton_read(storage, KEY_CONFIG);
+    let legacy_config: LegacyConfig = legacy_store.load()?;
+    let config = Config {
+        owner: legacy_config.owner,
+        mint_contract: legacy_config.mint_contract,
+        base_denom: legacy_config.base_denom,
+        mirror_oracle,
+        anchor_oracle,
+        band_oracle,
+    };
+    let mut store: Singleton<Config> = singleton(storage, KEY_CONFIG);
+    store.save(&config)?;
+
+    Ok(())
 }
 
 pub fn migrate_collateral_infos(storage: &mut dyn Storage) -> StdResult<()> {

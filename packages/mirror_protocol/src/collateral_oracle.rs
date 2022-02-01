@@ -94,6 +94,9 @@ pub struct MigrateMsg {
     pub lunax_token_addr: String,
     pub lunax_staking_contract: String,
     pub multiplier: Decimal,
+    pub mirror_oracle: String,
+    pub anchor_oracle: String,
+    pub band_oracle: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

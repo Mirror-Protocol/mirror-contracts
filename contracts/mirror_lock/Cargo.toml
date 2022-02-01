@@ -41,6 +41,7 @@ mirror-protocol = { version = "2.1.1", path = "../../packages/mirror_protocol" }
 terraswap = "2.4.0"
 schemars = "0.8.1"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
+uint = { version = "=0.9.1" }
 
 [dev-dependencies]
 terra-cosmwasm = { version = "2.2.0" }

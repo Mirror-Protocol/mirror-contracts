@@ -34,7 +34,7 @@ overflow-checks = true
 backtraces = ["cosmwasm-std/backtraces"]
 
 [dependencies]
-cw20 = { version = "0.8.0" } 
+cw20 = { version = "0.8.0" }
 cosmwasm-std = { version = "0.16.0" }
 cosmwasm-storage = { version = "0.16.0" }
 mirror-protocol = { version = "2.1.1", path = "../../packages/mirror_protocol" }
@@ -43,6 +43,7 @@ serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 terra-cosmwasm = "2.2.0"
 terraswap = "2.4.0"
 thiserror = { version = "1.0.20" }
+uint = { version = "=0.9.1" }
 
 [dev-dependencies]
 cosmwasm-schema = "0.16.0"

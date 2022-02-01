@@ -1,4 +1,4 @@
-use crate::migration::migrate_collateral_infos;
+use crate::migration::{migrate_collateral_infos, migrate_config};
 use crate::querier::query_price;
 use crate::state::{
     read_collateral_info, read_collateral_infos, read_config, store_collateral_info, store_config,
@@ -323,6 +323,12 @@ pub fn query_collateral_infos(deps: Deps) -> StdResult<CollateralInfosResponse> 
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
+    let mirror_oracle = deps.api.addr_canonicalize(msg.mirror_oracle.as_str())?;
+    let anchor_oracle = deps.api.addr_canonicalize(msg.anchor_oracle.as_str())?;
+    let band_oracle = deps.api.addr_canonicalize(msg.band_oracle.as_str())?;
+
+    migrate_config(deps.storage, mirror_oracle, anchor_oracle, band_oracle)?;
+
     // migrate collateral infos to inclue new source type
     migrate_collateral_infos(deps.storage)?;
 

@@ -5,7 +5,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 pub static PREFIX_COLLATERAL_ASSET_INFO: &[u8] = b"collateral_asset_info";
-static KEY_CONFIG: &[u8] = b"config";
+pub static KEY_CONFIG: &[u8] = b"config";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
