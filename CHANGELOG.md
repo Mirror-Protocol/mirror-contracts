@@ -1,3 +1,3 @@
-# 2.1.1
+# 2.1.2
 
-* Fixed issues found through code review and integration testing #75
+* Migration for collateral oracle and collector to support LunaX as collateral #88
