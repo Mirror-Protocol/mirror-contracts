@@ -18,7 +18,8 @@ pub struct Config {
     pub anchor_market: CanonicalAddr,
     // bLuna params
     pub bluna_token: CanonicalAddr,
-    pub bluna_swap_denom: String,
+    // Lunax params
+    pub lunax_token: CanonicalAddr,
     // when set, use this address instead of querying from terraswap
     pub mir_ust_pair: Option<CanonicalAddr>,
 }

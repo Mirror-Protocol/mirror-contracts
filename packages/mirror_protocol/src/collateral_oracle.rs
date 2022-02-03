@@ -9,6 +9,9 @@ pub struct InstantiateMsg {
     pub owner: String,
     pub mint_contract: String,
     pub base_denom: String,
+    pub mirror_oracle: String,
+    pub anchor_oracle: String,
+    pub band_oracle: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -18,6 +21,9 @@ pub enum ExecuteMsg {
         owner: Option<String>,
         mint_contract: Option<String>,
         base_denom: Option<String>,
+        mirror_oracle: Option<String>,
+        anchor_oracle: Option<String>,
+        band_oracle: Option<String>,
     },
     RegisterCollateralAsset {
         asset: AssetInfo,
@@ -43,7 +49,7 @@ pub enum QueryMsg {
     Config {},
     CollateralPrice {
         asset: String,
-        timeframe: Option<u64>,
+        block_height: Option<u64>,
     },
     CollateralAssetInfo {
         asset: String,
@@ -56,6 +62,9 @@ pub struct ConfigResponse {
     pub owner: String,
     pub mint_contract: String,
     pub base_denom: String,
+    pub mirror_oracle: String,
+    pub anchor_oracle: String,
+    pub band_oracle: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -82,21 +91,22 @@ pub struct CollateralInfosResponse {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct MigrateMsg {
-    pub mirror_tefi_oracle_addr: String,
-    pub anchor_tefi_oracle_addr: String,
+    pub lunax_token_addr: String,
+    pub lunax_staking_contract: String,
+    pub multiplier: Decimal,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SourceType {
-    TeFiOracle {
-        oracle_addr: String,
-    },
+    MirrorOracle {},
+    AnchorOracle {},
+    BandOracle {},
     FixedPrice {
         price: Decimal,
     },
-    AMMPair {
-        pair_addr: String,
+    Terraswap {
+        terraswap_pair_addr: String,
         intermediate_denom: Option<String>,
     },
     AnchorMarket {
@@ -105,16 +115,22 @@ pub enum SourceType {
     Native {
         native_denom: String,
     },
+    Lunax {
+        staking_contract_addr: String,
+    },
 }
 
 impl fmt::Display for SourceType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            SourceType::TeFiOracle { .. } => write!(f, "tefi_oracle"),
+            SourceType::MirrorOracle { .. } => write!(f, "mirror_oracle"),
+            SourceType::AnchorOracle { .. } => write!(f, "anchor_oracle"),
+            SourceType::BandOracle { .. } => write!(f, "band_oracle"),
             SourceType::FixedPrice { .. } => write!(f, "fixed_price"),
-            SourceType::AMMPair { .. } => write!(f, "amm_pair"),
+            SourceType::Terraswap { .. } => write!(f, "terraswap"),
             SourceType::AnchorMarket { .. } => write!(f, "anchor_market"),
             SourceType::Native { .. } => write!(f, "native"),
+            SourceType::Lunax { .. } => write!(f, "lunax"),
         }
     }
 }

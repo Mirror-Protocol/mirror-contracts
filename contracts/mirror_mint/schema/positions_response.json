@@ -31,7 +31,7 @@
     },
     "AssetInfo": {
       "description": "AssetInfo contract_addr is usually passed from the cw20 hook so we can trust the contract_addr is properly validated.",
-      "oneOf": [
+      "anyOf": [
         {
           "type": "object",
           "required": [

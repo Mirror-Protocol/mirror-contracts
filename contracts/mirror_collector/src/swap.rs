@@ -10,6 +10,8 @@ use terraswap::asset::{Asset, AssetInfo, PairInfo};
 use terraswap::pair::{Cw20HookMsg as TerraswapCw20HookMsg, ExecuteMsg as TerraswapExecuteMsg};
 use terraswap::querier::{query_balance, query_pair_info, query_token_balance};
 
+const LUNA_DENOM: &str = "uluna";
+
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum MoneyMarketCw20HookMsg {
@@ -32,6 +34,8 @@ pub fn convert(
         anchor_redeem(deps, env, &config, asset_token)
     } else if asset_token_raw == config.bluna_token {
         bluna_swap(deps, env, &config, asset_token)
+    } else if asset_token_raw == config.lunax_token {
+        lunax_swap(deps, env, &config, asset_token)
     } else {
         direct_swap(deps, env, &config, asset_token)
     }
@@ -162,6 +166,62 @@ fn anchor_redeem(
     ]))
 }
 
+fn lunax_swap(
+    deps: DepsMut,
+    env: Env,
+    config: &Config,
+    asset_token: Addr,
+) -> Result<Response<TerraMsgWrapper>, ContractError> {
+    let terraswap_factory_addr = deps.api.addr_humanize(&config.terraswap_factory)?;
+
+    let pair_info: PairInfo = query_pair_info(
+        &deps.querier,
+        terraswap_factory_addr,
+        &[
+            AssetInfo::NativeToken {
+                denom: LUNA_DENOM.to_string(),
+            },
+            AssetInfo::Token {
+                contract_addr: asset_token.to_string(),
+            },
+        ],
+    )?;
+
+    let amount = query_token_balance(
+        &deps.querier,
+        asset_token.clone(),
+        env.contract.address.clone(),
+    )?;
+
+    let mut messages: Vec<CosmosMsg<TerraMsgWrapper>> = vec![];
+    if !amount.is_zero() {
+        messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: asset_token.to_string(),
+            msg: to_binary(&Cw20ExecuteMsg::Send {
+                contract: pair_info.contract_addr,
+                amount,
+                msg: to_binary(&TerraswapCw20HookMsg::Swap {
+                    max_spread: None,
+                    belief_price: None,
+                    to: None,
+                })?,
+            })?,
+            funds: vec![],
+        }));
+        messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: env.contract.address.to_string(),
+            msg: to_binary(&ExecuteMsg::LunaSwapHook {})?,
+            funds: vec![],
+        }));
+    }
+
+    Ok(Response::new().add_messages(messages).add_attributes(vec![
+        attr("action", "convert"),
+        attr("swap_type", "lunax_swap"),
+        attr("asset_token", asset_token.as_str()),
+    ]))
+}
+
 fn bluna_swap(
     deps: DepsMut,
     env: Env,
@@ -175,7 +235,7 @@ fn bluna_swap(
         terraswap_factory_addr,
         &[
             AssetInfo::NativeToken {
-                denom: config.bluna_swap_denom.clone(),
+                denom: LUNA_DENOM.to_string(),
             },
             AssetInfo::Token {
                 contract_addr: asset_token.to_string(),
@@ -221,17 +281,13 @@ fn bluna_swap(
 pub fn luna_swap_hook(deps: DepsMut, env: Env) -> Result<Response<TerraMsgWrapper>, ContractError> {
     let config: Config = read_config(deps.storage)?;
 
-    let amount = query_balance(
-        &deps.querier,
-        env.contract.address,
-        config.bluna_swap_denom.clone(),
-    )?;
+    let amount = query_balance(&deps.querier, env.contract.address, "uluna".to_string())?;
 
     let mut messages: Vec<CosmosMsg<TerraMsgWrapper>> = vec![];
     if !amount.is_zero() {
         let offer_coin = Coin {
             amount,
-            denom: config.bluna_swap_denom,
+            denom: LUNA_DENOM.to_string(),
         };
         messages.push(create_swap_msg(offer_coin, config.base_denom));
     }

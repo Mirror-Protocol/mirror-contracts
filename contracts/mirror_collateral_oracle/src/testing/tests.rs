@@ -7,6 +7,7 @@ use cosmwasm_std::{Decimal, StdError, Uint128};
 use mirror_protocol::collateral_oracle::{
     CollateralInfoResponse, CollateralPriceResponse, ExecuteMsg, InstantiateMsg, SourceType,
 };
+use std::str::FromStr;
 use terraswap::asset::AssetInfo;
 
 #[test]
@@ -17,6 +18,9 @@ fn proper_initialization() {
         owner: "owner0000".to_string(),
         mint_contract: "mint0000".to_string(),
         base_denom: "uusd".to_string(),
+        mirror_oracle: "mirrororacle0000".to_string(),
+        anchor_oracle: "anchororacle0000".to_string(),
+        band_oracle: "bandoracle0000".to_string(),
     };
 
     let info = mock_info("addr0000", &[]);
@@ -40,6 +44,9 @@ fn update_config() {
         owner: "owner0000".to_string(),
         mint_contract: "mint0000".to_string(),
         base_denom: "uusd".to_string(),
+        mirror_oracle: "mirrororacle0000".to_string(),
+        anchor_oracle: "anchororacle0000".to_string(),
+        band_oracle: "bandoracle0000".to_string(),
     };
 
     let info = mock_info("addr0000", &[]);
@@ -51,6 +58,9 @@ fn update_config() {
         owner: Some("owner0001".to_string()),
         mint_contract: Some("mint0001".to_string()),
         base_denom: Some("uluna".to_string()),
+        mirror_oracle: Some("mirrororacle0001".to_string()),
+        anchor_oracle: Some("anchororacle0001".to_string()),
+        band_oracle: Some("bandoracle0001".to_string()),
     };
 
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -61,6 +71,9 @@ fn update_config() {
     assert_eq!("owner0001", value.owner.as_str());
     assert_eq!("mint0001", value.mint_contract.as_str());
     assert_eq!("uluna", value.base_denom.as_str());
+    assert_eq!("mirrororacle0001", value.mirror_oracle.as_str());
+    assert_eq!("anchororacle0001", value.anchor_oracle.as_str());
+    assert_eq!("bandoracle0001", value.band_oracle.as_str());
 
     // Unauthorized err
     let info = mock_info("owner0000", &[]);
@@ -68,6 +81,9 @@ fn update_config() {
         owner: None,
         mint_contract: None,
         base_denom: None,
+        mirror_oracle: None,
+        anchor_oracle: None,
+        band_oracle: None,
     };
 
     let res = execute(deps.as_mut(), mock_env(), info, msg);
@@ -89,6 +105,9 @@ fn register_collateral() {
         owner: "owner0000".to_string(),
         mint_contract: "mint0000".to_string(),
         base_denom: "uusd".to_string(),
+        mirror_oracle: "mirrororacle0000".to_string(),
+        anchor_oracle: "anchororacle0000".to_string(),
+        band_oracle: "bandoracle0000".to_string(),
     };
 
     let info = mock_info("addr0000", &[]);
@@ -99,9 +118,7 @@ fn register_collateral() {
             contract_addr: "mTSLA".to_string(),
         },
         multiplier: Decimal::percent(100),
-        price_source: SourceType::TeFiOracle {
-            oracle_addr: "mirrorOracle0000".to_string(),
-        },
+        price_source: SourceType::MirrorOracle {},
     };
 
     // unauthorized attempt
@@ -120,7 +137,7 @@ fn register_collateral() {
         query_res,
         CollateralInfoResponse {
             asset: "mTSLA".to_string(),
-            source_type: "tefi_oracle".to_string(),
+            source_type: "mirror_oracle".to_string(),
             multiplier: Decimal::percent(100),
             is_revoked: false,
         }
@@ -139,6 +156,9 @@ fn update_collateral() {
         owner: "owner0000".to_string(),
         mint_contract: "mint0000".to_string(),
         base_denom: "uusd".to_string(),
+        mirror_oracle: "mirrororacle0000".to_string(),
+        anchor_oracle: "anchororacle0000".to_string(),
+        band_oracle: "bandoracle0000".to_string(),
     };
 
     let info = mock_info("addr0000", &[]);
@@ -149,9 +169,7 @@ fn update_collateral() {
             contract_addr: "mTSLA".to_string(),
         },
         multiplier: Decimal::percent(100),
-        price_source: SourceType::TeFiOracle {
-            oracle_addr: "mirrorOracle0000".to_string(),
-        },
+        price_source: SourceType::MirrorOracle {},
     };
 
     // successfull attempt
@@ -165,7 +183,7 @@ fn update_collateral() {
         query_res,
         CollateralInfoResponse {
             asset: "mTSLA".to_string(),
-            source_type: "tefi_oracle".to_string(),
+            source_type: "mirror_oracle".to_string(),
             multiplier: Decimal::percent(100),
             is_revoked: false,
         }
@@ -262,6 +280,9 @@ fn get_oracle_price() {
         owner: "owner0000".to_string(),
         mint_contract: "mint0000".to_string(),
         base_denom: "uusd".to_string(),
+        mirror_oracle: "mirrororacle0000".to_string(),
+        anchor_oracle: "anchororacle0000".to_string(),
+        band_oracle: "bandoracle0000".to_string(),
     };
 
     let info = mock_info("addr0000", &[]);
@@ -272,16 +293,13 @@ fn get_oracle_price() {
             contract_addr: "mTSLA".to_string(),
         },
         multiplier: Decimal::percent(100),
-        price_source: SourceType::TeFiOracle {
-            oracle_addr: "mirrorOracle0000".to_string(),
-        },
+        price_source: SourceType::MirrorOracle {},
     };
 
     let info = mock_info("owner0000", &[]);
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     // attempt to query price
-    let query_res =
-        query_collateral_price(deps.as_ref(), mock_env(), "mTSLA".to_string(), None).unwrap();
+    let query_res = query_collateral_price(deps.as_ref(), "mTSLA".to_string(), None).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
@@ -295,7 +313,7 @@ fn get_oracle_price() {
 }
 
 #[test]
-fn get_amm_pair_price() {
+fn get_terraswap_price() {
     let mut deps = mock_dependencies(&[]);
     deps.querier.with_terraswap_pools(&[
         (
@@ -322,6 +340,9 @@ fn get_amm_pair_price() {
         owner: "owner0000".to_string(),
         mint_contract: "mint0000".to_string(),
         base_denom: "uusd".to_string(),
+        mirror_oracle: "mirrororacle0000".to_string(),
+        anchor_oracle: "anchororacle0000".to_string(),
+        band_oracle: "bandoracle0000".to_string(),
     };
 
     let info = mock_info("addr0000", &[]);
@@ -332,8 +353,8 @@ fn get_amm_pair_price() {
             contract_addr: "anc0000".to_string(),
         },
         multiplier: Decimal::percent(100),
-        price_source: SourceType::AMMPair {
-            pair_addr: "ustancpair0000".to_string(),
+        price_source: SourceType::Terraswap {
+            terraswap_pair_addr: "ustancpair0000".to_string(),
             intermediate_denom: None,
         },
     };
@@ -342,8 +363,7 @@ fn get_amm_pair_price() {
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // attempt to query price
-    let query_res =
-        query_collateral_price(deps.as_ref(), mock_env(), "anc0000".to_string(), None).unwrap();
+    let query_res = query_collateral_price(deps.as_ref(), "anc0000".to_string(), None).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
@@ -361,8 +381,8 @@ fn get_amm_pair_price() {
             contract_addr: "bluna0000".to_string(),
         },
         multiplier: Decimal::percent(100),
-        price_source: SourceType::AMMPair {
-            pair_addr: "lunablunapair0000".to_string(),
+        price_source: SourceType::Terraswap {
+            terraswap_pair_addr: "lunablunapair0000".to_string(),
             intermediate_denom: Some("uluna".to_string()),
         },
     };
@@ -371,8 +391,7 @@ fn get_amm_pair_price() {
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // attempt to query price
-    let query_res =
-        query_collateral_price(deps.as_ref(), mock_env(), "bluna0000".to_string(), None).unwrap();
+    let query_res = query_collateral_price(deps.as_ref(), "bluna0000".to_string(), None).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
@@ -393,6 +412,9 @@ fn get_fixed_price() {
         owner: "owner0000".to_string(),
         mint_contract: "mint0000".to_string(),
         base_denom: "uusd".to_string(),
+        mirror_oracle: "mirrororacle0000".to_string(),
+        anchor_oracle: "anchororacle0000".to_string(),
+        band_oracle: "bandoracle0000".to_string(),
     };
 
     let info = mock_info("addr0000", &[]);
@@ -412,14 +434,54 @@ fn get_fixed_price() {
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // attempt to query price
-    let query_res =
-        query_collateral_price(deps.as_ref(), mock_env(), "aUST".to_string(), None).unwrap();
+    let query_res = query_collateral_price(deps.as_ref(), "aUST".to_string(), None).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
             asset: "aUST".to_string(),
             rate: Decimal::from_ratio(1u128, 2u128),
             last_updated: u64::MAX,
+            multiplier: Decimal::percent(100),
+            is_revoked: false,
+        }
+    );
+}
+
+#[test]
+fn get_band_oracle_price() {
+    let mut deps = mock_dependencies(&[]);
+
+    let msg = InstantiateMsg {
+        owner: "owner0000".to_string(),
+        mint_contract: "mint0000".to_string(),
+        base_denom: "uusd".to_string(),
+        mirror_oracle: "mirrororacle0000".to_string(),
+        anchor_oracle: "anchororacle0000".to_string(),
+        band_oracle: "bandoracle0000".to_string(),
+    };
+
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    let msg = ExecuteMsg::RegisterCollateralAsset {
+        asset: AssetInfo::NativeToken {
+            denom: "uluna".to_string(),
+        },
+        multiplier: Decimal::percent(100),
+        price_source: SourceType::BandOracle {},
+    };
+
+    let info = mock_info("owner0000", &[]);
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    // attempt to query price
+    let query_res = query_collateral_price(deps.as_ref(), "uluna".to_string(), None).unwrap();
+    assert_eq!(
+        query_res,
+        CollateralPriceResponse {
+            asset: "uluna".to_string(),
+            rate: Decimal::from_str("3465.211050000000000000").unwrap(),
+            last_updated: 100u64,
             multiplier: Decimal::percent(100),
             is_revoked: false,
         }
@@ -434,6 +496,9 @@ fn get_anchor_market_price() {
         owner: "owner0000".to_string(),
         mint_contract: "mint0000".to_string(),
         base_denom: "uusd".to_string(),
+        mirror_oracle: "mirrororacle0000".to_string(),
+        anchor_oracle: "anchororacle0000".to_string(),
+        band_oracle: "bandoracle0000".to_string(),
     };
 
     let info = mock_info("addr0000", &[]);
@@ -453,13 +518,55 @@ fn get_anchor_market_price() {
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // attempt to query price
-    let query_res =
-        query_collateral_price(deps.as_ref(), mock_env(), "aust0000".to_string(), None).unwrap();
+    let query_res = query_collateral_price(deps.as_ref(), "aust0000".to_string(), None).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
             asset: "aust0000".to_string(),
             rate: Decimal::from_ratio(10u128, 3u128),
+            last_updated: u64::MAX,
+            multiplier: Decimal::percent(100),
+            is_revoked: false,
+        }
+    );
+}
+
+#[test]
+fn get_lunax_price() {
+    let mut deps = mock_dependencies(&[]);
+
+    let msg = InstantiateMsg {
+        owner: "owner0000".to_string(),
+        mint_contract: "mint0000".to_string(),
+        base_denom: "uusd".to_string(),
+        mirror_oracle: "mirrororacle0000".to_string(),
+        anchor_oracle: "anchororacle0000".to_string(),
+        band_oracle: "bandoracle0000".to_string(),
+    };
+
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    let msg = ExecuteMsg::RegisterCollateralAsset {
+        asset: AssetInfo::Token {
+            contract_addr: "lunax0000".to_string(),
+        },
+        multiplier: Decimal::percent(100),
+        price_source: SourceType::Lunax {
+            staking_contract_addr: "lunaxstaking0000".to_string(),
+        },
+    };
+
+    let info = mock_info("owner0000", &[]);
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    // attempt to query price
+    let query_res = query_collateral_price(deps.as_ref(), "lunax0000".to_string(), None).unwrap();
+    assert_eq!(
+        query_res,
+        CollateralPriceResponse {
+            asset: "lunax0000".to_string(),
+            rate: Decimal::from_ratio(55u128, 10u128), // exchange rate = 1.1 i.e 1 ulunax = 1.1 uluna and 1 uluna = 5 uusd
             last_updated: u64::MAX,
             multiplier: Decimal::percent(100),
             is_revoked: false,
@@ -475,6 +582,9 @@ fn get_native_price() {
         owner: "owner0000".to_string(),
         mint_contract: "mint0000".to_string(),
         base_denom: "uusd".to_string(),
+        mirror_oracle: "mirrororacle0000".to_string(),
+        anchor_oracle: "anchororacle0000".to_string(),
+        band_oracle: "bandoracle0000".to_string(),
     };
 
     let info = mock_info("addr0000", &[]);
@@ -494,8 +604,7 @@ fn get_native_price() {
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // attempt to query price
-    let query_res =
-        query_collateral_price(deps.as_ref(), mock_env(), "uluna".to_string(), None).unwrap();
+    let query_res = query_collateral_price(deps.as_ref(), "uluna".to_string(), None).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
@@ -516,6 +625,9 @@ fn revoke_collateral() {
         owner: "owner0000".to_string(),
         mint_contract: "mint0000".to_string(),
         base_denom: "uusd".to_string(),
+        mirror_oracle: "mirrororacle0000".to_string(),
+        anchor_oracle: "anchororacle0000".to_string(),
+        band_oracle: "bandoracle0000".to_string(),
     };
 
     let info = mock_info("addr0000", &[]);
@@ -535,8 +647,7 @@ fn revoke_collateral() {
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // attempt to query price
-    let query_res =
-        query_collateral_price(deps.as_ref(), mock_env(), "aUST".to_string(), None).unwrap();
+    let query_res = query_collateral_price(deps.as_ref(), "aUST".to_string(), None).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {
@@ -578,8 +689,7 @@ fn revoke_collateral() {
     );
 
     // attempt to query price of revoked asset
-    let query_res =
-        query_collateral_price(deps.as_ref(), mock_env(), "aUST".to_string(), None).unwrap();
+    let query_res = query_collateral_price(deps.as_ref(), "aUST".to_string(), None).unwrap();
     assert_eq!(
         query_res,
         CollateralPriceResponse {

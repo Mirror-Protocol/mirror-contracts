@@ -1,21 +1,11 @@
-use cosmwasm_storage::{singleton, singleton_read, Bucket, ReadonlySingleton, Singleton};
+use cosmwasm_storage::Bucket;
 use mirror_protocol::collateral_oracle::SourceType;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{CanonicalAddr, Decimal, Order, StdError, StdResult, Storage};
+use cosmwasm_std::{Decimal, Order, StdResult, Storage};
 
-use crate::state::{CollateralAssetInfo, Config, KEY_CONFIG, PREFIX_COLLATERAL_ASSET_INFO};
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct LegacyConfig {
-    pub owner: CanonicalAddr,
-    pub mint_contract: CanonicalAddr,
-    pub base_denom: String,
-    pub mirror_oracle: CanonicalAddr,
-    pub anchor_oracle: CanonicalAddr,
-    pub band_oracle: CanonicalAddr,
-}
+use crate::state::{CollateralAssetInfo, PREFIX_COLLATERAL_ASSET_INFO};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct LegacyCollateralAssetInfo {
@@ -46,24 +36,7 @@ pub enum LegacySourceType {
     },
 }
 
-pub fn migrate_config(storage: &mut dyn Storage) -> StdResult<()> {
-    let legacty_store: ReadonlySingleton<LegacyConfig> = singleton_read(storage, KEY_CONFIG);
-    let legacy_config: LegacyConfig = legacty_store.load()?;
-    let config = Config {
-        owner: legacy_config.owner,
-        mint_contract: legacy_config.mint_contract,
-        base_denom: legacy_config.base_denom,
-    };
-    let mut store: Singleton<Config> = singleton(storage, KEY_CONFIG);
-    store.save(&config)?;
-    Ok(())
-}
-
-pub fn migrate_collateral_infos(
-    storage: &mut dyn Storage,
-    mirror_tefi_oracle_addr: String,
-    anchor_tefi_oracle_addr: String,
-) -> StdResult<()> {
+pub fn migrate_collateral_infos(storage: &mut dyn Storage) -> StdResult<()> {
     let mut legacy_collateral_infos_bucket: Bucket<LegacyCollateralAssetInfo> =
         Bucket::new(storage, PREFIX_COLLATERAL_ASSET_INFO);
 
@@ -82,15 +55,9 @@ pub fn migrate_collateral_infos(
 
     for (_, legacy_collateral_info) in collateral_infos.into_iter() {
         let new_price_source: SourceType = match legacy_collateral_info.price_source {
-            LegacySourceType::BandOracle { .. } => {
-                return Err(StdError::generic_err("not supported"))
-            } // currently there are no assets with this config
-            LegacySourceType::AnchorOracle { .. } => SourceType::TeFiOracle {
-                oracle_addr: anchor_tefi_oracle_addr.clone(),
-            },
-            LegacySourceType::MirrorOracle { .. } => SourceType::TeFiOracle {
-                oracle_addr: mirror_tefi_oracle_addr.clone(),
-            },
+            LegacySourceType::BandOracle {} => SourceType::BandOracle {},
+            LegacySourceType::AnchorOracle {} => SourceType::AnchorOracle {},
+            LegacySourceType::MirrorOracle {} => SourceType::MirrorOracle {},
             LegacySourceType::AnchorMarket { anchor_market_addr } => {
                 SourceType::AnchorMarket { anchor_market_addr }
             }
@@ -99,8 +66,8 @@ pub fn migrate_collateral_infos(
             LegacySourceType::Terraswap {
                 terraswap_pair_addr,
                 intermediate_denom,
-            } => SourceType::AMMPair {
-                pair_addr: terraswap_pair_addr,
+            } => SourceType::Terraswap {
+                terraswap_pair_addr,
                 intermediate_denom,
             },
         };
@@ -115,105 +82,4 @@ pub fn migrate_collateral_infos(
     }
 
     Ok(())
-}
-
-#[cfg(test)]
-mod migrate_tests {
-    use crate::state::read_collateral_info;
-
-    use super::*;
-    use cosmwasm_std::testing::mock_dependencies;
-
-    pub fn collateral_infos_old_store(
-        storage: &mut dyn Storage,
-    ) -> Bucket<LegacyCollateralAssetInfo> {
-        Bucket::new(storage, PREFIX_COLLATERAL_ASSET_INFO)
-    }
-
-    #[test]
-    fn test_collateral_infos_migration() {
-        let mut deps = mock_dependencies(&[]);
-        let mut legacy_store = collateral_infos_old_store(&mut deps.storage);
-
-        let col_info_1 = LegacyCollateralAssetInfo {
-            asset: "mAPPL0000".to_string(),
-            multiplier: Decimal::one(),
-            price_source: LegacySourceType::MirrorOracle {},
-            is_revoked: false,
-        };
-        let col_info_2 = LegacyCollateralAssetInfo {
-            asset: "anc0000".to_string(),
-            multiplier: Decimal::one(),
-            price_source: LegacySourceType::Terraswap {
-                terraswap_pair_addr: "pair0000".to_string(),
-                intermediate_denom: None,
-            },
-            is_revoked: false,
-        };
-        let col_info_3 = LegacyCollateralAssetInfo {
-            asset: "bluna0000".to_string(),
-            multiplier: Decimal::one(),
-            price_source: LegacySourceType::AnchorOracle {},
-            is_revoked: false,
-        };
-
-        legacy_store
-            .save(col_info_1.asset.as_bytes(), &col_info_1)
-            .unwrap();
-        legacy_store
-            .save(col_info_2.asset.as_bytes(), &col_info_2)
-            .unwrap();
-        legacy_store
-            .save(col_info_3.asset.as_bytes(), &col_info_3)
-            .unwrap();
-
-        migrate_collateral_infos(
-            deps.as_mut().storage,
-            "mirrortefi0000".to_string(),
-            "anctefi0000".to_string(),
-        )
-        .unwrap();
-
-        let new_col_info_1: CollateralAssetInfo =
-            read_collateral_info(deps.as_mut().storage, &col_info_1.asset).unwrap();
-        let new_col_info_2: CollateralAssetInfo =
-            read_collateral_info(deps.as_mut().storage, &col_info_2.asset).unwrap();
-        let new_col_info_3: CollateralAssetInfo =
-            read_collateral_info(deps.as_mut().storage, &col_info_3.asset).unwrap();
-
-        assert_eq!(
-            new_col_info_1,
-            CollateralAssetInfo {
-                asset: "mAPPL0000".to_string(),
-                multiplier: Decimal::one(),
-                price_source: SourceType::TeFiOracle {
-                    oracle_addr: "mirrortefi0000".to_string(),
-                },
-                is_revoked: false,
-            }
-        );
-        assert_eq!(
-            new_col_info_2,
-            CollateralAssetInfo {
-                asset: "anc0000".to_string(),
-                multiplier: Decimal::one(),
-                price_source: SourceType::AMMPair {
-                    pair_addr: "pair0000".to_string(),
-                    intermediate_denom: None,
-                },
-                is_revoked: false,
-            }
-        );
-        assert_eq!(
-            new_col_info_3,
-            CollateralAssetInfo {
-                asset: "bluna0000".to_string(),
-                multiplier: Decimal::one(),
-                price_source: SourceType::TeFiOracle {
-                    oracle_addr: "anctefi0000".to_string(),
-                },
-                is_revoked: false,
-            }
-        )
-    }
 }

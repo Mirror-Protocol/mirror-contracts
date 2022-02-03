@@ -182,7 +182,7 @@ pub fn receive_cw20(
                             deps.api.addr_humanize(&pool_info.staking_token)?;
                         return Err(StdError::generic_err(format!(
                             "The staking token for this asset has been migrated to {}",
-                            staking_token_addr.to_string()
+                            staking_token_addr
                         )));
                     }
                 }
