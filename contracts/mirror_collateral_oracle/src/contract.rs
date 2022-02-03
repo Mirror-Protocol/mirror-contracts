@@ -326,6 +326,13 @@ pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response>
     // migrate collateral infos to inclue new source type
     migrate_collateral_infos(deps.storage)?;
 
+    // validate input
+    deps.api.addr_validate(&msg.lunax_staking_contract)?;
+    deps.api.addr_validate(&msg.lunax_token_addr)?;
+    if msg.multiplier.is_zero() {
+        return Err(StdError::generic_err("Multiplier must be bigger than 0"));
+    }
+
     // register lunax
     let lunax_asset_info = AssetInfo::Token {
         contract_addr: msg.lunax_token_addr,
