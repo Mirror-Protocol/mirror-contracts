@@ -120,7 +120,7 @@ fn test_convert() {
                     },
                     amount: Uint128::from(99u128),
                 },
-                max_spread: None,
+                max_spread: Some(Decimal::percent(50)), // astroport swap
                 belief_price: None,
                 to: None,
             })
@@ -437,7 +437,7 @@ fn test_set_astroport_mir_pair() {
                     },
                     amount: Uint128::from(99u128),
                 },
-                max_spread: None,
+                max_spread: Some(Decimal::percent(50)),
                 belief_price: None,
                 to: None,
             })
@@ -487,7 +487,7 @@ fn test_set_astroport_mir_pair() {
                     },
                     amount: Uint128::from(99u128),
                 },
-                max_spread: None,
+                max_spread: Some(Decimal::percent(50)), // astroport swap
                 belief_price: None,
                 to: None,
             })

@@ -1,6 +1,10 @@
+use std::str::FromStr;
+
 use crate::errors::ContractError;
 use crate::state::{read_config, Config};
-use cosmwasm_std::{attr, to_binary, Addr, Coin, CosmosMsg, DepsMut, Env, Response, WasmMsg};
+use cosmwasm_std::{
+    attr, to_binary, Addr, Coin, CosmosMsg, Decimal, DepsMut, Env, Response, WasmMsg,
+};
 use cw20::Cw20ExecuteMsg;
 use mirror_protocol::collector::ExecuteMsg;
 use schemars::JsonSchema;
@@ -11,6 +15,7 @@ use terraswap::pair::{Cw20HookMsg as TerraswapCw20HookMsg, ExecuteMsg as Terrasw
 use terraswap::querier::{query_balance, query_pair_info, query_token_balance};
 
 const LUNA_DENOM: &str = "uluna";
+const AMM_MAX_ALLOWED_SLIPPAGE: &str = "0.5";
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -98,7 +103,7 @@ fn direct_swap(
                         amount,
                         ..swap_asset
                     },
-                    max_spread: None,
+                    max_spread: Some(Decimal::from_str(AMM_MAX_ALLOWED_SLIPPAGE)?), // currently need to set max_allowed_slippage for Astroport
                     belief_price: None,
                     to: None,
                 })?,
@@ -119,7 +124,7 @@ fn direct_swap(
                     contract: pair_addr,
                     amount,
                     msg: to_binary(&TerraswapCw20HookMsg::Swap {
-                        max_spread: None,
+                        max_spread: None, // currently all mAsset swaps are on terraswap, so we set max_spread to None
                         belief_price: None,
                         to: None,
                     })?,
