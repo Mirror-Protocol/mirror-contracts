@@ -1,4 +1,9 @@
-use crate::state::{AssetConfig, Position};
+use std::str::FromStr;
+
+use crate::{
+    contract::MIN_CR_ALLOWED,
+    state::{AssetConfig, Position},
+};
 use cosmwasm_std::{Decimal, Deps, Env, StdError, StdResult};
 use terraswap::asset::{Asset, AssetInfo};
 
@@ -57,10 +62,11 @@ pub fn assert_auction_discount(auction_discount: Decimal) -> StdResult<()> {
 }
 
 pub fn assert_min_collateral_ratio(min_collateral_ratio: Decimal) -> StdResult<()> {
-    if min_collateral_ratio < Decimal::one() {
-        Err(StdError::generic_err(
-            "min_collateral_ratio must be bigger than 1",
-        ))
+    if min_collateral_ratio < Decimal::from_str(MIN_CR_ALLOWED)? {
+        Err(StdError::generic_err(format!(
+            "min_collateral_ratio must be bigger or equal than {}",
+            MIN_CR_ALLOWED
+        )))
     } else {
         Ok(())
     }

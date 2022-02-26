@@ -24,6 +24,8 @@ use mirror_protocol::mint::{
 };
 use terraswap::asset::{Asset, AssetInfo};
 
+pub const MIN_CR_ALLOWED: &str = "1.1";
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
