@@ -1725,7 +1725,7 @@ fn auction() {
 }
 
 #[test]
-fn exploit() {
+fn liquidate_with_low_discount_test() {
     let mut deps = mock_dependencies(&[]);
     deps.querier.with_tax(
         Decimal::zero(),
