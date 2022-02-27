@@ -132,10 +132,7 @@ impl TerraswapPairQuerier {
 pub(crate) fn paris_to_map(pairs: &[(&String, &String, &String)]) -> HashMap<String, String> {
     let mut pairs_map: HashMap<String, String> = HashMap::new();
     for (asset1, asset2, pair) in pairs.iter() {
-        pairs_map.insert(
-            (asset1.to_string() + &asset2.to_string()).clone(),
-            pair.to_string(),
-        );
+        pairs_map.insert((asset1.to_string() + asset2).clone(), pair.to_string());
     }
 
     pairs_map
