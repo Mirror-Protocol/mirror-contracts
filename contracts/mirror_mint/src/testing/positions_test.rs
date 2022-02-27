@@ -1723,3 +1723,141 @@ fn auction() {
         ]
     );
 }
+
+#[test]
+fn liquidate_with_low_discount_test() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.with_tax(
+        Decimal::zero(),
+        &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
+    );
+    deps.querier.with_oracle_price(&[
+        (&"uusd".to_string(), &Decimal::one()),
+        (
+            &"asset0000".to_string(),
+            &Decimal::from_ratio(1000u128, 1000u128),
+        ),
+    ]);
+
+    let base_denom = "uusd".to_string();
+
+    let msg = InstantiateMsg {
+        owner: "owner0000".to_string(),
+        oracle: "oracle0000".to_string(),
+        collector: "collector0000".to_string(),
+        collateral_oracle: "collateraloracle0000".to_string(),
+        staking: "staking0000".to_string(),
+        terraswap_factory: "terraswap_factory".to_string(),
+        lock: "lock0000".to_string(),
+        base_denom,
+        token_code_id: TOKEN_CODE_ID,
+        protocol_fee_rate: Decimal::percent(1),
+    };
+
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    let msg = ExecuteMsg::RegisterAsset {
+        asset_token: "asset0000".to_string(),
+        auction_discount: Decimal::percent(20),
+        min_collateral_ratio: Decimal::percent(110),
+        ipo_params: None,
+    };
+
+    let info = mock_info("owner0000", &[]);
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    // open uusd-asset0000 position
+    let msg = ExecuteMsg::OpenPosition {
+        collateral: Asset {
+            info: AssetInfo::NativeToken {
+                denom: "uusd".to_string(),
+            },
+            amount: Uint128::from(1000u128),
+        },
+        asset_info: AssetInfo::Token {
+            contract_addr: "asset0000".to_string(),
+        },
+        collateral_ratio: Decimal::percent(110),
+        short_params: None,
+    };
+    let env = mock_env_with_block_time(1000);
+    let info = mock_info(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(1000u128),
+        }],
+    );
+    let _res = execute(deps.as_mut(), env, info, msg).unwrap();
+
+    deps.querier.with_oracle_price(&[
+        (&"uusd".to_string(), &Decimal::one()),
+        (
+            &"asset0000".to_string(),
+            &Decimal::from_ratio(1010u128, 1000u128),
+        ),
+    ]);
+
+    // auction success
+    let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
+        sender: "addr0001".to_string(),
+        amount: Uint128::from(909u128),
+        msg: to_binary(&Cw20HookMsg::Auction {
+            position_idx: Uint128::from(1u128),
+        })
+        .unwrap(),
+    });
+
+    let env = mock_env_with_block_time(1000u64);
+    let info = mock_info("asset0000", &[]);
+    let res = execute(deps.as_mut(), env, info, msg).unwrap();
+    assert_eq!(
+        res.messages,
+        vec![
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "asset0000".to_string(),
+                msg: to_binary(&Cw20ExecuteMsg::Transfer {
+                    amount: Uint128::from(17u128),
+                    recipient: "addr0001".to_string(),
+                })
+                .unwrap(),
+                funds: vec![],
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "asset0000".to_string(),
+                msg: to_binary(&Cw20ExecuteMsg::Burn {
+                    amount: Uint128::from(892u128), // 892 + 17 = 909
+                })
+                .unwrap(),
+                funds: vec![],
+            })),
+            SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+                to_address: "addr0001".to_string(),
+                amount: vec![Coin {
+                    denom: "uusd".to_string(),
+                    amount: Uint128::from(991u128)
+                }],
+            })),
+            SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+                to_address: "collector0000".to_string(),
+                amount: vec![Coin {
+                    denom: "uusd".to_string(),
+                    amount: Uint128::from(9u128)
+                }]
+            }))
+        ],
+    );
+    assert_eq!(
+        res.attributes,
+        vec![
+            attr("action", "auction"),
+            attr("position_idx", "1"),
+            attr("owner", "addr0000"),
+            attr("return_collateral_amount", "991uusd"),
+            attr("liquidated_amount", "892asset0000"),
+            attr("tax_amount", "0uusd"),
+            attr("protocol_fee", "9uusd"),
+        ]
+    );
+}

@@ -210,7 +210,7 @@ fn register_asset() {
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
     match res {
         StdError::GenericErr { msg, .. } => {
-            assert_eq!(msg, "min_collateral_ratio must be bigger than 1")
+            assert_eq!(msg, "min_collateral_ratio must be bigger or equal than 1.1")
         }
         _ => panic!("DO NOT ENTER HERE"),
     }
@@ -300,7 +300,7 @@ fn update_asset() {
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
     match res {
         StdError::GenericErr { msg, .. } => {
-            assert_eq!(msg, "min_collateral_ratio must be bigger than 1")
+            assert_eq!(msg, "min_collateral_ratio must be bigger or equal than 1.1")
         }
         _ => panic!("Must return unauthorized error"),
     }

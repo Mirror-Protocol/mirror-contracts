@@ -143,23 +143,22 @@ fn _withdraw_reward(
     let rewards_bucket = rewards_read(storage, staker_addr, is_short);
 
     // single reward withdraw
-    let reward_pairs: Vec<(CanonicalAddr, RewardInfo)>;
-    if let Some(asset_token) = asset_token {
+    let reward_pairs: Vec<(CanonicalAddr, RewardInfo)> = if let Some(asset_token) = asset_token {
         let reward_info = rewards_bucket.may_load(asset_token.as_slice())?;
-        reward_pairs = if let Some(reward_info) = reward_info {
+        if let Some(reward_info) = reward_info {
             vec![(asset_token.clone(), reward_info)]
         } else {
             vec![]
-        };
+        }
     } else {
-        reward_pairs = rewards_bucket
+        rewards_bucket
             .range(None, None, Order::Ascending)
             .map(|item| {
                 let (k, v) = item?;
                 Ok((CanonicalAddr::from(k), v))
             })
-            .collect::<StdResult<Vec<(CanonicalAddr, RewardInfo)>>>()?;
-    }
+            .collect::<StdResult<Vec<(CanonicalAddr, RewardInfo)>>>()?
+    };
 
     let mut amount: Uint128 = Uint128::zero();
     for reward_pair in reward_pairs {
@@ -238,41 +237,39 @@ fn _read_reward_infos(
     is_short: bool,
 ) -> StdResult<Vec<RewardInfoResponseItem>> {
     let rewards_bucket = rewards_read(storage, staker_addr, is_short);
-    let reward_infos: Vec<RewardInfoResponseItem>;
-    if let Some(asset_token) = asset_token {
+    let reward_infos: Vec<RewardInfoResponseItem> = if let Some(asset_token) = asset_token {
         let asset_token_raw = api.addr_canonicalize(asset_token.as_str())?;
 
-        reward_infos =
-            if let Some(mut reward_info) = rewards_bucket.may_load(asset_token_raw.as_slice())? {
-                let pool_info = read_pool_info(storage, &asset_token_raw)?;
+        if let Some(mut reward_info) = rewards_bucket.may_load(asset_token_raw.as_slice())? {
+            let pool_info = read_pool_info(storage, &asset_token_raw)?;
 
-                let (pool_index, should_migrate) = if is_short {
-                    (pool_info.short_reward_index, None)
-                } else if pool_info.migration_params.is_some()
-                    && !read_is_migrated(storage, &asset_token_raw, staker_addr)
-                {
-                    (
-                        pool_info.migration_params.unwrap().index_snapshot,
-                        Some(true),
-                    )
-                } else {
-                    (pool_info.reward_index, None)
-                };
-
-                before_share_change(pool_index, &mut reward_info)?;
-
-                vec![RewardInfoResponseItem {
-                    asset_token: asset_token.clone(),
-                    bond_amount: reward_info.bond_amount,
-                    pending_reward: reward_info.pending_reward,
-                    is_short,
-                    should_migrate,
-                }]
+            let (pool_index, should_migrate) = if is_short {
+                (pool_info.short_reward_index, None)
+            } else if pool_info.migration_params.is_some()
+                && !read_is_migrated(storage, &asset_token_raw, staker_addr)
+            {
+                (
+                    pool_info.migration_params.unwrap().index_snapshot,
+                    Some(true),
+                )
             } else {
-                vec![]
+                (pool_info.reward_index, None)
             };
+
+            before_share_change(pool_index, &mut reward_info)?;
+
+            vec![RewardInfoResponseItem {
+                asset_token: asset_token.clone(),
+                bond_amount: reward_info.bond_amount,
+                pending_reward: reward_info.pending_reward,
+                is_short,
+                should_migrate,
+            }]
+        } else {
+            vec![]
+        }
     } else {
-        reward_infos = rewards_bucket
+        rewards_bucket
             .range(None, None, Order::Ascending)
             .map(|item| {
                 let (k, v) = item?;
@@ -303,8 +300,8 @@ fn _read_reward_infos(
                     should_migrate,
                 })
             })
-            .collect::<StdResult<Vec<RewardInfoResponseItem>>>()?;
-    }
+            .collect::<StdResult<Vec<RewardInfoResponseItem>>>()?
+    };
 
     Ok(reward_infos)
 }

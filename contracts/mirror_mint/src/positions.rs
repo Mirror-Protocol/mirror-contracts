@@ -8,7 +8,9 @@ use crate::{
         assert_asset, assert_burn_period, assert_collateral, assert_migrated_asset,
         assert_mint_period, assert_pre_ipo_collateral, assert_revoked_collateral,
     },
-    math::{decimal_division, decimal_multiplication, decimal_subtraction, reverse_decimal},
+    math::{
+        decimal_division, decimal_min, decimal_multiplication, decimal_subtraction, reverse_decimal,
+    },
     querier::{load_asset_price, load_collateral_info},
     state::{
         create_position, is_short_position, read_asset_config, read_config, read_position,
@@ -798,10 +800,15 @@ pub fn auction(
         ));
     }
 
+    // auction discount is min(min_cr - 1, auction_discount)
+    let auction_discount: Decimal = decimal_min(
+        asset_config.auction_discount,
+        decimal_subtraction(asset_config.min_collateral_ratio, Decimal::one()),
+    );
     // Compute discounted price
     let discounted_price: Decimal = decimal_division(
         collateral_price_in_asset,
-        decimal_subtraction(Decimal::one(), asset_config.auction_discount),
+        decimal_subtraction(Decimal::one(), auction_discount),
     );
 
     // Convert asset value in discounted collateral unit
@@ -820,12 +827,13 @@ pub fn auction(
                 .unwrap()
                 * reverse_decimal(discounted_price);
 
-            let refund_asset: Asset = Asset {
-                info: asset.info.clone(),
-                amount: refund_asset_amount,
-            };
-
-            messages.push(refund_asset.into_msg(&deps.querier, sender.clone())?);
+            if !refund_asset_amount.is_zero() {
+                let refund_asset: Asset = Asset {
+                    info: asset.info.clone(),
+                    amount: refund_asset_amount,
+                };
+                messages.push(refund_asset.into_msg(&deps.querier, sender.clone())?);
+            }
 
             (position.collateral.amount, refund_asset_amount)
         } else {

@@ -14,15 +14,17 @@ use crate::{
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     attr, from_binary, to_binary, Addr, Binary, CanonicalAddr, CosmosMsg, Decimal, Deps, DepsMut,
-    Env, MessageInfo, Response, StdError, StdResult, Uint128, WasmMsg,
+    Empty, Env, MessageInfo, Response, StdError, StdResult, Uint128, WasmMsg,
 };
 use cw20::Cw20ReceiveMsg;
 use mirror_protocol::collateral_oracle::{ExecuteMsg as CollateralOracleExecuteMsg, SourceType};
 use mirror_protocol::mint::{
     AssetConfigResponse, ConfigResponse, Cw20HookMsg, ExecuteMsg, IPOParams, InstantiateMsg,
-    MigrateMsg, QueryMsg,
+    QueryMsg,
 };
 use terraswap::asset::{Asset, AssetInfo};
+
+pub const MIN_CR_ALLOWED: &str = "1.1";
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -543,6 +545,6 @@ pub fn query_asset_config(deps: Deps, asset_token: String) -> StdResult<AssetCon
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+pub fn migrate(_deps: DepsMut, _env: Env, _msg: Empty) -> StdResult<Response> {
     Ok(Response::default())
 }

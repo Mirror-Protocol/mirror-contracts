@@ -23,3 +23,11 @@ pub fn decimal_division(a: Decimal, b: Decimal) -> Decimal {
 pub fn decimal_multiplication(a: Decimal, b: Decimal) -> Decimal {
     Decimal::from_ratio(a * DECIMAL_FRACTIONAL * b, DECIMAL_FRACTIONAL)
 }
+
+pub fn decimal_min(a: Decimal, b: Decimal) -> Decimal {
+    if a < b {
+        a
+    } else {
+        b
+    }
+}

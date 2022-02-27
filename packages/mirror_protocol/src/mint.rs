@@ -186,11 +186,3 @@ pub struct PositionsResponse {
 pub struct NextPositionIdxResponse {
     pub next_position_idx: Uint128,
 }
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct MigrateMsg {
-    pub collateral_oracle: String,
-    pub staking: String,
-    pub terraswap_factory: String,
-    pub lock: String,
-}

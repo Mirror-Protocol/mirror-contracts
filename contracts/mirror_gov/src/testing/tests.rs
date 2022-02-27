@@ -2708,12 +2708,7 @@ fn distribute_voting_rewards() {
 
     // voting info has been deleted
     assert!(poll_voter_read(&deps.storage, 1u64)
-        .load(
-            deps.api
-                .addr_canonicalize(&TEST_VOTER.to_string())
-                .unwrap()
-                .as_slice()
-        )
+        .load(deps.api.addr_canonicalize(TEST_VOTER).unwrap().as_slice())
         .is_err())
 }
 
@@ -2843,12 +2838,7 @@ fn stake_voting_rewards() {
 
     // voting info has been deleted
     assert!(poll_voter_read(&deps.storage, 1u64)
-        .load(
-            deps.api
-                .addr_canonicalize(&TEST_VOTER.to_string())
-                .unwrap()
-                .as_slice()
-        )
+        .load(deps.api.addr_canonicalize(TEST_VOTER).unwrap().as_slice())
         .is_err());
 
     let res = query(
@@ -4502,10 +4492,7 @@ fn happy_days_end_poll_with_controlled_quorum() {
     let actual_staked_weight = load_token_balance(
         &deps.as_ref().querier,
         VOTING_TOKEN.to_string(),
-        &deps
-            .api
-            .addr_canonicalize(&MOCK_CONTRACT_ADDR.to_string())
-            .unwrap(),
+        &deps.api.addr_canonicalize(MOCK_CONTRACT_ADDR).unwrap(),
     )
     .unwrap()
     .checked_sub(Uint128::new(DEFAULT_PROPOSAL_DEPOSIT))
