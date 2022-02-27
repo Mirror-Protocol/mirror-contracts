@@ -4,7 +4,7 @@ use std::fs::create_dir_all;
 use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 
 use mirror_protocol::mint::{
-    AssetConfigResponse, ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, MigrateMsg,
+    AssetConfigResponse, ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg,
     NextPositionIdxResponse, PositionResponse, PositionsResponse, QueryMsg, ShortParams,
 };
 
@@ -19,7 +19,6 @@ fn main() {
     export_schema(&schema_for!(ShortParams), &out_dir);
     export_schema(&schema_for!(Cw20HookMsg), &out_dir);
     export_schema(&schema_for!(QueryMsg), &out_dir);
-    export_schema(&schema_for!(MigrateMsg), &out_dir);
     export_schema(&schema_for!(ConfigResponse), &out_dir);
     export_schema(&schema_for!(NextPositionIdxResponse), &out_dir);
     export_schema(&schema_for!(AssetConfigResponse), &out_dir);
