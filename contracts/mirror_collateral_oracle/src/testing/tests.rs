@@ -468,6 +468,47 @@ fn get_anchor_market_price() {
 }
 
 #[test]
+fn get_lunax_price() {
+    let mut deps = mock_dependencies(&[]);
+
+    let msg = InstantiateMsg {
+        owner: "owner0000".to_string(),
+        mint_contract: "mint0000".to_string(),
+        base_denom: "uusd".to_string(),
+    };
+
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    let msg = ExecuteMsg::RegisterCollateralAsset {
+        asset: AssetInfo::Token {
+            contract_addr: "lunax0000".to_string(),
+        },
+        multiplier: Decimal::percent(100),
+        price_source: SourceType::Lunax {
+            staking_contract_addr: "lunaxstaking0000".to_string(),
+        },
+    };
+
+    let info = mock_info("owner0000", &[]);
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    // attempt to query price
+    let query_res =
+        query_collateral_price(deps.as_ref(), mock_env(), "lunax0000".to_string(), None).unwrap();
+    assert_eq!(
+        query_res,
+        CollateralPriceResponse {
+            asset: "lunax0000".to_string(),
+            rate: Decimal::from_ratio(55u128, 10u128), // exchange rate = 1.1 i.e 1 ulunax = 1.1 uluna and 1 uluna = 5 uusd
+            last_updated: u64::MAX,
+            multiplier: Decimal::percent(100),
+            is_revoked: false,
+        }
+    );
+}
+
+#[test]
 fn get_native_price() {
     let mut deps = mock_dependencies(&[]);
 

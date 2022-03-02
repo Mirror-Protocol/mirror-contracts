@@ -1,8 +1,8 @@
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Coin, ContractResult, Decimal, OwnedDeps, Querier,
-    QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, WasmQuery,
+    from_binary, from_slice, to_binary, Addr, Coin, ContractResult, Decimal, OwnedDeps, Querier,
+    QuerierResult, QueryRequest, SystemError, SystemResult, Timestamp, Uint128, WasmQuery,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -112,6 +112,24 @@ pub struct EpochStateResponse {
     aterra_supply: Uint256,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct LunaxState {
+    pub total_staked: Uint128,
+    pub exchange_rate: Decimal,
+    pub last_reconciled_batch_id: u64,
+    pub current_undelegation_batch_id: u64,
+    pub last_undelegation_time: Timestamp,
+    pub last_swap_time: Timestamp,
+    pub last_reinvest_time: Timestamp,
+    pub validators: Vec<Addr>,
+    pub reconciled_funds_to_withdraw: Uint128,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct LunaxStateResponse {
+    pub state: LunaxState,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
@@ -124,6 +142,7 @@ pub enum QueryMsg {
         block_heigth: Option<u64>,
         distributed_interest: Option<Uint256>,
     },
+    State {},
 }
 
 impl WasmMockQuerier {
@@ -194,6 +213,25 @@ impl WasmMockQuerier {
                     SystemResult::Ok(ContractResult::from(to_binary(&EpochStateResponse {
                         exchange_rate: Decimal256::from_ratio(10, 3),
                         aterra_supply: Uint256::from_str("123123123").unwrap(),
+                    })))
+                }
+                QueryMsg::State {} => {
+                    SystemResult::Ok(ContractResult::from(to_binary(&LunaxStateResponse {
+                        state: LunaxState {
+                            total_staked: Uint128::new(10000000),
+                            exchange_rate: Decimal::from_ratio(11_u128, 10_u128), // 1 lunax = 1.1 luna
+                            last_reconciled_batch_id: 1,
+                            current_undelegation_batch_id: 3,
+                            last_undelegation_time: Timestamp::from_seconds(1642932518),
+                            last_swap_time: Timestamp::from_seconds(1643116118),
+                            last_reinvest_time: Timestamp::from_seconds(1643105318),
+                            validators: vec![
+                                Addr::unchecked("valid0001"),
+                                Addr::unchecked("valid0002"),
+                                Addr::unchecked("valid0003"),
+                            ],
+                            reconciled_funds_to_withdraw: Uint128::new(150_u128),
+                        },
                     })))
                 }
             },

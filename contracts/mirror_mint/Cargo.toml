@@ -1,6 +1,6 @@
 [package]
 name = "mirror-mint"
-version = "2.1.1"
+version = "2.1.4"
 authors = ["Terraform Labs, PTE."]
 edition = "2018"
 description = "A Mint contract for Mirror Protocol - allows you to register and mint asset token"

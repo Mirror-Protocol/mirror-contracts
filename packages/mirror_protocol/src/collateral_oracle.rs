@@ -105,6 +105,9 @@ pub enum SourceType {
     Native {
         native_denom: String,
     },
+    Lunax {
+        staking_contract_addr: String,
+    },
 }
 
 impl fmt::Display for SourceType {
@@ -115,6 +118,7 @@ impl fmt::Display for SourceType {
             SourceType::AMMPair { .. } => write!(f, "amm_pair"),
             SourceType::AnchorMarket { .. } => write!(f, "anchor_market"),
             SourceType::Native { .. } => write!(f, "native"),
+            SourceType::Lunax { .. } => write!(f, "lunax"),
         }
     }
 }

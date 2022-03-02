@@ -44,6 +44,9 @@ pub enum LegacySourceType {
     Native {
         native_denom: String,
     },
+    Lunax {
+        staking_contract_addr: String,
+    },
 }
 
 pub fn migrate_config(storage: &mut dyn Storage) -> StdResult<()> {
@@ -102,6 +105,11 @@ pub fn migrate_collateral_infos(
             } => SourceType::AMMPair {
                 pair_addr: terraswap_pair_addr,
                 intermediate_denom,
+            },
+            LegacySourceType::Lunax {
+                staking_contract_addr,
+            } => SourceType::Lunax {
+                staking_contract_addr,
             },
         };
 

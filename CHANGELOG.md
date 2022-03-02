@@ -1,3 +1,3 @@
-# 2.1.1
+# 2.1.4
 
-* Fixed issues found through code review and integration testing #75
+* Auction discount fix for mint contract #92

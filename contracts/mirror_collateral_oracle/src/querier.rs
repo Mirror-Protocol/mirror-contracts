@@ -2,7 +2,8 @@ use crate::math::decimal_multiplication;
 use crate::state::Config;
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
-    to_binary, Decimal, Deps, Env, QuerierWrapper, QueryRequest, StdError, StdResult, WasmQuery,
+    to_binary, Addr, Decimal, Deps, Env, QuerierWrapper, QueryRequest, StdError, StdResult,
+    Timestamp, Uint128, WasmQuery,
 };
 use mirror_protocol::collateral_oracle::SourceType;
 use serde::{Deserialize, Serialize};
@@ -23,6 +24,8 @@ pub enum SourceQueryMsg {
         block_height: Option<u64>,
         distributed_interest: Option<Uint256>,
     },
+    // Query message for lunax
+    State {},
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -34,6 +37,24 @@ pub struct AMMPairResponse {
 pub struct AnchorMarketResponse {
     // anchor market queries return exchange rate in Decimal256
     pub exchange_rate: Decimal256,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct LunaxState {
+    pub total_staked: Uint128,
+    pub exchange_rate: Decimal,
+    pub last_reconciled_batch_id: u64,
+    pub current_undelegation_batch_id: u64,
+    pub last_undelegation_time: Timestamp,
+    pub last_swap_time: Timestamp,
+    pub last_reinvest_time: Timestamp,
+    pub validators: Vec<Addr>,
+    pub reconciled_funds_to_withdraw: Uint128,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct LunaxStateResponse {
+    pub state: LunaxState,
 }
 
 #[allow(clippy::ptr_arg)]
@@ -111,6 +132,24 @@ pub fn query_price(
                     .unwrap(),
                 }))?;
             let rate: Decimal = res.exchange_rate.into();
+
+            Ok((rate, u64::MAX))
+        }
+        SourceType::Lunax {
+            staking_contract_addr,
+        } => {
+            let res: LunaxStateResponse =
+                deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+                    contract_addr: staking_contract_addr.to_string(),
+                    msg: to_binary(&SourceQueryMsg::State {}).unwrap(),
+                }))?;
+            // get lunax price in ust
+            let luna_ust_price: Decimal = query_native_rate(
+                &deps.querier,
+                "uluna".to_string(),
+                config.base_denom.clone(),
+            )?;
+            let rate = decimal_multiplication(res.state.exchange_rate, luna_ust_price);
 
             Ok((rate, u64::MAX))
         }
