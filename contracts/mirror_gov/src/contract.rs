@@ -398,7 +398,7 @@ pub fn create_poll(
             ));
         }
         Some(ExecuteData {
-            contract: deps.api.addr_canonicalize(&poll_execute_msg.contract)?,
+            contract: target_contract,
             msg: poll_execute_msg.msg,
         })
     } else {
