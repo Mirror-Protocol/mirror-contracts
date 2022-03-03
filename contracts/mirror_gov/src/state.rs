@@ -74,7 +74,7 @@ pub struct Poll {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct PollAdditionalParams {
-    pub admin_action: Option<PollAdminAction>,
+    pub admin_action: PollAdminAction,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
