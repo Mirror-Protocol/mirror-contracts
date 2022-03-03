@@ -860,6 +860,10 @@ fn query_poll(deps: Deps, poll_id: u64) -> StdResult<PollResponse> {
         Some(poll) => poll,
         None => return Err(StdError::generic_err("Poll does not exist")),
     };
+    let admin_action = poll_additional_params_read(deps.storage)
+        .load(&poll_id.to_be_bytes())
+        .map(|params| Some(params.admin_action))
+        .unwrap_or_default();
 
     Ok(PollResponse {
         id: poll.id,
@@ -884,6 +888,7 @@ fn query_poll(deps: Deps, poll_id: u64) -> StdResult<PollResponse> {
         total_balance_at_end_poll: poll.total_balance_at_end_poll,
         voters_reward: poll.voters_reward,
         staked_amount: poll.staked_amount,
+        admin_action,
     })
 }
 
@@ -898,6 +903,10 @@ fn query_polls(
     let poll_responses: StdResult<Vec<PollResponse>> = polls
         .iter()
         .map(|poll| {
+            let admin_action = poll_additional_params_read(deps.storage)
+                .load(&poll.id.to_be_bytes())
+                .map(|params| Some(params.admin_action))
+                .unwrap_or_default();
             Ok(PollResponse {
                 id: poll.id,
                 creator: deps.api.addr_humanize(&poll.creator).unwrap().to_string(),
@@ -921,6 +930,7 @@ fn query_polls(
                 total_balance_at_end_poll: poll.total_balance_at_end_poll,
                 voters_reward: poll.voters_reward,
                 staked_amount: poll.staked_amount,
+                admin_action,
             })
         })
         .collect();

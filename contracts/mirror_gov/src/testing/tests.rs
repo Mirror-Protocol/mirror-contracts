@@ -443,6 +443,7 @@ fn query_polls() {
                 voters_reward: Uint128::zero(),
                 abstain_votes: Uint128::zero(),
                 staked_amount: None,
+                admin_action: None,
             },
             PollResponse {
                 id: 2u64,
@@ -460,6 +461,7 @@ fn query_polls() {
                 voters_reward: Uint128::zero(),
                 abstain_votes: Uint128::zero(),
                 staked_amount: None,
+                admin_action: None,
             },
         ]
     );
@@ -494,6 +496,7 @@ fn query_polls() {
             voters_reward: Uint128::zero(),
             abstain_votes: Uint128::zero(),
             staked_amount: None,
+            admin_action: None,
         },]
     );
 
@@ -527,6 +530,7 @@ fn query_polls() {
             voters_reward: Uint128::zero(),
             abstain_votes: Uint128::zero(),
             staked_amount: None,
+            admin_action: None,
         }]
     );
 
@@ -560,6 +564,7 @@ fn query_polls() {
             voters_reward: Uint128::zero(),
             abstain_votes: Uint128::zero(),
             staked_amount: None,
+            admin_action: None,
         },]
     );
 
@@ -3165,6 +3170,7 @@ fn distribute_voting_rewards_only_to_polls_in_progress() {
                 total_balance_at_end_poll: None,
                 voters_reward: Uint128::from(1000000000u128),
                 staked_amount: None,
+                admin_action: None,
             },
             PollResponse {
                 id: 2u64,
@@ -3182,6 +3188,7 @@ fn distribute_voting_rewards_only_to_polls_in_progress() {
                 total_balance_at_end_poll: None,
                 voters_reward: Uint128::zero(),
                 staked_amount: None,
+                admin_action: None,
             },
         ]
     );
@@ -4747,6 +4754,46 @@ fn create_auth_admin_poll_config() {
         Uint128::new(DEFAULT_AUTH_ADMIN_PROPOSAL_DEPOSIT),
     );
 
+    let res = query(
+        deps.as_ref(),
+        mock_env(),
+        QueryMsg::Polls {
+            filter: None,
+            start_after: None,
+            limit: None,
+            order_by: Some(OrderBy::Asc),
+        },
+    )
+    .unwrap();
+    let response: PollsResponse = from_binary(&res).unwrap();
+    assert_eq!(
+        response.polls,
+        vec![PollResponse {
+            id: 1u64,
+            creator: TEST_CREATOR.to_string(),
+            status: PollStatus::InProgress,
+            end_time: creator_env
+                .block
+                .time
+                .plus_seconds(DEFAULT_AUTH_ADMIN_VOTING_PERIOD)
+                .seconds(),
+            title: "test".to_string(),
+            description: "test".to_string(),
+            link: None,
+            deposit_amount: Uint128::new(DEFAULT_AUTH_ADMIN_PROPOSAL_DEPOSIT),
+            execute_data: None,
+            yes_votes: Uint128::zero(),
+            no_votes: Uint128::zero(),
+            total_balance_at_end_poll: None,
+            voters_reward: Uint128::zero(),
+            abstain_votes: Uint128::zero(),
+            staked_amount: None,
+            admin_action: Some(PollAdminAction::AuthorizeClaim {
+                authorized_addr: "someaddrr0000".to_string(),
+            }),
+        }]
+    );
+
     deps.querier.with_token_balances(&[(
         &VOTING_TOKEN.to_string(),
         &[(
@@ -4920,6 +4967,46 @@ fn create_migration_poll_config() {
         execute_res,
         deps.as_ref(),
         Uint128::new(DEFAULT_MIGRATION_PROPOSAL_DEPOSIT),
+    );
+
+    let res = query(
+        deps.as_ref(),
+        mock_env(),
+        QueryMsg::Polls {
+            filter: None,
+            start_after: None,
+            limit: None,
+            order_by: Some(OrderBy::Asc),
+        },
+    )
+    .unwrap();
+    let response: PollsResponse = from_binary(&res).unwrap();
+    assert_eq!(
+        response.polls,
+        vec![PollResponse {
+            id: 1u64,
+            creator: TEST_CREATOR.to_string(),
+            status: PollStatus::InProgress,
+            end_time: creator_env
+                .block
+                .time
+                .plus_seconds(DEFAULT_MIGRATION_VOTING_PERIOD)
+                .seconds(),
+            title: "test".to_string(),
+            description: "test".to_string(),
+            link: None,
+            deposit_amount: Uint128::new(DEFAULT_MIGRATION_PROPOSAL_DEPOSIT),
+            execute_data: None,
+            yes_votes: Uint128::zero(),
+            no_votes: Uint128::zero(),
+            total_balance_at_end_poll: None,
+            voters_reward: Uint128::zero(),
+            abstain_votes: Uint128::zero(),
+            staked_amount: None,
+            admin_action: Some(PollAdminAction::ExecuteMigrations {
+                migrations: vec![("contract0000".to_string(), 0, migration_msg.clone())],
+            }),
+        }]
     );
 
     deps.querier.with_token_balances(&[(

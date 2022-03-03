@@ -193,6 +193,7 @@ pub struct PollResponse {
     pub total_balance_at_end_poll: Option<Uint128>,
     pub voters_reward: Uint128,
     pub staked_amount: Option<Uint128>,
+    pub admin_action: Option<PollAdminAction>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema)]

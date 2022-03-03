@@ -18,6 +18,203 @@
       "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>",
       "type": "string"
     },
+    "Decimal": {
+      "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0\n\nThe greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
+      "type": "string"
+    },
+    "PollAdminAction": {
+      "oneOf": [
+        {
+          "description": "Updates migration manager owner",
+          "type": "object",
+          "required": [
+            "update_owner"
+          ],
+          "properties": {
+            "update_owner": {
+              "type": "object",
+              "required": [
+                "owner"
+              ],
+              "properties": {
+                "owner": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "description": "Executes a set of migrations. The poll can be executes as soon as it reaches the quorum and threshold",
+          "type": "object",
+          "required": [
+            "execute_migrations"
+          ],
+          "properties": {
+            "execute_migrations": {
+              "type": "object",
+              "required": [
+                "migrations"
+              ],
+              "properties": {
+                "migrations": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "items": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "integer",
+                        "format": "uint64",
+                        "minimum": 0.0
+                      },
+                      {
+                        "$ref": "#/definitions/Binary"
+                      }
+                    ],
+                    "maxItems": 3,
+                    "minItems": 3
+                  }
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "description": "Transfer admin privileges over Mirror contracts to the authorized_addr",
+          "type": "object",
+          "required": [
+            "authorize_claim"
+          ],
+          "properties": {
+            "authorize_claim": {
+              "type": "object",
+              "required": [
+                "authorized_addr"
+              ],
+              "properties": {
+                "authorized_addr": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "description": "Updates Governace contract configuration",
+          "type": "object",
+          "required": [
+            "update_config"
+          ],
+          "properties": {
+            "update_config": {
+              "type": "object",
+              "properties": {
+                "admin_manager": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "auth_admin_poll_config": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/PollConfig"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "default_poll_config": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/PollConfig"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "effective_delay": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "format": "uint64",
+                  "minimum": 0.0
+                },
+                "migration_poll_config": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/PollConfig"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "owner": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "snapshot_period": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "format": "uint64",
+                  "minimum": 0.0
+                },
+                "voter_weight": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/Decimal"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "PollConfig": {
+      "type": "object",
+      "required": [
+        "proposal_deposit",
+        "quorum",
+        "threshold",
+        "voting_period"
+      ],
+      "properties": {
+        "proposal_deposit": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "quorum": {
+          "$ref": "#/definitions/Decimal"
+        },
+        "threshold": {
+          "$ref": "#/definitions/Decimal"
+        },
+        "voting_period": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        }
+      }
+    },
     "PollExecuteMsg": {
       "type": "object",
       "required": [
@@ -51,6 +248,16 @@
       "properties": {
         "abstain_votes": {
           "$ref": "#/definitions/Uint128"
+        },
+        "admin_action": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PollAdminAction"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "creator": {
           "type": "string"
