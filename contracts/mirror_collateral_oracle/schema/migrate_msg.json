@@ -1,6 +1,17 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "MigrateMsg",
-  "description": "We currently take no arguments for migrations",
-  "type": "object"
+  "type": "object",
+  "required": [
+    "anchor_tefi_oracle_addr",
+    "mirror_tefi_oracle_addr"
+  ],
+  "properties": {
+    "anchor_tefi_oracle_addr": {
+      "type": "string"
+    },
+    "mirror_tefi_oracle_addr": {
+      "type": "string"
+    }
+  }
 }

@@ -89,13 +89,13 @@ pub struct MigrateMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SourceType {
-    TeFiOracle {
+    TefiOracle {
         oracle_addr: String,
     },
     FixedPrice {
         price: Decimal,
     },
-    AMMPair {
+    AmmPair {
         pair_addr: String,
         intermediate_denom: Option<String>,
     },
@@ -113,9 +113,9 @@ pub enum SourceType {
 impl fmt::Display for SourceType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            SourceType::TeFiOracle { .. } => write!(f, "tefi_oracle"),
+            SourceType::TefiOracle { .. } => write!(f, "tefi_oracle"),
             SourceType::FixedPrice { .. } => write!(f, "fixed_price"),
-            SourceType::AMMPair { .. } => write!(f, "amm_pair"),
+            SourceType::AmmPair { .. } => write!(f, "amm_pair"),
             SourceType::AnchorMarket { .. } => write!(f, "anchor_market"),
             SourceType::Native { .. } => write!(f, "native"),
             SourceType::Lunax { .. } => write!(f, "lunax"),

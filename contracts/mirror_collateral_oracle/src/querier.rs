@@ -68,7 +68,7 @@ pub fn query_price(
 ) -> StdResult<(Decimal, u64)> {
     match price_source {
         SourceType::FixedPrice { price } => Ok((*price, u64::MAX)),
-        SourceType::TeFiOracle { oracle_addr } => {
+        SourceType::TefiOracle { oracle_addr } => {
             let res: TeFiOraclePriceResponse =
                 deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
                     contract_addr: oracle_addr.to_string(),
@@ -81,7 +81,7 @@ pub fn query_price(
 
             Ok((res.rate, res.last_updated))
         }
-        SourceType::AMMPair {
+        SourceType::AmmPair {
             pair_addr,
             intermediate_denom,
         } => {

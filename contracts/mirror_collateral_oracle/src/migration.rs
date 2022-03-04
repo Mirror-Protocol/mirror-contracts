@@ -88,10 +88,10 @@ pub fn migrate_collateral_infos(
             LegacySourceType::BandOracle { .. } => {
                 return Err(StdError::generic_err("not supported"))
             } // currently there are no assets with this config
-            LegacySourceType::AnchorOracle { .. } => SourceType::TeFiOracle {
+            LegacySourceType::AnchorOracle { .. } => SourceType::TefiOracle {
                 oracle_addr: anchor_tefi_oracle_addr.clone(),
             },
-            LegacySourceType::MirrorOracle { .. } => SourceType::TeFiOracle {
+            LegacySourceType::MirrorOracle { .. } => SourceType::TefiOracle {
                 oracle_addr: mirror_tefi_oracle_addr.clone(),
             },
             LegacySourceType::AnchorMarket { anchor_market_addr } => {
@@ -102,7 +102,7 @@ pub fn migrate_collateral_infos(
             LegacySourceType::Terraswap {
                 terraswap_pair_addr,
                 intermediate_denom,
-            } => SourceType::AMMPair {
+            } => SourceType::AmmPair {
                 pair_addr: terraswap_pair_addr,
                 intermediate_denom,
             },
@@ -194,7 +194,7 @@ mod migrate_tests {
             CollateralAssetInfo {
                 asset: "mAPPL0000".to_string(),
                 multiplier: Decimal::one(),
-                price_source: SourceType::TeFiOracle {
+                price_source: SourceType::TefiOracle {
                     oracle_addr: "mirrortefi0000".to_string(),
                 },
                 is_revoked: false,
@@ -205,7 +205,7 @@ mod migrate_tests {
             CollateralAssetInfo {
                 asset: "anc0000".to_string(),
                 multiplier: Decimal::one(),
-                price_source: SourceType::AMMPair {
+                price_source: SourceType::AmmPair {
                     pair_addr: "pair0000".to_string(),
                     intermediate_denom: None,
                 },
@@ -217,7 +217,7 @@ mod migrate_tests {
             CollateralAssetInfo {
                 asset: "bluna0000".to_string(),
                 multiplier: Decimal::one(),
-                price_source: SourceType::TeFiOracle {
+                price_source: SourceType::TefiOracle {
                     oracle_addr: "anctefi0000".to_string(),
                 },
                 is_revoked: false,

@@ -99,7 +99,7 @@ fn register_collateral() {
             contract_addr: "mTSLA".to_string(),
         },
         multiplier: Decimal::percent(100),
-        price_source: SourceType::TeFiOracle {
+        price_source: SourceType::TefiOracle {
             oracle_addr: "mirrorOracle0000".to_string(),
         },
     };
@@ -149,7 +149,7 @@ fn update_collateral() {
             contract_addr: "mTSLA".to_string(),
         },
         multiplier: Decimal::percent(100),
-        price_source: SourceType::TeFiOracle {
+        price_source: SourceType::TefiOracle {
             oracle_addr: "mirrorOracle0000".to_string(),
         },
     };
@@ -272,7 +272,7 @@ fn get_oracle_price() {
             contract_addr: "mTSLA".to_string(),
         },
         multiplier: Decimal::percent(100),
-        price_source: SourceType::TeFiOracle {
+        price_source: SourceType::TefiOracle {
             oracle_addr: "mirrorOracle0000".to_string(),
         },
     };
@@ -332,7 +332,7 @@ fn get_amm_pair_price() {
             contract_addr: "anc0000".to_string(),
         },
         multiplier: Decimal::percent(100),
-        price_source: SourceType::AMMPair {
+        price_source: SourceType::AmmPair {
             pair_addr: "ustancpair0000".to_string(),
             intermediate_denom: None,
         },
@@ -361,7 +361,7 @@ fn get_amm_pair_price() {
             contract_addr: "bluna0000".to_string(),
         },
         multiplier: Decimal::percent(100),
-        price_source: SourceType::AMMPair {
+        price_source: SourceType::AmmPair {
             pair_addr: "lunablunapair0000".to_string(),
             intermediate_denom: Some("uluna".to_string()),
         },

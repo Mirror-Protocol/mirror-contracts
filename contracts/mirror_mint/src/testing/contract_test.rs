@@ -133,7 +133,7 @@ fn register_asset() {
                     contract_addr: "asset0000".to_string(),
                 },
                 multiplier: Decimal::one(),
-                price_source: SourceType::TeFiOracle {
+                price_source: SourceType::TefiOracle {
                     oracle_addr: "oracle0000".to_string(),
                 },
             })

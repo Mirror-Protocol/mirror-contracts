@@ -354,7 +354,7 @@ pub fn register_asset(
                     contract_addr: asset_token.to_string(),
                 },
                 multiplier: Decimal::one(), // default collateral multiplier for new mAssets
-                price_source: SourceType::TeFiOracle {
+                price_source: SourceType::TefiOracle {
                     oracle_addr: deps.api.addr_humanize(&config.oracle)?.to_string(),
                 },
             })?,
@@ -463,7 +463,7 @@ pub fn trigger_ipo(deps: DepsMut, info: MessageInfo, asset_token: Addr) -> StdRe
                     contract_addr: asset_token.to_string(),
                 },
                 multiplier: Decimal::one(), // default collateral multiplier for new mAssets
-                price_source: SourceType::TeFiOracle {
+                price_source: SourceType::TefiOracle {
                     oracle_addr: deps.api.addr_humanize(&config.oracle)?.to_string(),
                 },
             })?,

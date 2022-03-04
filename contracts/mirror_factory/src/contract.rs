@@ -10,9 +10,10 @@ use crate::querier::{load_mint_asset_config, query_last_price};
 use crate::response::MsgInstantiateContractResponse;
 use crate::state::{
     decrease_total_weight, increase_total_weight, read_all_weight, read_config,
-    read_last_distributed, read_params, read_tmp_asset, read_tmp_oracle, read_total_weight,
-    read_weight, remove_params, remove_weight, store_config, store_last_distributed, store_params,
-    store_tmp_asset, store_tmp_oracle, store_total_weight, store_weight, Config,
+    read_last_distributed, read_tmp_asset, read_tmp_whitelist_info, read_total_weight, read_weight,
+    remove_tmp_whitelist_info, remove_weight, store_config, store_last_distributed,
+    store_tmp_asset, store_tmp_whitelist_info, store_total_weight, store_weight, Config,
+    WhitelistTmpInfo,
 };
 
 use mirror_protocol::factory::{
@@ -251,15 +252,23 @@ pub fn whitelist(
         return Err(StdError::generic_err("unauthorized"));
     }
 
-    if read_params(deps.storage).is_ok() {
+    if read_tmp_whitelist_info(deps.storage).is_ok() {
+        // this error should never happen
         return Err(StdError::generic_err("A whitelist process is in progress"));
     }
 
-    store_params(deps.storage, &params)?;
+    // checks format and returns uppercase
+    let symbol = format_symbol(&symbol)?;
+    let cw20_symbol = format!("m{}", symbol);
 
-    // store oracle in temp storage to use in reply callback
-    let oracle = deps.api.addr_validate(&oracle_proxy)?;
-    store_tmp_oracle(deps.storage, &oracle)?;
+    store_tmp_whitelist_info(
+        deps.storage,
+        &WhitelistTmpInfo {
+            params,
+            oracle_proxy: deps.api.addr_canonicalize(&oracle_proxy)?, // validates and converts
+            symbol: symbol.to_string(),
+        },
+    )?;
 
     Ok(Response::new()
         .add_submessage(SubMsg {
@@ -271,7 +280,7 @@ pub fn whitelist(
                 label: "".to_string(),
                 msg: to_binary(&TokenInstantiateMsg {
                     name: name.clone(),
-                    symbol: symbol.to_string(),
+                    symbol: cw20_symbol.to_string(),
                     decimals: 6u8,
                     initial_balances: vec![],
                     mint: Some(MinterResponse {
@@ -288,6 +297,7 @@ pub fn whitelist(
         .add_attributes(vec![
             attr("action", "whitelist"),
             attr("symbol", symbol),
+            attr("cw20_symbol", cw20_symbol),
             attr("name", name),
         ]))
 }
@@ -296,8 +306,8 @@ pub fn whitelist(
 pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response> {
     match msg.id {
         1 => {
-            // fetch saved oracle_proxy from temp state
-            let oracle_proxy = read_tmp_oracle(deps.storage)?;
+            // fetch tmp whitelist info
+            let whitelist_info = read_tmp_whitelist_info(deps.storage)?;
 
             // get new token's contract address
             let res: MsgInstantiateContractResponse = Message::parse_from_bytes(
@@ -308,7 +318,7 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response> {
             })?;
             let asset_token = Addr::unchecked(res.get_contract_address());
 
-            token_creation_hook(deps, env, asset_token, oracle_proxy)
+            token_creation_hook(deps, env, asset_token, whitelist_info)
         }
         2 => {
             // fetch saved asset_token from temp state
@@ -329,17 +339,11 @@ pub fn token_creation_hook(
     deps: DepsMut,
     env: Env,
     asset_token: Addr,
-    oracle_proxy: Addr,
+    whitelist_info: WhitelistTmpInfo,
 ) -> StdResult<Response> {
     let config: Config = read_config(deps.storage)?;
-
-    // If the param is not exists, it means there is no whitelist process in progress
-    let params: Params = match read_params(deps.storage) {
-        Ok(v) => v,
-        Err(_) => return Err(StdError::generic_err("No whitelist process in progress")),
-    };
-
     let asset_token_raw = deps.api.addr_canonicalize(asset_token.as_str())?;
+    let params = whitelist_info.params;
 
     // If weight is given as params, we use that or just use default
     let weight = if let Some(weight) = params.weight {
@@ -352,8 +356,8 @@ pub fn token_creation_hook(
     store_weight(deps.storage, &asset_token_raw, weight)?;
     increase_total_weight(deps.storage, weight)?;
 
-    // Remove params == clear flag
-    remove_params(deps.storage);
+    // Remove tmp info
+    remove_tmp_whitelist_info(deps.storage);
 
     let mut attributes: Vec<Attribute> = vec![];
 
@@ -395,7 +399,8 @@ pub fn token_creation_hook(
     store_tmp_asset(deps.storage, &asset_token)?;
 
     // Register asset to mint contract
-    // Register asset to oracle contract
+    // Register price source to oracle contract
+    // Register asset mapping to oracle contract
     // Create terraswap pair
     Ok(Response::new()
         .add_messages(vec![
@@ -412,10 +417,22 @@ pub fn token_creation_hook(
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: deps.api.addr_humanize(&config.oracle_contract)?.to_string(),
                 funds: vec![],
-                msg: to_binary(&TeFiOracleExecuteMsg::RegisterProxy {
-                    asset_token: asset_token.to_string(),
-                    proxy_addr: oracle_proxy.to_string(),
+                msg: to_binary(&TeFiOracleExecuteMsg::RegisterSource {
+                    // if the source already exists, will skip and return gracefully
+                    symbol: whitelist_info.symbol.to_string(),
+                    proxy_addr: deps
+                        .api
+                        .addr_humanize(&whitelist_info.oracle_proxy)?
+                        .to_string(),
                     priority: None, // default priority
+                })?,
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: deps.api.addr_humanize(&config.oracle_contract)?.to_string(),
+                funds: vec![],
+                msg: to_binary(&TeFiOracleExecuteMsg::InsertAssetSymbolMap {
+                    // map asset_token to symbol on oracle
+                    map: vec![(asset_token.to_string(), whitelist_info.symbol)],
                 })?,
             }),
         ])
@@ -626,7 +643,7 @@ pub fn migrate_asset(
     let config: Config = read_config(deps.storage)?;
     let asset_token_raw: CanonicalAddr = deps.api.addr_canonicalize(&asset_token)?;
     let sender_raw: CanonicalAddr = deps.api.addr_canonicalize(info.sender.as_str())?;
-    let oracle_proxy_addr: Addr = deps.api.addr_validate(&oracle_proxy)?;
+    let oracle_proxy_raw: CanonicalAddr = deps.api.addr_canonicalize(&oracle_proxy)?;
     let mint: Addr = deps.api.addr_humanize(&config.mint_contract)?;
     let oracle: Addr = deps.api.addr_humanize(&config.oracle_contract)?;
 
@@ -648,21 +665,26 @@ pub fn migrate_asset(
     remove_weight(deps.storage, &asset_token_raw);
     decrease_total_weight(deps.storage, weight)?;
 
-    store_params(
+    // checks format and returns uppercase
+    let symbol = format_symbol(&symbol)?;
+    let cw20_symbol = format!("m{}", symbol);
+
+    store_tmp_whitelist_info(
         deps.storage,
-        &Params {
-            auction_discount,
-            min_collateral_ratio,
-            weight: Some(weight),
-            mint_period: None,
-            min_collateral_ratio_after_ipo: None,
-            pre_ipo_price: None,
-            ipo_trigger_addr: None,
+        &WhitelistTmpInfo {
+            params: Params {
+                auction_discount,
+                min_collateral_ratio,
+                weight: Some(weight),
+                mint_period: None,
+                min_collateral_ratio_after_ipo: None,
+                pre_ipo_price: None,
+                ipo_trigger_addr: None,
+            },
+            symbol,
+            oracle_proxy: oracle_proxy_raw,
         },
     )?;
-
-    // store oracle in temp storage to use in reply callback
-    store_tmp_oracle(deps.storage, &oracle_proxy_addr)?;
 
     Ok(Response::new()
         .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
@@ -682,7 +704,7 @@ pub fn migrate_asset(
                 label: "".to_string(),
                 msg: to_binary(&TokenInstantiateMsg {
                     name,
-                    symbol,
+                    symbol: cw20_symbol,
                     decimals: 6u8,
                     initial_balances: vec![],
                     mint: Some(MinterResponse {
@@ -753,4 +775,34 @@ pub fn query_distribution_info(deps: Deps) -> StdResult<DistributionInfoResponse
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
     Ok(Response::default())
+}
+
+fn format_symbol(symbol: &str) -> StdResult<String> {
+    let first_char = symbol
+        .chars()
+        .next()
+        .ok_or_else(|| StdError::generic_err("invalid symbol format"))?;
+    if first_char == 'm' {
+        return Err(StdError::generic_err("symbol should not start with 'm'"));
+    }
+
+    Ok(symbol.to_uppercase())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_masset_symbol() {
+        format_symbol("mAAPL").unwrap_err();
+        format_symbol("mTSLA").unwrap_err();
+
+        assert_eq!(format_symbol("aAPL").unwrap(), "AAPL".to_string(),);
+        assert_eq!(
+            format_symbol("MSFT").unwrap(), // starts with 'M' not 'm'
+            "MSFT".to_string(),
+        );
+        assert_eq!(format_symbol("tsla").unwrap(), "TSLA".to_string(),)
+    }
 }

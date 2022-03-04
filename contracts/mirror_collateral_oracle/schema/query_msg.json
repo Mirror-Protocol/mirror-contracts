@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "QueryMsg",
-  "anyOf": [
+  "oneOf": [
     {
       "type": "object",
       "required": [
@@ -29,7 +29,7 @@
             "asset": {
               "type": "string"
             },
-            "block_height": {
+            "timeframe": {
               "type": [
                 "integer",
                 "null"
