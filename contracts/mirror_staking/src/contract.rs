@@ -1,4 +1,3 @@
-use crate::migration::migrate_pool_infos;
 use crate::rewards::{adjust_premium, deposit_reward, query_reward_info, withdraw_reward};
 use crate::staking::{
     auto_stake, auto_stake_hook, bond, decrease_short_token, increase_short_token, unbond,
@@ -401,22 +400,10 @@ pub fn query_pool_info(deps: Deps, asset_token: String) -> StdResult<PoolInfoRes
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
-    migrate_pool_infos(deps.storage)?;
-
-    // when the migration is executed, deprecate directly the MIR pool
-    let config = read_config(deps.storage)?;
-    let self_info = MessageInfo {
-        sender: deps.api.addr_humanize(&config.owner)?,
-        funds: vec![],
-    };
-    let asset_token_to_deprecate_addr = deps.api.addr_validate(&msg.asset_token_to_deprecate)?;
-    let new_staking_token_addr = deps.api.addr_validate(&msg.new_staking_token)?;
-    deprecate_staking_token(
-        deps,
-        self_info,
-        asset_token_to_deprecate_addr,
-        new_staking_token_addr,
-    )?;
+    // change the oracle address for the tefi oracle address
+    let mut config: Config = read_config(deps.storage)?;
+    config.oracle_contract = deps.api.addr_canonicalize(&msg.tefi_oracle_contract)?;
+    store_config(deps.storage, &config)?;
 
     Ok(Response::default())
 }
