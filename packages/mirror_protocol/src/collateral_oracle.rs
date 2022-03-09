@@ -83,7 +83,6 @@ pub struct CollateralInfosResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct MigrateMsg {
     pub mirror_tefi_oracle_addr: String,
-    pub anchor_tefi_oracle_addr: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

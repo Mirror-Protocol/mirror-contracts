@@ -293,11 +293,8 @@ pub fn query_collateral_infos(deps: Deps) -> StdResult<CollateralInfosResponse> 
 pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
     migrate_config(deps.storage)?;
 
-    migrate_collateral_infos(
-        deps.storage,
-        msg.mirror_tefi_oracle_addr,
-        msg.anchor_tefi_oracle_addr,
-    )?;
+    deps.api.addr_validate(&msg.mirror_tefi_oracle_addr)?;
+    migrate_collateral_infos(deps.storage, msg.mirror_tefi_oracle_addr)?;
 
     Ok(Response::default())
 }

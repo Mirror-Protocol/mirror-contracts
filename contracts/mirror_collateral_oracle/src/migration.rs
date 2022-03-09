@@ -65,7 +65,6 @@ pub fn migrate_config(storage: &mut dyn Storage) -> StdResult<()> {
 pub fn migrate_collateral_infos(
     storage: &mut dyn Storage,
     mirror_tefi_oracle_addr: String,
-    anchor_tefi_oracle_addr: String,
 ) -> StdResult<()> {
     let mut legacy_collateral_infos_bucket: Bucket<LegacyCollateralAssetInfo> =
         Bucket::new(storage, PREFIX_COLLATERAL_ASSET_INFO);
@@ -89,7 +88,7 @@ pub fn migrate_collateral_infos(
                 return Err(StdError::generic_err("not supported"))
             } // currently there are no assets with this config
             LegacySourceType::AnchorOracle { .. } => SourceType::TefiOracle {
-                oracle_addr: anchor_tefi_oracle_addr.clone(),
+                oracle_addr: mirror_tefi_oracle_addr.clone(),
             },
             LegacySourceType::MirrorOracle { .. } => SourceType::TefiOracle {
                 oracle_addr: mirror_tefi_oracle_addr.clone(),
@@ -175,12 +174,7 @@ mod migrate_tests {
             .save(col_info_3.asset.as_bytes(), &col_info_3)
             .unwrap();
 
-        migrate_collateral_infos(
-            deps.as_mut().storage,
-            "mirrortefi0000".to_string(),
-            "anctefi0000".to_string(),
-        )
-        .unwrap();
+        migrate_collateral_infos(deps.as_mut().storage, "mirrortefi0000".to_string()).unwrap();
 
         let new_col_info_1: CollateralAssetInfo =
             read_collateral_info(deps.as_mut().storage, &col_info_1.asset).unwrap();
@@ -218,7 +212,7 @@ mod migrate_tests {
                 asset: "bluna0000".to_string(),
                 multiplier: Decimal::one(),
                 price_source: SourceType::TefiOracle {
-                    oracle_addr: "anctefi0000".to_string(),
+                    oracle_addr: "mirrortefi0000".to_string(),
                 },
                 is_revoked: false,
             }
