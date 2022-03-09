@@ -773,7 +773,12 @@ pub fn query_distribution_info(deps: Deps) -> StdResult<DistributionInfoResponse
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
+    // change oracle address to point to new tefi hub
+    let mut config: Config = read_config(deps.storage)?;
+    config.oracle_contract = deps.api.addr_canonicalize(&msg.tefi_oracle_contract)?;
+    store_config(deps.storage, &config)?;
+
     Ok(Response::default())
 }
 

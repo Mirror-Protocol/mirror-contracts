@@ -14,13 +14,16 @@ use crate::{
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     attr, from_binary, to_binary, Addr, Binary, CanonicalAddr, CosmosMsg, Decimal, Deps, DepsMut,
-    Empty, Env, MessageInfo, Response, StdError, StdResult, Uint128, WasmMsg,
+    Env, MessageInfo, Response, StdError, StdResult, Uint128, WasmMsg,
 };
 use cw20::Cw20ReceiveMsg;
-use mirror_protocol::collateral_oracle::{ExecuteMsg as CollateralOracleExecuteMsg, SourceType};
 use mirror_protocol::mint::{
     AssetConfigResponse, ConfigResponse, Cw20HookMsg, ExecuteMsg, IPOParams, InstantiateMsg,
     QueryMsg,
+};
+use mirror_protocol::{
+    collateral_oracle::{ExecuteMsg as CollateralOracleExecuteMsg, SourceType},
+    mint::MigrateMsg,
 };
 use terraswap::asset::{Asset, AssetInfo};
 
@@ -544,7 +547,13 @@ pub fn query_asset_config(deps: Deps, asset_token: String) -> StdResult<AssetCon
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, _msg: Empty) -> StdResult<Response> {
+pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
+    // change oracle address to point to new tefi hub
+    let mut config: Config = read_config(deps.storage)?;
+    config.oracle = deps.api.addr_canonicalize(&msg.tefi_oracle_contract)?;
+    store_config(deps.storage, &config)?;
+
+    // just to check that there are no ipo assets so that the ipo params type can be changed
     migrate_asset_configs(deps.storage)?;
 
     Ok(Response::default())

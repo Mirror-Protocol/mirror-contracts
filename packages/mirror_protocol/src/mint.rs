@@ -187,3 +187,8 @@ pub struct PositionsResponse {
 pub struct NextPositionIdxResponse {
     pub next_position_idx: Uint128,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct MigrateMsg {
+    pub tefi_oracle_contract: String,
+}
