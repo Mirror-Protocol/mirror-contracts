@@ -201,14 +201,13 @@ pub fn read_positions(
     let position_bucket: ReadonlyBucket<Position> = ReadonlyBucket::new(storage, PREFIX_POSITION);
 
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
-    let start = calc_range_start(start_after);
+    let (start, end, order_by) = match order_by {
+        Some(OrderBy::Asc) => (calc_range_start(start_after), None, OrderBy::Asc),
+        _ => (None, calc_range_end(start_after), OrderBy::Desc),
+    };
 
     position_bucket
-        .range(
-            start.as_deref(),
-            None,
-            order_by.unwrap_or(OrderBy::Desc).into(),
-        )
+        .range(start.as_deref(), end.as_deref(), order_by.into())
         .take(limit)
         .map(|item| {
             let (_, v) = item?;
