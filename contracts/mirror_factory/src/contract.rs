@@ -808,6 +808,7 @@ mod tests {
             format_symbol("MSFT").unwrap(), // starts with 'M' not 'm'
             "MSFT".to_string(),
         );
-        assert_eq!(format_symbol("tsla").unwrap(), "TSLA".to_string(),)
+        assert_eq!(format_symbol("tsla").unwrap(), "TSLA".to_string(),);
+        assert_eq!(format_symbol("ANC").unwrap(), "ANC".to_string(),)
     }
 }
