@@ -1,4 +1,4 @@
-use crate::migration::migrate_collateral_infos;
+use crate::migration::{migrate_collateral_infos, migrate_config};
 use crate::querier::query_price;
 use crate::state::{
     read_collateral_info, read_collateral_infos, read_config, store_collateral_info, store_config,
@@ -29,9 +29,6 @@ pub fn instantiate(
             owner: deps.api.addr_canonicalize(&msg.owner)?,
             mint_contract: deps.api.addr_canonicalize(&msg.mint_contract)?,
             base_denom: msg.base_denom,
-            mirror_oracle: deps.api.addr_canonicalize(&msg.mirror_oracle)?,
-            anchor_oracle: deps.api.addr_canonicalize(&msg.anchor_oracle)?,
-            band_oracle: deps.api.addr_canonicalize(&msg.band_oracle)?,
         },
     )?;
 
@@ -50,19 +47,7 @@ pub fn execute(
             owner,
             mint_contract,
             base_denom,
-            mirror_oracle,
-            anchor_oracle,
-            band_oracle,
-        } => update_config(
-            deps,
-            info,
-            owner,
-            mint_contract,
-            base_denom,
-            mirror_oracle,
-            anchor_oracle,
-            band_oracle,
-        ),
+        } => update_config(deps, info, owner, mint_contract, base_denom),
         ExecuteMsg::RegisterCollateralAsset {
             asset,
             price_source,
@@ -86,9 +71,6 @@ pub fn update_config(
     owner: Option<String>,
     mint_contract: Option<String>,
     base_denom: Option<String>,
-    mirror_oracle: Option<String>,
-    anchor_oracle: Option<String>,
-    band_oracle: Option<String>,
 ) -> StdResult<Response> {
     let mut config: Config = read_config(deps.storage)?;
     if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner {
@@ -105,18 +87,6 @@ pub fn update_config(
 
     if let Some(base_denom) = base_denom {
         config.base_denom = base_denom;
-    }
-
-    if let Some(mirror_oracle) = mirror_oracle {
-        config.mirror_oracle = deps.api.addr_canonicalize(&mirror_oracle)?;
-    }
-
-    if let Some(anchor_oracle) = anchor_oracle {
-        config.anchor_oracle = deps.api.addr_canonicalize(&anchor_oracle)?;
-    }
-
-    if let Some(band_oracle) = band_oracle {
-        config.band_oracle = deps.api.addr_canonicalize(&band_oracle)?;
     }
 
     store_config(deps.storage, &config)?;
@@ -242,13 +212,12 @@ pub fn update_collateral_multiplier(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
-        QueryMsg::CollateralPrice {
-            asset,
-            block_height,
-        } => to_binary(&query_collateral_price(deps, asset, block_height)?),
+        QueryMsg::CollateralPrice { asset, timeframe } => {
+            to_binary(&query_collateral_price(deps, env, asset, timeframe)?)
+        }
         QueryMsg::CollateralAssetInfo { asset } => to_binary(&query_collateral_info(deps, asset)?),
         QueryMsg::CollateralAssetInfos {} => to_binary(&query_collateral_infos(deps)?),
     }
@@ -260,9 +229,6 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
         owner: deps.api.addr_humanize(&config.owner)?.to_string(),
         mint_contract: deps.api.addr_humanize(&config.mint_contract)?.to_string(),
         base_denom: config.base_denom,
-        mirror_oracle: deps.api.addr_humanize(&config.mirror_oracle)?.to_string(),
-        anchor_oracle: deps.api.addr_humanize(&config.anchor_oracle)?.to_string(),
-        band_oracle: deps.api.addr_humanize(&config.band_oracle)?.to_string(),
     };
 
     Ok(resp)
@@ -270,8 +236,9 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
 
 pub fn query_collateral_price(
     deps: Deps,
+    env: Env,
     quote_asset: String,
-    block_height: Option<u64>,
+    timeframe: Option<u64>,
 ) -> StdResult<CollateralPriceResponse> {
     let config: Config = read_config(deps.storage)?;
 
@@ -284,9 +251,10 @@ pub fn query_collateral_price(
 
     let (price, last_updated): (Decimal, u64) = query_price(
         deps,
+        env,
         &config,
         &quote_asset,
-        block_height,
+        timeframe,
         &collateral.price_source,
     )?;
 
@@ -323,36 +291,10 @@ pub fn query_collateral_infos(deps: Deps) -> StdResult<CollateralInfosResponse> 
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
-    // migrate collateral infos to inclue new source type
-    migrate_collateral_infos(deps.storage)?;
+    migrate_config(deps.storage)?;
 
-    // validate input
-    deps.api.addr_validate(&msg.lunax_staking_contract)?;
-    deps.api.addr_validate(&msg.lunax_token_addr)?;
-    if msg.multiplier.is_zero() {
-        return Err(StdError::generic_err("Multiplier must be bigger than 0"));
-    }
-
-    // register lunax
-    let lunax_asset_info = AssetInfo::Token {
-        contract_addr: msg.lunax_token_addr,
-    };
-    let lunax_source = SourceType::Lunax {
-        staking_contract_addr: msg.lunax_staking_contract,
-    };
-
-    let config: Config = read_config(deps.storage)?;
-    let self_info = MessageInfo {
-        sender: deps.api.addr_humanize(&config.owner)?,
-        funds: vec![],
-    };
-    register_collateral(
-        deps,
-        self_info,
-        lunax_asset_info,
-        lunax_source,
-        msg.multiplier,
-    )?;
+    deps.api.addr_validate(&msg.mirror_tefi_oracle_addr)?;
+    migrate_collateral_infos(deps.storage, msg.mirror_tefi_oracle_addr)?;
 
     Ok(Response::default())
 }

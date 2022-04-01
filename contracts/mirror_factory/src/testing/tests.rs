@@ -3,8 +3,8 @@ use crate::response::MsgInstantiateContractResponse;
 use crate::testing::mock_querier::{mock_dependencies, WasmMockQuerier};
 
 use crate::state::{
-    read_params, read_tmp_asset, read_tmp_oracle, read_total_weight, read_weight,
-    store_total_weight, store_weight,
+    read_tmp_asset, read_tmp_whitelist_info, read_total_weight, read_weight, store_total_weight,
+    store_weight, WhitelistTmpInfo,
 };
 use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage};
 use cosmwasm_std::{
@@ -18,9 +18,9 @@ use mirror_protocol::factory::{
     ConfigResponse, DistributionInfoResponse, ExecuteMsg, InstantiateMsg, Params, QueryMsg,
 };
 use mirror_protocol::mint::{ExecuteMsg as MintExecuteMsg, IPOParams};
-use mirror_protocol::oracle::ExecuteMsg as OracleExecuteMsg;
 use mirror_protocol::staking::Cw20HookMsg as StakingCw20HookMsg;
 use mirror_protocol::staking::ExecuteMsg as StakingExecuteMsg;
+use tefi_oracle::hub::HubExecuteMsg as TeFiOracleExecuteMsg;
 
 use protobuf::Message;
 
@@ -293,8 +293,8 @@ fn test_whitelist() {
 
     let msg = ExecuteMsg::Whitelist {
         name: "apple derivative".to_string(),
-        symbol: "mAPPL".to_string(),
-        oracle_feeder: "feeder0000".to_string(),
+        symbol: "APPL".to_string(),
+        oracle_proxy: "oracleproxy0000".to_string(),
         params: Params {
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
@@ -302,6 +302,7 @@ fn test_whitelist() {
             mint_period: None,
             min_collateral_ratio_after_ipo: None,
             pre_ipo_price: None,
+            ipo_trigger_addr: None,
         },
     };
     let info = mock_info("owner0000", &[]);
@@ -311,7 +312,8 @@ fn test_whitelist() {
         res.attributes,
         vec![
             attr("action", "whitelist"),
-            attr("symbol", "mAPPL"),
+            attr("symbol", "APPL"),
+            attr("cw20_symbol", "mAPPL"),
             attr("name", "apple derivative")
         ]
     );
@@ -344,16 +346,21 @@ fn test_whitelist() {
         }]
     );
 
-    let params: Params = read_params(&deps.storage).unwrap();
+    let wl_info: WhitelistTmpInfo = read_tmp_whitelist_info(&deps.storage).unwrap();
     assert_eq!(
-        params,
-        Params {
-            auction_discount: Decimal::percent(5),
-            min_collateral_ratio: Decimal::percent(150),
-            weight: Some(100u32),
-            mint_period: None,
-            min_collateral_ratio_after_ipo: None,
-            pre_ipo_price: None,
+        wl_info,
+        WhitelistTmpInfo {
+            params: Params {
+                auction_discount: Decimal::percent(5),
+                min_collateral_ratio: Decimal::percent(150),
+                weight: Some(100u32),
+                mint_period: None,
+                min_collateral_ratio_after_ipo: None,
+                pre_ipo_price: None,
+                ipo_trigger_addr: None,
+            },
+            oracle_proxy: deps.api.addr_canonicalize("oracleproxy0000").unwrap(),
+            symbol: "APPL".to_string(),
         }
     );
 
@@ -369,10 +376,6 @@ fn test_whitelist() {
         StdError::GenericErr { msg, .. } => assert_eq!(msg, "unauthorized"),
         _ => panic!("DO NOT ENTER HERE"),
     }
-
-    //ensure temp oracle was stored
-    let tmp_oracle = read_tmp_oracle(&deps.storage).unwrap();
-    assert_eq!(tmp_oracle.to_string(), "feeder0000");
 }
 
 #[test]
@@ -403,8 +406,8 @@ fn test_token_creation_hook() {
 
     let msg = ExecuteMsg::Whitelist {
         name: "apple derivative".to_string(),
-        symbol: "mAPPL".to_string(),
-        oracle_feeder: "feeder0000".to_string(),
+        symbol: "APPL".to_string(),
+        oracle_proxy: "oracleproxy0000".to_string(),
         params: Params {
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
@@ -412,14 +415,11 @@ fn test_token_creation_hook() {
             mint_period: None,
             min_collateral_ratio_after_ipo: None,
             pre_ipo_price: None,
+            ipo_trigger_addr: None,
         },
     };
     let info = mock_info("owner0000", &[]);
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-    //ensure temp oracle was stored
-    let tmp_oracle = read_tmp_oracle(&deps.storage).unwrap();
-    assert_eq!(tmp_oracle.to_string(), "feeder0000");
 
     let mut token_inst_res = MsgInstantiateContractResponse::new();
     token_inst_res.set_contract_address("asset0000".to_string());
@@ -455,9 +455,18 @@ fn test_token_creation_hook() {
             SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "oracle0000".to_string(),
                 funds: vec![],
-                msg: to_binary(&OracleExecuteMsg::RegisterAsset {
-                    asset_token: "asset0000".to_string(),
-                    feeder: "feeder0000".to_string(),
+                msg: to_binary(&TeFiOracleExecuteMsg::RegisterSource {
+                    symbol: "APPL".to_string(),
+                    proxy_addr: "oracleproxy0000".to_string(),
+                    priority: None,
+                })
+                .unwrap(),
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "oracle0000".to_string(),
+                funds: vec![],
+                msg: to_binary(&TeFiOracleExecuteMsg::InsertAssetSymbolMap {
+                    map: vec![("asset0000".to_string(), "APPL".to_string())]
                 })
                 .unwrap(),
             })),
@@ -535,8 +544,8 @@ fn test_token_creation_hook_without_weight() {
 
     let msg = ExecuteMsg::Whitelist {
         name: "apple derivative".to_string(),
-        symbol: "mAPPL".to_string(),
-        oracle_feeder: "feeder0000".to_string(),
+        symbol: "APPL".to_string(),
+        oracle_proxy: "oracleproxy0000".to_string(),
         params: Params {
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
@@ -544,14 +553,11 @@ fn test_token_creation_hook_without_weight() {
             mint_period: None,
             min_collateral_ratio_after_ipo: None,
             pre_ipo_price: None,
+            ipo_trigger_addr: None,
         },
     };
     let info = mock_info("owner0000", &[]);
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-    //ensure temp oracle was stored
-    let tmp_oracle = read_tmp_oracle(&deps.storage).unwrap();
-    assert_eq!(tmp_oracle.to_string(), "feeder0000");
 
     let mut token_inst_res = MsgInstantiateContractResponse::new();
     token_inst_res.set_contract_address("asset0000".to_string());
@@ -587,9 +593,18 @@ fn test_token_creation_hook_without_weight() {
             SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "oracle0000".to_string(),
                 funds: vec![],
-                msg: to_binary(&OracleExecuteMsg::RegisterAsset {
-                    asset_token: "asset0000".to_string(),
-                    feeder: "feeder0000".to_string(),
+                msg: to_binary(&TeFiOracleExecuteMsg::RegisterSource {
+                    symbol: "APPL".to_string(),
+                    proxy_addr: "oracleproxy0000".to_string(),
+                    priority: None,
+                })
+                .unwrap(),
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "oracle0000".to_string(),
+                funds: vec![],
+                msg: to_binary(&TeFiOracleExecuteMsg::InsertAssetSymbolMap {
+                    map: vec![("asset0000".to_string(), "APPL".to_string())]
                 })
                 .unwrap(),
             })),
@@ -661,8 +676,8 @@ fn test_terraswap_creation_hook() {
 
     let msg = ExecuteMsg::Whitelist {
         name: "apple derivative".to_string(),
-        symbol: "mAPPL".to_string(),
-        oracle_feeder: "feeder0000".to_string(),
+        symbol: "APPL".to_string(),
+        oracle_proxy: "oracleproxy0000".to_string(),
         params: Params {
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
@@ -670,14 +685,11 @@ fn test_terraswap_creation_hook() {
             mint_period: None,
             min_collateral_ratio_after_ipo: None,
             pre_ipo_price: None,
+            ipo_trigger_addr: None,
         },
     };
     let info = mock_info("owner0000", &[]);
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-    //ensure temp oracle was stored
-    let tmp_oracle = read_tmp_oracle(&deps.storage).unwrap();
-    assert_eq!(tmp_oracle.to_string(), "feeder0000");
 
     let mut token_inst_res = MsgInstantiateContractResponse::new();
     token_inst_res.set_contract_address("asset0000".to_string());
@@ -755,8 +767,8 @@ fn test_distribute() {
     // whitelist first item with weight 1.5
     let msg = ExecuteMsg::Whitelist {
         name: "apple derivative".to_string(),
-        symbol: "mAPPL".to_string(),
-        oracle_feeder: "feeder0000".to_string(),
+        symbol: "APPL".to_string(),
+        oracle_proxy: "oracleproxy0000".to_string(),
         params: Params {
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
@@ -764,14 +776,11 @@ fn test_distribute() {
             mint_period: None,
             min_collateral_ratio_after_ipo: None,
             pre_ipo_price: None,
+            ipo_trigger_addr: None,
         },
     };
     let info = mock_info("owner0000", &[]);
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-    //ensure temp oracle was stored
-    let tmp_oracle = read_tmp_oracle(&deps.storage).unwrap();
-    assert_eq!(tmp_oracle.to_string(), "feeder0000");
 
     let mut token_inst_res = MsgInstantiateContractResponse::new();
     token_inst_res.set_contract_address("asset0000".to_string());
@@ -803,8 +812,8 @@ fn test_distribute() {
     // Whitelist second item with weight 1
     let msg = ExecuteMsg::Whitelist {
         name: "google derivative".to_string(),
-        symbol: "mGOGL".to_string(),
-        oracle_feeder: "feeder0000".to_string(),
+        symbol: "GOGL".to_string(),
+        oracle_proxy: "oracleproxy0000".to_string(),
         params: Params {
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
@@ -812,6 +821,7 @@ fn test_distribute() {
             mint_period: None,
             min_collateral_ratio_after_ipo: None,
             pre_ipo_price: None,
+            ipo_trigger_addr: None,
         },
     };
     let info = mock_info("owner0000", &[]);
@@ -919,7 +929,7 @@ fn whitelist_token(
     let msg = ExecuteMsg::Whitelist {
         name: name.to_string(),
         symbol: symbol.to_string(),
-        oracle_feeder: "feeder0000".to_string(),
+        oracle_proxy: "oracleproxy0000".to_string(),
         params: Params {
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(150),
@@ -927,14 +937,11 @@ fn whitelist_token(
             mint_period: None,
             min_collateral_ratio_after_ipo: None,
             pre_ipo_price: None,
+            ipo_trigger_addr: None,
         },
     };
     let info = mock_info("owner0000", &[]);
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-    //ensure temp oracle was stored
-    let tmp_oracle = read_tmp_oracle(&deps.storage).unwrap();
-    assert_eq!(tmp_oracle.to_string(), "feeder0000");
 
     // callback 1
     let mut token_inst_res = MsgInstantiateContractResponse::new();
@@ -1205,13 +1212,19 @@ fn test_revocation() {
         (&"uusdmirror0000".to_string(), &"MIRLP000".to_string()),
     ]);
     deps.querier.with_oracle_price(&[
-        (&"uusd".to_string(), &Decimal::one()),
+        (&"asset0000".to_string(), &Decimal::percent(100)),
         (&"asset0001".to_string(), &Decimal::percent(200)),
     ]);
-    deps.querier.with_mint_configs(&[(
-        &"asset0001".to_string(),
-        &(Decimal::percent(1), Decimal::percent(1)),
-    )]);
+    deps.querier.with_mint_configs(&[
+        (
+            &"asset0000".to_string(),
+            &(Decimal::percent(1), Decimal::percent(1)),
+        ),
+        (
+            &"asset0001".to_string(),
+            &(Decimal::percent(1), Decimal::percent(1)),
+        ),
+    ]);
 
     let msg = InstantiateMsg {
         base_denom: BASE_DENOM.to_string(),
@@ -1233,19 +1246,12 @@ fn test_revocation() {
     };
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    whitelist_token(&mut deps, "tesla derivative", "mTSLA", "asset0000", 100u32);
-    whitelist_token(&mut deps, "apple derivative", "mAPPL", "asset0001", 100u32);
-
-    // register queriers
-    deps.querier.with_oracle_feeders(&[
-        (&"asset0000".to_string(), &"feeder0000".to_string()),
-        (&"asset0001".to_string(), &"feeder0000".to_string()),
-    ]);
+    whitelist_token(&mut deps, "tesla derivative", "TSLA", "asset0000", 100u32);
+    whitelist_token(&mut deps, "apple derivative", "APPL", "asset0001", 100u32);
 
     // unauthorized revoke attempt
     let msg = ExecuteMsg::RevokeAsset {
         asset_token: "asset0000".to_string(),
-        end_price: Some(Decimal::from_ratio(2u128, 3u128)),
     };
     let info = mock_info("address0000", &[]);
     let err = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
@@ -1254,16 +1260,8 @@ fn test_revocation() {
         _ => panic!("DO NOT ENTER HERE"),
     }
 
-    // unatuthorized attemt 2, only owner can fix set price
-    let info = mock_info("addr0000", &[]);
-    let err = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
-    match err {
-        StdError::GenericErr { msg, .. } => assert_eq!(msg, "unauthorized"),
-        _ => panic!("DO NOT ENTER HERE"),
-    }
-
-    // SUCCESS - the feeder revokes item 1
-    let info = mock_info("feeder0000", &[]);
+    // SUCCESS - revoke item 1
+    let info = mock_info("owner0000", &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
         res.messages,
@@ -1272,7 +1270,7 @@ fn test_revocation() {
             funds: vec![],
             msg: to_binary(&MintExecuteMsg::RegisterMigration {
                 asset_token: "asset0000".to_string(),
-                end_price: Decimal::from_ratio(2u128, 3u128),
+                end_price: Decimal::percent(100), // last price feed
             })
             .unwrap(),
         }))]
@@ -1280,9 +1278,8 @@ fn test_revocation() {
 
     let msg = ExecuteMsg::RevokeAsset {
         asset_token: "asset0001".to_string(),
-        end_price: None, // owner can revoke without price feed
     };
-    // SUCCESS - the owner revokes item 2
+    // SUCCESS - revoke item 2
     let info = mock_info("owner0000", &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
@@ -1327,7 +1324,7 @@ fn test_migration() {
     };
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    whitelist_token(&mut deps, "apple derivative", "mAPPL", "asset0000", 100u32);
+    whitelist_token(&mut deps, "apple derivative", "APPL", "asset0000", 100u32);
 
     // register queriers
     deps.querier.with_mint_configs(&[(
@@ -1335,16 +1332,16 @@ fn test_migration() {
         &(Decimal::percent(1), Decimal::percent(1)),
     )]);
     deps.querier
-        .with_oracle_feeders(&[(&"asset0000".to_string(), &"feeder0000".to_string())]);
+        .with_oracle_price(&[(&"asset0000".to_string(), &Decimal::percent(300))]);
 
     // unauthorized migrate attempt
     let msg = ExecuteMsg::MigrateAsset {
         name: "apple migration".to_string(),
-        symbol: "mAPPL2".to_string(),
+        symbol: "APPL2".to_string(),
         from_token: "asset0000".to_string(),
-        end_price: Decimal::from_ratio(2u128, 1u128),
+        oracle_proxy: "oracleproxy0000".to_string(),
     };
-    let info = mock_info("owner0000", &[]);
+    let info = mock_info("addr0000", &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
 
     match res {
@@ -1352,7 +1349,7 @@ fn test_migration() {
         _ => panic!("DO NOT ENTER HERE"),
     }
 
-    let info = mock_info("feeder0000", &[]);
+    let info = mock_info("owner0000", &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
         res.messages,
@@ -1362,7 +1359,7 @@ fn test_migration() {
                 funds: vec![],
                 msg: to_binary(&MintExecuteMsg::RegisterMigration {
                     asset_token: "asset0000".to_string(),
-                    end_price: Decimal::from_ratio(2u128, 1u128),
+                    end_price: Decimal::percent(300),
                 })
                 .unwrap(),
             })),
@@ -1421,8 +1418,8 @@ fn test_whitelist_pre_ipo_asset() {
 
     let msg = ExecuteMsg::Whitelist {
         name: "pre-IPO asset".to_string(),
-        symbol: "mPreIPO".to_string(),
-        oracle_feeder: "feeder0000".to_string(),
+        symbol: "PreIPO".to_string(),
+        oracle_proxy: "oracleproxy0000".to_string(),
         params: Params {
             auction_discount: Decimal::percent(5),
             min_collateral_ratio: Decimal::percent(1000),
@@ -1430,6 +1427,7 @@ fn test_whitelist_pre_ipo_asset() {
             mint_period: Some(10000u64),
             min_collateral_ratio_after_ipo: Some(Decimal::percent(150)),
             pre_ipo_price: Some(Decimal::percent(1)),
+            ipo_trigger_addr: Some("trigger0000".to_string()),
         },
     };
     let info = mock_info("owner0000", &[]);
@@ -1446,7 +1444,7 @@ fn test_whitelist_pre_ipo_asset() {
                 label: "".to_string(),
                 msg: to_binary(&TokenInstantiateMsg {
                     name: "pre-IPO asset".to_string(),
-                    symbol: "mPreIPO".to_string(),
+                    symbol: "mPREIPO".to_string(),
                     decimals: 6u8,
                     initial_balances: vec![],
                     mint: Some(MinterResponse {
@@ -1463,22 +1461,23 @@ fn test_whitelist_pre_ipo_asset() {
         }]
     );
 
-    let params: Params = read_params(&deps.storage).unwrap();
+    let wl_info: WhitelistTmpInfo = read_tmp_whitelist_info(&deps.storage).unwrap();
     assert_eq!(
-        params,
-        Params {
-            auction_discount: Decimal::percent(5),
-            min_collateral_ratio: Decimal::percent(1000),
-            weight: Some(100u32),
-            mint_period: Some(10000u64),
-            min_collateral_ratio_after_ipo: Some(Decimal::percent(150)),
-            pre_ipo_price: Some(Decimal::percent(1)),
+        wl_info,
+        WhitelistTmpInfo {
+            params: Params {
+                auction_discount: Decimal::percent(5),
+                min_collateral_ratio: Decimal::percent(1000),
+                weight: Some(100u32),
+                mint_period: Some(10000u64),
+                min_collateral_ratio_after_ipo: Some(Decimal::percent(150)),
+                pre_ipo_price: Some(Decimal::percent(1)),
+                ipo_trigger_addr: Some("trigger0000".to_string())
+            },
+            oracle_proxy: deps.api.addr_canonicalize("oracleproxy0000").unwrap(),
+            symbol: "PREIPO".to_string(),
         }
     );
-
-    //ensure temp oracle was stored
-    let tmp_oracle = read_tmp_oracle(&deps.storage).unwrap();
-    assert_eq!(tmp_oracle.to_string(), "feeder0000");
 
     // callback 1
     let mut token_inst_res = MsgInstantiateContractResponse::new();
@@ -1513,6 +1512,7 @@ fn test_whitelist_pre_ipo_asset() {
                             / 1_000_000_000,
                         min_collateral_ratio_after_ipo: Decimal::percent(150),
                         pre_ipo_price: Decimal::percent(1),
+                        trigger_addr: "trigger0000".to_string()
                     }),
                 })
                 .unwrap(),
@@ -1520,9 +1520,18 @@ fn test_whitelist_pre_ipo_asset() {
             SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "oracle0000".to_string(),
                 funds: vec![],
-                msg: to_binary(&OracleExecuteMsg::RegisterAsset {
-                    asset_token: "asset0000".to_string(),
-                    feeder: "feeder0000".to_string(),
+                msg: to_binary(&TeFiOracleExecuteMsg::RegisterSource {
+                    symbol: "PREIPO".to_string(),
+                    proxy_addr: "oracleproxy0000".to_string(),
+                    priority: None,
+                })
+                .unwrap(),
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "oracle0000".to_string(),
+                funds: vec![],
+                msg: to_binary(&TeFiOracleExecuteMsg::InsertAssetSymbolMap {
+                    map: vec![("asset0000".to_string(), "PREIPO".to_string())]
                 })
                 .unwrap(),
             })),
@@ -1561,6 +1570,7 @@ fn test_whitelist_pre_ipo_asset() {
             ),
             attr("min_collateral_ratio_after_ipo", "1.5"),
             attr("pre_ipo_price", "0.01"),
+            attr("ipo_trigger_addr", "trigger0000"),
         ]
     );
 }

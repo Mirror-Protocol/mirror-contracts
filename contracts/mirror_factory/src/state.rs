@@ -7,10 +7,9 @@ use cosmwasm_storage::{singleton, singleton_read, Bucket, ReadonlyBucket, Single
 use mirror_protocol::factory::Params;
 
 static KEY_CONFIG: &[u8] = b"config";
-static KEY_PARAMS: &[u8] = b"params";
 static KEY_TOTAL_WEIGHT: &[u8] = b"total_weight";
 static KEY_LAST_DISTRIBUTED: &[u8] = b"last_distributed";
-static KEY_TMP_ORACLE: &[u8] = b"tmp_oracle_feeder";
+static KEY_WHITELIST_TMP_INFO: &[u8] = b"tmp_whitelist_info";
 static KEY_TMP_ASSET: &[u8] = b"tmp_asset_token";
 
 static PREFIX_WEIGHT: &[u8] = b"weight";
@@ -30,12 +29,11 @@ pub struct Config {
     pub distribution_schedule: Vec<(u64, u64, Uint128)>, // [[start_time, end_time, distribution_amount], [], ...]
 }
 
-pub fn store_tmp_oracle(storage: &mut dyn Storage, tmp_oracle: &Addr) -> StdResult<()> {
-    singleton(storage, KEY_TMP_ORACLE).save(tmp_oracle)
-}
-
-pub fn read_tmp_oracle(storage: &dyn Storage) -> StdResult<Addr> {
-    singleton_read(storage, KEY_TMP_ORACLE).load()
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct WhitelistTmpInfo {
+    pub params: Params,
+    pub oracle_proxy: CanonicalAddr,
+    pub symbol: String,
 }
 
 pub fn store_tmp_asset(storage: &mut dyn Storage, tmp_asset: &Addr) -> StdResult<()> {
@@ -54,17 +52,20 @@ pub fn read_config(storage: &dyn Storage) -> StdResult<Config> {
     singleton_read(storage, KEY_CONFIG).load()
 }
 
-pub fn store_params(storage: &mut dyn Storage, init_data: &Params) -> StdResult<()> {
-    singleton(storage, KEY_PARAMS).save(init_data)
+pub fn store_tmp_whitelist_info(
+    storage: &mut dyn Storage,
+    info: &WhitelistTmpInfo,
+) -> StdResult<()> {
+    singleton(storage, KEY_WHITELIST_TMP_INFO).save(info)
 }
 
-pub fn remove_params(storage: &mut dyn Storage) {
-    let mut store: Singleton<Params> = singleton(storage, KEY_PARAMS);
+pub fn remove_tmp_whitelist_info(storage: &mut dyn Storage) {
+    let mut store: Singleton<WhitelistTmpInfo> = singleton(storage, KEY_WHITELIST_TMP_INFO);
     store.remove()
 }
 
-pub fn read_params(storage: &dyn Storage) -> StdResult<Params> {
-    singleton_read(storage, KEY_PARAMS).load()
+pub fn read_tmp_whitelist_info(storage: &dyn Storage) -> StdResult<WhitelistTmpInfo> {
+    singleton_read(storage, KEY_WHITELIST_TMP_INFO).load()
 }
 
 pub fn store_total_weight(storage: &mut dyn Storage, total_weight: u32) -> StdResult<()> {

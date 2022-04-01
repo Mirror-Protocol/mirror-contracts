@@ -4,9 +4,9 @@ use cosmwasm_std::{
     QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, WasmQuery,
 };
 use cosmwasm_storage::to_length_prefixed;
-use mirror_protocol::oracle::PriceResponse;
 use mirror_protocol::short_reward::ShortRewardWeightResponse;
 use serde::Deserialize;
+use tefi_oracle::hub::PriceResponse;
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 use terraswap::{asset::Asset, asset::AssetInfo, asset::PairInfo, pair::PoolResponse};
 
@@ -56,8 +56,8 @@ pub enum MockQueryMsg {
         asset_infos: [AssetInfo; 2],
     },
     Price {
-        base_asset: String,
-        quote_asset: String,
+        asset_token: String,
+        timeframe: Option<u64>,
     },
     Pool {},
     ShortRewardWeight {
@@ -111,12 +111,11 @@ impl WasmMockQuerier {
                     })))
                 }
                 MockQueryMsg::Price {
-                    base_asset: _,
-                    quote_asset: _,
+                    asset_token: _,
+                    timeframe: _,
                 } => SystemResult::Ok(ContractResult::from(to_binary(&PriceResponse {
                     rate: self.oracle_price,
-                    last_updated_base: 100,
-                    last_updated_quote: 100,
+                    last_updated: 100,
                 }))),
                 MockQueryMsg::Balance { address: _ } => {
                     SystemResult::Ok(ContractResult::from(to_binary(&cw20::BalanceResponse {

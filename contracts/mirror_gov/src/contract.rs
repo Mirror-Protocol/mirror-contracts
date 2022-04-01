@@ -349,6 +349,7 @@ pub fn create_poll(
                 MAX_POLLS_IN_PROGRESS + 10usize, // increase maximum to prevent mailcious users from authorizing migrations
             )
         }
+        // all other admin actions have the most restrictive parameters
         _ => (
             config.auth_admin_poll_config.proposal_deposit,
             current_seconds + config.auth_admin_poll_config.voting_period,
@@ -397,7 +398,7 @@ pub fn create_poll(
             ));
         }
         Some(ExecuteData {
-            contract: deps.api.addr_canonicalize(&poll_execute_msg.contract)?,
+            contract: target_contract,
             msg: poll_execute_msg.msg,
         })
     } else {
@@ -427,7 +428,7 @@ pub fn create_poll(
     poll_indexer_store(deps.storage, &PollStatus::InProgress)
         .save(&poll_id.to_be_bytes(), &true)?;
 
-    if poll_admin_action.is_some() {
+    if let Some(poll_admin_action) = poll_admin_action {
         poll_additional_params_store(deps.storage).save(
             &poll_id.to_be_bytes(),
             &PollAdditionalParams {
@@ -459,15 +460,10 @@ pub fn end_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Response> {
     let (target_quorum, target_threshold, is_fast_track) =
         match poll_additional_params_read(deps.storage).load(&poll_id.to_be_bytes()) {
             Ok(params) => match params.admin_action {
-                Some(PollAdminAction::ExecuteMigrations { .. }) => (
+                PollAdminAction::ExecuteMigrations { .. } => (
                     config.migration_poll_config.quorum,
                     config.migration_poll_config.threshold,
                     true,
-                ),
-                None => (
-                    config.default_poll_config.quorum,
-                    config.default_poll_config.threshold,
-                    false,
                 ),
                 _ => (
                     config.auth_admin_poll_config.quorum,
@@ -591,11 +587,8 @@ pub fn execute_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Response
     let (is_fast_track, admin_msg) =
         match poll_additional_params_read(deps.storage).load(&poll_id.to_be_bytes()) {
             Ok(params) => match params.admin_action {
-                Some(action) => match action {
-                    PollAdminAction::ExecuteMigrations { .. } => (true, Some(to_binary(&action)?)),
-                    _ => (false, Some(to_binary(&action)?)),
-                },
-                _ => (false, None),
+                PollAdminAction::ExecuteMigrations { .. } => (true, Some(params.admin_action)),
+                _ => (false, Some(params.admin_action)),
             },
             _ => (false, None),
         };
@@ -623,15 +616,15 @@ pub fn execute_poll(deps: DepsMut, env: Env, poll_id: u64) -> StdResult<Response
             funds: vec![],
         })
     } else if let Some(admin_msg) = admin_msg {
-        match from_binary(&admin_msg)? {
+        match admin_msg {
             PollAdminAction::UpdateConfig { .. } => CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: env.contract.address.to_string(),
-                msg: admin_msg,
+                msg: to_binary(&admin_msg)?,
                 funds: vec![],
             }),
             _ => CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: deps.api.addr_humanize(&config.admin_manager)?.to_string(),
-                msg: admin_msg,
+                msg: to_binary(&admin_msg)?,
                 funds: vec![],
             }),
         }
@@ -867,6 +860,10 @@ fn query_poll(deps: Deps, poll_id: u64) -> StdResult<PollResponse> {
         Some(poll) => poll,
         None => return Err(StdError::generic_err("Poll does not exist")),
     };
+    let admin_action = poll_additional_params_read(deps.storage)
+        .load(&poll_id.to_be_bytes())
+        .map(|params| Some(params.admin_action))
+        .unwrap_or_default();
 
     Ok(PollResponse {
         id: poll.id,
@@ -891,6 +888,7 @@ fn query_poll(deps: Deps, poll_id: u64) -> StdResult<PollResponse> {
         total_balance_at_end_poll: poll.total_balance_at_end_poll,
         voters_reward: poll.voters_reward,
         staked_amount: poll.staked_amount,
+        admin_action,
     })
 }
 
@@ -905,6 +903,10 @@ fn query_polls(
     let poll_responses: StdResult<Vec<PollResponse>> = polls
         .iter()
         .map(|poll| {
+            let admin_action = poll_additional_params_read(deps.storage)
+                .load(&poll.id.to_be_bytes())
+                .map(|params| Some(params.admin_action))
+                .unwrap_or_default();
             Ok(PollResponse {
                 id: poll.id,
                 creator: deps.api.addr_humanize(&poll.creator).unwrap().to_string(),
@@ -928,6 +930,7 @@ fn query_polls(
                 total_balance_at_end_poll: poll.total_balance_at_end_poll,
                 voters_reward: poll.voters_reward,
                 staked_amount: poll.staked_amount,
+                admin_action,
             })
         })
         .collect();

@@ -5,44 +5,20 @@ use cosmwasm_std::{
 
 use cosmwasm_storage::to_length_prefixed;
 use mirror_protocol::mint::IPOParams;
-use mirror_protocol::oracle::{PriceResponse, QueryMsg as OracleQueryMsg};
 use serde::{Deserialize, Serialize};
-
-pub fn load_oracle_feeder(
-    querier: &QuerierWrapper,
-    contract_addr: Addr,
-    asset_token: &CanonicalAddr,
-) -> StdResult<CanonicalAddr> {
-    let res: StdResult<CanonicalAddr> = querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
-        contract_addr: contract_addr.to_string(),
-        key: Binary::from(concat(
-            &to_length_prefixed(b"feeder"),
-            asset_token.as_slice(),
-        )),
-    }));
-
-    let feeder: CanonicalAddr = match res {
-        Ok(v) => v,
-        Err(_) => {
-            return Err(StdError::generic_err("Failed to fetch the oracle feeder"));
-        }
-    };
-
-    Ok(feeder)
-}
+use tefi_oracle::hub::{HubQueryMsg as OracleQueryMsg, PriceResponse};
 
 /// Query asset price igonoring price age
 pub fn query_last_price(
     querier: &QuerierWrapper,
     oracle: Addr,
-    base_asset: String,
-    quote_asset: String,
+    asset: String,
 ) -> StdResult<Decimal> {
     let res: PriceResponse = querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
         contract_addr: oracle.to_string(),
         msg: to_binary(&OracleQueryMsg::Price {
-            base_asset,
-            quote_asset,
+            asset_token: asset,
+            timeframe: None,
         })?,
     }))?;
 

@@ -50,14 +50,9 @@ pub fn open_position(
     // assert the collateral is listed and has not been migrated/revoked
     let collateral_info_raw: AssetInfoRaw = collateral.info.to_raw(deps.api)?;
     let collateral_oracle: Addr = deps.api.addr_humanize(&config.collateral_oracle)?;
-    let (collateral_price, collateral_multiplier) =
-        assert_revoked_collateral(load_collateral_info(
-            deps.as_ref(),
-            collateral_oracle,
-            &collateral_info_raw,
-            Some(env.block.time.seconds()),
-            Some(env.block.height),
-        )?)?;
+    let (collateral_price, collateral_multiplier) = assert_revoked_collateral(
+        load_collateral_info(deps.as_ref(), collateral_oracle, &collateral_info_raw, true)?,
+    )?;
 
     // assert asset migrated
     let asset_info_raw: AssetInfoRaw = asset_info.to_raw(deps.api)?;
@@ -82,12 +77,7 @@ pub fn open_position(
     }
 
     let oracle: Addr = deps.api.addr_humanize(&config.oracle)?;
-    let asset_price: Decimal = load_asset_price(
-        deps.as_ref(),
-        oracle,
-        &asset_info_raw,
-        Some(env.block.time.seconds()),
-    )?;
+    let asset_price: Decimal = load_asset_price(deps.as_ref(), oracle, &asset_info_raw, true)?;
 
     let asset_price_in_collateral_asset = decimal_division(collateral_price, asset_price);
 
@@ -236,8 +226,7 @@ pub fn deposit(
         deps.as_ref(),
         collateral_oracle,
         &position.collateral.info,
-        None,
-        None,
+        false,
     )?)?;
 
     // assert asset migrated
@@ -261,7 +250,6 @@ pub fn deposit(
 
 pub fn withdraw(
     deps: DepsMut,
-    env: Env,
     sender: Addr,
     position_idx: Uint128,
     collateral: Option<Asset>,
@@ -298,12 +286,7 @@ pub fn withdraw(
 
     let asset_config: AssetConfig = read_asset_config(deps.storage, &asset_token_raw)?;
     let oracle: Addr = deps.api.addr_humanize(&config.oracle)?;
-    let asset_price: Decimal = load_asset_price(
-        deps.as_ref(),
-        oracle,
-        &position.asset.info,
-        Some(env.block.time.seconds()),
-    )?;
+    let asset_price: Decimal = load_asset_price(deps.as_ref(), oracle, &position.asset.info, true)?;
 
     // Fetch collateral info from collateral oracle
     let collateral_oracle: Addr = deps.api.addr_humanize(&config.collateral_oracle)?;
@@ -312,8 +295,7 @@ pub fn withdraw(
             deps.as_ref(),
             collateral_oracle,
             &position.collateral.info,
-            Some(env.block.time.seconds()),
-            Some(env.block.height),
+            true,
         )?;
 
     // ignore multiplier for delisted assets
@@ -411,20 +393,14 @@ pub fn mint(
             deps.as_ref(),
             collateral_oracle,
             &position.collateral.info,
-            Some(env.block.time.seconds()),
-            Some(env.block.height),
+            true,
         )?)?;
 
     // for assets with limited minting period (preIPO assets), assert minting phase
     assert_mint_period(&env, &asset_config)?;
 
     let oracle: Addr = deps.api.addr_humanize(&config.oracle)?;
-    let asset_price: Decimal = load_asset_price(
-        deps.as_ref(),
-        oracle,
-        &position.asset.info,
-        Some(env.block.time.seconds()),
-    )?;
+    let asset_price: Decimal = load_asset_price(deps.as_ref(), oracle, &position.asset.info, true)?;
 
     // Compute new asset amount
     let asset_amount: Uint128 = mint_amount + position.asset.amount;
@@ -585,8 +561,7 @@ pub fn burn(
         deps.as_ref(),
         collateral_oracle,
         &position.collateral.info,
-        Some(env.block.time.seconds()),
-        Some(env.block.height),
+        true,
     )?;
 
     // If the collateral is default denom asset and the asset is deprecated,
@@ -657,12 +632,8 @@ pub fn burn(
             return Err(StdError::generic_err("unauthorized"));
         }
         let oracle = deps.api.addr_humanize(&config.oracle)?;
-        let asset_price: Decimal = load_asset_price(
-            deps.as_ref(),
-            oracle,
-            &asset.info.to_raw(deps.api)?,
-            Some(env.block.time.seconds()),
-        )?;
+        let asset_price: Decimal =
+            load_asset_price(deps.as_ref(), oracle, &asset.info.to_raw(deps.api)?, true)?;
         let collateral_price_in_asset: Decimal = decimal_division(asset_price, collateral_price);
 
         // Subtract the protocol fee from the position's collateral
@@ -740,7 +711,6 @@ pub fn burn(
 
 pub fn auction(
     deps: DepsMut,
-    env: Env,
     sender: Addr,
     position_idx: Uint128,
     asset: Asset,
@@ -768,12 +738,7 @@ pub fn auction(
     }
 
     let oracle: Addr = deps.api.addr_humanize(&config.oracle)?;
-    let asset_price: Decimal = load_asset_price(
-        deps.as_ref(),
-        oracle,
-        &position.asset.info,
-        Some(env.block.time.seconds()),
-    )?;
+    let asset_price: Decimal = load_asset_price(deps.as_ref(), oracle, &position.asset.info, true)?;
 
     // fetch collateral info from collateral oracle
     let collateral_oracle: Addr = deps.api.addr_humanize(&config.collateral_oracle)?;
@@ -781,8 +746,7 @@ pub fn auction(
         deps.as_ref(),
         collateral_oracle,
         &position.collateral.info,
-        Some(env.block.time.seconds()),
-        Some(env.block.height),
+        true,
     )?;
 
     // Compute collateral price in asset unit

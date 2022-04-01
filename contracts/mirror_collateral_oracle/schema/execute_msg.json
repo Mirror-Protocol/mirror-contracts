@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "ExecuteMsg",
-  "anyOf": [
+  "oneOf": [
     {
       "type": "object",
       "required": [
@@ -11,18 +11,6 @@
         "update_config": {
           "type": "object",
           "properties": {
-            "anchor_oracle": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "band_oracle": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
             "base_denom": {
               "type": [
                 "string",
@@ -30,12 +18,6 @@
               ]
             },
             "mint_contract": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "mirror_oracle": {
               "type": [
                 "string",
                 "null"
@@ -152,7 +134,7 @@
   "definitions": {
     "AssetInfo": {
       "description": "AssetInfo contract_addr is usually passed from the cw20 hook so we can trust the contract_addr is properly validated.",
-      "anyOf": [
+      "oneOf": [
         {
           "type": "object",
           "required": [
@@ -200,39 +182,23 @@
       "type": "string"
     },
     "SourceType": {
-      "anyOf": [
+      "oneOf": [
         {
           "type": "object",
           "required": [
-            "mirror_oracle"
+            "tefi_oracle"
           ],
           "properties": {
-            "mirror_oracle": {
-              "type": "object"
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": [
-            "anchor_oracle"
-          ],
-          "properties": {
-            "anchor_oracle": {
-              "type": "object"
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": [
-            "band_oracle"
-          ],
-          "properties": {
-            "band_oracle": {
-              "type": "object"
+            "tefi_oracle": {
+              "type": "object",
+              "required": [
+                "oracle_addr"
+              ],
+              "properties": {
+                "oracle_addr": {
+                  "type": "string"
+                }
+              }
             }
           },
           "additionalProperties": false
@@ -260,13 +226,13 @@
         {
           "type": "object",
           "required": [
-            "terraswap"
+            "amm_pair"
           ],
           "properties": {
-            "terraswap": {
+            "amm_pair": {
               "type": "object",
               "required": [
-                "terraswap_pair_addr"
+                "pair_addr"
               ],
               "properties": {
                 "intermediate_denom": {
@@ -275,7 +241,7 @@
                     "null"
                   ]
                 },
-                "terraswap_pair_addr": {
+                "pair_addr": {
                   "type": "string"
                 }
               }
@@ -316,6 +282,26 @@
               ],
               "properties": {
                 "native_denom": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "lunax"
+          ],
+          "properties": {
+            "lunax": {
+              "type": "object",
+              "required": [
+                "staking_contract_addr"
+              ],
+              "properties": {
+                "staking_contract_addr": {
                   "type": "string"
                 }
               }

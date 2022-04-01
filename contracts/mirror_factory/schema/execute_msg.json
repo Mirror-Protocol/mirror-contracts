@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "ExecuteMsg",
-  "anyOf": [
+  "oneOf": [
     {
       "description": "Owner Operations",
       "type": "object",
@@ -137,7 +137,7 @@
           "type": "object",
           "required": [
             "name",
-            "oracle_feeder",
+            "oracle_proxy",
             "params",
             "symbol"
           ],
@@ -146,8 +146,8 @@
               "description": "asset name used to create token contract",
               "type": "string"
             },
-            "oracle_feeder": {
-              "description": "authorized asset oracle feeder",
+            "oracle_proxy": {
+              "description": "oracle proxy that will provide prices for this asset",
               "type": "string"
             },
             "params": {
@@ -192,7 +192,7 @@
       "additionalProperties": false
     },
     {
-      "description": "Feeder Operations ////////////////// Revoke asset from MIR rewards pool and register end_price to mint contract Only feeder can set end_price",
+      "description": "Revoke asset from MIR rewards pool and register end_price to mint contract",
       "type": "object",
       "required": [
         "revoke_asset"
@@ -206,16 +206,6 @@
           "properties": {
             "asset_token": {
               "type": "string"
-            },
-            "end_price": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/Decimal"
-                },
-                {
-                  "type": "null"
-                }
-              ]
             }
           }
         }
@@ -232,19 +222,19 @@
         "migrate_asset": {
           "type": "object",
           "required": [
-            "end_price",
             "from_token",
             "name",
+            "oracle_proxy",
             "symbol"
           ],
           "properties": {
-            "end_price": {
-              "$ref": "#/definitions/Decimal"
-            },
             "from_token": {
               "type": "string"
             },
             "name": {
+              "type": "string"
+            },
+            "oracle_proxy": {
               "type": "string"
             },
             "symbol": {
@@ -291,6 +281,13 @@
             {
               "$ref": "#/definitions/Decimal"
             }
+          ]
+        },
+        "ipo_trigger_addr": {
+          "description": "For pre-IPO assets, address authorized to trigger the ipo event",
+          "type": [
+            "string",
+            "null"
           ]
         },
         "min_collateral_ratio": {

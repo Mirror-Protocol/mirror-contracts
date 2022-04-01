@@ -2,8 +2,8 @@ use crate::math::{decimal_division, decimal_subtraction};
 use cosmwasm_std::{
     to_binary, Addr, Decimal, Deps, QuerierWrapper, QueryRequest, StdResult, Uint128, WasmQuery,
 };
-use mirror_protocol::oracle::{PriceResponse, QueryMsg as OracleQueryMsg};
 use mirror_protocol::short_reward::{QueryMsg as ShortRewardQueryMsg, ShortRewardWeightResponse};
+use tefi_oracle::hub::{HubQueryMsg as OracleQueryMsg, PriceResponse};
 use terraswap::{
     asset::AssetInfo, asset::PairInfo, pair::PoolResponse, pair::QueryMsg as PairQueryMsg,
     querier::query_pair_info,
@@ -20,9 +20,7 @@ pub fn compute_premium_rate(
         &deps.querier,
         factory_contract,
         &[
-            AssetInfo::NativeToken {
-                denom: base_denom.to_string(),
-            },
+            AssetInfo::NativeToken { denom: base_denom },
             AssetInfo::Token {
                 contract_addr: asset_token.to_string(),
             },
@@ -46,8 +44,7 @@ pub fn compute_premium_rate(
         Decimal::from_ratio(pool.assets[1].amount, pool.assets[0].amount)
     };
 
-    let oracle_price: Decimal =
-        query_price(deps, oracle_contract, asset_token.to_string(), base_denom)?;
+    let oracle_price: Decimal = query_price(deps, oracle_contract, asset_token.to_string())?;
 
     if oracle_price.is_zero() {
         Ok((Decimal::zero(), true))
@@ -77,17 +74,12 @@ pub fn compute_short_reward_weight(
     Ok(res.short_reward_weight)
 }
 
-pub fn query_price(
-    deps: Deps,
-    oracle: Addr,
-    base_asset: String,
-    quote_asset: String,
-) -> StdResult<Decimal> {
+pub fn query_price(deps: Deps, oracle: Addr, quote_asset: String) -> StdResult<Decimal> {
     let res: PriceResponse = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
         contract_addr: oracle.to_string(),
         msg: to_binary(&OracleQueryMsg::Price {
-            base_asset,
-            quote_asset,
+            asset_token: quote_asset,
+            timeframe: None,
         })?,
     }))?;
 

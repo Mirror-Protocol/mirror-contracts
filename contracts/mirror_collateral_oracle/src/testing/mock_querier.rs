@@ -1,15 +1,14 @@
-use crate::math::decimal_division;
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
     from_binary, from_slice, to_binary, Addr, Coin, ContractResult, Decimal, OwnedDeps, Querier,
     QuerierResult, QueryRequest, SystemError, SystemResult, Timestamp, Uint128, WasmQuery,
 };
-use mirror_protocol::oracle::PriceResponse;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::str::FromStr;
+use tefi_oracle::hub::PriceResponse as TeFiOraclePriceResponse;
 use terra_cosmwasm::{
     ExchangeRateItem, ExchangeRatesResponse, TerraQuery, TerraQueryWrapper, TerraRoute,
 };
@@ -108,14 +107,6 @@ impl Querier for WasmMockQuerier {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub struct ReferenceData {
-    rate: Uint128,
-    last_updated_base: u64,
-    last_updated_quote: u64,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
 pub struct EpochStateResponse {
     exchange_rate: Decimal256,
     aterra_supply: Uint256,
@@ -143,14 +134,10 @@ pub struct LunaxStateResponse {
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     Price {
-        base_asset: String,
-        quote_asset: String,
+        asset_token: String,
+        timeframe: Option<u64>,
     },
     Pool {},
-    GetReferenceData {
-        base_symbol: String,
-        quote_symbol: String,
-    },
     EpochState {
         block_heigth: Option<u64>,
         distributed_interest: Option<Uint256>,
@@ -187,24 +174,15 @@ impl WasmMockQuerier {
                 .unwrap()
             {
                 QueryMsg::Price {
-                    base_asset,
-                    quote_asset,
-                } => match self.oracle_price_querier.oracle_price.get(&base_asset) {
-                    Some(base_price) => {
-                        match self.oracle_price_querier.oracle_price.get(&quote_asset) {
-                            Some(quote_price) => {
-                                SystemResult::Ok(ContractResult::from(to_binary(&PriceResponse {
-                                    rate: decimal_division(*base_price, *quote_price),
-                                    last_updated_base: 1000u64,
-                                    last_updated_quote: 1000u64,
-                                })))
-                            }
-                            None => SystemResult::Err(SystemError::InvalidRequest {
-                                error: "No oracle price exists".to_string(),
-                                request: msg.as_slice().into(),
-                            }),
-                        }
-                    }
+                    asset_token,
+                    timeframe: _,
+                } => match self.oracle_price_querier.oracle_price.get(&asset_token) {
+                    Some(base_price) => SystemResult::Ok(ContractResult::from(to_binary(
+                        &TeFiOraclePriceResponse {
+                            rate: *base_price,
+                            last_updated: 1000u64,
+                        },
+                    ))),
                     None => SystemResult::Err(SystemError::InvalidRequest {
                         error: "No oracle price exists".to_string(),
                         request: msg.as_slice().into(),
@@ -231,13 +209,6 @@ impl WasmMockQuerier {
                         request: msg.as_slice().into(),
                     }),
                 },
-                QueryMsg::GetReferenceData { .. } => {
-                    SystemResult::Ok(ContractResult::from(to_binary(&ReferenceData {
-                        rate: Uint128::from(3465211050000000000000u128),
-                        last_updated_base: 100u64,
-                        last_updated_quote: 100u64,
-                    })))
-                }
                 QueryMsg::EpochState { .. } => {
                     SystemResult::Ok(ContractResult::from(to_binary(&EpochStateResponse {
                         exchange_rate: Decimal256::from_ratio(10, 3),

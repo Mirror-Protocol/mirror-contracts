@@ -8,6 +8,6 @@ pub mod gov;
 pub mod limit_order;
 pub mod lock;
 pub mod mint;
-pub mod oracle;
+pub mod oracle; // deprecated
 pub mod short_reward;
 pub mod staking;

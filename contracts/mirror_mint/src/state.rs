@@ -9,7 +9,7 @@ use mirror_protocol::mint::IPOParams;
 use std::convert::TryInto;
 use terraswap::asset::{AssetInfoRaw, AssetRaw};
 
-static PREFIX_ASSET_CONFIG: &[u8] = b"asset_config";
+pub static PREFIX_ASSET_CONFIG: &[u8] = b"asset_config";
 static PREFIX_POSITION: &[u8] = b"position";
 static PREFIX_INDEX_BY_USER: &[u8] = b"by_user";
 static PREFIX_INDEX_BY_ASSET: &[u8] = b"by_asset";
@@ -201,14 +201,13 @@ pub fn read_positions(
     let position_bucket: ReadonlyBucket<Position> = ReadonlyBucket::new(storage, PREFIX_POSITION);
 
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
-    let start = calc_range_start(start_after);
+    let (start, end, order_by) = match order_by {
+        Some(OrderBy::Asc) => (calc_range_start(start_after), None, OrderBy::Asc),
+        _ => (None, calc_range_end(start_after), OrderBy::Desc),
+    };
 
     position_bucket
-        .range(
-            start.as_deref(),
-            None,
-            order_by.unwrap_or(OrderBy::Desc).into(),
-        )
+        .range(start.as_deref(), end.as_deref(), order_by.into())
         .take(limit)
         .map(|item| {
             let (_, v) = item?;
