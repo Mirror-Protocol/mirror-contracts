@@ -6,8 +6,8 @@ use crate::state::{
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    attr, to_binary, Binary, CanonicalAddr, Deps, DepsMut, Env, MessageInfo, Response, StdError,
-    StdResult, Uint128,
+    attr, to_binary, Binary, CanonicalAddr, Deps, DepsMut, Empty, Env, MessageInfo, Response,
+    StdError, StdResult, Uint128,
 };
 use mirror_protocol::lock::{
     ConfigResponse, ExecuteMsg, InstantiateMsg, PositionLockInfoResponse, QueryMsg,
@@ -178,20 +178,24 @@ pub fn unlock_positions_funds(
         })
         .collect();
 
-    let unlock_amount: u128 = unlockable_positions
-        .iter()
-        .map(|valid_lock_info| {
-            // remove lock record
-            remove_position_lock_info(deps.storage, valid_lock_info.idx);
-            valid_lock_info.locked_amount.u128()
-        })
-        .sum();
+    let mut unlocked_positions: Vec<Uint128> = vec![];
+    let mut unlock_amount = Uint128::zero();
+    for lock_info in unlockable_positions {
+        if unlocked_positions.contains(&lock_info.idx) {
+            return Err(StdError::generic_err("Duplicate position_idx"));
+        }
+        unlocked_positions.push(lock_info.idx);
+
+        // remove lock record
+        remove_position_lock_info(deps.storage, lock_info.idx);
+        unlock_amount += lock_info.locked_amount
+    }
 
     let unlock_asset = Asset {
         info: AssetInfo::NativeToken {
             denom: config.base_denom.clone(),
         },
-        amount: Uint128::from(unlock_amount),
+        amount: unlock_amount,
     };
 
     if unlock_asset.amount.is_zero() {
@@ -203,7 +207,7 @@ pub fn unlock_positions_funds(
     // decrease locked amount
     total_locked_funds_store(deps.storage).update(|current| {
         current
-            .checked_sub(Uint128::from(unlock_amount))
+            .checked_sub(unlock_amount)
             .map_err(StdError::overflow)
     })?;
 
@@ -307,4 +311,9 @@ pub fn query_position_lock_info(
     };
 
     Ok(resp)
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(_deps: DepsMut, _env: Env, _msg: Empty) -> StdResult<Response> {
+    Ok(Response::default())
 }

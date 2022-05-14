@@ -10,37 +10,37 @@ fn short_reward_weight_test() {
         query_short_reward_weight(Decimal::zero())
             .unwrap()
             .short_reward_weight,
-        Decimal::from_ratio(2618u128, e6)
+        Decimal::from_ratio(5236u128, e6)
     );
     assert_eq!(
         query_short_reward_weight(Decimal::percent(1))
             .unwrap()
             .short_reward_weight,
-        Decimal::from_ratio(634168u128, e7),
+        Decimal::from_ratio(1268336u128, e7),
     );
     assert_eq!(
         query_short_reward_weight(Decimal::percent(2))
             .unwrap()
             .short_reward_weight,
-        Decimal::percent(20)
+        Decimal::percent(40)
     );
     assert_eq!(
         query_short_reward_weight(Decimal::percent(4))
             .unwrap()
             .short_reward_weight,
-        Decimal::from_ratio(3908998u128, e7)
+        Decimal::from_ratio(7817996u128, e7)
     );
     assert_eq!(
         query_short_reward_weight(Decimal::percent(8))
             .unwrap()
             .short_reward_weight,
-        Decimal::percent(40)
+        Decimal::percent(80)
     );
     assert_eq!(
         query_short_reward_weight(Decimal::percent(15))
             .unwrap()
             .short_reward_weight,
-        Decimal::percent(40)
+        Decimal::percent(80)
     );
 }
 

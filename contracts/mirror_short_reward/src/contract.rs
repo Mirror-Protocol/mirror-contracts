@@ -4,7 +4,7 @@ use crate::math::{
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+    to_binary, Binary, Decimal, Deps, DepsMut, Empty, Env, MessageInfo, Response, StdResult,
 };
 use mirror_protocol::short_reward::{
     ExecuteMsg, InstantiateMsg, QueryMsg, ShortRewardWeightResponse,
@@ -42,7 +42,7 @@ pub fn query(_deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 pub fn query_short_reward_weight(premium_rate: Decimal) -> StdResult<ShortRewardWeightResponse> {
     if premium_rate > Decimal::percent(7) {
         return Ok(ShortRewardWeightResponse {
-            short_reward_weight: Decimal::percent(40),
+            short_reward_weight: Decimal::percent(80),
         });
     }
 
@@ -65,9 +65,14 @@ pub fn query_short_reward_weight(premium_rate: Decimal) -> StdResult<ShortReward
     };
 
     let short_reward_weight: Decimal =
-        decimal_division(erf_plus_one(sign_x, x)?, Decimal::from_ratio(5u128, 1u128));
+        decimal_division(erf_plus_one(sign_x, x)?, Decimal::from_ratio(5u128, 2u128));
 
     Ok(ShortRewardWeightResponse {
         short_reward_weight,
     })
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(_deps: DepsMut, _env: Env, _msg: Empty) -> StdResult<Response> {
+    Ok(Response::default())
 }
