@@ -6,8 +6,8 @@ use crate::state::{
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    attr, to_binary, Binary, CanonicalAddr, Deps, DepsMut, Env, MessageInfo, Response, StdError,
-    StdResult, Uint128, Empty,
+    attr, to_binary, Binary, CanonicalAddr, Deps, DepsMut, Empty, Env, MessageInfo, Response,
+    StdError, StdResult, Uint128,
 };
 use mirror_protocol::lock::{
     ConfigResponse, ExecuteMsg, InstantiateMsg, PositionLockInfoResponse, QueryMsg,
@@ -188,7 +188,7 @@ pub fn unlock_positions_funds(
 
         // remove lock record
         remove_position_lock_info(deps.storage, lock_info.idx);
-        unlock_amount = unlock_amount + lock_info.locked_amount
+        unlock_amount += lock_info.locked_amount
     }
 
     let unlock_asset = Asset {

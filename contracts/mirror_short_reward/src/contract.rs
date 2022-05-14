@@ -4,7 +4,7 @@ use crate::math::{
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Empty,
+    to_binary, Binary, Decimal, Deps, DepsMut, Empty, Env, MessageInfo, Response, StdResult,
 };
 use mirror_protocol::short_reward::{
     ExecuteMsg, InstantiateMsg, QueryMsg, ShortRewardWeightResponse,
